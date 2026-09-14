@@ -1,0 +1,10 @@
+{
+  "description": "A smart F&B chain platform enabling admins, managers, kitchen staff, and cashiers to efficiently manage operations and enhance customer service.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
