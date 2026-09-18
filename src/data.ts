@@ -1,6 +1,7 @@
 /** Shared mock data for the Smart F&B tablet prototype. All values are illustrative. */
 
-export type RoleKey = "admin" | "owner" | "branch" | "waiter" | "kitchen";
+/** Thống nhất với types/auth.ts — "manager" là giá trị RoleKey duy nhất cho Branch Manager. */
+export type RoleKey = "admin" | "owner" | "manager" | "waiter" | "kitchen";
 
 export const roleMeta: Record<
   RoleKey,
@@ -8,46 +9,10 @@ export const roleMeta: Record<
 > = {
   admin: { label: "Platform Admin", scope: "Nền tảng" },
   owner: { label: "Owner", scope: "Cơm Tấm Sài Gòn · Toàn chuỗi" },
-  branch: { label: "Branch Manager", scope: "Cơm Tấm Sài Gòn · Q1" },
+  manager: { label: "Branch Manager", scope: "Cơm Tấm Sài Gòn · Q1" },
   waiter: { label: "Waiter", scope: "Chi nhánh Quận 1" },
   kitchen: { label: "Kitchen Staff", scope: "Trạm Bếp chính · Q1" },
 };
-
-/* ---- Platform Admin ---- */
-export type Tenant = {
-  id: string;
-  name: string;
-  plan: "Starter" | "Growth" | "Chain";
-  branches: number;
-  branchLimit: number;
-  status: "active" | "trial" | "suspended" | "expiring";
-  mrr: number;
-  renews: string;
-};
-
-export const tenants: Tenant[] = [
-  { id: "T-1042", name: "Cơm Tấm Sài Gòn", plan: "Growth", branches: 4, branchLimit: 6, status: "active", mrr: 3600000, renews: "2026-09-28" },
-  { id: "T-1043", name: "Phở Hà Nội 1979", plan: "Chain", branches: 9, branchLimit: 10, status: "expiring", mrr: 8100000, renews: "2026-09-11" },
-  { id: "T-1051", name: "Trà Sữa BoBa Lab", plan: "Growth", branches: 5, branchLimit: 6, status: "active", mrr: 4500000, renews: "2026-10-02" },
-  { id: "T-1060", name: "Bánh Mì Chảo Cô Ba", plan: "Starter", branches: 2, branchLimit: 2, status: "trial", mrr: 0, renews: "2026-09-14" },
-  { id: "T-1062", name: "Cà Phê Muối Đà Lạt", plan: "Growth", branches: 3, branchLimit: 6, status: "suspended", mrr: 2700000, renews: "2026-08-30" },
-  { id: "T-1071", name: "Bún Bò O Xuân", plan: "Starter", branches: 2, branchLimit: 2, status: "active", mrr: 1800000, renews: "2026-10-08" },
-];
-
-export const planLimits: Record<
-  Tenant["plan"],
-  { branches: number; staff: number; tables: number; price: number }
-> = {
-  Starter: { branches: 2, staff: 15, tables: 20, price: 900000 },
-  Growth: { branches: 6, staff: 60, tables: 80, price: 900000 },
-  Chain: { branches: 10, staff: 150, tables: 200, price: 900000 },
-};
-
-export const signupRequests = [
-  { id: "R-88", name: "Xôi Xéo Bà Tư", contact: "chi.nguyen@xoixeo.vn", branches: 3, submitted: "2 giờ trước" },
-  { id: "R-89", name: "Mì Cay Seoul", contact: "owner@micayseoul.vn", branches: 4, submitted: "hôm nay, 09:12" },
-  { id: "R-90", name: "Cháo Sườn Cô Hoa", contact: "hoa@chaosuon.vn", branches: 2, submitted: "hôm qua" },
-];
 
 /* ---- Menu · hai tầng ----
  * MenuItem thuộc về CHUỖI (chỉ Owner sửa). Trạng thái bán và số suất là
@@ -152,45 +117,6 @@ export type KitchenQueueItem = {
   waited: number; // phút đã chờ, tính từ giờ tạo order
 };
 
-/* ---- Cashier ---- */
-export type TxStatus = "pending" | "confirmed" | "refund" | "failed";
-export type Transaction = {
-  id: string;
-  branchId: string;
-  table: string;
-  session: string;
-  amount: number;
-  method: "VietQR" | "Tiền mặt";
-  status: TxStatus;
-  time: string;
-  note?: string;
-};
-
-export const transactions: Transaction[] = [
-  { id: "PAY-9081", branchId: "BR-Q1", table: "B4", session: "S-4471", amount: 154000, method: "VietQR", status: "confirmed", time: "12:41" },
-  { id: "PAY-9082", branchId: "BR-Q1", table: "C2", session: "S-4472", amount: 165000, method: "VietQR", status: "pending", time: "12:44", note: "Webhook chưa về · chờ 3'" },
-  { id: "PAY-9083", branchId: "BR-Q1", table: "A1", session: "S-4470", amount: 55000, method: "Tiền mặt", status: "pending", time: "12:45", note: "Chờ xác nhận tiền mặt" },
-  { id: "PAY-9078", branchId: "BR-Q1", table: "A5", session: "S-4468", amount: 240000, method: "VietQR", status: "refund", time: "12:20", note: "Hết món · hoàn 1 phần 62.000₫" },
-  { id: "PAY-9075", branchId: "BR-Q1", table: "B2", session: "S-4465", amount: 88000, method: "VietQR", status: "failed", time: "12:08", note: "Sai số tiền · đối soát tay" },
-];
-
-/* ---- Audit log (Platform Admin) ---- */
-export type AuditEntry = {
-  id: string;
-  time: string;
-  actor: string;
-  action: string;
-  target: string;
-};
-
-export const auditLog: AuditEntry[] = [
-  { id: "L-5521", time: "12:44", actor: "admin@platform", action: "Tạm ngưng tenant", target: "Cà Phê Muối Đà Lạt (T-1062)" },
-  { id: "L-5519", time: "11:20", actor: "admin@platform", action: "Khởi tạo tenant", target: "Bún Bò O Xuân (T-1071)" },
-  { id: "L-5516", time: "10:02", actor: "system", action: "Gia hạn thuê bao", target: "Trà Sữa BoBa Lab (T-1051)" },
-  { id: "L-5510", time: "09:12", actor: "admin@platform", action: "Sửa gói dịch vụ", target: "Phở Hà Nội 1979 (T-1043)" },
-  { id: "L-5507", time: "hôm qua", actor: "admin@platform", action: "Duyệt đăng ký", target: "Cơm Tấm Sài Gòn (T-1042)" },
-];
-
 /* ---- Manager · Chi nhánh (MG-07) ---- */
 export type Branch = {
   id: string;
@@ -291,15 +217,6 @@ export const staff: Staff[] = [
   { id: "E-06", name: "Đặng Mỹ Linh", email: "linh.dang@comtam.vn", role: "Waiter", branch: "Quận 1", onShift: false, active: true },
   { id: "E-07", name: "Bùi Anh Khoa", email: "khoa.bui@comtam.vn", role: "Waiter", branch: "Quận 7", onShift: true, active: true },
 ];
-
-/* ---- Manager · Cấu hình thanh toán (MG-05) ---- */
-export const bankAccount = {
-  bank: "Vietcombank",
-  accountName: "CTY TNHH COM TAM SAI GON",
-  accountNumber: "0071000456789",
-  connected: true,
-  webhook: "https://api.smartfnb.vn/hooks/vietqr/BR-Q1",
-};
 
 export const money = (v: number) =>
   v.toLocaleString("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });

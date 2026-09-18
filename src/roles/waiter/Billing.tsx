@@ -1,13 +1,27 @@
 import { useEffect, useState } from "react";
 import { App, Button, Card } from "antd";
 import { BellRing, DoorClosed, Info, ReceiptText } from "lucide-react";
-import { money, type TableSession } from "../../data";
+import { money } from "../../data";
+import type { TableSession } from "../../types";
+import { minutesSinceISO } from "../../services/_utils";
 import { SectionTitle } from "../../components/bits";
-import { useWaiter } from "./store";
+import { useAppStore } from "../../store";
 
+function sessionTotal(sessionId: string, lines: { sessionId?: string; unitPrice: number; qty: number; status: string }[]) {
+  return lines
+    .filter((l) => l.sessionId === sessionId && l.status !== "cancelled" && l.status !== "sold_out")
+    .reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
+}
+
+/**
+ * Mục 4.6.E: vai trò waiter ở bước tính tiền là HẠN CHẾ (BR-13) — chỉ báo
+ * quầy và đóng bàn sau khi Manager đã xác nhận. Không sinh QR, không xác
+ * nhận thanh toán, không in hoá đơn — những việc đó thuộc Branch Manager.
+ */
 export default function Billing({ initialSessionId }: { initialSessionId: string | null }) {
-  const store = useWaiter();
-  const billable = store.sessions.filter((s) => s.status === "open" || s.status === "paid");
+  const sessions = useAppStore((s) => s.sessions);
+  const orderLines = useAppStore((s) => s.orderLines);
+  const billable = sessions.filter((s) => s.status === "open" || s.status === "serving" || s.status === "paid");
   const [selId, setSelId] = useState<string | null>(initialSessionId ?? billable[0]?.id ?? null);
 
   useEffect(() => {
@@ -46,16 +60,16 @@ export default function Billing({ initialSessionId }: { initialSessionId: string
                   }}
                 >
                   <div style={{ minWidth: 64 }}>
-                    <div style={{ fontSize: 19, fontWeight: 700 }}>{s.tableIds.join(" + ")}</div>
+                    <div style={{ fontSize: 19, fontWeight: 700 }}>{s.tableIds.map((id) => id.split("-").pop()).join(" + ")}</div>
                     <div style={{ fontSize: 12, color: "#a1a1aa" }}>{s.guests} khách</div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{money(store.sessionTotal(s.id))}</div>
-                    <div style={{ fontSize: 12, color: "#71717a" }}>{s.id} · mở {s.openedAt}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{money(sessionTotal(s.id, orderLines))}</div>
+                    <div style={{ fontSize: 12, color: "#71717a" }}>{s.id} · mở {minutesSinceISO(s.openedAt)} phút trước</div>
                   </div>
                   {s.status === "paid" ? (
                     <Tag bg="#e7f7ec" color="#0a0a0a">Đã thanh toán</Tag>
-                  ) : s.paymentRequested ? (
+                  ) : s.billRequestedAt ? (
                     <Tag bg="#fff7e6" color="#7a5b00">Chờ thanh toán</Tag>
                   ) : null}
                 </button>
@@ -79,8 +93,11 @@ function Tag({ children, bg, color }: { children: React.ReactNode; bg: string; c
 }
 
 function BillPanel({ session }: { session: TableSession | null }) {
-  const store = useWaiter();
   const { message } = App.useApp();
+  const orderLines = useAppStore((s) => s.orderLines);
+  const requestPayment = useAppStore((s) => s.requestPayment);
+  const closeSession = useAppStore((s) => s.closeSession);
+  const [busy, setBusy] = useState(false);
 
   if (!session) {
     return (
@@ -92,47 +109,44 @@ function BillPanel({ session }: { session: TableSession | null }) {
     );
   }
 
-  const orders = store.ordersOfSession(session.id);
-  const groups = orders
-    .map((o) => ({
-      orderId: o.id,
-      createdAt: o.createdAt,
-      lines: store.lines.filter((l) => l.orderId === o.id && l.status !== "cancelled" && l.status !== "sold-out"),
-    }))
-    .filter((g) => g.lines.length > 0);
-  const total = store.sessionTotal(session.id);
+  const lines = orderLines.filter((l) => l.sessionId === session.id && l.status !== "cancelled" && l.status !== "sold_out");
+  const orderIds: string[] = [];
+  for (const l of lines) if (!orderIds.includes(l.orderId)) orderIds.push(l.orderId);
+  const total = sessionTotal(session.id, orderLines);
   const paid = session.status === "paid";
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
       <SectionTitle
-        title={`Hoá đơn · bàn ${session.tableIds.join(" + ")}`}
-        sub={`Phiên ${session.id} · ${session.guests} khách · mở ${session.openedAt}`}
+        title={`Hoá đơn · bàn ${session.tableIds.map((id) => id.split("-").pop()).join(" + ")}`}
+        sub={`Phiên ${session.id} · ${session.guests} khách · mở ${minutesSinceISO(session.openedAt)} phút trước`}
       />
 
       <div style={{ border: "1px solid var(--ant-color-border)", borderRadius: 12, overflow: "hidden" }}>
-        {groups.map((group, gi) => (
-          <div key={group.orderId}>
+        {orderIds.map((orderId, gi) => (
+          <div key={orderId}>
             <div style={{ background: "#fafafa", padding: "8px 16px", fontSize: 12, color: "#71717a", fontWeight: 600, borderTop: gi === 0 ? "none" : "1px solid var(--ant-color-border)" }}>
-              {gi === 0 ? "Gọi lần đầu" : `Gọi thêm ${gi}`} · {group.createdAt}
+              {gi === 0 ? "Gọi lần đầu" : `Gọi thêm ${gi}`}
             </div>
-            {group.lines.map((l) => (
-              <div key={l.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "11px 16px", borderTop: "1px solid var(--ant-color-border)", fontSize: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>
-                    {l.name} <span style={{ color: "#a1a1aa", fontWeight: 400 }}>× {l.qty}</span>
+            {lines
+              .filter((l) => l.orderId === orderId)
+              .map((l) => (
+                <div key={l.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "11px 16px", borderTop: "1px solid var(--ant-color-border)", fontSize: 14 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {l.name} <span style={{ color: "#a1a1aa", fontWeight: 400 }}>× {l.qty}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#a1a1aa" }}>
+                      {money(l.unitPrice)}
+                      {l.note ? ` · ${l.note}` : ""}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12.5, color: "#a1a1aa" }}>
-                    {money(l.unitPrice)}
-                    {l.note ? ` · ${l.note}` : ""}
-                  </div>
+                  <div style={{ fontWeight: 600 }}>{money(l.unitPrice * l.qty)}</div>
                 </div>
-                <div style={{ fontWeight: 600 }}>{money(l.unitPrice * l.qty)}</div>
-              </div>
-            ))}
+              ))}
           </div>
         ))}
-        {groups.length === 0 && (
+        {orderIds.length === 0 && (
           <div style={{ padding: "20px 16px", color: "#a1a1aa", fontSize: 13 }}>Bàn chưa gọi món nào.</div>
         )}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", borderTop: "1.5px solid #0a0a0a" }}>
@@ -141,7 +155,7 @@ function BillPanel({ session }: { session: TableSession | null }) {
         </div>
       </div>
 
-      {/* Waiter chỉ báo quầy / đóng bàn — KHÔNG sinh QR, xác nhận tiền, in, sửa giá. */}
+      {/* Waiter chỉ báo quầy / đóng bàn — KHÔNG sinh QR, xác nhận tiền, in, sửa giá (BR-13). */}
       {paid ? (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13, color: "#52525b", background: "#e7f7ec", borderRadius: 10, padding: "10px 14px" }}>
@@ -155,16 +169,24 @@ function BillPanel({ session }: { session: TableSession | null }) {
             size="large"
             block
             icon={<DoorClosed size={18} />}
+            loading={busy}
             style={{ marginTop: 12, height: 50, fontSize: 15 }}
-            onClick={() => {
-              store.closeTable(session.id);
-              message.success(`Đã đóng bàn ${session.tableIds.join(" + ")} — bàn về trống`);
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await closeSession(session.id);
+                message.success(`Đã đóng bàn ${session.tableIds.map((id) => id.split("-").pop()).join(" + ")} — bàn về trống`);
+              } catch (err) {
+                message.error(err instanceof Error ? err.message : "Không đóng được bàn");
+              } finally {
+                setBusy(false);
+              }
             }}
           >
             Đóng bàn
           </Button>
         </>
-      ) : session.paymentRequested ? (
+      ) : session.billRequestedAt ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 13.5, color: "#7a5b00", background: "#fff7e6", border: "1px solid #ffe1a8", borderRadius: 10, padding: "12px 14px" }}>
           <BellRing size={17} />
           Đã báo quầy — chờ Branch Manager sinh QR / xác nhận tiền. Waiter mang QR ra bàn hoặc thu tiền mặt hộ.
@@ -175,11 +197,17 @@ function BillPanel({ session }: { session: TableSession | null }) {
           size="large"
           block
           icon={<ReceiptText size={18} />}
-          disabled={groups.length === 0}
+          disabled={orderIds.length === 0}
+          loading={busy}
           style={{ marginTop: 16, height: 50, fontSize: 15 }}
-          onClick={() => {
-            store.requestPayment(session.id);
-            message.success("Đã báo quầy tính tiền");
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await requestPayment(session.id);
+              message.success("Đã báo quầy tính tiền");
+            } finally {
+              setBusy(false);
+            }
           }}
         >
           Báo quầy tính tiền

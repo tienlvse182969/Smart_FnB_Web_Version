@@ -1,8 +1,32 @@
-import { Card } from "antd";
-import { Hammer } from "lucide-react";
+import { Button, Card } from "antd";
+import { Hammer, LogOut, UserX } from "lucide-react";
 import type { ReactNode } from "react";
 
 export const page: React.CSSProperties = { padding: 24 };
+
+/**
+ * BR-43: chỉ nhân viên đang trong ca (đã check-in, chưa check-out) mới nhận
+ * việc/thông báo. Waiter/Kitchen đăng nhập mà chưa được Manager check-in thì
+ * chặn hẳn màn hình vận hành, không chỉ ẩn từng thông báo riêng lẻ.
+ */
+export function NotInShiftScreen({ onLogout }: { onLogout: () => void }) {
+  return (
+    <div style={{ height: "100vh", display: "grid", placeItems: "center", background: "#fff" }}>
+      <div style={{ textAlign: "center", maxWidth: 360, padding: 24 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: "#f4f4f5", display: "grid", placeItems: "center", margin: "0 auto 18px", color: "#71717a" }}>
+          <UserX size={26} />
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Bạn chưa vào ca</div>
+        <div style={{ fontSize: 13.5, color: "#71717a", lineHeight: 1.6, marginBottom: 22 }}>
+          Nhờ Branch Manager check-in cho bạn ở quầy trước khi bắt đầu — chỉ nhân viên đang trong ca mới nhận được việc và thông báo (BR-43).
+        </div>
+        <Button icon={<LogOut size={15} />} onClick={onLogout}>
+          Đăng xuất
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /** Placeholder for screens that are not built yet. */
 export function EmptyState({ title }: { title: string }) {

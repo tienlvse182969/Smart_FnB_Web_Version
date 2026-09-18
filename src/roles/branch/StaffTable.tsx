@@ -1,44 +1,40 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
-import { Lock, LogIn, LogOut, Plus, Unlock } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-  branchShortName,
-  currentBranchId,
-  staff as seed,
-  type Staff,
-  type StaffRole,
-} from "../../data";
+import { LogIn, LogOut, Lock, Plus, Unlock } from "lucide-react";
+import { useState } from "react";
+import type { StaffLegacy } from "../../services";
+import { DEFAULT_PASSWORD } from "../../types";
 import { SectionTitle } from "../../components/bits";
+import { useAppStore } from "../../store";
 
-const roleTag: Record<StaffRole, { label: string; black?: boolean }> = {
+const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> = {
   Manager: { label: "Manager", black: true },
   Waiter: { label: "Waiter" },
   Kitchen: { label: "Kitchen" },
 };
 
+/**
+ * Nhân sự chi nhánh (mục 4.5.H): Branch Manager tạo tài khoản Waiter/Kitchen,
+ * check-in/out do Manager thao tác (BR-42) — không phải nhân viên tự làm.
+ */
 export default function StaffTable() {
-  const { message } = App.useApp();
-  const [rows, setRows] = useState<Staff[]>(seed);
+  const { message, modal } = App.useApp();
+  const branches = useAppStore((s) => s.branches);
+  const currentBranchId = useAppStore((s) => s.currentBranchId);
+  const staff = useAppStore((s) => s.staff);
+  const createStaffAccount = useAppStore((s) => s.createStaffAccount);
+  const setStaffShift = useAppStore((s) => s.setStaffShift);
+  const setStaffActive = useAppStore((s) => s.setStaffActive);
   const [adding, setAdding] = useState(false);
-  const label = branchShortName(currentBranchId);
 
-  const branchRows = rows.filter((s) => s.branch === label);
+  const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
 
-  const nextId = useMemo(() => {
-    const nums = rows
-      .map((r) => Number(r.id.replace("E-", "")))
-      .filter((n) => !Number.isNaN(n));
-    const n = (nums.length ? Math.max(...nums) : 0) + 1;
-    return `E-${String(n).padStart(2, "0")}`;
-  }, [rows]);
-
-  const setShift = (id: string, on: boolean) => {
-    setRows((p) => p.map((s) => (s.id === id ? { ...s, onShift: on } : s)));
+  const toggleShift = async (r: StaffLegacy, on: boolean) => {
+    await setStaffShift(r.id, on);
     message.success(on ? "Đã check-in — hệ thống ghi nhận có mặt" : "Đã check-out");
   };
 
-  const setActive = (id: string, active: boolean) => {
-    setRows((p) => p.map((s) => (s.id === id ? { ...s, active } : s)));
+  const toggleActive = async (r: StaffLegacy, active: boolean) => {
+    await setStaffActive(r.id, active);
     message.success(active ? "Đã mở khoá tài khoản" : "Đã khoá tài khoản — nhân viên không đăng nhập được");
   };
 
@@ -53,8 +49,8 @@ export default function StaffTable() {
           </Button>
         }
       />
-      <Table<Staff>
-        dataSource={branchRows}
+      <Table<StaffLegacy>
+        dataSource={staff}
         rowKey="id"
         pagination={false}
         size="middle"
@@ -76,19 +72,14 @@ export default function StaffTable() {
           {
             title: "Vai trò",
             dataIndex: "role",
-            render: (r: StaffRole) =>
+            render: (r: StaffLegacy["role"]) =>
               roleTag[r].black ? <Tag color="black">{roleTag[r].label}</Tag> : <Tag>{roleTag[r].label}</Tag>,
           },
           {
             title: "Có mặt",
             dataIndex: "onShift",
             align: "center",
-            render: (on: boolean) =>
-              on ? (
-                <Tag color="black">Đang trong ca</Tag>
-              ) : (
-                <Tag>Vắng mặt</Tag>
-              ),
+            render: (on: boolean) => (on ? <Tag color="black">Đang trong ca</Tag> : <Tag>Vắng mặt</Tag>),
           },
           {
             title: "",
@@ -97,7 +88,7 @@ export default function StaffTable() {
             render: (_, r) => (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 {r.onShift ? (
-                  <Button size="small" icon={<LogOut size={14} />} onClick={() => setShift(r.id, false)}>
+                  <Button size="small" icon={<LogOut size={14} />} onClick={() => toggleShift(r, false)}>
                     Check-out
                   </Button>
                 ) : (
@@ -106,26 +97,17 @@ export default function StaffTable() {
                     type="primary"
                     disabled={!r.active}
                     icon={<LogIn size={14} />}
-                    onClick={() => setShift(r.id, true)}
+                    onClick={() => toggleShift(r, true)}
                   >
                     Check-in
                   </Button>
                 )}
                 {r.active ? (
-                  <Button
-                    size="small"
-                    danger
-                    icon={<Lock size={14} />}
-                    onClick={() => setActive(r.id, false)}
-                  >
+                  <Button size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
                     Khoá
                   </Button>
                 ) : (
-                  <Button
-                    size="small"
-                    icon={<Unlock size={14} />}
-                    onClick={() => setActive(r.id, true)}
-                  >
+                  <Button size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r, true)}>
                     Mở khoá
                   </Button>
                 )}
@@ -137,13 +119,21 @@ export default function StaffTable() {
 
       <AddStaffDrawer
         open={adding}
-        nextId={nextId}
-        branchLabel={label}
+        branchLabel={branchName}
         onClose={() => setAdding(false)}
-        onSave={(s) => {
-          setRows((p) => [...p, s]);
+        onSave={async (name, email, role) => {
+          await createStaffAccount(name, email, role);
           setAdding(false);
-          message.success("Đã tạo tài khoản nhân viên");
+          modal.success({
+            title: "Đã tạo tài khoản nhân viên",
+            content: (
+              <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                Email: <b>{email}</b>
+                <br />
+                Mật khẩu tạm: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập đầu)
+              </div>
+            ),
+          });
         }}
       />
     </Card>
@@ -152,21 +142,19 @@ export default function StaffTable() {
 
 function AddStaffDrawer({
   open,
-  nextId,
   branchLabel,
   onClose,
   onSave,
 }: {
   open: boolean;
-  nextId: string;
   branchLabel: string;
   onClose: () => void;
-  onSave: (s: Staff) => void;
+  onSave: (name: string, email: string, role: "Waiter" | "Kitchen") => void;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Exclude<StaffRole, "Manager">>("Waiter");
+  const [role, setRole] = useState<"Waiter" | "Kitchen">("Waiter");
 
   const reset = () => {
     setName("");
@@ -183,7 +171,7 @@ function AddStaffDrawer({
       message.error("Nhập email hợp lệ để nhân viên đăng nhập");
       return;
     }
-    onSave({ id: nextId, name: name.trim(), email: email.trim(), role, branch: branchLabel, onShift: false, active: true });
+    onSave(name.trim(), email.trim(), role);
     reset();
   };
 

@@ -1,11 +1,11 @@
 import { Button } from "antd";
 import { Ban, Check, Flame, Timer } from "lucide-react";
-import { type KitchenQueueItem, type TicketStatus } from "../../data";
+import type { KitchenQueueItem } from "../../types";
 
-const statusLabel: Record<TicketStatus, string> = {
+const statusLabel: Record<KitchenQueueItem["status"], string> = {
   queued: "Trong hàng đợi",
   cooking: "Đang làm",
-  done: "Xong · chờ bưng",
+  awaiting_pickup: "Xong · chờ bưng",
 };
 
 export default function TicketCard({
@@ -19,7 +19,7 @@ export default function TicketCard({
 }) {
   const t = ticket;
   const cooking = t.status === "cooking";
-  const done = t.status === "done";
+  const done = t.status === "awaiting_pickup";
 
   return (
     <div

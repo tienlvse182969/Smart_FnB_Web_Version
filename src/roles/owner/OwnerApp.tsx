@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Col, Row } from "antd";
+import { Col, Row, Tabs } from "antd";
 import {
   Banknote,
+  CalendarDays,
   LayoutDashboard,
+  Settings,
+  Sparkles,
   Store,
   UserCog,
   UtensilsCrossed,
@@ -14,14 +17,20 @@ import RevenueChart from "./RevenueChart";
 import MenuTable from "./MenuTable";
 import Branches from "./Branches";
 import ManagerAccounts from "./ManagerAccounts";
-import PaymentConfig from "./PaymentConfig";
+import Wallet from "./Wallet";
+import Branding from "./Branding";
+import ShiftScheduleView from "./ShiftScheduleView";
+import AiAssistant from "./AiAssistant";
 
 const nav: NavItem[] = [
   { key: "dashboard", label: "Tổng quan", icon: <LayoutDashboard size={18} /> },
   { key: "branches", label: "Chi nhánh", icon: <Store size={18} /> },
   { key: "menu", label: "Menu toàn chuỗi", icon: <UtensilsCrossed size={18} /> },
   { key: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} /> },
-  { key: "payment", label: "Thanh toán", icon: <Banknote size={18} /> },
+  { key: "shifts", label: "Lịch phân ca", icon: <CalendarDays size={18} /> },
+  { key: "wallet", label: "Ví doanh nghiệp", icon: <Banknote size={18} /> },
+  { key: "ai", label: "Trợ lý số liệu", icon: <Sparkles size={18} /> },
+  { key: "settings", label: "Cài đặt doanh nghiệp", icon: <Settings size={18} /> },
 ];
 
 export default function OwnerApp({ onLogout }: { onLogout: () => void }) {
@@ -53,7 +62,12 @@ export default function OwnerApp({ onLogout }: { onLogout: () => void }) {
         {section === "branches" && <Branches />}
         {section === "menu" && <MenuTable />}
         {section === "accounts" && <ManagerAccounts />}
-        {section === "payment" && <PaymentConfig />}
+        {section === "shifts" && <ShiftScheduleView />}
+        {section === "wallet" && <Wallet />}
+        {section === "ai" && <AiAssistant />}
+        {section === "settings" && (
+          <Tabs items={[{ key: "branding", label: "Nhận diện", children: <Branding /> }]} />
+        )}
       </div>
     </RoleShell>
   );

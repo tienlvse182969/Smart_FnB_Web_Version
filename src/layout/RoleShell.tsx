@@ -1,7 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Avatar, Badge, Dropdown, Input, Layout, Menu } from "antd";
-import { Bell, CalendarDays, LogOut, Search, Store, UtensilsCrossed } from "lucide-react";
+import { Bell, CalendarDays, LogOut, Search, Store, User, UtensilsCrossed } from "lucide-react";
 import { roleMeta, type RoleKey } from "../data";
+import ChangePasswordModal from "../auth/ChangePasswordModal";
+import { useAppStore } from "../store";
+import { ink, pickReadableTextColor } from "../theme";
 
 const { Sider, Header, Content } = Layout;
 
@@ -35,6 +38,23 @@ export default function RoleShell({
   children: ReactNode;
 }) {
   const meta = roleMeta[role];
+  const [profileOpen, setProfileOpen] = useState(false);
+  const tenantBranding = useAppStore((s) => s.tenantBranding);
+
+  // BR-32: Admin luôn giữ nhận diện nền tảng. Các vai trò khác — kể cả
+  // Kitchen (chỉ đổi header/logo, thẻ món giữ STATUS_COLORS) — hiện logo/tên
+  // hiển thị của doanh nghiệp khi Owner đã tự cấu hình (isCustom).
+  const showTenantBrand = role !== "admin" && !!tenantBranding?.isCustom;
+  const brandName = showTenantBrand ? tenantBranding!.displayName || "Smart F&B" : "Smart F&B";
+  const brandLogo = showTenantBrand ? tenantBranding!.logoUrl : undefined;
+
+  // Sider nhuộm theo primaryColor khi đã custom (Owner yêu cầu cả thanh bên
+  // đổi màu, không chỉ nút) — chữ trên sider tự chọn trắng/đen theo tương
+  // phản với màu nền thật (BR-31), không hardcode trắng như trước.
+  const siderBg = showTenantBrand ? tenantBranding!.primaryColor : ink;
+  const siderFg = pickReadableTextColor(siderBg);
+  const siderFgDim = siderFg === "#ffffff" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)";
+  const siderBtnBg = siderFg === "#ffffff" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -45,6 +65,9 @@ export default function RoleShell({
           display: "flex",
           flexDirection: "column",
           flex: "0 0 244px",
+          ["--sider-fg" as string]: siderFg,
+          ["--sider-fg-dim" as string]: siderFgDim,
+          ["--sider-btn-bg" as string]: siderBtnBg,
         }}
       >
         <div
@@ -53,7 +76,7 @@ export default function RoleShell({
             alignItems: "center",
             gap: 10,
             padding: "22px 20px 18px",
-            color: "#fff",
+            color: "var(--sider-fg)",
             flexShrink: 0,
           }}
         >
@@ -66,14 +89,21 @@ export default function RoleShell({
               display: "grid",
               placeItems: "center",
               flexShrink: 0,
+              overflow: "hidden",
             }}
           >
-            <UtensilsCrossed size={19} color="#0a0a0a" />
+            {brandLogo ? (
+              <img src={brandLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <UtensilsCrossed size={19} color="#0a0a0a" />
+            )}
           </div>
-          <div style={{ lineHeight: 1.15 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Smart F&amp;B</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-              Chain Platform
+          <div style={{ lineHeight: 1.15, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {brandName}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--sider-fg-dim)" }}>
+              {showTenantBrand ? "Smart F&B Chain Platform" : "Chain Platform"}
             </div>
           </div>
         </div>
@@ -160,6 +190,12 @@ export default function RoleShell({
                   { key: "who", label: meta.label, disabled: true },
                   { type: "divider" },
                   {
+                    key: "profile",
+                    icon: <User size={15} />,
+                    label: "Hồ sơ cá nhân",
+                    onClick: () => setProfileOpen(true),
+                  },
+                  {
                     key: "logout",
                     icon: <LogOut size={15} />,
                     label: "Đăng xuất",
@@ -177,6 +213,8 @@ export default function RoleShell({
             </Dropdown>
           </div>
         </Header>
+
+        <ChangePasswordModal open={profileOpen} onClose={() => setProfileOpen(false)} />
 
         <Content
           style={{

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Button, Input } from "antd";
+import { useMemo, useState } from "react";
+import { App, Button, Input } from "antd";
 import {
   Building2,
   ChefHat,
@@ -9,24 +9,57 @@ import {
   Store,
   UtensilsCrossed,
 } from "lucide-react";
-import { roleMeta, type RoleKey } from "../data";
+import type { DemoAccount, RoleKey } from "../types";
+import { useAppStore } from "../store";
 
-const accounts: {
-  role: RoleKey;
-  icon: React.ReactNode;
-  email: string;
-  desc: string;
-}[] = [
-  { role: "admin", icon: <Building2 size={20} />, email: "admin@platform.vn", desc: "Quản lý doanh nghiệp thuê bao & nền tảng" },
-  { role: "owner", icon: <LayoutGrid size={20} />, email: "owner@comtam.vn", desc: "Cấu hình chuỗi: chi nhánh, menu, tài khoản quản lý" },
-  { role: "branch", icon: <Store size={20} />, email: "manager@comtam.vn", desc: "Điều hành chi nhánh & quầy thu ngân" },
-  { role: "waiter", icon: <ConciergeBell size={20} />, email: "waiter@comtam.vn", desc: "Mở bàn, ghi order, phục vụ tại bàn" },
-  { role: "kitchen", icon: <ChefHat size={20} />, email: "kitchen@comtam.vn", desc: "Hàng đợi món của chi nhánh" },
-];
+const roleMeta: Record<RoleKey, { label: string; icon: React.ReactNode }> = {
+  admin: { label: "Platform Admin", icon: <Building2 size={20} /> },
+  owner: { label: "Owner", icon: <LayoutGrid size={20} /> },
+  manager: { label: "Branch Manager", icon: <Store size={20} /> },
+  waiter: { label: "Waiter", icon: <ConciergeBell size={20} /> },
+  kitchen: { label: "Kitchen Staff", icon: <ChefHat size={20} /> },
+};
 
-export default function LoginScreen({ onLogin }: { onLogin: (role: RoleKey) => void }) {
-  const [selected, setSelected] = useState<RoleKey>("owner");
-  const account = accounts.find((a) => a.role === selected)!;
+const roleOrder: RoleKey[] = ["admin", "owner", "manager", "waiter", "kitchen"];
+
+/**
+ * Màn chọn tài khoản đăng nhập demo. Một vai trò nay có thể có NHIỀU tài
+ * khoản (Admin duyệt hồ sơ sinh Owner mới, Owner tạo nhiều Manager, Manager
+ * tạo nhiều Waiter/Kitchen) — không còn "một tài khoản mỗi vai trò" như bản
+ * demo ban đầu, nên bước 2 là chọn đúng tài khoản trong vai trò đã chọn.
+ */
+export default function LoginScreen({ onLogin }: { onLogin: (accountId: string, password: string) => void }) {
+  const { message } = App.useApp();
+  const accounts = useAppStore((s) => s.demoAccounts);
+  const isLoading = useAppStore((s) => s.isLoading);
+  const [role, setRole] = useState<RoleKey>("owner");
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [password, setPassword] = useState("demo1234");
+
+  const accountsByRole = useMemo(() => {
+    const map = new Map<RoleKey, DemoAccount[]>();
+    for (const r of roleOrder) map.set(r, []);
+    for (const a of accounts) map.get(a.role)?.push(a);
+    return map;
+  }, [accounts]);
+
+  const visibleAccounts = accountsByRole.get(role) ?? [];
+  const selected = visibleAccounts.find((a) => a.id === accountId) ?? visibleAccounts[0] ?? null;
+
+  const selectRole = (r: RoleKey) => {
+    setRole(r);
+    const first = accountsByRole.get(r)?.[0] ?? null;
+    setAccountId(first?.id ?? null);
+    setPassword("demo1234");
+  };
+
+  const handleLogin = () => {
+    if (!selected) {
+      message.error("Chưa có tài khoản nào cho vai trò này");
+      return;
+    }
+    onLogin(selected.id, password);
+  };
 
   return (
     <div
@@ -89,7 +122,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (role: RoleKey) => v
         </div>
       </div>
 
-      {/* Right — role picker */}
+      {/* Right — role + account picker */}
       <div
         style={{
           padding: "56px 56px",
@@ -99,18 +132,19 @@ export default function LoginScreen({ onLogin }: { onLogin: (role: RoleKey) => v
           maxWidth: 520,
         }}
       >
-        <div style={{ fontSize: 22, fontWeight: 700 }}>Đăng nhập demo</div>
+        <div style={{ fontSize: 22, fontWeight: 700 }}>Đăng nhập</div>
         <div style={{ color: "#71717a", fontSize: 14, marginTop: 4, marginBottom: 24 }}>
-          Chọn vai trò để vào không gian làm việc tương ứng.
+          Chọn vai trò, rồi chọn đúng tài khoản để vào không gian làm việc tương ứng.
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
-          {accounts.map((a) => {
-            const active = a.role === selected;
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+          {roleOrder.map((r) => {
+            const active = r === role;
+            const count = accountsByRole.get(r)?.length ?? 0;
             return (
               <button
-                key={a.role}
-                onClick={() => setSelected(a.role)}
+                key={r}
+                onClick={() => selectRole(r)}
                 style={{
                   textAlign: "left",
                   cursor: "pointer",
@@ -135,17 +169,12 @@ export default function LoginScreen({ onLogin }: { onLogin: (role: RoleKey) => v
                     flexShrink: 0,
                   }}
                 >
-                  {a.icon}
+                  {roleMeta[r].icon}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{roleMeta[a.role].label}</div>
-                  <div
-                    style={{
-                      fontSize: 12.5,
-                      color: active ? "rgba(255,255,255,0.6)" : "#71717a",
-                    }}
-                  >
-                    {a.desc}
+                  <div style={{ fontWeight: 600 }}>{roleMeta[r].label}</div>
+                  <div style={{ fontSize: 12.5, color: active ? "rgba(255,255,255,0.6)" : "#71717a" }}>
+                    {count} tài khoản
                   </div>
                 </div>
               </button>
@@ -153,19 +182,59 @@ export default function LoginScreen({ onLogin }: { onLogin: (role: RoleKey) => v
           })}
         </div>
 
+        {visibleAccounts.length > 1 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>Chọn tài khoản</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflow: "auto" }}>
+              {visibleAccounts.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setAccountId(a.id)}
+                  disabled={!a.active}
+                  style={{
+                    textAlign: "left",
+                    cursor: a.active ? "pointer" : "not-allowed",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: `1px solid ${a.id === selected?.id ? "#0a0a0a" : "var(--ant-color-border)"}`,
+                    background: a.id === selected?.id ? "#fafafa" : "#fff",
+                    opacity: a.active ? 1 : 0.5,
+                    fontSize: 13,
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{a.name}{!a.active ? " · đã khoá" : ""}</div>
+                  <div style={{ color: "#a1a1aa" }}>{a.scope}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
-          <Input size="large" value={account.email} readOnly variant="filled" />
-          <Input.Password size="large" value="demo1234" readOnly variant="filled" />
+          <Input size="large" value={selected?.email ?? ""} readOnly variant="filled" />
+          <Input.Password
+            size="large"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            variant="filled"
+          />
+          {selected?.mustChangePassword && (
+            <div style={{ fontSize: 12, color: "#7a5b00" }}>
+              Tài khoản này phải đổi mật khẩu ở lần đăng nhập này (mật khẩu tạm: demo1234).
+            </div>
+          )}
         </div>
 
         <Button
           type="primary"
           size="large"
           block
+          loading={isLoading}
+          disabled={!selected}
           icon={<LogIn size={18} />}
-          onClick={() => onLogin(selected)}
+          onClick={handleLogin}
         >
-          Đăng nhập với vai trò {roleMeta[selected].label}
+          Đăng nhập {selected ? `— ${selected.name}` : ""}
         </Button>
       </div>
     </div>
