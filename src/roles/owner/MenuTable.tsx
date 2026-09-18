@@ -1,58 +1,83 @@
 import { App, Button, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table } from "antd";
 import { Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { money } from "../../data";
+import type { BranchMenuItem, MenuItem } from "../../types";
 import {
-  branches,
-  branchMenuItems as bmiSeed,
-  menuItems as menuSeed,
-  money,
-  type BranchMenuItem,
-  type MenuItem,
-} from "../../data";
+  createMenuItem as serviceCreateMenuItem,
+  listBranchMenuItems,
+  listMenuItems,
+  setMenuItemPresence as serviceSetMenuItemPresence,
+  updateMenuItem as serviceUpdateMenuItem,
+} from "../../services";
 import { SectionTitle } from "../../components/bits";
+import { useAppStore } from "../../store";
 
+/**
+ * PHẦN 0: Owner quản menu qua `types/menu.ts` + service thật (mock/db.ts) —
+ * cùng dữ liệu với Waiter/Kitchen/Manager, không còn state cục bộ tách biệt
+ * khỏi `data.ts` như trước.
+ */
 export default function MenuTable() {
   const { message } = App.useApp();
-  const [items, setItems] = useState<MenuItem[]>(menuSeed);
-  const [bmis, setBmis] = useState<BranchMenuItem[]>(bmiSeed);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const branches = useAppStore((s) => s.branches);
+  const tenantId = currentUser?.tenantId ?? null;
+
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [bmis, setBmis] = useState<BranchMenuItem[]>([]);
   const [presenceId, setPresenceId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const branchCount = branches.length;
+  const [loading, setLoading] = useState(false);
 
-  const presenceItem = items.find((m) => m.id === presenceId) ?? null;
-  const countOffering = (menuItemId: string) =>
-    bmis.filter((b) => b.menuItemId === menuItemId).length;
-
-  const toggle = (id: string, activeChain: boolean) => {
-    setItems((p) => p.map((m) => (m.id === id ? { ...m, activeChain } : m)));
-    message.success(
-      activeChain ? "Đã bật món trên toàn chuỗi" : "Đã tắt món — ẩn khỏi menu mọi chi nhánh",
-    );
+  const reload = async () => {
+    if (!tenantId) return;
+    setLoading(true);
+    try {
+      const menu = await listMenuItems(tenantId, currentUser?.role ?? "owner");
+      const lists = await Promise.all(branches.map((b) => listBranchMenuItems(b.id)));
+      setItems(menu);
+      setBmis(lists.flat());
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const togglePresence = (menuItemId: string, branchId: string, on: boolean) => {
-    setBmis((p) => {
-      const exists = p.some((b) => b.menuItemId === menuItemId && b.branchId === branchId);
-      if (on && !exists) {
-        return [...p, { branchId, menuItemId, available: true, remaining: null, sold: 0 }];
-      }
-      if (!on && exists) {
-        return p.filter((b) => !(b.menuItemId === menuItemId && b.branchId === branchId));
-      }
-      return p;
-    });
-    message.success(
-      on
-        ? "Đã thêm món vào chi nhánh"
-        : "Đã gỡ món khỏi chi nhánh — mất dữ liệu bán tại chi nhánh đó",
-    );
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, branches.length]);
+
+  const presenceItem = items.find((m) => m.id === presenceId) ?? null;
+  const countOffering = (menuItemId: string) => bmis.filter((b) => b.menuItemId === menuItemId).length;
+
+  const toggleChain = async (id: string, activeChain: boolean) => {
+    try {
+      await serviceUpdateMenuItem(id, { activeChain });
+      await reload();
+      message.success(activeChain ? "Đã bật món trên toàn chuỗi" : "Đã tắt món — ẩn khỏi menu mọi chi nhánh");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Không cập nhật được");
+    }
+  };
+
+  const togglePresence = async (menuItemId: string, branchId: string, on: boolean) => {
+    const current = bmis.filter((b) => b.menuItemId === menuItemId).map((b) => b.branchId);
+    const next = on ? [...current, branchId] : current.filter((id) => id !== branchId);
+    try {
+      await serviceSetMenuItemPresence(menuItemId, next);
+      await reload();
+      message.success(on ? "Đã thêm món vào chi nhánh (mặc định tắt bán)" : "Đã gỡ món khỏi chi nhánh");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Không cập nhật được");
+    }
   };
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Quản lý menu"
-        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt"
+        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt (BR-06)"
         extra={
           <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
             Thêm món
@@ -64,6 +89,7 @@ export default function MenuTable() {
         rowKey="id"
         pagination={false}
         size="middle"
+        loading={loading}
         columns={[
           {
             title: "Món",
@@ -82,7 +108,7 @@ export default function MenuTable() {
             align: "center",
             render: (_, r) => (
               <Button size="small" onClick={() => setPresenceId(r.id)}>
-                {countOffering(r.id)}/{branchCount}
+                {countOffering(r.id)}/{branches.length}
               </Button>
             ),
           },
@@ -91,7 +117,7 @@ export default function MenuTable() {
             dataIndex: "activeChain",
             align: "center",
             render: (a: boolean, r) => (
-              <Switch checked={a} size="small" onChange={(c) => toggle(r.id, c)} />
+              <Switch checked={a} size="small" onChange={(c) => toggleChain(r.id, c)} />
             ),
           },
         ]}
@@ -99,6 +125,7 @@ export default function MenuTable() {
 
       <PresenceDrawer
         item={presenceItem}
+        branches={branches}
         bmis={bmis}
         onToggle={togglePresence}
         onClose={() => setPresenceId(null)}
@@ -106,22 +133,19 @@ export default function MenuTable() {
 
       <AddItemDrawer
         open={adding}
-        existingIds={items.map((m) => m.id)}
+        branches={branches}
+        tenantId={tenantId}
         onClose={() => setAdding(false)}
-        onSave={(item, branchIds) => {
-          setItems((p) => [...p, item]);
-          setBmis((p) => [
-            ...p,
-            ...branchIds.map((branchId) => ({
-              branchId,
-              menuItemId: item.id,
-              available: true,
-              remaining: null,
-              sold: 0,
-            })),
-          ]);
-          setAdding(false);
-          message.success("Đã thêm món vào menu chuỗi");
+        onSave={async (item, branchIds) => {
+          try {
+            const created = await serviceCreateMenuItem(item);
+            await serviceSetMenuItemPresence(created.id, branchIds);
+            await reload();
+            setAdding(false);
+            message.success("Đã thêm món vào menu chuỗi");
+          } catch (err) {
+            message.error(err instanceof Error ? err.message : "Không thêm được món");
+          }
         }}
       />
     </Card>
@@ -130,11 +154,13 @@ export default function MenuTable() {
 
 function PresenceDrawer({
   item,
+  branches,
   bmis,
   onToggle,
   onClose,
 }: {
   item: MenuItem | null;
+  branches: { id: string; name: string; address: string }[];
   bmis: BranchMenuItem[];
   onToggle: (menuItemId: string, branchId: string, on: boolean) => void;
   onClose: () => void;
@@ -149,13 +175,11 @@ function PresenceDrawer({
       {item && (
         <>
           <div style={{ fontSize: 13, color: "#71717a", marginBottom: 18 }}>
-            Chọn chi nhánh có bán món này. Bỏ chọn sẽ gỡ món khỏi chi nhánh đó.
+            Chọn chi nhánh có bán món này. Bỏ chọn sẽ gỡ món khỏi chi nhánh đó. Chi nhánh mới chọn mặc định TẮT bán — Manager/Kitchen tự bật.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {branches.map((b) => {
-              const on = bmis.some(
-                (x) => x.menuItemId === item.id && x.branchId === b.id,
-              );
+              const on = bmis.some((x) => x.menuItemId === item.id && x.branchId === b.id);
               return (
                 <label
                   key={b.id}
@@ -172,10 +196,7 @@ function PresenceDrawer({
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{b.name}</div>
                     <div style={{ fontSize: 12, color: "#a1a1aa" }}>{b.address}</div>
                   </div>
-                  <Checkbox
-                    checked={on}
-                    onChange={(e) => onToggle(item.id, b.id, e.target.checked)}
-                  />
+                  <Checkbox checked={on} onChange={(e) => onToggle(item.id, b.id, e.target.checked)} />
                 </label>
               );
             })}
@@ -188,42 +209,55 @@ function PresenceDrawer({
 
 function AddItemDrawer({
   open,
-  existingIds,
+  branches,
+  tenantId,
   onClose,
   onSave,
 }: {
   open: boolean;
-  existingIds: string[];
+  branches: { id: string; name: string }[];
+  tenantId: string | null;
   onClose: () => void;
-  onSave: (item: MenuItem, branchIds: string[]) => void;
+  onSave: (item: Omit<MenuItem, "id">, branchIds: string[]) => void;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [category, setCategory] = useState("Món chính");
   const [price, setPrice] = useState<number | null>(null);
-  const [branchIds, setBranchIds] = useState<string[]>(branches.map((b) => b.id));
+  const [branchIds, setBranchIds] = useState<string[]>([]);
 
-  const nextId = useMemo(() => {
-    const nums = existingIds
-      .map((id) => Number(id.replace("M-", "")))
-      .filter((n) => !Number.isNaN(n));
-    const n = (nums.length ? Math.max(...nums) : 0) + 1;
-    return `M-${String(n).padStart(2, "0")}`;
-  }, [existingIds]);
+  useEffect(() => {
+    if (open) setBranchIds(branches.map((b) => b.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const reset = () => {
     setName("");
+    setDescription("");
+    setImageUrl("");
     setCategory("Món chính");
     setPrice(null);
-    setBranchIds(branches.map((b) => b.id));
   };
 
   const save = () => {
-    if (!name.trim() || price === null) {
+    if (!tenantId || !name.trim() || price === null) {
       message.error("Nhập tên món và giá");
       return;
     }
-    onSave({ id: nextId, name: name.trim(), category, price, activeChain: true }, branchIds);
+    onSave(
+      {
+        tenantId,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        category,
+        price,
+        activeChain: true,
+      },
+      branchIds
+    );
     reset();
   };
 
@@ -239,6 +273,12 @@ function AddItemDrawer({
     >
       <Field label="Tên món">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Cơm tấm sườn nướng" />
+      </Field>
+      <Field label="Mô tả">
+        <Input.TextArea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="VD: Sườn nướng mật ong, cơm tấm, bì, chả" rows={2} />
+      </Field>
+      <Field label="Ảnh (URL)">
+        <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" />
       </Field>
       <Field label="Danh mục">
         <Select
@@ -266,9 +306,7 @@ function AddItemDrawer({
               key={b.id}
               checked={branchIds.includes(b.id)}
               onChange={(e) =>
-                setBranchIds((p) =>
-                  e.target.checked ? [...p, b.id] : p.filter((x) => x !== b.id),
-                )
+                setBranchIds((p) => (e.target.checked ? [...p, b.id] : p.filter((x) => x !== b.id)))
               }
             >
               {b.name}

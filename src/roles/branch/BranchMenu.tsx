@@ -1,14 +1,9 @@
 import { App, Button, Card, InputNumber, Switch, Table, Tag } from "antd";
 import { Infinity as InfinityIcon, TriangleAlert } from "lucide-react";
-import { useState } from "react";
-import {
-  branchMenuItems as bmiSeed,
-  currentBranchId,
-  menuItems,
-  money,
-  type BranchMenuItem,
-} from "../../data";
+import { money } from "../../data";
+import type { BranchMenuItem } from "../../types";
 import { SectionTitle } from "../../components/bits";
+import { useAppStore } from "../../store";
 
 type Row = BranchMenuItem & {
   name: string;
@@ -17,27 +12,29 @@ type Row = BranchMenuItem & {
   activeChain: boolean;
 };
 
+/** Món tại chi nhánh (mục 4.5.G, BR-06) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
 export default function BranchMenu() {
   const { message } = App.useApp();
-  const [bmis, setBmis] = useState<BranchMenuItem[]>(bmiSeed);
+  const menuItems = useAppStore((s) => s.menuItems);
+  const branchMenuItems = useAppStore((s) => s.branchMenuItems);
+  const toggleMenuItemAvailability = useAppStore((s) => s.toggleMenuItemAvailability);
+  const updateRemainingToday = useAppStore((s) => s.updateRemainingToday);
 
-  const rows: Row[] = bmis
-    .filter((b) => b.branchId === currentBranchId)
+  const rows: Row[] = branchMenuItems
     .map((b) => {
-      const m = menuItems.find((x) => x.id === b.menuItemId)!;
+      const m = menuItems.find((x) => x.id === b.menuItemId);
+      if (!m) return null;
       return { ...b, name: m.name, category: m.category, price: m.price, activeChain: m.activeChain };
-    });
+    })
+    .filter((r): r is Row => r !== null);
 
-  const patch = (menuItemId: string, next: Partial<BranchMenuItem>) =>
-    setBmis((p) =>
-      p.map((b) =>
-        b.branchId === currentBranchId && b.menuItemId === menuItemId ? { ...b, ...next } : b,
-      ),
-    );
-
-  const toggle = (r: Row, on: boolean) => {
-    patch(r.menuItemId, { available: on });
-    message.success(on ? "Đã bật bán món hôm nay" : "Đã tạm ngừng bán món hôm nay");
+  const toggle = async (r: Row, on: boolean) => {
+    try {
+      await toggleMenuItemAvailability(r.menuItemId, on);
+      message.success(on ? "Đã bật bán món hôm nay" : "Đã tạm ngừng bán món hôm nay");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Không cập nhật được");
+    }
   };
 
   return (
@@ -73,7 +70,7 @@ export default function BranchMenu() {
           },
           {
             title: "Còn bán hôm nay",
-            dataIndex: "available",
+            dataIndex: "isAvailable",
             align: "center",
             render: (on: boolean, r) =>
               r.activeChain ? (
@@ -84,7 +81,7 @@ export default function BranchMenu() {
           },
           {
             title: "Suất còn lại",
-            dataIndex: "remaining",
+            dataIndex: "remainingToday",
             align: "right",
             render: (rem: number | null, r) => {
               if (!r.activeChain) {
@@ -103,13 +100,13 @@ export default function BranchMenu() {
                     min={0}
                     size="small"
                     style={{ width: 92 }}
-                    onChange={(v) => patch(r.menuItemId, { remaining: v ?? 0 })}
+                    onChange={(v) => updateRemainingToday(r.menuItemId, v ?? 0)}
                   />
                   <Button
                     size="small"
                     icon={<InfinityIcon size={14} />}
                     type={rem === null ? "primary" : "default"}
-                    onClick={() => patch(r.menuItemId, { remaining: null })}
+                    onClick={() => updateRemainingToday(r.menuItemId, null)}
                   >
                     Không giới hạn
                   </Button>

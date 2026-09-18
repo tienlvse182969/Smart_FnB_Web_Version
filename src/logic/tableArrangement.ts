@@ -1,21 +1,22 @@
 /**
  * ============================================================================
- * THUẬT TOÁN XẾP VÀ GHÉP BÀN  (Bước 5 — phần lõi thuật toán của đồ án)
+ * THUẬT TOÁN XẾP VÀ GHÉP BÀN — đặc tả v7 mục 8, BR-24/BR-25
  * ============================================================================
  *
  * Bài toán: một nhóm `guestCount` khách vừa tới. Trong các bàn đang trống của
  * chi nhánh, chọn ra tối đa 3 phương án xếp chỗ tốt nhất — mỗi phương án là
- * MỘT bàn đơn hoặc MỘT KHỐI bàn ghép liền kề.
+ * MỘT bàn đơn hoặc MỘT KHỐI bàn ghép liền kề, cùng khu vực (BR-25).
  *
  * Vì sao cần thuật toán mà không để waiter tự nhìn: waiter chỉ tối ưu cục bộ
  * ("bàn nào gần đây trống"); thuật toán nhìn cả sơ đồ cùng lúc nên biết
  * BẢO TOÀN BÀN LỚN cho nhóm đông sắp tới — đây là chỗ máy thắng người.
+ * BR-24: thuật toán chỉ GỢI Ý, waiter là người quyết định cuối cùng.
  *
  * Sơ đồ thực tế chỉ 10–30 bàn nên KHÔNG cần thuật toán tinh vi; điểm mấu chốt
  * là CẮT TỈA (pruning) sớm để không nổ tổ hợp khi duyệt các khối liên thông.
  */
 
-import type { FloorTable, TableSession } from "../data";
+import type { FloorTable, TableSession } from "../types";
 
 export type Suggestion = {
   tableIds: string[];
@@ -25,35 +26,6 @@ export type Suggestion = {
   score: number; // càng THẤP càng tốt
   label: string; // "Bàn A1" hoặc "Ghép A1 + A2"
 };
-
-/* -------------------------------------------------------------------------- */
-/* Bước phụ: xác định bàn khả dụng                                            */
-/* -------------------------------------------------------------------------- */
-
-/** Bàn đang bị CHIẾM khi có phiên "open" hoặc "paid" (khách còn ngồi). */
-function occupiedTableIds(branchId: string, sessions: TableSession[]): Set<string> {
-  const occ = new Set<string>();
-  for (const s of sessions) {
-    if (s.branchId !== branchId) continue;
-    if (s.status === "open" || s.status === "paid") {
-      for (const id of s.tableIds) occ.add(id);
-    }
-  }
-  return occ;
-}
-
-/**
- * Bàn khả dụng: state gốc = "available" (loại "locked" bàn hỏng và "reserved"
- * bàn đã đặt) VÀ không nằm trong phiên đang chiếm.
- */
-function availableTables(
-  branchId: string,
-  sessions: TableSession[],
-  tables: FloorTable[],
-): FloorTable[] {
-  const occ = occupiedTableIds(branchId, sessions);
-  return tables.filter((t) => t.state === "available" && !occ.has(t.id));
-}
 
 /* -------------------------------------------------------------------------- */
 /* Bước phụ: chấm điểm một khối bàn                                           */
@@ -86,21 +58,23 @@ function labelOf(tableIds: string[]): string {
 /* HÀM CHÍNH                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function suggestArrangements(
-  branchId: string,
-  guestCount: number,
-  sessions: TableSession[],
-  tables: FloorTable[],
-): Suggestion[] {
+/**
+ * Gợi ý tối đa 3 phương án xếp bàn cho `guestCount` khách.
+ *
+ * `tables` phải đã được lọc theo đúng chi nhánh trước khi gọi (caller —
+ * `FloorTable.status` là nguồn sự thật DUY NHẤT cho việc bàn có đang bị
+ * chiếm hay không, được `session.service.ts` cập nhật đồng bộ khi mở/đóng
+ * phiên, nên hàm này không cần nhận thêm danh sách phiên).
+ */
+export function suggestArrangements(guestCount: number, tables: FloorTable[]): Suggestion[] {
   if (guestCount <= 0) return [];
 
-  // 1) Lọc bàn khả dụng.
-  const avail = availableTables(branchId, sessions, tables);
+  // 1) Chỉ xét bàn đang "available" — bỏ qua occupied/locked/reserved.
+  const avail = tables.filter((t) => t.status === "available");
   const byId = new Map(avail.map((t) => [t.id, t]));
 
   // 2) Dựng đồ thị liền kề TRONG TỪNG KHU VỰC: chỉ giữ cạnh nối hai bàn cùng
-  //    khả dụng, cùng khu vực và đã khai báo liền kề tay. (adjacentTableIds là
-  //    quan hệ đối xứng — ràng buộc "cùng khu vực" chặn ghép xuyên khu.)
+  //    khả dụng, cùng khu vực và đã khai báo liền kề tay (BR-25).
   const adj = new Map<string, string[]>();
   for (const t of avail) {
     const neighbors = t.adjacentTableIds.filter((n) => {
@@ -157,7 +131,7 @@ export function suggestArrangements(
   });
   suggestions.sort((a, b) => a.score - b.score);
 
-  // 5) Tối đa 3 phương án tốt nhất.
+  // 5) Tối đa 3 phương án tốt nhất (BR-24: chỉ gợi ý).
   return suggestions.slice(0, 3);
 }
 
@@ -168,6 +142,11 @@ export function suggestArrangements(
 /** Thời lượng dùng bàn trung bình (phút) — giả định phục vụ cho ước tính. */
 export const AVG_DINING_MINUTES = 60;
 
+/** Phiên còn đang chiếm bàn: chưa đóng và chưa bị huỷ. */
+function isHoldingTable(session: TableSession): boolean {
+  return session.status !== "closed" && session.status !== "cancelled";
+}
+
 /**
  * Ước tính số phút nữa mới có đủ chỗ cho `guestCount`, dựa trên các phiên đang
  * ngồi: bàn nào ngồi lâu nhất sẽ trống sớm nhất. Trả null nếu không ước tính
@@ -177,18 +156,19 @@ export const AVG_DINING_MINUTES = 60;
  *  - Với mỗi phiên đang chiếm, thời gian còn lại ≈ AVG - (đã ngồi), tối thiểu 0.
  *  - Xét lần lượt các phiên theo thứ tự trống dần; cộng dồn số ghế được giải
  *    phóng cho tới khi >= guestCount; trả về mốc phút của phiên cuối cùng đó.
+ *
+ * `sessions`/`tables` phải đã được lọc theo đúng chi nhánh trước khi gọi.
  */
 export function estimateNextAvailable(
-  branchId: string,
   guestCount: number,
   sessions: TableSession[],
   tables: FloorTable[],
-  minutesSince: (hhmm: string) => number,
+  minutesSince: (isoOrLabel: string) => number,
 ): { minutes: number; freeingTables: string[] } | null {
   const seatOf = new Map(tables.map((t) => [t.id, t.seats]));
 
   const occupying = sessions
-    .filter((s) => s.branchId === branchId && (s.status === "open" || s.status === "paid"))
+    .filter(isHoldingTable)
     .map((s) => {
       const seats = s.tableIds.reduce((sum, id) => sum + (seatOf.get(id) ?? 0), 0);
       const remaining = Math.max(0, AVG_DINING_MINUTES - minutesSince(s.openedAt));

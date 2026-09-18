@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { App, Button, Card } from "antd";
 import { Bell, Check, HandPlatter, Timer } from "lucide-react";
-import { minutesSince } from "../../data";
+import { minutesSinceISO } from "../../services/_utils";
 import { SectionTitle } from "../../components/bits";
-import { useWaiter } from "./store";
+import { useAppStore } from "../../store";
 
 type ServeCard = {
   lineId: string;
@@ -14,7 +14,7 @@ type ServeCard = {
   waited: number; // phút, tính từ doneAt
 };
 
-/** Ngưỡng cảnh báo theo phút chờ bưng. */
+/** Ngưỡng cảnh báo theo phút chờ bưng (BR-12: 3 phút cảnh báo, 5 phút báo Manager). */
 const warnStyle = (waited: number): { border: string; bg: string; tag: string; tagColor: string } => {
   if (waited >= 5)
     return { border: "#ffccc7", bg: "#fff1f0", tag: "#fff1f0", tagColor: "#a8071a" };
@@ -23,43 +23,63 @@ const warnStyle = (waited: number): { border: string; bg: string; tag: string; t
   return { border: "var(--ant-color-border)", bg: "#fff", tag: "#f4f4f5", tagColor: "#52525b" };
 };
 
+/**
+ * Việc bưng món (mục 4.6.D, BR-11): mọi waiter đang trong ca thấy chung một
+ * hàng đợi — ai bấm "Nhận việc" trước thì thắng; backend (`claimLine`) khoá
+ * bằng cách chỉ còn 1 nhiệm vụ chưa ai nhận cho mỗi dòng món.
+ */
 export default function ServingTasks() {
-  const store = useWaiter();
   const { message } = App.useApp();
+  const currentUser = useAppStore((s) => s.currentUser);
+  const orderLines = useAppStore((s) => s.orderLines);
+  const claimLine = useAppStore((s) => s.claimLine);
+  const markLineServed = useAppStore((s) => s.markLineServed);
 
-  const sessionByOrder = useMemo(() => {
-    const orderToSession = new Map(store.orders.map((o) => [o.id, o.sessionId]));
-    const sessionById = new Map(store.sessions.map((s) => [s.id, s]));
-    return (orderId: string) => sessionById.get(orderToSession.get(orderId) ?? "") ?? null;
-  }, [store.orders, store.sessions]);
-
-  const tableLabel = (orderId: string) => sessionByOrder(orderId)?.tableIds.join(" + ") ?? "—";
+  const tableLabel = (tableIds?: string[]) =>
+    tableIds ? tableIds.map((id) => id.split("-").pop()).join(" + ") : "—";
 
   // (a) Món đã xong, chờ bưng — toàn chi nhánh, chưa ai nhận.
-  const waiting: ServeCard[] = store.lines
-    .filter((l) => l.status === "done" && !l.claimedBy)
-    .map((l) => ({
-      lineId: l.id,
-      table: tableLabel(l.orderId),
-      name: l.name,
-      qty: l.qty,
-      note: l.note,
-      waited: l.doneAt ? minutesSince(l.doneAt) : 0,
-    }))
-    .sort((a, b) => b.waited - a.waited); // chờ lâu nhất lên đầu
+  const waiting: ServeCard[] = useMemo(
+    () =>
+      orderLines
+        .filter((l) => l.status === "awaiting_pickup" && !l.claimedBy)
+        .map((l) => ({
+          lineId: l.id,
+          table: tableLabel(l.tableIds),
+          name: l.name,
+          qty: l.qty,
+          note: l.note,
+          waited: l.doneAt ? minutesSinceISO(l.doneAt) : 0,
+        }))
+        .sort((a, b) => b.waited - a.waited),
+    [orderLines],
+  );
 
   // (b) Việc của tôi — đã nhận, chưa phục vụ.
-  const mine: ServeCard[] = store.lines
-    .filter((l) => l.claimedBy === store.waiter && l.status === "done")
-    .map((l) => ({
-      lineId: l.id,
-      table: tableLabel(l.orderId),
-      name: l.name,
-      qty: l.qty,
-      note: l.note,
-      waited: l.doneAt ? minutesSince(l.doneAt) : 0,
-    }))
-    .sort((a, b) => b.waited - a.waited);
+  const mine: ServeCard[] = useMemo(
+    () =>
+      orderLines
+        .filter((l) => l.status === "awaiting_pickup" && l.claimedBy === currentUser?.name)
+        .map((l) => ({
+          lineId: l.id,
+          table: tableLabel(l.tableIds),
+          name: l.name,
+          qty: l.qty,
+          note: l.note,
+          waited: l.doneAt ? minutesSinceISO(l.doneAt) : 0,
+        }))
+        .sort((a, b) => b.waited - a.waited),
+    [orderLines, currentUser?.name],
+  );
+
+  const handleClaim = async (c: ServeCard) => {
+    try {
+      await claimLine(c.lineId);
+      message.success(`Đã nhận bưng ${c.name} · bàn ${c.table}`);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Đã có người nhận");
+    }
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
@@ -92,10 +112,7 @@ export default function ServingTasks() {
                     block
                     icon={<Bell size={18} />}
                     style={{ marginTop: 14, height: 48 }}
-                    onClick={() => {
-                      store.claimLine(c.lineId);
-                      message.success(`Đã nhận bưng ${c.name} · bàn ${c.table}`);
-                    }}
+                    onClick={() => handleClaim(c)}
                   >
                     Nhận việc
                   </Button>
@@ -107,7 +124,7 @@ export default function ServingTasks() {
       </Card>
 
       <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-        <SectionTitle title={`Việc của tôi (${mine.length})`} sub={store.waiter} />
+        <SectionTitle title={`Việc của tôi (${mine.length})`} sub={currentUser?.name ?? ""} />
         {mine.length === 0 ? (
           <Empty text="Bạn chưa nhận việc bưng nào." />
         ) : (
@@ -128,8 +145,8 @@ export default function ServingTasks() {
                     block
                     icon={<Check size={18} />}
                     style={{ marginTop: 14, height: 48 }}
-                    onClick={() => {
-                      store.serveLine(c.lineId);
+                    onClick={async () => {
+                      await markLineServed(c.lineId);
                       message.success(`Đã phục vụ ${c.name} · bàn ${c.table}`);
                     }}
                   >

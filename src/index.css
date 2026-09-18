@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+:root {
+  --brand-primary: #0a0a0a;
+  --brand-ink: #0a0a0a;
+}
+
 @font-face {
   font-family: 'HarmonyOS Sans';
   src: url('/fonts/HarmonyOS_Sans_Regular.ttf') format('truetype');

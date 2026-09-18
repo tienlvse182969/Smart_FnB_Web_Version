@@ -1,31 +1,36 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { App as AntApp, ConfigProvider } from "antd";
-import { monoTheme } from "./theme";
-import type { RoleKey } from "./data";
-import LoginScreen from "./auth/LoginScreen";
-import AdminApp from "./roles/admin/AdminApp";
-import OwnerApp from "./roles/owner/OwnerApp";
-import BranchApp from "./roles/branch/BranchApp";
-import WaiterApp from "./roles/waiter/WaiterApp";
-import KitchenApp from "./roles/kitchen/KitchenApp";
+import { RouterProvider } from "react-router-dom";
+import { router } from "./router";
+import { monoTheme, buildTenantTheme } from "./theme";
+import { AccentContext } from "./theme/accentContext";
+import { useAppStore } from "./store";
+import ForceChangePasswordModal from "./auth/ForceChangePasswordModal";
 
 export default function App() {
-  const [role, setRole] = useState<RoleKey | null>(null);
-  const logout = () => setRole(null);
+  const { currentUser, tenantBranding, bootstrap, isBootstrapped } = useAppStore();
 
-  const workspace: Record<RoleKey, React.ReactNode> = {
-    admin: <AdminApp onLogout={logout} />,
-    owner: <OwnerApp onLogout={logout} />,
-    branch: <BranchApp onLogout={logout} />,
-    waiter: <WaiterApp onLogout={logout} />,
-    kitchen: <KitchenApp onLogout={logout} />,
-  };
+  useEffect(() => {
+    bootstrap();
+  }, [bootstrap]);
+
+  // Platform Admin luôn giữ nhận diện nền tảng (BR-32), không tenant nào áp màu lên được.
+  const theme = currentUser?.role === "admin" ? monoTheme : buildTenantTheme(tenantBranding);
+
+  // Chưa custom (hoặc là Admin) → accent mặc định của nền tảng, không phải màu tenant.
+  const accentColor =
+    currentUser?.role !== "admin" && tenantBranding?.isCustom
+      ? tenantBranding.accentColor
+      : "#71717a";
 
   return (
-    <ConfigProvider theme={monoTheme}>
-      <AntApp>
-        {role === null ? <LoginScreen onLogin={setRole} /> : workspace[role]}
-      </AntApp>
+    <ConfigProvider theme={theme}>
+      <AccentContext.Provider value={accentColor}>
+        <AntApp>
+          <RouterProvider router={router} />
+          <ForceChangePasswordModal />
+        </AntApp>
+      </AccentContext.Provider>
     </ConfigProvider>
   );
 }

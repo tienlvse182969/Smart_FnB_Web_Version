@@ -2,53 +2,52 @@ import { App, Button, Segmented } from "antd";
 import { ChefHat, LogOut } from "lucide-react";
 import { useMemo, useState } from "react";
 import RoleShell, { type NavItem } from "../../layout/RoleShell";
-import { kitchenQueue, nowLabel, orderLines, type KitchenQueueItem, type TicketStatus } from "../../data";
+import type { KitchenQueueItem } from "../../types";
+import { kitchenQueue } from "../../services/order.service";
+import { NotInShiftScreen } from "../../components/bits";
+import { useAppStore } from "../../store";
 import TicketCard from "./TicketCard";
 
 const nav: NavItem[] = [{ key: "queue", label: "Hàng đợi món", icon: <ChefHat size={18} /> }];
 
 export default function KitchenApp({ onLogout }: { onLogout: () => void }) {
   const { message, modal } = App.useApp();
-  const [tickets, setTickets] = useState<KitchenQueueItem[]>(() => kitchenQueue());
+  const orderLines = useAppStore((s) => s.orderLines);
+  const menuItems = useAppStore((s) => s.menuItems);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const workSessions = useAppStore((s) => s.workSessions);
+  const updateLineStatus = useAppStore((s) => s.updateLineStatus);
+  const markLineDone = useAppStore((s) => s.markLineDone);
+  const reportSoldOut = useAppStore((s) => s.reportSoldOut);
+
   const [category, setCategory] = useState<string>("all");
-  const [status, setStatus] = useState<"all" | TicketStatus>("all");
+  const [status, setStatus] = useState<"all" | KitchenQueueItem["status"]>("all");
 
-  const categories = useMemo(
-    () => [...new Set(kitchenQueue().map((t) => t.category))],
-    [],
-  );
+  const tickets = useMemo(() => kitchenQueue(orderLines, menuItems), [orderLines, menuItems]);
+  const categories = useMemo(() => [...new Set(tickets.map((t) => t.category))], [tickets]);
 
-  const advance = (orderLineId: string) => {
-    // Ghi mốc thời gian riêng của dòng món: bắt đầu làm / làm xong.
-    const line = orderLines.find((l) => l.id === orderLineId);
-    if (line) {
-      if (line.status === "queued") {
-        line.status = "cooking";
-        line.startedAt = nowLabel();
-      } else if (line.status === "cooking") {
-        line.status = "done";
-        line.doneAt = nowLabel();
-      }
+  const advance = async (orderLineId: string) => {
+    const ticket = tickets.find((t) => t.orderLineId === orderLineId);
+    if (!ticket) return;
+    if (ticket.status === "queued") {
+      await updateLineStatus(orderLineId, "cooking");
+    } else if (ticket.status === "cooking") {
+      // BR-10: bấm "xong" -> dòng món sang awaiting_pickup NGAY, tạo nhiệm vụ
+      // bưng món chưa ai nhận, bắn cho mọi waiter đang trong ca qua BroadcastChannel.
+      await markLineDone(orderLineId);
     }
-    setTickets((p) =>
-      p.map((t) =>
-        t.orderLineId === orderLineId
-          ? { ...t, status: t.status === "queued" ? "cooking" : "done" }
-          : t,
-      ),
-    );
   };
 
   const soldOut = (t: KitchenQueueItem) =>
     modal.confirm({
       title: `Báo hết “${t.name}”?`,
       content:
-        "Món sẽ bị ẩn khỏi menu toàn chi nhánh và waiter của bàn được cảnh báo để đổi món hoặc hoàn tiền.",
+        "Món sẽ bị đánh dấu hết ở dòng order này và gửi cảnh báo cho Manager cùng mọi waiter của chi nhánh.",
       okText: "Báo hết món",
       cancelText: "Huỷ",
       okButtonProps: { danger: true },
-      onOk: () => {
-        setTickets((p) => p.filter((x) => x.orderLineId !== t.orderLineId));
+      onOk: async () => {
+        await reportSoldOut(t.orderLineId);
         message.warning(`Đã báo hết ${t.name} — cảnh báo bàn ${t.table}`);
       },
     });
@@ -63,15 +62,19 @@ export default function KitchenApp({ onLogout }: { onLogout: () => void }) {
     [tickets, category, status],
   );
 
+  // BR-43: chỉ nhận việc/thông báo khi đang trong ca — Manager check-in, không tự check-in.
+  const inShift = workSessions.some((w) => w.staffId === currentUser?.id && w.status === "inShift");
+  if (!inShift) return <NotInShiftScreen onLogout={onLogout} />;
+
   const footer = (
     <div style={{ padding: 12 }}>
       <Button
         block
         icon={<LogOut size={16} />}
         onClick={onLogout}
-        style={{ background: "rgba(255,255,255,0.08)", color: "#fff", borderColor: "transparent" }}
+        style={{ background: "var(--sider-btn-bg)", color: "var(--sider-fg)", borderColor: "transparent" }}
       >
-        Check-out ca làm
+        Đăng xuất
       </Button>
     </div>
   );
@@ -84,6 +87,7 @@ export default function KitchenApp({ onLogout }: { onLogout: () => void }) {
       onSection={() => {}}
       onLogout={onLogout}
       searchPlaceholder="Tìm bàn, món…"
+      branchChip={currentUser?.name}
       footer={footer}
     >
       <div style={{ padding: 24 }}>
@@ -149,7 +153,7 @@ export default function KitchenApp({ onLogout }: { onLogout: () => void }) {
                 { label: "Tất cả", value: "all" },
                 { label: "Chờ", value: "queued" },
                 { label: "Đang làm", value: "cooking" },
-                { label: "Xong", value: "done" },
+                { label: "Xong", value: "awaiting_pickup" },
               ]}
             />
           </div>

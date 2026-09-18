@@ -1,45 +1,38 @@
 import { useMemo, useState } from "react";
 import { App, Button, Card, Checkbox, Input, InputNumber, Modal, Segmented, Select } from "antd";
 import { Clock, Info, Link2, Lock, Plus, Unlock, Users } from "lucide-react";
-import {
-  currentBranchId,
-  floorTables as floorSeed,
-  getTableInfo,
-  getTableState,
-  money,
-  tableSessions,
-  type FloorTable,
-  type TableDisplayState,
-} from "../../data";
+import { money } from "../../data";
+import type { FloorTable, TableSession, TableStatus } from "../../types";
+import { TABLE_STATUS_COLOR, STATUS_COLORS } from "../../theme/semantic";
+import { minutesSinceISO } from "../../services/_utils";
 import { SectionTitle } from "../../components/bits";
+import { useAppStore } from "../../store";
 
-const stateStyle: Record<TableDisplayState, { label: string; box: React.CSSProperties; sub: string }> = {
-  serving: { label: "Đang phục vụ", sub: "rgba(255,255,255,0.65)", box: { background: "#0a0a0a", color: "#fff", border: "1.5px solid #0a0a0a" } },
-  paid: { label: "Đã thanh toán · chờ đóng bàn", sub: "#52525b", box: { background: "#f4f4f5", color: "#0a0a0a", border: "1.5px solid #a1a1aa" } },
-  available: { label: "Trống", sub: "#a1a1aa", box: { background: "#fff", color: "#0a0a0a", border: "1.5px dashed #d4d4d8" } },
-  locked: { label: "Ngưng sử dụng", sub: "#71717a", box: { background: "#f4f4f5", color: "#52525b", border: "1.5px solid #e4e4e7" } },
-  reserved: { label: "Đã đặt trước", sub: "#52525b", box: { background: "#fff", color: "#0a0a0a", border: "1.5px solid #0a0a0a" } },
+const TABLE_LABEL: Record<TableStatus, string> = {
+  available: "Trống",
+  reserved: "Đã đặt trước",
+  occupied: "Đang phục vụ",
+  locked: "Tạm khoá",
 };
 
-/** Phiên đang chiếm một bàn (open/paid) tại chi nhánh — để hiện khối ghép. */
-const occupantSession = (tableId: string) =>
-  tableSessions.find(
-    (s) =>
-      s.branchId === currentBranchId &&
-      (s.status === "open" || s.status === "paid") &&
-      s.tableIds.includes(tableId),
-  ) ?? null;
+function sessionTotal(sessionId: string, lines: { sessionId?: string; unitPrice: number; qty: number; status: string }[]) {
+  return lines
+    .filter((l) => l.sessionId === sessionId && l.status !== "cancelled" && l.status !== "sold_out")
+    .reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
+}
 
+/** Sơ đồ bàn (mục 4.5.F) — chỉ Branch Manager thiết kế; Waiter/Kitchen chỉ xem. */
 export default function FloorPlan() {
+  const branches = useAppStore((s) => s.branches);
+  const currentBranchId = useAppStore((s) => s.currentBranchId);
   const [mode, setMode] = useState<"view" | "design">("view");
-  // Bản sao có thể sửa của sơ đồ — chế độ Thiết kế ghi vào đây.
-  const [tables, setTables] = useState<FloorTable[]>(() => floorSeed.map((t) => ({ ...t })));
+  const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
-        title="Sơ đồ bàn · Quận 1"
-        sub={mode === "view" ? "Trạng thái cập nhật real-time qua Socket.IO" : "Chế độ thiết kế — thao tác ngoài ca"}
+        title={`Sơ đồ bàn · ${branchName}`}
+        sub={mode === "view" ? "Trạng thái cập nhật theo Waiter/Kitchen đang thao tác" : "Chế độ thiết kế — thao tác ngoài ca"}
         extra={
           <Segmented
             value={mode}
@@ -51,35 +44,46 @@ export default function FloorPlan() {
           />
         }
       />
-      {mode === "view" ? <ViewMode tables={tables} /> : <DesignMode tables={tables} setTables={setTables} />}
+      {mode === "view" ? <ViewMode /> : <DesignMode />}
     </Card>
   );
 }
 
 /* ============================ CHẾ ĐỘ XEM ============================ */
 
-function ViewMode({ tables }: { tables: FloorTable[] }) {
+function ViewMode() {
+  const tables = useAppStore((s) => s.tables);
+  const sessions = useAppStore((s) => s.sessions);
+  const orderLines = useAppStore((s) => s.orderLines);
   const areas = [...new Set(tables.map((t) => t.area))];
-  const count = (st: TableDisplayState) => tables.filter((t) => getTableState(t.id) === st).length;
-  const legend: TableDisplayState[] = ["serving", "paid", "available", "locked", "reserved"];
+  const count = (st: TableStatus) => tables.filter((t) => t.status === st).length;
+  const legend: TableStatus[] = ["occupied", "reserved", "available", "locked"];
+
+  const sessionByTable = (tableId: string): TableSession | null =>
+    sessions.find((s) => s.tableIds.includes(tableId) && s.status !== "closed" && s.status !== "cancelled") ?? null;
 
   return (
     <>
       <div style={{ display: "flex", gap: 14, fontSize: 12.5, color: "#52525b", flexWrap: "wrap", marginBottom: 18 }}>
-        {legend.map((st) => (
-          <span key={st} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 12, height: 12, borderRadius: 4, ...stateStyle[st].box, display: "inline-block" }} />
-            {stateStyle[st].label} ({count(st)})
-          </span>
-        ))}
+        {legend.map((st) => {
+          const c = STATUS_COLORS[TABLE_STATUS_COLOR[st]];
+          return (
+            <span key={st} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: c.text, display: "inline-block" }} />
+              {TABLE_LABEL[st]} ({count(st)})
+            </span>
+          );
+        })}
       </div>
       {areas.map((area) => (
         <div key={area} style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 10 }}>{area}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
-            {tables.filter((t) => t.area === area).map((t) => (
-              <ViewCell key={t.id} t={t} />
-            ))}
+            {tables
+              .filter((t) => t.area === area)
+              .map((t) => (
+                <ViewCell key={t.id} t={t} session={t.status === "occupied" ? sessionByTable(t.id) : null} orderLines={orderLines} />
+              ))}
           </div>
         </div>
       ))}
@@ -87,33 +91,62 @@ function ViewMode({ tables }: { tables: FloorTable[] }) {
   );
 }
 
-function ViewCell({ t }: { t: FloorTable }) {
-  const state = getTableState(t.id);
-  const s = stateStyle[state];
-  const info = state === "serving" || state === "paid" ? getTableInfo(t.id) : null;
-  const occ = state === "serving" || state === "paid" ? occupantSession(t.id) : null;
-  const merged = occ && occ.tableIds.length > 1;
+function ViewCell({
+  t,
+  session,
+  orderLines,
+}: {
+  t: FloorTable;
+  session: TableSession | null;
+  orderLines: { sessionId?: string; unitPrice: number; qty: number; status: string }[];
+}) {
+  const c = STATUS_COLORS[TABLE_STATUS_COLOR[t.status]];
+  const merged = session && session.tableIds.length > 1;
   return (
-    <div style={{ ...s.box, borderRadius: 14, padding: 14, minHeight: 108, display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        background: t.status === "occupied" ? "#0a0a0a" : c.bg,
+        color: t.status === "occupied" ? "#fff" : "#0a0a0a",
+        border: `1.5px solid ${t.status === "occupied" ? "#0a0a0a" : c.border}`,
+        borderRadius: 14,
+        padding: 14,
+        minHeight: 108,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontSize: 20, fontWeight: 700 }}>{t.id}</span>
-        <span style={{ fontSize: 11.5, color: s.sub }}>{t.seats} chỗ</span>
+        <span style={{ fontSize: 20, fontWeight: 700 }}>{t.id.split("-").pop()}</span>
+        <span style={{ fontSize: 11.5, opacity: 0.7 }}>{t.seats} chỗ</span>
       </div>
-      <div style={{ fontSize: 11.5, color: s.sub, marginTop: 2 }}>{s.label}</div>
+      <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 2 }}>{TABLE_LABEL[t.status]}</div>
       {merged && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start", fontSize: 11, fontWeight: 600, borderRadius: 999, padding: "1px 8px", background: state === "serving" ? "rgba(255,255,255,0.14)" : "#e4e4e7", color: state === "serving" ? "#fff" : "#52525b" }}>
-          <Link2 size={12} /> {occ!.tableIds.join(" + ")}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            marginTop: 6,
+            alignSelf: "flex-start",
+            fontSize: 11,
+            fontWeight: 600,
+            borderRadius: 999,
+            padding: "1px 8px",
+            background: "rgba(255,255,255,0.14)",
+            color: "#fff",
+          }}
+        >
+          <Link2 size={12} /> {session!.tableIds.map((id) => id.split("-").pop()).join(" + ")}
         </div>
       )}
-      {info && (
+      {session && (
         <div style={{ marginTop: "auto", fontSize: 12, display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, color: s.sub }}>
-            <Users size={13} /> {info.guests} khách · <Clock size={13} /> {info.elapsedMinutes}’
+          <span style={{ display: "flex", alignItems: "center", gap: 5, opacity: 0.85 }}>
+            <Users size={13} /> {session.guests} khách · <Clock size={13} /> {minutesSinceISO(session.openedAt)}’
           </span>
-          <span style={{ fontWeight: 600 }}>{money(info.amount)}</span>
+          <span style={{ fontWeight: 600 }}>{money(sessionTotal(session.id, orderLines))}</span>
         </div>
       )}
-      {state === "reserved" && <div style={{ marginTop: "auto", fontSize: 12, color: s.sub }}>Giữ chỗ 19:30</div>}
     </div>
   );
 }
@@ -124,49 +157,42 @@ const COLS = 4;
 const CELL_H = 116;
 const GAP = 14;
 
-function DesignMode({
-  tables,
-  setTables,
-}: {
-  tables: FloorTable[];
-  setTables: React.Dispatch<React.SetStateAction<FloorTable[]>>;
-}) {
+function DesignMode() {
   const { message } = App.useApp();
+  const currentBranchId = useAppStore((s) => s.currentBranchId);
+  const tables = useAppStore((s) => s.tables);
+  const createFloorTable = useAppStore((s) => s.createFloorTable);
+  const toggleTableLock = useAppStore((s) => s.toggleTableLock);
+  const toggleAdjacentTables = useAppStore((s) => s.toggleAdjacentTables);
+
   const areas = [...new Set(tables.map((t) => t.area))];
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   const selTable = tables.find((t) => t.id === selected) ?? null;
 
-  // Bật/tắt liền kề — CẬP NHẬT ĐỐI XỨNG cả hai chiều.
-  const toggleAdjacent = (a: string, b: string) =>
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id === a) {
-          const has = t.adjacentTableIds.includes(b);
-          return { ...t, adjacentTableIds: has ? t.adjacentTableIds.filter((x) => x !== b) : [...t.adjacentTableIds, b] };
-        }
-        if (t.id === b) {
-          const has = t.adjacentTableIds.includes(a);
-          return { ...t, adjacentTableIds: has ? t.adjacentTableIds.filter((x) => x !== a) : [...t.adjacentTableIds, a] };
-        }
-        return t;
-      }),
-    );
-
-  const toggleLock = (id: string) =>
-    setTables((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, state: t.state === "locked" ? "available" : "locked" } : t)),
-    );
-
-  const addTable = (id: string, seats: number, area: string) => {
+  const addTable = async (shortId: string, seats: number, area: string) => {
+    if (!currentBranchId) return;
+    const id = `${currentBranchId}-${shortId}`;
     if (tables.some((t) => t.id === id)) {
-      message.error(`Bàn ${id} đã tồn tại`);
+      message.error(`Bàn ${shortId} đã tồn tại`);
       return;
     }
-    setTables((prev) => [...prev, { id, area, seats, state: "available", adjacentTableIds: [] }]);
-    setAdding(false);
-    message.success(`Đã thêm bàn ${id}`);
+    try {
+      await createFloorTable(id, area, seats);
+      setAdding(false);
+      message.success(`Đã thêm bàn ${shortId}`);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Không thêm được bàn");
+    }
+  };
+
+  const handleToggleLock = async (t: FloorTable) => {
+    try {
+      await toggleTableLock(t.id);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Không khoá được bàn");
+    }
   };
 
   return (
@@ -176,7 +202,7 @@ function DesignMode({
         <div style={{ fontSize: 12.5, color: "#52525b", lineHeight: 1.5 }}>
           Quan hệ <b>liền kề phải khai báo tay</b> — hệ thống không tự suy từ vị trí trên sơ đồ, vì hai bàn nhìn
           gần nhau nhưng cách một lối đi thì thực tế không ghép được. Đây là dữ liệu bắt buộc cho tính năng gợi
-          ý ghép bàn. Chỉ ghép được bàn <b>cùng khu vực</b>.
+          ý ghép bàn (BR-25). Chỉ ghép được bàn <b>cùng khu vực</b>.
         </div>
       </div>
 
@@ -186,17 +212,17 @@ function DesignMode({
         </Button>
         {selTable && (
           <Button
-            icon={selTable.state === "locked" ? <Unlock size={16} /> : <Lock size={16} />}
-            onClick={() => toggleLock(selTable.id)}
+            icon={selTable.status === "locked" ? <Unlock size={16} /> : <Lock size={16} />}
+            onClick={() => handleToggleLock(selTable)}
           >
-            {selTable.state === "locked" ? `Mở lại bàn ${selTable.id}` : `Ngưng sử dụng ${selTable.id}`}
+            {selTable.status === "locked" ? `Mở lại bàn ${selTable.id.split("-").pop()}` : `Ngưng sử dụng ${selTable.id.split("-").pop()}`}
           </Button>
         )}
       </div>
 
       {selected && (
         <div style={{ fontSize: 12.5, color: "#71717a", marginBottom: 14 }}>
-          Đang chọn <b style={{ color: "#0a0a0a" }}>bàn {selected}</b> — tick các bàn cùng khu vực để khai báo liền kề.
+          Đang chọn <b style={{ color: "#0a0a0a" }}>bàn {selected.split("-").pop()}</b> — tick các bàn cùng khu vực để khai báo liền kề.
           Bàn khác khu vực bị mờ (không ghép được).
         </div>
       )}
@@ -210,7 +236,6 @@ function DesignMode({
           y: Math.floor(i / COLS) * (CELL_H + GAP) + CELL_H / 2,
         });
 
-        // Cặp liền kề đã khai báo trong khu vực (không trùng, không xuyên khu).
         const edges: [number, number][] = [];
         for (const t of areaTables) {
           for (const n of t.adjacentTableIds) {
@@ -224,7 +249,6 @@ function DesignMode({
           <div key={area} style={{ marginBottom: 22 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 10 }}>{area}</div>
             <div style={{ position: "relative" }}>
-              {/* Đường nối mảnh giữa các cặp bàn liền kề */}
               <svg width="100%" height={rows * (CELL_H + GAP) - GAP} style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
                 {edges.map(([i, j], k) => {
                   const a = center(i);
@@ -247,7 +271,7 @@ function DesignMode({
                         borderRadius: 14,
                         padding: 14,
                         cursor: "pointer",
-                        background: t.state === "locked" ? "#f4f4f5" : "#fff",
+                        background: t.status === "locked" ? "#f4f4f5" : "#fff",
                         border: isSel ? "2px solid #0a0a0a" : "1.5px solid var(--ant-color-border)",
                         opacity: otherArea ? 0.4 : 1,
                         display: "flex",
@@ -255,23 +279,25 @@ function DesignMode({
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ fontSize: 19, fontWeight: 700 }}>{t.id}</span>
+                        <span style={{ fontSize: 19, fontWeight: 700 }}>{t.id.split("-").pop()}</span>
                         <span style={{ fontSize: 11.5, color: "#a1a1aa" }}>{t.seats} chỗ</span>
                       </div>
-                      {t.state === "locked" && (
+                      {t.status === "locked" && (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#71717a", marginTop: 4 }}>
                           <Lock size={12} /> Ngưng sử dụng
                         </div>
                       )}
                       {sameArea && (
                         <label onClick={(e) => e.stopPropagation()} style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
-                          <Checkbox checked={adjacent} onChange={() => toggleAdjacent(selTable!.id, t.id)} />
-                          liền kề {selTable!.id}
+                          <Checkbox checked={adjacent} onChange={() => toggleAdjacentTables(selTable!.id, t.id)} />
+                          liền kề {selTable!.id.split("-").pop()}
                         </label>
                       )}
                       {otherArea && <div style={{ marginTop: "auto", fontSize: 11, color: "#a1a1aa" }}>Khác khu vực · không ghép</div>}
                       {!selTable && t.adjacentTableIds.length > 0 && (
-                        <div style={{ marginTop: "auto", fontSize: 11, color: "#a1a1aa" }}>Liền kề: {t.adjacentTableIds.join(", ")}</div>
+                        <div style={{ marginTop: "auto", fontSize: 11, color: "#a1a1aa" }}>
+                          Liền kề: {t.adjacentTableIds.map((id) => id.split("-").pop()).join(", ")}
+                        </div>
                       )}
                     </div>
                   );
