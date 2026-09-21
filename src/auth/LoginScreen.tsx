@@ -9,7 +9,8 @@ import {
   Store,
   UtensilsCrossed,
 } from "lucide-react";
-import type { DemoAccount, RoleKey } from "../types";
+import { DEFAULT_PASSWORD, type DemoAccount, type RoleKey } from "../types";
+import { operationalApiEnabled } from "../services/api";
 import { useAppStore } from "../store";
 
 const roleMeta: Record<RoleKey, { label: string; icon: React.ReactNode }> = {
@@ -21,6 +22,12 @@ const roleMeta: Record<RoleKey, { label: string; icon: React.ReactNode }> = {
 };
 
 const roleOrder: RoleKey[] = ["admin", "owner", "manager", "waiter", "kitchen"];
+
+const backendDemoPassword = import.meta.env.VITE_DEMO_PASSWORD || "";
+const passwordForRole = (role: RoleKey) =>
+  operationalApiEnabled && (role === "waiter" || role === "kitchen")
+    ? backendDemoPassword
+    : DEFAULT_PASSWORD;
 
 /**
  * Màn chọn tài khoản đăng nhập demo. Một vai trò nay có thể có NHIỀU tài
@@ -34,7 +41,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (accountId: string, 
   const isLoading = useAppStore((s) => s.isLoading);
   const [role, setRole] = useState<RoleKey>("owner");
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [password, setPassword] = useState("demo1234");
+  const [password, setPassword] = useState(passwordForRole("owner"));
 
   const accountsByRole = useMemo(() => {
     const map = new Map<RoleKey, DemoAccount[]>();
@@ -50,7 +57,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (accountId: string, 
     setRole(r);
     const first = accountsByRole.get(r)?.[0] ?? null;
     setAccountId(first?.id ?? null);
-    setPassword("demo1234");
+    setPassword(passwordForRole(r));
   };
 
   const handleLogin = () => {

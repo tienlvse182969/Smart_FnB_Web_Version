@@ -62,6 +62,16 @@ import {
 } from "../services";
 import { seedAll } from "../mock/seed";
 import { broadcast } from "./broadcast";
+import { clearAccessToken, hasAccessToken } from "../services/api";
+import {
+  claimOperationalLine,
+  loadOperationalData,
+  readyOperationalItem,
+  serveOperationalLine,
+  startOperationalItem,
+  submitOperationalOrder,
+  unavailableOperationalItem,
+} from "../services/operational-api";
 
 export interface AppState {
   // Auth state
@@ -189,6 +199,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       isBootstrapped: true,
     });
 
+    if (savedUser?.apiBacked && !hasAccessToken()) {
+      savedUser = null;
+      sessionStorage.removeItem("smartfnb_auth_user");
+      set({ currentUser: null, currentBranchId: null });
+    }
     if (savedUser) {
       await get().refreshOperationalData();
     }
@@ -267,6 +282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   logout: () => {
     try {
       sessionStorage.removeItem("smartfnb_auth_user");
+      clearAccessToken();
     } catch {
       // ignore
     }
@@ -291,6 +307,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshOperationalData: async () => {
     const { currentUser, currentBranchId } = get();
     if (!currentUser) return;
+
+    if (currentUser.apiBacked) {
+      const data = await loadOperationalData(currentUser);
+      set({ ...data, currentBranchId: currentUser.branchId });
+      return;
+    }
 
     // Load branches for this tenant (or all for admin)
     const branches = await listBranches(currentUser.tenantId ?? undefined);
@@ -341,8 +363,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const session = await serviceOpenSession(
-      currentUser.tenantId,
-      currentBranchId,
+      currentUser.tenantId!,
+      currentBranchId!,
       tableIds,
       guests,
       currentUser.name
@@ -367,13 +389,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   submitOrder: async (sessionId: string, cart: CartItem[]) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) {
+    if (!currentUser || (!currentUser.apiBacked && (!currentUser.tenantId || !currentBranchId))) {
       throw new Error("Chưa xác thực");
     }
 
+    if (currentUser.apiBacked) {
+      const result = await submitOperationalOrder(sessionId, cart);
+      await get().refreshOperationalData();
+      return result;
+    }
+
     const result = await serviceSubmitOrder(
-      currentUser.tenantId,
-      currentBranchId,
+      currentUser.tenantId!,
+      currentBranchId!,
       sessionId,
       currentUser.name,
       cart
@@ -390,6 +418,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     lineId: string,
     status: Exclude<OrderLineStatus, "done" | "sold_out">
   ) => {
+    if (get().currentUser?.apiBacked) {
+      if (status !== "cooking") throw new Error("Chuyển trạng thái này chưa được API hỗ trợ");
+      await startOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
     await serviceUpdateLineStatus(lineId, status);
     await get().refreshOperationalData();
     broadcast.send({ type: "REFETCH_ALL" });
@@ -397,7 +431,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   markLineDone: async (lineId: string) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) return;
+    if (!currentUser) return;
+    if (currentUser.apiBacked) {
+      await readyOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+    if (!currentUser.tenantId || !currentBranchId) return;
 
     await serviceMarkLineDone(lineId, currentUser.tenantId, currentBranchId);
     await get().refreshOperationalData();
@@ -406,7 +446,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   reportSoldOut: async (lineId: string) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) return;
+    if (!currentUser) return;
+    if (currentUser.apiBacked) {
+      await unavailableOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+    if (!currentUser.tenantId || !currentBranchId) return;
 
     await serviceReportSoldOut(lineId, currentUser.tenantId, currentBranchId, currentUser.name);
     await get().refreshOperationalData();
@@ -417,6 +463,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
 
+    if (currentUser.apiBacked) {
+      await claimOperationalLine(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+
     await serviceClaimLine(lineId, currentUser.name);
 
     await get().refreshOperationalData();
@@ -424,6 +476,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   markLineServed: async (lineId: string) => {
+    if (get().currentUser?.apiBacked) {
+      await serveOperationalLine(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
     await serviceMarkLineServed(lineId);
     await get().refreshOperationalData();
     broadcast.send({ type: "REFETCH_ALL" });
