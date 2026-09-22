@@ -11,12 +11,24 @@ export class ApiError extends Error {
   readonly status: number;
   /** Danh sách lỗi validate khi backend trả `message` dạng mảng. */
   readonly details: string[];
+  /** Mã lỗi nghiệp vụ backend gửi kèm, ví dụ "PLAN_LIMIT_REACHED". */
+  readonly code: string | null;
+  /** Body gốc — dùng khi cần đọc thêm dữ liệu đi kèm lỗi (quota, gói gợi ý…). */
+  readonly body: unknown;
 
-  constructor(status: number, message: string, details: string[] = []) {
+  constructor(
+    status: number,
+    message: string,
+    details: string[] = [],
+    code: string | null = null,
+    body: unknown = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.code = code;
+    this.body = body;
   }
 }
 
@@ -75,15 +87,20 @@ export function setSessionExpiredHandler(handler: () => void): void {
 }
 
 function toApiError(status: number, body: unknown): ApiError {
-  const raw = (body as { message?: unknown } | null)?.message;
+  const payload = body as { message?: unknown; error?: unknown } | null;
+  const raw = payload?.message;
+  // `error` là tên lỗi HTTP ("Bad Request") hoặc mã nghiệp vụ ("PLAN_LIMIT_REACHED").
+  const rawCode = typeof payload?.error === "string" ? payload.error : null;
+  const code = rawCode && /^[A-Z][A-Z0-9_]+$/.test(rawCode) ? rawCode : null;
+
   if (Array.isArray(raw)) {
     const details = raw.map(String);
-    return new ApiError(status, details[0] ?? "Yêu cầu không hợp lệ", details);
+    return new ApiError(status, details[0] ?? "Yêu cầu không hợp lệ", details, code, body);
   }
   if (typeof raw === "string" && raw.trim()) {
-    return new ApiError(status, raw);
+    return new ApiError(status, raw, [], code, body);
   }
-  return new ApiError(status, `Máy chủ trả lỗi ${status}`);
+  return new ApiError(status, `Máy chủ trả lỗi ${status}`, [], code, body);
 }
 
 async function parseBody(res: Response): Promise<unknown> {

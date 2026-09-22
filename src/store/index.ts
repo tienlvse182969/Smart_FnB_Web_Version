@@ -30,9 +30,6 @@ import {
   updateBranding as serviceUpdateBranding,
   resetBranding as serviceResetBranding,
   changePassword as serviceChangePassword,
-  listBranches,
-  createBranch as serviceCreateBranch,
-  updateBranch as serviceUpdateBranch,
   getFloorTables,
   createTable as serviceCreateTable,
   setTableLocked as serviceSetTableLocked,
@@ -65,8 +62,27 @@ import {
   type StaffLegacy,
   listWorkSessions,
 } from "../services";
+import {
+  listChains,
+  listBranches as apiListBranches,
+  createBranch as apiCreateBranch,
+  updateBranch as apiUpdateBranch,
+  updateBranchStatus as apiUpdateBranchStatus,
+  type ApiBranch,
+  type ApiPlan,
+  type ApiQuota,
+} from "../services/branchApi";
+import {
+  registerRealScope,
+  clearRealScope,
+  toMockBranchId,
+  toMockTenantId,
+} from "../services/mockBridge";
 import { seedAll } from "../mock/seed";
 import { broadcast } from "./broadcast";
+import { toUiBranch, toApiStatus } from "./branchMapping";
+
+export type ScopeStatus = "idle" | "loading" | "ready" | "error";
 
 export interface AppState {
   // Auth state
@@ -76,8 +92,22 @@ export interface AppState {
   isBootstrapped: boolean;
   isLoading: boolean;
 
+  /** Phạm vi thật lấy từ backend sau khi đăng nhập. */
+  scopeStatus: ScopeStatus;
+  scopeError: string | null;
+  /** UUID chuỗi thật. null với ADMIN (không thuộc chuỗi nào). */
+  chainId: string | null;
+  chainName: string | null;
+  /** Gói dịch vụ và hạn mức — chỉ OWNER đọc được, MANAGER nhận 403 nên để null. */
+  plan: ApiPlan | null;
+  quotas: ApiQuota[];
+  /** Chi nhánh thật, nguyên dạng backend trả về. */
+  apiBranches: ApiBranch[];
+
   // Operational State
+  /** Chi nhánh theo hình dạng UI, ánh xạ từ `apiBranches`. */
   branches: Branch[];
+  /** UUID chi nhánh thật đang chọn. */
   currentBranchId: string | null;
   tables: FloorTable[];
   sessions: TableSession[];
@@ -98,10 +128,12 @@ export interface AppState {
   logout: () => Promise<void>;
   switchBranch: (branchId: string) => Promise<void>;
   refreshOperationalData: () => Promise<void>;
+  /** Nạp chuỗi + chi nhánh thật của người đang đăng nhập. */
+  loadScope: () => Promise<void>;
 
   // Chi nhánh (Owner — mục 4.4.A, OW-01)
-  createBranch: (data: { name: string; address: string; phone: string; openTime: string; closeTime: string }) => Promise<void>;
-  updateBranch: (id: string, data: Partial<{ name: string; address: string; phone: string; openTime: string; closeTime: string; status: "open" | "closed" | "suspended" }>) => Promise<void>;
+  createBranch: (data: { code: string; name: string; address: string; phone: string; openTime: string; closeTime: string }) => Promise<void>;
+  updateBranch: (id: string, data: Partial<{ code: string; name: string; address: string; phone: string; status: "open" | "closed" | "suspended" }>) => Promise<void>;
 
   // Operations
   openTable: (tableIds: string[], guests: number) => Promise<TableSession>;
@@ -164,6 +196,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   isBootstrapped: false,
   isLoading: false,
 
+  scopeStatus: "idle",
+  scopeError: null,
+  chainId: null,
+  chainName: null,
+  plan: null,
+  quotas: [],
+  apiBranches: [],
+
   branches: [],
   currentBranchId: null,
   tables: [],
@@ -197,12 +237,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         demoAccounts: demoAccs,
         currentUser: savedUser,
         tenantBranding: branding,
-        currentBranchId: savedUser?.branchId ?? null,
         isBootstrapped: true,
       });
 
       if (savedUser) {
-        await get().refreshOperationalData();
+        await get().loadScope();
       }
 
       // Subscribe to cross-tab broadcast
@@ -228,20 +267,90 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLoading: true });
     try {
       const user = await loginWithPassword(email, password);
-      const branding = await getTenantBranding(user.tenantId);
-
-      set({
-        currentUser: user,
-        tenantBranding: branding,
-        currentBranchId: user.branchId ?? null,
-        isLoading: false,
-      });
-
-      await get().refreshOperationalData();
+      set({ currentUser: user, isLoading: false });
+      await get().loadScope();
       return user;
     } catch (err) {
       set({ isLoading: false });
       throw err;
+    }
+  },
+
+  loadScope: async () => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    // ADMIN quản trị nền tảng, không thuộc chuỗi nào — backend trả 403 cho cả
+    // /restaurant-chains lẫn /branches, nên không gọi.
+    if (currentUser.role === "admin") {
+      clearRealScope();
+      set({
+        scopeStatus: "ready",
+        scopeError: null,
+        chainId: null,
+        chainName: null,
+        plan: null,
+        quotas: [],
+        apiBranches: [],
+        branches: [],
+        currentBranchId: null,
+      });
+      return;
+    }
+
+    set({ scopeStatus: "loading", scopeError: null });
+    try {
+      // Chỉ OWNER đọc được /restaurant-chains; MANAGER lấy chuỗi từ chính chi
+      // nhánh được gán (mỗi branch trả kèm chainId và chain lồng bên trong).
+      const chains = currentUser.role === "owner" ? await listChains() : [];
+      const apiBranches = await apiListBranches();
+
+      const chainId = chains[0]?.id ?? apiBranches[0]?.chainId ?? null;
+      const chainName = chains[0]?.name ?? apiBranches[0]?.chain.name ?? null;
+
+      if (!chainId) {
+        throw new Error(
+          currentUser.role === "owner"
+            ? "Tài khoản chưa được gán chuỗi nhà hàng nào."
+            : "Tài khoản chưa được gán chi nhánh nào.",
+        );
+      }
+
+      const chainIds = chains.length ? chains.map((c) => c.id) : [chainId];
+      registerRealScope(chainIds, apiBranches);
+
+      const mockTenantId = toMockTenantId(chainId);
+      const realBranchId =
+        currentUser.role === "manager" ? (apiBranches[0]?.id ?? null) : (get().currentBranchId ?? apiBranches[0]?.id ?? null);
+      const activeBranchId = apiBranches.some((b) => b.id === realBranchId)
+        ? realBranchId
+        : (apiBranches[0]?.id ?? null);
+
+      set({
+        scopeStatus: "ready",
+        scopeError: null,
+        chainId,
+        chainName,
+        plan: chains[0]?.subscription?.plan ?? null,
+        quotas: chains[0]?.subscription?.quotas ?? [],
+        apiBranches,
+        branches: apiBranches.map((b) => toUiBranch(b, toMockTenantId(b.chainId))),
+        currentBranchId: activeBranchId,
+        currentUser: {
+          ...currentUser,
+          tenantId: mockTenantId,
+          branchId: toMockBranchId(activeBranchId),
+        },
+      });
+
+      set({ tenantBranding: await getTenantBranding(mockTenantId) });
+      await get().refreshOperationalData();
+    } catch (err) {
+      clearRealScope();
+      set({
+        scopeStatus: "error",
+        scopeError: err instanceof Error ? err.message : "Không tải được phạm vi làm việc",
+      });
     }
   },
 
@@ -253,24 +362,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createBranch: async (data) => {
-    const { currentUser } = get();
-    if (!currentUser?.tenantId) return;
-    await serviceCreateBranch(currentUser.tenantId, { ...data, status: "open" });
-    await get().refreshOperationalData();
+    const { chainId } = get();
+    if (!chainId) throw new Error("Chưa xác định được chuỗi nhà hàng");
+
+    await apiCreateBranch(chainId, {
+      code: data.code,
+      name: data.name,
+      addressLine1: data.address,
+      // Backend bắt buộc `city` tách riêng nhưng UI chỉ có một ô địa chỉ.
+      city: data.address,
+      phone: data.phone || undefined,
+      openTime: data.openTime || undefined,
+      closeTime: data.closeTime || undefined,
+    });
+
+    await get().loadScope();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
   updateBranch: async (id, data) => {
-    await serviceUpdateBranch(id, data);
-    await get().refreshOperationalData();
+    const { status, ...fields } = data;
+    const patch = {
+      ...(fields.code !== undefined ? { code: fields.code } : {}),
+      ...(fields.name !== undefined ? { name: fields.name } : {}),
+      ...(fields.phone !== undefined ? { phone: fields.phone } : {}),
+      ...(fields.address !== undefined ? { addressLine1: fields.address } : {}),
+    };
+    if (Object.keys(patch).length) await apiUpdateBranch(id, patch);
+    if (status) await apiUpdateBranchStatus(id, toApiStatus(status));
+
+    await get().loadScope();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
   logout: async () => {
     await logoutSession();
+    clearRealScope();
     set({
       currentUser: null,
       tenantBranding: null,
+      scopeStatus: "idle",
+      scopeError: null,
+      chainId: null,
+      chainName: null,
+      plan: null,
+      quotas: [],
+      apiBranches: [],
+      branches: [],
       currentBranchId: null,
       tables: [],
       sessions: [],
@@ -282,7 +420,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchBranch: async (branchId: string) => {
-    set({ currentBranchId: branchId });
+    const { currentUser } = get();
+    set({
+      currentBranchId: branchId,
+      currentUser: currentUser ? { ...currentUser, branchId: toMockBranchId(branchId) } : null,
+    });
     await get().refreshOperationalData();
   },
 
@@ -290,10 +432,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentUser, currentBranchId } = get();
     if (!currentUser) return;
 
-    // Load branches for this tenant (or all for admin)
-    const branches = await listBranches(currentUser.tenantId ?? undefined);
-    const activeBranchId =
-      currentBranchId || currentUser.branchId || branches[0]?.id || null;
+    // Chi nhánh giờ lấy từ API thật (loadScope), không đọc mock nữa. Các phân
+    // hệ bên dưới còn mock nên phải đổi sang ID mock qua cầu nối.
+    const activeBranchId = toMockBranchId(currentBranchId);
 
     let tables: FloorTable[] = [];
     let sessions: TableSession[] = [];
@@ -319,8 +460,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     set({
-      branches,
-      currentBranchId: activeBranchId,
       tables,
       sessions,
       menuItems: menu,

@@ -4,7 +4,6 @@
  * Tách khỏi `auth.service.ts` — file đó vẫn giữ các thao tác quản trị tài khoản
  * chạy trên mock (tạo/khoá/reset tài khoản) và chưa có API tương ứng.
  */
-import { T1, T1_B1 } from "../mock/seed";
 import type { AuthUser, RoleKey } from "../types";
 import {
   clearTokens,
@@ -54,30 +53,19 @@ function displayName(user: BackendAuthUser): string {
   return user.email;
 }
 
-/**
- * Cầu nối tạm: backend chưa trả tenantId/chainId trong payload auth, trong khi
- * các màn hình còn lại vẫn đọc dữ liệu mock được khoá theo tenant `T1`. Gán
- * tenant/branch mock để những màn đó tiếp tục hiển thị sau khi đăng nhập thật.
- * Gỡ dần từng dòng khi module tương ứng được nối API thật.
- */
-function mockScopeFor(role: RoleKey): { tenantId: string | null; branchId: string | null } {
-  if (role === "admin") return { tenantId: null, branchId: null };
-  if (role === "owner") return { tenantId: T1, branchId: null };
-  return { tenantId: T1, branchId: T1_B1 };
-}
-
 function toAuthUser(user: BackendAuthUser): AuthUser {
   const role = WEB_ROLE_BY_BACKEND[user.role];
   if (!role) throw new ApiError(403, TABLET_ONLY_MESSAGE);
 
-  const scope = mockScopeFor(role);
   return {
     id: user.id,
     name: displayName(user),
     email: user.email,
+    // Phạm vi thật được nạp riêng sau đăng nhập (store#loadScope) vì payload
+    // auth của backend không chứa chainId/branchId.
     role,
-    tenantId: scope.tenantId,
-    branchId: scope.branchId,
+    tenantId: null,
+    branchId: null,
     // Backend đặt mật khẩu qua luồng riêng (/auth/setup-password), không có
     // cờ "phải đổi mật khẩu" ở lần đăng nhập thường.
     mustChangePassword: false,

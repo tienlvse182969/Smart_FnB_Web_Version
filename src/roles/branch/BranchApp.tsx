@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, Col, Row, Segmented, Table, Tag } from "antd";
 import {
   Banknote,
+  Building2,
   CalendarClock,
   CalendarDays,
   History,
@@ -27,6 +28,7 @@ import ShiftTemplates from "./ShiftTemplates";
 import ShiftSchedule from "./ShiftSchedule";
 import ShiftCheckInOut from "./ShiftCheckInOut";
 import ShiftDashboardBlock from "./ShiftDashboardBlock";
+import BranchInfo from "./BranchInfo";
 
 /**
  * Mục 4.5: giao diện Branch Manager tách 2 chế độ — Quầy (việc trong ca) và
@@ -45,6 +47,7 @@ const counterNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
+  { key: "branch-info", label: "Thông tin chi nhánh", icon: <Building2 size={18} /> },
   { key: "floor", label: "Sơ đồ bàn", icon: <LayoutGrid size={18} /> },
   { key: "menu", label: "Món tại chi nhánh", icon: <UtensilsCrossed size={18} /> },
   { key: "staff", label: "Nhân viên", icon: <UsersRound size={18} /> },
@@ -115,6 +118,7 @@ export default function BranchApp({ onLogout }: { onLogout: () => void }) {
             <ShiftDashboardBlock />
           </>
         )}
+        {section === "branch-info" && <BranchInfo />}
         {section === "floor" && <FloorPlan />}
         {section === "menu" && <BranchMenu />}
         {section === "staff" && <StaffTable />}
