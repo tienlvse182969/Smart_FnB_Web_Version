@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, useNavigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, type RouteObject, useNavigate } from "react-router-dom";
 import { App } from "antd";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
@@ -7,9 +7,9 @@ import OwnerApp from "../roles/owner/OwnerApp";
 import BranchApp from "../roles/branch/BranchApp";
 import WaiterApp from "../roles/waiter/WaiterApp";
 import KitchenApp from "../roles/kitchen/KitchenApp";
-import { RoleGuard } from "./guards";
+import { RoleGuard, homeRouteFor } from "./guards";
+import { ENABLE_STAFF_APPS } from "../config";
 import { useAppStore } from "../store";
-import type { RoleKey } from "../types";
 
 function LandingWrapper() {
   const navigate = useNavigate();
@@ -21,18 +21,10 @@ function LoginWrapper() {
   const { message } = App.useApp();
   const { login } = useAppStore();
 
-  const handleLogin = async (accountId: string, password: string) => {
+  const handleLogin = async (email: string, password: string) => {
     try {
-      const user = await login(accountId, password);
-
-      const routes: Record<RoleKey, string> = {
-        admin: "/admin",
-        owner: "/owner",
-        manager: "/manager",
-        waiter: "/waiter",
-        kitchen: "/kitchen",
-      };
-      navigate(routes[user.role] || "/login");
+      const user = await login(email, password);
+      navigate(homeRouteFor(user.role));
     } catch (err) {
       message.error(err instanceof Error ? err.message : "Đăng nhập thất bại");
     }
@@ -41,55 +33,60 @@ function LoginWrapper() {
   return <LoginScreen onLogin={handleLogin} />;
 }
 
-function AdminWrapper() {
+/** Mọi không gian làm việc đều dùng chung một nút Đăng xuất. */
+function useLogoutHandler() {
   const navigate = useNavigate();
   const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
+  return async () => {
+    await logout();
     navigate("/login");
   };
-  return <AdminApp onLogout={handleLogout} />;
+}
+
+function AdminWrapper() {
+  return <AdminApp onLogout={useLogoutHandler()} />;
 }
 
 function OwnerWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <OwnerApp onLogout={handleLogout} />;
+  return <OwnerApp onLogout={useLogoutHandler()} />;
 }
 
 function ManagerWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <BranchApp onLogout={handleLogout} />;
+  return <BranchApp onLogout={useLogoutHandler()} />;
 }
 
 function WaiterWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <WaiterApp onLogout={handleLogout} />;
+  return <WaiterApp onLogout={useLogoutHandler()} />;
 }
 
 function KitchenWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <KitchenApp onLogout={handleLogout} />;
+  return <KitchenApp onLogout={useLogoutHandler()} />;
 }
+
+/**
+ * Waiter/Kitchen đã chuyển sang ứng dụng tablet. Giữ nguyên màn hình, chỉ
+ * không đăng ký route khi cờ tắt — mọi đường dẫn /waiter, /kitchen rơi về "*".
+ */
+const staffRoutes: RouteObject[] = ENABLE_STAFF_APPS
+  ? [
+      {
+        path: "/waiter/*",
+        element: (
+          <RoleGuard allowedRoles={["waiter"]}>
+            <WaiterWrapper />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "/kitchen/*",
+        element: (
+          <RoleGuard allowedRoles={["kitchen"]}>
+            <KitchenWrapper />
+          </RoleGuard>
+        ),
+      },
+    ]
+  : [];
 
 export const router = createBrowserRouter([
   {
@@ -128,22 +125,7 @@ export const router = createBrowserRouter([
     path: "/branch/*",
     element: <Navigate to="/manager" replace />,
   },
-  {
-    path: "/waiter/*",
-    element: (
-      <RoleGuard allowedRoles={["waiter"]}>
-        <WaiterWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/kitchen/*",
-    element: (
-      <RoleGuard allowedRoles={["kitchen"]}>
-        <KitchenWrapper />
-      </RoleGuard>
-    ),
-  },
+  ...staffRoutes,
   {
     path: "*",
     element: <Navigate to="/" replace />,

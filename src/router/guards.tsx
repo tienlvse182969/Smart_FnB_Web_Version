@@ -1,6 +1,21 @@
 import { Navigate } from "react-router-dom";
 import { useAppStore } from "../store";
+import { ENABLE_STAFF_APPS } from "../config";
 import type { RoleKey } from "../types";
+
+const ROLE_HOME: Record<RoleKey, string> = {
+  admin: "/admin",
+  owner: "/owner",
+  manager: "/manager",
+  waiter: "/waiter",
+  kitchen: "/kitchen",
+};
+
+/** Trang chủ của một vai trò. Waiter/Kitchen về /login khi phân hệ bị tắt. */
+export function homeRouteFor(role: RoleKey): string {
+  if (!ENABLE_STAFF_APPS && (role === "waiter" || role === "kitchen")) return "/login";
+  return ROLE_HOME[role] ?? "/login";
+}
 
 interface RoleGuardProps {
   allowedRoles: RoleKey[];
@@ -48,15 +63,7 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   }
 
   if (!allowedRoles.includes(currentUser.role)) {
-    // Redirect to their respective workspace
-    const roleRoutes: Record<RoleKey, string> = {
-      admin: "/admin",
-      owner: "/owner",
-      manager: "/manager",
-      waiter: "/waiter",
-      kitchen: "/kitchen",
-    };
-    return <Navigate to={roleRoutes[currentUser.role] || "/login"} replace />;
+    return <Navigate to={homeRouteFor(currentUser.role)} replace />;
   }
 
   return <>{children}</>;

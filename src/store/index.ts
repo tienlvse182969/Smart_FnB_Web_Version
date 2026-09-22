@@ -19,11 +19,16 @@ import type {
   WorkSession,
 } from "../types";
 import {
+  loginWithPassword,
+  restoreSession,
+  logoutSession,
+} from "../services/authApi";
+import { setSessionExpiredHandler } from "../services/http";
+import {
   getDemoAccounts,
   getTenantBranding,
   updateBranding as serviceUpdateBranding,
   resetBranding as serviceResetBranding,
-  login as serviceLogin,
   changePassword as serviceChangePassword,
   listBranches,
   createBranch as serviceCreateBranch,
@@ -86,10 +91,11 @@ export interface AppState {
 
   // Actions
   bootstrap: () => Promise<void>;
-  login: (accountId: string, password: string) => Promise<AuthUser>;
+  /** Đăng nhập thật qua backend bằng email + mật khẩu. */
+  login: (email: string, password: string) => Promise<AuthUser>;
   /** Đổi mật khẩu tài khoản đang đăng nhập (bắt buộc lần đầu — CM-01). */
   changePassword: (newPassword: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   switchBranch: (branchId: string) => Promise<void>;
   refreshOperationalData: () => Promise<void>;
 
@@ -144,6 +150,13 @@ export interface AppState {
   setStaffActive: (id: string, active: boolean) => Promise<void>;
 }
 
+/**
+ * StrictMode gọi effect hai lần. Refresh token của backend xoay vòng và chỉ
+ * dùng được một lần, nên hai lượt bootstrap song song sẽ làm lượt sau thất bại
+ * và đá người dùng ra /login. Giữ đúng một promise duy nhất.
+ */
+let bootstrapPromise: Promise<void> | null = null;
+
 export const useAppStore = create<AppState>((set, get) => ({
   currentUser: null,
   tenantBranding: null,
@@ -163,64 +176,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   workSessions: [],
 
   bootstrap: async () => {
-    if (get().isBootstrapped) return;
-    seedAll();
+    if (bootstrapPromise) return bootstrapPromise;
+    bootstrapPromise = (async () => {
+      seedAll();
 
-    // Load saved auth from session storage if exists
-    let savedUser: AuthUser | null = null;
-    try {
-      const saved = sessionStorage.getItem("smartfnb_auth_user");
-      if (saved) savedUser = JSON.parse(saved);
-    } catch {
-      // ignore
-    }
+      setSessionExpiredHandler(() => {
+        void useAppStore.getState().logout();
+      });
 
-    const demoAccs = await getDemoAccounts();
-    let branding: Branding | null = null;
-    if (savedUser?.tenantId) {
-      branding = await getTenantBranding(savedUser.tenantId);
-    }
+      // Khôi phục phiên từ refresh token đã lưu — F5 không văng ra /login.
+      const savedUser = await restoreSession();
 
-    set({
-      demoAccounts: demoAccs,
-      currentUser: savedUser,
-      tenantBranding: branding,
-      currentBranchId: savedUser?.branchId ?? null,
-      isBootstrapped: true,
-    });
-
-    if (savedUser) {
-      await get().refreshOperationalData();
-    }
-
-    // Subscribe to cross-tab broadcast
-    broadcast.subscribe((msg) => {
-      if (msg.type === "REFETCH_ALL") {
-        get().refreshOperationalData();
+      const demoAccs = await getDemoAccounts();
+      let branding: Branding | null = null;
+      if (savedUser?.tenantId) {
+        branding = await getTenantBranding(savedUser.tenantId);
       }
-      if (msg.type === "BRANDING_UPDATED") {
-        const { currentUser } = get();
-        // Chỉ áp lại theme cho tab của ĐÚNG tenant vừa đổi nhận diện.
-        if (currentUser?.tenantId === msg.tenantId) {
-          getTenantBranding(msg.tenantId).then((branding) => {
-            set({ tenantBranding: branding });
-          });
+
+      set({
+        demoAccounts: demoAccs,
+        currentUser: savedUser,
+        tenantBranding: branding,
+        currentBranchId: savedUser?.branchId ?? null,
+        isBootstrapped: true,
+      });
+
+      if (savedUser) {
+        await get().refreshOperationalData();
+      }
+
+      // Subscribe to cross-tab broadcast
+      broadcast.subscribe((msg) => {
+        if (msg.type === "REFETCH_ALL") {
+          get().refreshOperationalData();
         }
-      }
-    });
+        if (msg.type === "BRANDING_UPDATED") {
+          const { currentUser } = get();
+          // Chỉ áp lại theme cho tab của ĐÚNG tenant vừa đổi nhận diện.
+          if (currentUser?.tenantId === msg.tenantId) {
+            getTenantBranding(msg.tenantId).then((branding) => {
+              set({ tenantBranding: branding });
+            });
+          }
+        }
+      });
+    })();
+    return bootstrapPromise;
   },
 
-  login: async (accountId: string, password: string) => {
+  login: async (email: string, password: string) => {
     set({ isLoading: true });
     try {
-      const user = await serviceLogin(accountId, password);
+      const user = await loginWithPassword(email, password);
       const branding = await getTenantBranding(user.tenantId);
-
-      try {
-        sessionStorage.setItem("smartfnb_auth_user", JSON.stringify(user));
-      } catch {
-        // ignore
-      }
 
       set({
         currentUser: user,
@@ -241,13 +249,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     await serviceChangePassword(currentUser.id, newPassword);
-    const updated = { ...currentUser, mustChangePassword: false };
-    set({ currentUser: updated });
-    try {
-      sessionStorage.setItem("smartfnb_auth_user", JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+    set({ currentUser: { ...currentUser, mustChangePassword: false } });
   },
 
   createBranch: async (data) => {
@@ -264,12 +266,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
-  logout: () => {
-    try {
-      sessionStorage.removeItem("smartfnb_auth_user");
-    } catch {
-      // ignore
-    }
+  logout: async () => {
+    await logoutSession();
     set({
       currentUser: null,
       tenantBranding: null,
