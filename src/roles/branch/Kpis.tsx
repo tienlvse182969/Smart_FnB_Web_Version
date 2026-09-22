@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Col, Row } from "antd";
 import { ChefHat, LayoutGrid, Sparkles, TrendingUp } from "lucide-react";
-import { money } from "../../data";
 import { kitchenQueue } from "../../services/order.service";
 import { StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
@@ -9,14 +8,9 @@ import { useAppStore } from "../../store";
 /** Dashboard chi nhánh (mục 4.5.D) — mọi số liệu đọc từ mock/db.ts qua store. */
 export default function Kpis() {
   const tables = useAppStore((s) => s.tables);
-  const payments = useAppStore((s) => s.payments);
   const orderLines = useAppStore((s) => s.orderLines);
   const menuItems = useAppStore((s) => s.menuItems);
   const branchMenuItems = useAppStore((s) => s.branchMenuItems);
-
-  const revenueToday = payments
-    .filter((p) => p.status === "confirmed")
-    .reduce((sum, p) => sum + p.amount, 0);
 
   const servingCount = tables.filter((t) => t.status === "occupied").length;
 
@@ -38,12 +32,13 @@ export default function Kpis() {
   return (
     <Row gutter={[16, 16]}>
       <Col xs={12} md={6}>
+        {/* Backend chỉ mở /reports/* cho OWNER; Manager gọi vào nhận 403. Thà để
+            trống còn hơn hiện số giả bên cạnh các số thật. */}
         <StatCard
           label="Doanh thu hôm nay"
-          value={money(revenueToday)}
-          hint="chi nhánh này"
+          value={<span style={{ fontSize: 15, color: "#71717a" }}>Chưa có dữ liệu</span>}
+          hint="báo cáo doanh thu chưa mở cho Quản lý chi nhánh"
           icon={<TrendingUp size={18} />}
-          emphasis
         />
       </Col>
       <Col xs={12} md={6}>

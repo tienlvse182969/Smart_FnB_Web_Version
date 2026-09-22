@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Col, Row, Tabs } from "antd";
+import { Tabs } from "antd";
 import {
   Banknote,
   CalendarDays,
@@ -12,8 +12,7 @@ import {
 } from "lucide-react";
 import RoleShell, { type NavItem } from "../../layout/RoleShell";
 import { page } from "../../components/bits";
-import Kpis from "./Kpis";
-import RevenueChart from "./RevenueChart";
+import Reports from "./Reports";
 import MenuTable from "./MenuTable";
 import Branches from "./Branches";
 import ManagerAccounts from "./ManagerAccounts";
@@ -46,19 +45,7 @@ export default function OwnerApp({ onLogout }: { onLogout: () => void }) {
       searchPlaceholder="Tìm chi nhánh, món, tài khoản…"
     >
       <div style={page}>
-        {section === "dashboard" && (
-          <>
-            <Kpis />
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-              <Col xs={24}>
-                <RevenueChart />
-              </Col>
-            </Row>
-            <div style={{ marginTop: 16 }}>
-              <MenuTable />
-            </div>
-          </>
-        )}
+        {section === "dashboard" && <Reports />}
         {section === "branches" && <Branches />}
         {section === "menu" && <MenuTable />}
         {section === "accounts" && <ManagerAccounts />}

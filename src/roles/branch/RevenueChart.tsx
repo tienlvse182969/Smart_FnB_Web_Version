@@ -1,52 +1,37 @@
 import { Card } from "antd";
-import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 
 /**
- * Doanh thu chi nhánh theo hình thức thanh toán — dữ liệu thật từ `payments`
- * (mock/db.ts), thay cho biểu đồ giờ giả lập trước đây (không có dữ liệu
- * theo giờ thật trong mô hình mới).
+ * Doanh thu chi nhánh.
+ *
+ * Trước đây biểu đồ này vẽ từ `payments` trong mock. Nay Owner đã đọc doanh thu
+ * thật qua `/reports/*`, nhưng nhóm endpoint đó chặn ở `@Roles(AppRole.OWNER)` —
+ * Manager gọi vào nhận 403. Không có nguồn thật nào khác cho chi nhánh, nên
+ * hiển thị trạng thái rỗng thay vì trộn số giả vào cùng màn với số thật.
  */
 export default function RevenueChart() {
   const branches = useAppStore((s) => s.branches);
   const currentBranchId = useAppStore((s) => s.currentBranchId);
-  const payments = useAppStore((s) => s.payments);
-
-  const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
-  const confirmed = payments.filter((p) => p.status === "confirmed");
-  const qrTotal = confirmed.filter((p) => p.method === "qr").reduce((s, p) => s + p.amount, 0);
-  const cashTotal = confirmed.filter((p) => p.method === "cash").reduce((s, p) => s + p.amount, 0);
-  const max = Math.max(qrTotal, cashTotal, 1);
-
-  const bars = [
-    { label: "Chuyển khoản QR", value: qrTotal },
-    { label: "Tiền mặt", value: cashTotal },
-  ];
+  const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "Chi nhánh";
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle title="Doanh thu theo hình thức thanh toán" sub={`${branchName} · hôm nay`} />
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 24, height: 168, marginTop: 8, paddingLeft: 8 }}>
-        {bars.map((b) => (
-          <div key={b.label} style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ height: 140, display: "flex", alignItems: "flex-end" }}>
-              <div
-                title={money(b.value)}
-                style={{
-                  width: "100%",
-                  height: `${(b.value / max) * 100}%`,
-                  minHeight: b.value > 0 ? 4 : 0,
-                  background: b.value === max ? "#0a0a0a" : "#d4d4d8",
-                  borderRadius: "5px 5px 0 0",
-                  transition: "height .3s",
-                }}
-              />
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6 }}>{money(b.value)}</div>
-            <div style={{ fontSize: 11, color: "#a1a1aa" }}>{b.label}</div>
-          </div>
-        ))}
+      <SectionTitle title="Doanh thu chi nhánh" sub={branchName} />
+      <div
+        style={{
+          marginTop: 8,
+          padding: "40px 20px",
+          textAlign: "center",
+          border: "1px dashed var(--ant-color-border)",
+          borderRadius: 10,
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>Chưa có dữ liệu</div>
+        <div style={{ color: "#71717a", fontSize: 13, maxWidth: 420, margin: "0 auto", lineHeight: 1.6 }}>
+          Báo cáo doanh thu hiện chỉ mở cho tài khoản Chủ chuỗi. Khi backend cho phép Quản lý chi
+          nhánh đọc báo cáo, phần này sẽ hiển thị số liệu thật của chi nhánh.
+        </div>
       </div>
     </Card>
   );
