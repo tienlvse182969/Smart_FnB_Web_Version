@@ -18,11 +18,18 @@ export function toApiStatus(status: BranchStatus): ApiBranchStatus {
   return API_STATUS[status];
 }
 
-/** Ghép các mảnh địa chỉ của backend thành một dòng cho UI. */
-export function formatAddress(branch: ApiBranch): string {
-  return [branch.addressLine1, branch.addressLine2, branch.ward, branch.district, branch.city]
-    .filter((part) => part && part.trim())
-    .join(", ");
+/**
+ * Ghép địa chỉ thành một dòng: số nhà → phường/xã → tỉnh/thành.
+ *
+ * Bỏ `district` vì Việt Nam đã bỏ cấp quận/huyện từ 01/07/2025. Các bản ghi tạo
+ * trong giai đoạn form cũ có `city` bị ghi trùng `addressLine1`; trùng thì chỉ
+ * hiện một lần thay vì lặp lại chuỗi giống hệt nhau.
+ */
+export function formatAddress(branch: Pick<ApiBranch, "addressLine1" | "ward" | "city">): string {
+  const parts = [branch.addressLine1, branch.ward, branch.city]
+    .map((part) => part?.trim())
+    .filter((part): part is string => !!part);
+  return [...new Set(parts)].join(", ");
 }
 
 /**

@@ -84,6 +84,18 @@ import { toUiBranch, toApiStatus } from "./branchMapping";
 
 export type ScopeStatus = "idle" | "loading" | "ready" | "error";
 
+/** Địa chỉ gửi lên backend theo hai cấp: không còn `district`. */
+export interface BranchFormData {
+  code: string;
+  name: string;
+  addressLine1: string;
+  ward: string;
+  city: string;
+  phone: string;
+  openTime?: string;
+  closeTime?: string;
+}
+
 export interface AppState {
   // Auth state
   currentUser: AuthUser | null;
@@ -132,8 +144,8 @@ export interface AppState {
   loadScope: () => Promise<void>;
 
   // Chi nhánh (Owner — mục 4.4.A, OW-01)
-  createBranch: (data: { code: string; name: string; address: string; phone: string; openTime: string; closeTime: string }) => Promise<void>;
-  updateBranch: (id: string, data: Partial<{ code: string; name: string; address: string; phone: string; status: "open" | "closed" | "suspended" }>) => Promise<void>;
+  createBranch: (data: BranchFormData) => Promise<void>;
+  updateBranch: (id: string, data: Partial<BranchFormData> & { status?: "open" | "closed" | "suspended" }) => Promise<void>;
 
   // Operations
   openTable: (tableIds: string[], guests: number) => Promise<TableSession>;
@@ -368,9 +380,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     await apiCreateBranch(chainId, {
       code: data.code,
       name: data.name,
-      addressLine1: data.address,
-      // Backend bắt buộc `city` tách riêng nhưng UI chỉ có một ô địa chỉ.
-      city: data.address,
+      addressLine1: data.addressLine1,
+      ward: data.ward || undefined,
+      city: data.city,
       phone: data.phone || undefined,
       openTime: data.openTime || undefined,
       closeTime: data.closeTime || undefined,
@@ -386,7 +398,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...(fields.code !== undefined ? { code: fields.code } : {}),
       ...(fields.name !== undefined ? { name: fields.name } : {}),
       ...(fields.phone !== undefined ? { phone: fields.phone } : {}),
-      ...(fields.address !== undefined ? { addressLine1: fields.address } : {}),
+      ...(fields.addressLine1 !== undefined ? { addressLine1: fields.addressLine1 } : {}),
+      ...(fields.ward !== undefined ? { ward: fields.ward } : {}),
+      ...(fields.city !== undefined ? { city: fields.city } : {}),
     };
     if (Object.keys(patch).length) await apiUpdateBranch(id, patch);
     if (status) await apiUpdateBranchStatus(id, toApiStatus(status));

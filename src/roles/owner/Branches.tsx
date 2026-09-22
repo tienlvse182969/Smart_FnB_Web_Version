@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import type { Branch } from "../../types";
 import { useAppStore } from "../../store";
 import { getFloorTables } from "../../services";
-import { describeBranchError } from "../../services/branchApi";
+import { describeBranchError, type ApiBranch } from "../../services/branchApi";
 import { toMockBranchId } from "../../services/mockBridge";
+import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
+import type { BranchFormData } from "../../store";
 
 function BranchCard({
   b,
@@ -123,7 +125,7 @@ export default function Branches() {
 
       <BranchDrawer
         branch={editing}
-        code={editing && editing !== "new" ? (codeById[editing.id] ?? "") : ""}
+        existing={editing && editing !== "new" ? apiBranches.find((b) => b.id === editing.id) : undefined}
         saving={saving}
         onClose={() => setEditing(null)}
         onSave={async (data) => {
@@ -179,37 +181,45 @@ function SectionHeader({
 
 function BranchDrawer({
   branch,
-  code: existingCode,
+  existing: apiBranch,
   saving,
   onClose,
   onSave,
 }: {
   branch: Branch | "new" | null;
-  code: string;
+  existing: ApiBranch | undefined;
   saving: boolean;
   onClose: () => void;
-  onSave: (data: { code: string; name: string; address: string; phone: string; openTime: string; closeTime: string; status?: "open" | "closed" | "suspended" }) => void;
+  onSave: (data: BranchFormData & { status?: "open" | "closed" | "suspended" }) => void;
 }) {
   const isNew = branch === "new";
   const existing = isNew ? null : branch;
-  const [code, setCode] = useState(existingCode);
-  const [name, setName] = useState(existing?.name ?? "");
-  const [address, setAddress] = useState(existing?.address ?? "");
-  const [phone, setPhone] = useState(existing?.phone ?? "");
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [ward, setWard] = useState("");
+  const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
   const [openTime, setOpenTime] = useState("07:00");
   const [closeTime, setCloseTime] = useState("22:00");
-  const [status, setStatus] = useState<"open" | "closed" | "suspended">(existing?.status ?? "open");
+  const [status, setStatus] = useState<"open" | "closed" | "suspended">("open");
 
   useEffect(() => {
-    setCode(existingCode);
-    setName(existing?.name ?? "");
-    setAddress(existing?.address ?? "");
-    setPhone(existing?.phone ?? "");
+    setCode(apiBranch?.code ?? "");
+    setName(apiBranch?.name ?? "");
+    setAddressLine1(apiBranch?.addressLine1 ?? "");
+    setWard(apiBranch?.ward ?? "");
+    // Chi nhánh cũ có thể mang tên tỉnh đã sáp nhập, hoặc mang chuỗi địa chỉ do
+    // form một ô trước đây ghi đè. Không đoán — để trống và yêu cầu chọn lại.
+    setCity(isKnownProvince(apiBranch?.city) ? (apiBranch?.city ?? "") : "");
+    setPhone(apiBranch?.phone ?? "");
     setOpenTime("07:00");
     setCloseTime("22:00");
     setStatus(existing?.status ?? "open");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch, existingCode]);
+  }, [branch, apiBranch]);
+
+  const cityNeedsReview = !isNew && !!apiBranch && !isKnownProvince(apiBranch.city);
 
   return (
     <Drawer
@@ -224,8 +234,33 @@ function BranchDrawer({
       <Field label="Tên chi nhánh">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Chi nhánh Quận 10" />
       </Field>
-      <Field label="Địa chỉ">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+      <Field label="Số nhà, tên đường">
+        <Input
+          value={addressLine1}
+          onChange={(e) => setAddressLine1(e.target.value)}
+          placeholder="VD: 123 Nguyễn Huệ"
+        />
+      </Field>
+      <Field label="Phường/Xã">
+        <Input value={ward} onChange={(e) => setWard(e.target.value)} placeholder="VD: Phường Bến Nghé" />
+      </Field>
+      <Field label="Tỉnh/Thành phố">
+        <Select
+          value={city || undefined}
+          onChange={setCity}
+          style={{ width: "100%" }}
+          showSearch
+          optionFilterProp="label"
+          placeholder="Chọn tỉnh/thành phố"
+          options={PROVINCE_OPTIONS}
+          status={cityNeedsReview && !city ? "warning" : undefined}
+        />
+        {cityNeedsReview && !city && (
+          <div style={{ fontSize: 12, color: "#9a640c", marginTop: 6 }}>
+            Vui lòng chọn lại tỉnh/thành. Giá trị đang lưu (“{apiBranch?.city}”) không nằm trong danh
+            sách 34 tỉnh/thành sau sáp nhập 2025.
+          </div>
+        )}
       </Field>
       <Field label="Số điện thoại">
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -261,8 +296,20 @@ function BranchDrawer({
         block
         loading={saving}
         style={{ marginTop: 8 }}
-        disabled={!code.trim() || !name.trim() || !address.trim()}
-        onClick={() => onSave({ code: code.trim(), name: name.trim(), address: address.trim(), phone: phone.trim(), openTime, closeTime, status: isNew ? undefined : status })}
+        disabled={!code.trim() || !name.trim() || !addressLine1.trim() || !city}
+        onClick={() =>
+          onSave({
+            code: code.trim(),
+            name: name.trim(),
+            addressLine1: addressLine1.trim(),
+            ward: ward.trim(),
+            city,
+            phone: phone.trim(),
+            openTime,
+            closeTime,
+            status: isNew ? undefined : status,
+          })
+        }
       >
         {isNew ? "Tạo chi nhánh" : "Lưu thay đổi"}
       </Button>
