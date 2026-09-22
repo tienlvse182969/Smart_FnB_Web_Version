@@ -32,7 +32,7 @@ const mockBranchByRealId = new Map<string, string>();
  */
 export function registerRealScope(
   chainIds: string[],
-  branches: { id: string; chainId: string }[],
+  branches: { id: string; chainId: string; createdAt: string }[],
 ): void {
   tenantByChainId.clear();
   mockBranchByRealId.clear();
@@ -42,8 +42,12 @@ export function registerRealScope(
     tenantByChainId.set(chainId, MOCK_TENANTS[index % MOCK_TENANTS.length]);
   });
 
+  // Xếp theo thời điểm tạo để một chi nhánh luôn trỏ tới cùng một chi nhánh
+  // mock, kể cả sau khi thêm chi nhánh mới hay backend đổi thứ tự trả về.
+  const ordered = [...branches].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
   const seenPerChain = new Map<string, number>();
-  for (const branch of branches) {
+  for (const branch of ordered) {
     const tenant = tenantByChainId.get(branch.chainId) ?? MOCK_TENANTS[0];
     const pool = MOCK_BRANCHES_BY_TENANT[tenant];
     const index = seenPerChain.get(branch.chainId) ?? 0;
