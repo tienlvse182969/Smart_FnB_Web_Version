@@ -317,8 +317,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       const chains = currentUser.role === "owner" ? await listChains() : [];
       const apiBranches = await apiListBranches();
 
-      const chainId = chains[0]?.id ?? apiBranches[0]?.chainId ?? null;
-      const chainName = chains[0]?.name ?? apiBranches[0]?.chain.name ?? null;
+      // Owner có thể được gán nhiều chuỗi. Chưa có bộ chọn chuỗi, nên lấy
+      // chuỗi đầu tiên CÓ chi nhánh đang hoạt động — chuỗi rỗng hoặc đã đóng
+      // hết chi nhánh sẽ chỉ dẫn tới màn hình trắng.
+      const chainWithActiveBranch = chains.find((chain) =>
+        apiBranches.some((branch) => branch.chainId === chain.id && branch.status === "ACTIVE"),
+      );
+      const primaryChain = chainWithActiveBranch ?? chains[0];
+
+      const chainId = primaryChain?.id ?? apiBranches[0]?.chainId ?? null;
+      const chainName = primaryChain?.name ?? apiBranches[0]?.chain.name ?? null;
 
       if (!chainId) {
         throw new Error(
@@ -343,8 +351,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         scopeError: null,
         chainId,
         chainName,
-        plan: chains[0]?.subscription?.plan ?? null,
-        quotas: chains[0]?.subscription?.quotas ?? [],
+        plan: primaryChain?.subscription?.plan ?? null,
+        quotas: primaryChain?.subscription?.quotas ?? [],
         apiBranches,
         branches: apiBranches.map((b) => toUiBranch(b, toMockTenantId(b.chainId))),
         currentBranchId: activeBranchId,
