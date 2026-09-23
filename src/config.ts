@@ -12,3 +12,14 @@ export const FEATURE_FLAGS = {
   /** Đối soát tay — Branch Manager (mục 4.5.B). */
   manualReconciliation: false,
 };
+
+/** Gốc API backend thật, ví dụ http://localhost:3100/api/v1. */
+export const API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3100/api/v1";
+
+/**
+ * Waiter và Kitchen đã chuyển sang ứng dụng tablet. Cờ này tắt route, menu và
+ * mọi lối vào hai phân hệ đó trên web — code màn hình vẫn giữ nguyên.
+ */
+export const ENABLE_STAFF_APPS: boolean =
+  import.meta.env.VITE_ENABLE_STAFF_APPS === "true";
