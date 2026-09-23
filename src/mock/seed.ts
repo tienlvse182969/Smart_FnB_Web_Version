@@ -433,8 +433,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { id: "ACC-admin",   role: "admin",   name: "Platform Admin",   email: "admin@platform.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Platform Admin",   scope: "Nền tảng",                      tenantId: undefined, branchId: undefined },
   { id: "ACC-owner",   role: "owner",   name: "Nguyễn Chủ Chuỗi", email: "owner@comtam.vn",    password: "demo1234", mustChangePassword: false, active: true, label: "Owner",            scope: "Cơm Tấm Sài Gòn · Toàn chuỗi", tenantId: T1,        branchId: undefined },
   { id: "ACC-manager", role: "manager", name: "Trần Minh Quân",   email: "manager@comtam.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Branch Manager",   scope: "Cơm Tấm Sài Gòn · Quận 1",     tenantId: T1,        branchId: T1_B1 },
-  { id: "ACC-waiter",  role: "waiter",  name: "Võ Hoàng Nam",     email: "waiter@comtam.vn",   password: "demo1234", mustChangePassword: false, active: true, label: "Waiter",           scope: "Chi nhánh Quận 1",             tenantId: T1,        branchId: T1_B1 },
-  { id: "ACC-kitchen", role: "kitchen", name: "Nguyễn Văn Tú",    email: "kitchen@comtam.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Kitchen Staff",    scope: "Trạm bếp · Quận 1",             tenantId: T1,        branchId: T1_B1 },
+  { id: "ACC-waiter",  role: "waiter",  name: "Waiter Demo",       email: "waiter.demo@smartfnb.local",  password: "demo1234", mustChangePassword: false, active: true, label: "Waiter",        scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
+  { id: "ACC-kitchen", role: "kitchen", name: "Kitchen Demo",      email: "kitchen.demo@smartfnb.local", password: "demo1234", mustChangePassword: false, active: true, label: "Kitchen Staff", scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
 ];
 
 // =====================================================================

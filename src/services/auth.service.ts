@@ -3,6 +3,8 @@ import { db } from "../mock/db";
 import type { AuthUser, DemoAccount } from "../types";
 import { DEFAULT_PASSWORD } from "../types";
 import { delay, newId } from "./_utils";
+import { operationalApiEnabled } from "./api";
+import { loginOperational } from "./operational-api";
 
 /** Lấy danh sách mọi tài khoản đăng nhập được (màn chọn tài khoản). */
 export async function getDemoAccounts(): Promise<DemoAccount[]> {
@@ -18,6 +20,9 @@ export async function login(accountId: string, password: string): Promise<AuthUs
   await delay();
   const account = db.demoAccounts.find((a) => a.id === accountId);
   if (!account) throw new Error("Tài khoản không tồn tại");
+  if (operationalApiEnabled && (account.role === "waiter" || account.role === "kitchen")) {
+    return loginOperational(account.email, password);
+  }
   if (!account.active) throw new Error("Tài khoản đã bị khoá — liên hệ quản trị viên");
   if (account.password !== password) throw new Error("Sai mật khẩu");
 

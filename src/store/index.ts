@@ -78,6 +78,15 @@ import {
   toMockBranchId,
   toMockTenantId,
 } from "../services/mockBridge";
+import {
+  claimOperationalLine,
+  loadOperationalData,
+  readyOperationalItem,
+  serveOperationalLine,
+  startOperationalItem,
+  submitOperationalOrder,
+  unavailableOperationalItem,
+} from "../services/operational-api";
 import { seedAll } from "../mock/seed";
 import { broadcast } from "./broadcast";
 import { toUiBranch, toApiStatus } from "./branchMapping";
@@ -239,6 +248,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Khôi phục phiên từ refresh token đã lưu — F5 không văng ra /login.
       const savedUser = await restoreSession();
 
+      // `restoreSession()` đã tự kiểm tra refresh token, nên không cần chốt
+      // `hasAccessToken()` như nhánh main — web không còn lưu `smartfnb_auth_user`.
       const demoAccs = await getDemoAccounts();
       let branding: Branding | null = null;
       if (savedUser?.tenantId) {
@@ -418,6 +429,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: async () => {
+    // `logoutSession()` thu hồi phiên ở backend rồi xoá cả access lẫn refresh
+    // token, nên đã bao gồm việc `clearAccessToken()` của nhánh main làm.
     await logoutSession();
     clearRealScope();
     set({
@@ -453,6 +466,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshOperationalData: async () => {
     const { currentUser, currentBranchId } = get();
     if (!currentUser) return;
+
+    // Luồng Waiter/Kitchen của nhánh main. Đăng nhập hiện tại không đặt
+    // `apiBacked` nên nhánh này không chạy — giữ lại để bật lại dễ khi mở
+    // lại hai phân hệ đó trên web.
+    if (currentUser.apiBacked) {
+      const data = await loadOperationalData(currentUser);
+      set({ ...data, currentBranchId: currentUser.branchId });
+      return;
+    }
 
     // Chi nhánh giờ lấy từ API thật (loadScope), không đọc mock nữa. Các phân
     // hệ bên dưới còn mock nên phải đổi sang ID mock qua cầu nối.
@@ -500,8 +522,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const session = await serviceOpenSession(
-      currentUser.tenantId,
-      currentBranchId,
+      currentUser.tenantId!,
+      currentBranchId!,
       tableIds,
       guests,
       currentUser.name
@@ -526,13 +548,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   submitOrder: async (sessionId: string, cart: CartItem[]) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) {
+    if (!currentUser || (!currentUser.apiBacked && (!currentUser.tenantId || !currentBranchId))) {
       throw new Error("Chưa xác thực");
     }
 
+    if (currentUser.apiBacked) {
+      const result = await submitOperationalOrder(sessionId, cart);
+      await get().refreshOperationalData();
+      return result;
+    }
+
     const result = await serviceSubmitOrder(
-      currentUser.tenantId,
-      currentBranchId,
+      currentUser.tenantId!,
+      currentBranchId!,
       sessionId,
       currentUser.name,
       cart
@@ -549,6 +577,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     lineId: string,
     status: Exclude<OrderLineStatus, "done" | "sold_out">
   ) => {
+    if (get().currentUser?.apiBacked) {
+      if (status !== "cooking") throw new Error("Chuyển trạng thái này chưa được API hỗ trợ");
+      await startOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
     await serviceUpdateLineStatus(lineId, status);
     await get().refreshOperationalData();
     broadcast.send({ type: "REFETCH_ALL" });
@@ -556,7 +590,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   markLineDone: async (lineId: string) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) return;
+    if (!currentUser) return;
+    if (currentUser.apiBacked) {
+      await readyOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+    if (!currentUser.tenantId || !currentBranchId) return;
 
     await serviceMarkLineDone(lineId, currentUser.tenantId, currentBranchId);
     await get().refreshOperationalData();
@@ -565,7 +605,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   reportSoldOut: async (lineId: string) => {
     const { currentUser, currentBranchId } = get();
-    if (!currentUser || !currentUser.tenantId || !currentBranchId) return;
+    if (!currentUser) return;
+    if (currentUser.apiBacked) {
+      await unavailableOperationalItem(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+    if (!currentUser.tenantId || !currentBranchId) return;
 
     await serviceReportSoldOut(lineId, currentUser.tenantId, currentBranchId, currentUser.name);
     await get().refreshOperationalData();
@@ -576,6 +622,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
 
+    if (currentUser.apiBacked) {
+      await claimOperationalLine(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
+
     await serviceClaimLine(lineId, currentUser.name);
 
     await get().refreshOperationalData();
@@ -583,6 +635,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   markLineServed: async (lineId: string) => {
+    if (get().currentUser?.apiBacked) {
+      await serveOperationalLine(lineId);
+      await get().refreshOperationalData();
+      return;
+    }
     await serviceMarkLineServed(lineId);
     await get().refreshOperationalData();
     broadcast.send({ type: "REFETCH_ALL" });
