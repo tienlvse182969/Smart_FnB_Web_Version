@@ -40,4 +40,6 @@ export type AuthUser = {
   branchId: string | null; // null cho admin + owner
   /** true = phải đổi mật khẩu trước khi dùng hệ thống (CM-01). */
   mustChangePassword: boolean;
+  /** True when Waiter/Kitchen data comes from the backend API. */
+  apiBacked?: boolean;
 };
