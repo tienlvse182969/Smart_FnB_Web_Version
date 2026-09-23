@@ -179,11 +179,5 @@ export function getCustomerTraffic(params: ReportRangeParams = {}): Promise<Cust
   return request<CustomerTraffic>(`/reports/customers${buildQuery(params)}`);
 }
 
-/**
- * Đổi chuỗi tiền của backend sang số để tính toán hoặc vẽ biểu đồ.
- * Chuỗi hỏng trả về 0 thay vì NaN, để một dòng lỗi không làm vỡ cả biểu đồ.
- */
-export function parseMoney(value: string | null | undefined): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+// Đọc số tiền bằng `parseAmount` trong `reportFormat.ts` — một hàm duy nhất
+// cho cả `/reports` ("995000.00") lẫn `/payments` ("250000").

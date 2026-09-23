@@ -4,9 +4,10 @@ import { Banknote, ReceiptText, Users, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 import { SectionTitle, StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
-import { parseMoney, type ReportGranularity, type TopItemRow } from "../../services/reportApi";
+import type { ReportGranularity, TopItemRow } from "../../services/reportApi";
 import {
   RANGE_PRESETS,
+  parseAmount,
   describeRange,
   formatCount,
   formatDayLabel,
@@ -125,7 +126,7 @@ type BlockProps = { data: ReturnType<typeof useReportData>["data"]; loading: boo
 
 function KpiRow({ data, loading }: BlockProps) {
   const totals = data?.comparison.totals;
-  const revenue = parseMoney(totals?.revenue);
+  const revenue = parseAmount(totals?.revenue);
   const orders = totals?.orderCount ?? 0;
   const guests = data?.customers.totals.guestCount ?? 0;
   const aov = orders > 0 ? revenue / orders : 0;
@@ -192,7 +193,7 @@ function TimeseriesChart({ data, loading }: BlockProps) {
     const { buckets, series } = data.timeseries;
     return buckets.map((bucket, index) => ({
       bucket,
-      revenue: series.reduce((sum, s) => sum + parseMoney(s.points[index]?.revenue), 0),
+      revenue: series.reduce((sum, s) => sum + parseAmount(s.points[index]?.revenue), 0),
       orders: series.reduce((sum, s) => sum + (s.points[index]?.orderCount ?? 0), 0),
     }));
   }, [data]);
@@ -237,8 +238,8 @@ function TimeseriesChart({ data, loading }: BlockProps) {
 
 function BranchComparison({ data, loading }: BlockProps) {
   const rows = data?.comparison.branches ?? [];
-  const max = Math.max(...rows.map((r) => parseMoney(r.revenue)), 1);
-  const hasRevenue = rows.some((r) => parseMoney(r.revenue) > 0);
+  const max = Math.max(...rows.map((r) => parseAmount(r.revenue)), 1);
+  const hasRevenue = rows.some((r) => parseAmount(r.revenue) > 0);
 
   return (
     <ChartShell
@@ -250,7 +251,7 @@ function BranchComparison({ data, loading }: BlockProps) {
     >
       <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
         {rows.map((row) => {
-          const revenue = parseMoney(row.revenue);
+          const revenue = parseAmount(row.revenue);
           return (
             <div key={row.branch.id}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, marginBottom: 5 }}>

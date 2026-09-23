@@ -14,16 +14,32 @@ dayjs.extend(timezone);
 
 export const VN_TIMEZONE = "Asia/Ho_Chi_Minh";
 
+/**
+ * Đọc số tiền từ backend.
+ *
+ * TẠM THỜI: backend chưa thống nhất định dạng — `/reports/*` trả
+ * `"995000.00"`, còn `/payments/*` trả `"250000"`, và Swagger khai cả hai là
+ * số. Hàm này chịu được chuỗi có hoặc không phần thập phân, số, null và
+ * undefined. Khi backend thống nhất thì rút gọn lại còn một kiểu.
+ *
+ * Giá trị không đọc được trả 0 thay vì NaN, để một dòng hỏng không làm vỡ cả
+ * bảng hay biểu đồ.
+ */
+export function parseAmount(value: string | number | null | undefined): number {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 const vndFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
   currency: "VND",
   maximumFractionDigits: 0,
 });
 
-/** `1250000` → `1.250.000 ₫`. Nhận cả chuỗi thập phân của backend. */
+/** `1250000` → `1.250.000 ₫`. Nhận mọi định dạng mà {@link parseAmount} đọc được. */
 export function formatVnd(value: number | string | null | undefined): string {
-  const amount = typeof value === "string" ? Number(value) : (value ?? 0);
-  return vndFormatter.format(Number.isFinite(amount) ? amount : 0);
+  return vndFormatter.format(parseAmount(value));
 }
 
 /** `7420000` → `7,4 tr` — dùng cho nhãn trục biểu đồ, nơi chỗ hẹp. */
@@ -52,6 +68,12 @@ export function formatDayLabel(isoDate: string): string {
 /** `2026-09-22` → `22/09/2026`. */
 export function formatDate(isoDate: string): string {
   return dayjs(isoDate).format("DD/MM/YYYY");
+}
+
+/** Mốc thời gian đầy đủ, quy về giờ Việt Nam: `22/09/2026 18:15`. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return dayjs(iso).tz(VN_TIMEZONE).format("DD/MM/YYYY HH:mm");
 }
 
 export interface DateRange {

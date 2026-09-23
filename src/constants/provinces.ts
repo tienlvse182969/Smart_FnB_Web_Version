@@ -59,7 +59,39 @@ export const PROVINCES: readonly string[] = [...CENTRAL_CITIES, ...PROVINCES_ONL
 /** Dùng trực tiếp cho `options` của Ant Design Select. */
 export const PROVINCE_OPTIONS = PROVINCES.map((name) => ({ value: name, label: name }));
 
-/** Giá trị `city` có nằm trong danh sách hiện hành không. */
+/**
+ * Rút gọn một tên tỉnh/thành về dạng so sánh được: bỏ tiền tố đơn vị hành
+ * chính, gộp khoảng trắng thừa, bỏ phân biệt hoa thường.
+ *
+ * Cần thiết vì dữ liệu backend không thống nhất — seed ghi `"Hồ Chí Minh"`
+ * trong khi danh sách chuẩn dùng `"Thành phố Hồ Chí Minh"`.
+ */
+function normalizeProvince(value: string): string {
+  return value
+    .normalize("NFC")
+    .replace(/^\s*(thành\s+phố|tp\.?|tỉnh)\s+/iu, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLocaleLowerCase("vi");
+}
+
+const CANONICAL_BY_NORMALIZED = new Map(
+  PROVINCES.map((name) => [normalizeProvince(name), name] as const),
+);
+
+/**
+ * Tên đầy đủ trong danh sách chuẩn ứng với một giá trị `city` bất kỳ từ
+ * backend, hoặc null nếu không nhận ra. `"Hồ Chí Minh"`, `"TP. Hồ Chí Minh"`
+ * và `"thành phố hồ chí minh"` đều trả `"Thành phố Hồ Chí Minh"`.
+ *
+ * Chỉ dùng khi ĐỌC. Lúc GHI luôn gửi tên đầy đủ lấy từ {@link PROVINCES}.
+ */
+export function canonicalProvince(city: string | null | undefined): string | null {
+  if (!city || !city.trim()) return null;
+  return CANONICAL_BY_NORMALIZED.get(normalizeProvince(city)) ?? null;
+}
+
+/** Giá trị `city` có ứng với một tỉnh/thành hiện hành không. */
 export function isKnownProvince(city: string | null | undefined): boolean {
-  return !!city && PROVINCES.includes(city);
+  return canonicalProvince(city) !== null;
 }

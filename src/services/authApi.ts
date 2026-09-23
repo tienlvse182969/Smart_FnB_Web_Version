@@ -136,6 +136,33 @@ async function revokeSession(refreshToken: string): Promise<void> {
   }
 }
 
+/**
+ * Ngữ cảnh của phiên đang đăng nhập, gồm phạm vi chuỗi và chi nhánh.
+ *
+ * Đây là nguồn chuẩn cho phạm vi: `chainId` cho nhân viên (suy từ chi nhánh
+ * được gán) và `chainIds` cho OWNER (một Owner có thể giữ nhiều chuỗi). Trước
+ * đây web phải suy ngược từ `GET /branches`.
+ */
+export interface AuthContext {
+  id: string;
+  email: string;
+  phone: string | null;
+  role: BackendRole;
+  sessionId: string;
+  employeeId: string | null;
+  ownerId: string | null;
+  /** Chi nhánh được gán — chỉ nhân viên mới có. */
+  branchId: string | null;
+  /** Chuỗi của chi nhánh được gán — chỉ nhân viên mới có. */
+  chainId: string | null;
+  /** Mọi chuỗi OWNER đang quản lý. Rỗng với nhân viên và ADMIN. */
+  chainIds: string[];
+}
+
+export function getAuthContext(): Promise<AuthContext> {
+  return request<AuthContext>("/auth/me");
+}
+
 /** Đăng xuất: thu hồi phiên ở backend rồi xoá token phía client. */
 export async function logoutSession(): Promise<void> {
   const refreshToken = getRefreshToken();

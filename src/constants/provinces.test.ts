@@ -6,6 +6,7 @@
  */
 import {
   CENTRAL_CITIES,
+  canonicalProvince,
   PROVINCES,
   PROVINCES_ONLY,
   PROVINCE_OPTIONS,
@@ -51,6 +52,36 @@ assert(isKnownProvince("Thành phố Hồ Chí Minh"), "isKnownProvince nhận t
 assert(!isKnownProvince("Bình Dương"), "isKnownProvince từ chối tỉnh đã sáp nhập");
 assert(!isKnownProvince(""), "isKnownProvince từ chối chuỗi rỗng");
 assert(!isKnownProvince(null), "isKnownProvince từ chối null");
+
+// Backend không thống nhất cách ghi tên: seed dùng "Hồ Chí Minh", danh sách
+// chuẩn dùng "Thành phố Hồ Chí Minh". So khớp phải bỏ qua tiền tố đơn vị.
+const HCM = "Thành phố Hồ Chí Minh";
+for (const variant of [
+  "Hồ Chí Minh",
+  "Thành phố Hồ Chí Minh",
+  "thành phố hồ chí minh",
+  "THÀNH PHỐ HỒ CHÍ MINH",
+  "TP Hồ Chí Minh",
+  "TP. Hồ Chí Minh",
+  "tp.hồ chí minh".replace("tp.", "TP. "),
+  "  Hồ   Chí  Minh  ",
+]) {
+  assert(canonicalProvince(variant) === HCM, `"${variant}" → "${HCM}"`);
+}
+
+assert(canonicalProvince("Tỉnh Nghệ An") === "Nghệ An", '"Tỉnh Nghệ An" → "Nghệ An"');
+assert(canonicalProvince("tuyên quang") === "Tuyên Quang", '"tuyên quang" → "Tuyên Quang"');
+assert(canonicalProvince("Cần Thơ") === "Cần Thơ", "tên đã chuẩn giữ nguyên");
+assert(canonicalProvince("12 Le Loi") === null, "chuỗi địa chỉ cũ không khớp tỉnh nào");
+assert(canonicalProvince("Bình Dương") === null, "tỉnh đã sáp nhập không khớp");
+assert(canonicalProvince(null) === null, "null trả null");
+assert(canonicalProvince("   ") === null, "chuỗi toàn khoảng trắng trả null");
+
+// Mọi tên chuẩn phải tự khớp với chính nó.
+assert(
+  PROVINCES.every((name) => canonicalProvince(name) === name),
+  "mọi tên trong danh sách tự khớp chính nó",
+);
 
 console.log(`\n${passed} pass, ${failed} fail`);
 if (failed > 0) process.exitCode = 1;
