@@ -14,7 +14,6 @@ import type {
   FloorTable,
   MenuItem,
   OrderLineStatus,
-  Payment,
   TableSession,
   WorkSession,
 } from "../types";
@@ -54,7 +53,6 @@ import {
   toggleBranchMenuItem as serviceToggleBranchMenuItem,
   listBranchOrderLines,
   type BranchOrderLine,
-  listPayments,
   listStaff,
   createStaffAccount as serviceCreateStaffAccount,
   setStaffShift as serviceSetStaffShift,
@@ -73,6 +71,23 @@ import {
   type ApiQuota,
 } from "../services/branchApi";
 import {
+  listTables,
+  createTable as apiCreateTable,
+  updateTableStatus as apiUpdateTableStatus,
+  replaceTableAdjacency,
+  type ApiTable,
+  type ApiTableStatus,
+  type CreateTableInput,
+} from "../services/tablesApi";
+import {
+  listBranchPayments,
+  confirmPayment as apiConfirmPayment,
+  type ApiPayment,
+  type ListPaymentsParams,
+} from "../services/paymentsApi";
+import { getAuthContext } from "../services/authApi";
+import { ENABLE_STAFF_APPS } from "../config";
+import {
   registerRealScope,
   clearRealScope,
   toMockBranchId,
@@ -83,6 +98,7 @@ import { broadcast } from "./broadcast";
 import { toUiBranch, toApiStatus } from "./branchMapping";
 
 export type ScopeStatus = "idle" | "loading" | "ready" | "error";
+export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 /** Địa chỉ gửi lên backend theo hai cấp: không còn `district`. */
 export interface BranchFormData {
@@ -116,6 +132,17 @@ export interface AppState {
   /** Chi nhánh thật, nguyên dạng backend trả về. */
   apiBranches: ApiBranch[];
 
+  /** Sơ đồ bàn thật của chi nhánh đang chọn. */
+  apiTables: ApiTable[];
+  tablesStatus: LoadStatus;
+  tablesError: string | null;
+
+  /** Lịch sử giao dịch thật của chi nhánh đang chọn. */
+  branchPayments: ApiPayment[];
+  paymentsTotal: number;
+  paymentsStatus: LoadStatus;
+  paymentsError: string | null;
+
   // Operational State
   /** Chi nhánh theo hình dạng UI, ánh xạ từ `apiBranches`. */
   branches: Branch[];
@@ -126,7 +153,6 @@ export interface AppState {
   menuItems: MenuItem[];
   branchMenuItems: BranchMenuItem[];
   orderLines: BranchOrderLine[];
-  payments: Payment[];
   staff: StaffLegacy[];
   /** Lượt làm việc hôm nay của chi nhánh — dùng để lọc thông báo theo BR-43 (chỉ người đang inShift). */
   workSessions: WorkSession[];
@@ -142,6 +168,14 @@ export interface AppState {
   refreshOperationalData: () => Promise<void>;
   /** Nạp chuỗi + chi nhánh thật của người đang đăng nhập. */
   loadScope: () => Promise<void>;
+  /** Nạp sơ đồ bàn thật của chi nhánh đang chọn. */
+  loadTables: () => Promise<void>;
+  /** Nạp lịch sử giao dịch thật; bộ lọc theo `createdAt` phía backend. */
+  loadPayments: (params?: ListPaymentsParams) => Promise<void>;
+  createBranchTable: (input: CreateTableInput) => Promise<void>;
+  setTableStatus: (tableId: string, status: ApiTableStatus) => Promise<void>;
+  setTableAdjacency: (tableId: string, adjacentTableIds: string[]) => Promise<void>;
+  confirmBranchPayment: (paymentId: string) => Promise<void>;
 
   // Chi nhánh (Owner — mục 4.4.A, OW-01)
   createBranch: (data: BranchFormData) => Promise<void>;
@@ -216,6 +250,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   quotas: [],
   apiBranches: [],
 
+  apiTables: [],
+  tablesStatus: "idle",
+  tablesError: null,
+  branchPayments: [],
+  paymentsTotal: 0,
+  paymentsStatus: "idle",
+  paymentsError: null,
+
   branches: [],
   currentBranchId: null,
   tables: [],
@@ -223,7 +265,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   menuItems: [],
   branchMenuItems: [],
   orderLines: [],
-  payments: [],
   staff: [],
   workSessions: [],
 
@@ -312,21 +353,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ scopeStatus: "loading", scopeError: null });
     try {
-      // Chỉ OWNER đọc được /restaurant-chains; MANAGER lấy chuỗi từ chính chi
-      // nhánh được gán (mỗi branch trả kèm chainId và chain lồng bên trong).
+      // Phạm vi lấy thẳng từ /auth/me: `chainId` cho nhân viên, `chainIds[]`
+      // cho OWNER. /branches chỉ còn dùng để lấy DANH SÁCH chi nhánh, không
+      // còn phải suy ngược ra chuỗi từ đó nữa.
+      const auth = await getAuthContext();
+      // Chỉ OWNER đọc được /restaurant-chains — cần cho tên chuỗi, gói và hạn mức.
       const chains = currentUser.role === "owner" ? await listChains() : [];
       const apiBranches = await apiListBranches();
 
       // Owner có thể được gán nhiều chuỗi. Chưa có bộ chọn chuỗi, nên lấy
       // chuỗi đầu tiên CÓ chi nhánh đang hoạt động — chuỗi rỗng hoặc đã đóng
       // hết chi nhánh sẽ chỉ dẫn tới màn hình trắng.
-      const chainWithActiveBranch = chains.find((chain) =>
-        apiBranches.some((branch) => branch.chainId === chain.id && branch.status === "ACTIVE"),
+      const ownedChainIds = auth.chainIds.length
+        ? auth.chainIds
+        : chains.map((chain) => chain.id);
+      const chainIdWithActiveBranch = ownedChainIds.find((id) =>
+        apiBranches.some((branch) => branch.chainId === id && branch.status === "ACTIVE"),
       );
-      const primaryChain = chainWithActiveBranch ?? chains[0];
 
-      const chainId = primaryChain?.id ?? apiBranches[0]?.chainId ?? null;
-      const chainName = primaryChain?.name ?? apiBranches[0]?.chain.name ?? null;
+      const chainId =
+        auth.chainId ?? chainIdWithActiveBranch ?? ownedChainIds[0] ?? apiBranches[0]?.chainId ?? null;
 
       if (!chainId) {
         throw new Error(
@@ -336,12 +382,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         );
       }
 
-      const chainIds = chains.length ? chains.map((c) => c.id) : [chainId];
+      const primaryChain = chains.find((chain) => chain.id === chainId);
+      const chainName =
+        primaryChain?.name ??
+        apiBranches.find((branch) => branch.chainId === chainId)?.chain.name ??
+        null;
+
+      const chainIds = ownedChainIds.length ? ownedChainIds : [chainId];
       registerRealScope(chainIds, apiBranches);
 
       const mockTenantId = toMockTenantId(chainId);
+      // Nhân viên bị khoá vào chi nhánh được gán; Owner giữ lựa chọn hiện tại.
       const realBranchId =
-        currentUser.role === "manager" ? (apiBranches[0]?.id ?? null) : (get().currentBranchId ?? apiBranches[0]?.id ?? null);
+        auth.branchId ?? get().currentBranchId ?? apiBranches[0]?.id ?? null;
       const activeBranchId = apiBranches.some((b) => b.id === realBranchId)
         ? realBranchId
         : (apiBranches[0]?.id ?? null);
@@ -364,7 +417,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       set({ tenantBranding: await getTenantBranding(mockTenantId) });
-      await get().refreshOperationalData();
+      await Promise.all([
+        get().refreshOperationalData(),
+        get().loadTables(),
+        get().loadPayments(),
+      ]);
     } catch (err) {
       clearRealScope();
       set({
@@ -379,6 +436,68 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentUser) return;
     await serviceChangePassword(currentUser.id, newPassword);
     set({ currentUser: { ...currentUser, mustChangePassword: false } });
+  },
+
+  loadTables: async () => {
+    const branchId = get().currentBranchId;
+    if (!branchId) {
+      set({ apiTables: [], tablesStatus: "ready", tablesError: null });
+      return;
+    }
+    set({ tablesStatus: "loading", tablesError: null });
+    try {
+      set({ apiTables: await listTables(branchId), tablesStatus: "ready" });
+    } catch (err) {
+      set({
+        apiTables: [],
+        tablesStatus: "error",
+        tablesError: err instanceof Error ? err.message : "Không tải được sơ đồ bàn",
+      });
+    }
+  },
+
+  loadPayments: async (params = {}) => {
+    const branchId = get().currentBranchId;
+    if (!branchId) {
+      set({ branchPayments: [], paymentsTotal: 0, paymentsStatus: "ready", paymentsError: null });
+      return;
+    }
+    set({ paymentsStatus: "loading", paymentsError: null });
+    try {
+      const page = await listBranchPayments(branchId, { limit: 100, ...params });
+      set({ branchPayments: page.items, paymentsTotal: page.total, paymentsStatus: "ready" });
+    } catch (err) {
+      set({
+        branchPayments: [],
+        paymentsTotal: 0,
+        paymentsStatus: "error",
+        paymentsError: err instanceof Error ? err.message : "Không tải được lịch sử giao dịch",
+      });
+    }
+  },
+
+  createBranchTable: async (input) => {
+    const branchId = get().currentBranchId;
+    if (!branchId) throw new Error("Chưa chọn chi nhánh");
+    await apiCreateTable(branchId, input);
+    await get().loadTables();
+  },
+
+  setTableStatus: async (tableId, status) => {
+    await apiUpdateTableStatus(tableId, status);
+    await get().loadTables();
+  },
+
+  setTableAdjacency: async (tableId, adjacentTableIds) => {
+    const branchId = get().currentBranchId;
+    if (!branchId) throw new Error("Chưa chọn chi nhánh");
+    await replaceTableAdjacency(branchId, tableId, adjacentTableIds);
+    await get().loadTables();
+  },
+
+  confirmBranchPayment: async (paymentId) => {
+    await apiConfirmPayment(paymentId);
+    await get().loadPayments();
   },
 
   createBranch: async (data) => {
@@ -430,12 +549,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       plan: null,
       quotas: [],
       apiBranches: [],
+      apiTables: [],
+      tablesStatus: "idle",
+      tablesError: null,
+      branchPayments: [],
+      paymentsTotal: 0,
+      paymentsStatus: "idle",
+      paymentsError: null,
       branches: [],
       currentBranchId: null,
       tables: [],
       sessions: [],
       orderLines: [],
-      payments: [],
       staff: [],
       workSessions: [],
     });
@@ -447,7 +572,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentBranchId: branchId,
       currentUser: currentUser ? { ...currentUser, branchId: toMockBranchId(branchId) } : null,
     });
-    await get().refreshOperationalData();
+    await Promise.all([get().refreshOperationalData(), get().loadTables(), get().loadPayments()]);
   },
 
   refreshOperationalData: async () => {
@@ -463,7 +588,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     let menu: MenuItem[] = [];
     let branchMenu: BranchMenuItem[] = [];
     let lines: BranchOrderLine[] = [];
-    let payments: Payment[] = [];
     let staff: StaffLegacy[] = [];
     let workSessions: WorkSession[] = [];
 
@@ -472,13 +596,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (activeBranchId) {
-      tables = await getFloorTables(activeBranchId);
-      sessions = await listSessions(activeBranchId);
       branchMenu = await listBranchMenuItems(activeBranchId);
       lines = await listBranchOrderLines(activeBranchId, currentUser.role);
-      payments = await listPayments(activeBranchId);
       staff = await listStaff(activeBranchId);
       workSessions = await listWorkSessions(activeBranchId);
+
+      // Bàn và phiên bàn dạng mock giờ chỉ phục vụ màn Waiter/Kitchen — hai
+      // phân hệ đã chuyển sang tablet và đang bị ẩn sau cờ. Màn Branch Manager
+      // đọc bàn thật qua `apiTables`; thanh toán mock đã bỏ hẳn vì
+      // `branchPayments` lấy từ API thật.
+      if (ENABLE_STAFF_APPS) {
+        tables = await getFloorTables(activeBranchId);
+        sessions = await listSessions(activeBranchId);
+      }
     }
 
     set({
@@ -487,7 +617,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       menuItems: menu,
       branchMenuItems: branchMenu,
       orderLines: lines,
-      payments,
       staff,
       workSessions,
     });

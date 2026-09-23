@@ -3,9 +3,8 @@ import { Hash, MapPin, Plus, Table2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Branch } from "../../types";
 import { useAppStore } from "../../store";
-import { getFloorTables } from "../../services";
 import { describeBranchError, type ApiBranch } from "../../services/branchApi";
-import { toMockBranchId } from "../../services/mockBridge";
+import { listTables } from "../../services/tablesApi";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
 
@@ -78,11 +77,24 @@ export default function Branches() {
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Số bàn vẫn là dữ liệu mock — tra theo chi nhánh mock tương ứng.
+  // Số bàn lấy thật, mỗi chi nhánh một lượt gọi. Chi nhánh nào đọc lỗi thì
+  // hiện 0 thay vì làm hỏng cả danh sách.
   useEffect(() => {
+    let cancelled = false;
     Promise.all(
-      branches.map(async (b) => [b.id, (await getFloorTables(toMockBranchId(b.id) ?? b.id)).length] as const)
-    ).then((entries) => setTableCounts(Object.fromEntries(entries)));
+      branches.map(async (b) => {
+        try {
+          return [b.id, (await listTables(b.id)).length] as const;
+        } catch {
+          return [b.id, 0] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) setTableCounts(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [branches]);
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));

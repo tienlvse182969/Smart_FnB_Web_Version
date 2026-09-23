@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Col, Row, Segmented, Table, Tag } from "antd";
+import { Col, Row, Segmented } from "antd";
 import {
   Banknote,
   Building2,
@@ -13,10 +13,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import RoleShell, { type NavItem } from "../../layout/RoleShell";
-import { money } from "../../data";
-import type { Payment as PaymentRecord, PaymentStatus } from "../../types";
-import { minutesSinceISO } from "../../services/_utils";
-import { SectionTitle, page } from "../../components/bits";
+import { page } from "../../components/bits";
 import { useAppStore } from "../../store";
 import Kpis from "./Kpis";
 import RevenueChart from "./RevenueChart";
@@ -28,6 +25,7 @@ import ShiftTemplates from "./ShiftTemplates";
 import ShiftSchedule from "./ShiftSchedule";
 import ShiftCheckInOut from "./ShiftCheckInOut";
 import ShiftDashboardBlock from "./ShiftDashboardBlock";
+import PaymentHistory from "./PaymentHistory";
 import BranchInfo from "./BranchInfo";
 
 /**
@@ -60,21 +58,9 @@ const defaultSectionOf: Record<WorkspaceMode, string> = {
   admin: "floor",
 };
 
-const paymentStatusMeta: Record<PaymentStatus, { label: string; bg: string; color: string }> = {
-  initiated: { label: "Khởi tạo", bg: "#f4f4f5", color: "#0a0a0a" },
-  awaiting_transfer: { label: "Chờ chuyển khoản", bg: "#fff3d6", color: "#0a0a0a" },
-  cash_received: { label: "Chờ xác nhận tiền mặt", bg: "#fff3d6", color: "#0a0a0a" },
-  confirmed: { label: "Đã xác nhận", bg: "#e7f7ec", color: "#0a0a0a" },
-  failed: { label: "Lỗi · đối soát", bg: "#0a0a0a", color: "#fff" },
-  expired: { label: "Hết hạn", bg: "#0a0a0a", color: "#fff" },
-  partially_refunded: { label: "Hoàn một phần", bg: "#f4f4f5", color: "#0a0a0a" },
-  refunded: { label: "Đã hoàn", bg: "#f4f4f5", color: "#0a0a0a" },
-};
-
 export default function BranchApp({ onLogout }: { onLogout: () => void }) {
   const branches = useAppStore((s) => s.branches);
   const currentBranchId = useAppStore((s) => s.currentBranchId);
-  const payments = useAppStore((s) => s.payments);
   const [mode, setMode] = useState<WorkspaceMode>("counter");
   const [section, setSection] = useState(defaultSectionOf.counter);
 
@@ -127,34 +113,7 @@ export default function BranchApp({ onLogout }: { onLogout: () => void }) {
         {section === "shift-schedule" && <ShiftSchedule />}
         {section === "payment" && <Payment />}
 
-        {section === "history" && (
-          <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-            <SectionTitle title="Lịch sử giao dịch" sub="Toàn bộ giao dịch của chi nhánh trong ca hiện tại" />
-            <Table<PaymentRecord>
-              dataSource={payments}
-              rowKey="id"
-              pagination={false}
-              size="middle"
-              columns={[
-                { title: "Mã hoá đơn", dataIndex: "invoiceCode", render: (v) => <span style={{ fontWeight: 600 }}>{v}</span> },
-                { title: "Phiên", dataIndex: "sessionId" },
-                { title: "Phương thức", dataIndex: "method", render: (m: "qr" | "cash") => (m === "qr" ? "VietQR" : "Tiền mặt") },
-                { title: "Thu hộ / xác nhận", key: "who", render: (_, r) => r.confirmedBy ?? r.collectedBy ?? "—" },
-                { title: "Tạo lúc", dataIndex: "createdAt", render: (v) => `${minutesSinceISO(v)} phút trước` },
-                { title: "Số tiền", dataIndex: "amount", align: "right", render: (v) => money(v) },
-                {
-                  title: "Trạng thái",
-                  dataIndex: "status",
-                  render: (s: PaymentStatus) => (
-                    <Tag style={{ background: paymentStatusMeta[s].bg, color: paymentStatusMeta[s].color, border: "none" }}>
-                      {paymentStatusMeta[s].label}
-                    </Tag>
-                  ),
-                },
-              ]}
-            />
-          </Card>
-        )}
+        {section === "history" && <PaymentHistory />}
       </div>
     </RoleShell>
   );

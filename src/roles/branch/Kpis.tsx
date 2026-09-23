@@ -5,14 +5,17 @@ import { kitchenQueue } from "../../services/order.service";
 import { StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
 
-/** Dashboard chi nhánh (mục 4.5.D) — mọi số liệu đọc từ mock/db.ts qua store. */
+/**
+ * Dashboard chi nhánh (mục 4.5.D). Số bàn lấy từ API thật; các ô còn lại vẫn
+ * đọc mock vì backend chưa mở báo cáo và đơn hàng cho Quản lý chi nhánh.
+ */
 export default function Kpis() {
-  const tables = useAppStore((s) => s.tables);
+  const tables = useAppStore((s) => s.apiTables);
   const orderLines = useAppStore((s) => s.orderLines);
   const menuItems = useAppStore((s) => s.menuItems);
   const branchMenuItems = useAppStore((s) => s.branchMenuItems);
 
-  const servingCount = tables.filter((t) => t.status === "occupied").length;
+  const servingCount = tables.filter((t) => t.status === "OCCUPIED").length;
 
   // Dùng lại đúng hàm kitchenQueue() mà màn Kitchen đang dùng — không viết bản riêng.
   const pendingKitchen = useMemo(
