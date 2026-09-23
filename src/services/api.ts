@@ -27,6 +27,15 @@ export function hasAccessToken(): boolean {
   return Boolean(sessionStorage.getItem(TOKEN_KEY));
 }
 
+export function getAccessToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function getApiOrigin(): string | null {
+  if (!apiBaseUrl) return null;
+  return new URL(apiBaseUrl, window.location.origin).origin;
+}
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},

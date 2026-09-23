@@ -64,6 +64,10 @@ import { seedAll } from "../mock/seed";
 import { broadcast } from "./broadcast";
 import { clearAccessToken, hasAccessToken } from "../services/api";
 import {
+  connectOperationsRealtime,
+  disconnectOperationsRealtime,
+} from "../services/realtime";
+import {
   claimOperationalLine,
   loadOperationalData,
   readyOperationalItem,
@@ -206,6 +210,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     if (savedUser) {
       await get().refreshOperationalData();
+      if (savedUser.apiBacked) {
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        connectOperationsRealtime(() => {
+          clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(() => get().refreshOperationalData(), 150);
+        });
+      }
     }
 
     // Subscribe to cross-tab broadcast
@@ -245,6 +256,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       await get().refreshOperationalData();
+      if (user.apiBacked) {
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        connectOperationsRealtime(() => {
+          clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(() => get().refreshOperationalData(), 150);
+        });
+      }
       return user;
     } catch (err) {
       set({ isLoading: false });
@@ -280,6 +298,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
+    disconnectOperationsRealtime();
     try {
       sessionStorage.removeItem("smartfnb_auth_user");
       clearAccessToken();
