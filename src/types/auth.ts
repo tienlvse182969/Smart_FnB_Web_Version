@@ -1,7 +1,7 @@
 /** Kiểu dữ liệu xác thực và phân quyền. */
 
 /** Vai trò người dùng trong hệ thống. */
-export type RoleKey = "admin" | "owner" | "manager" | "waiter" | "kitchen";
+export type RoleKey = "admin" | "owner" | "manager" | "waiter" | "kitchen" | "cashier" | "barista";
 
 /** Mật khẩu mặc định cấp cho tài khoản mới/reset — demo, plaintext. */
 export const DEFAULT_PASSWORD = "demo1234";
@@ -26,7 +26,7 @@ export type DemoAccount = {
   scope: string;
   /** tenantId nếu không phải admin */
   tenantId?: string;
-  /** branchId nếu là manager/waiter/kitchen */
+  /** branchId nếu là nhân viên vận hành tại chi nhánh */
   branchId?: string;
 };
 
@@ -40,6 +40,6 @@ export type AuthUser = {
   branchId: string | null; // null cho admin + owner
   /** true = phải đổi mật khẩu trước khi dùng hệ thống (CM-01). */
   mustChangePassword: boolean;
-  /** True when Waiter/Kitchen data comes from the backend API. */
+  /** True when operational data comes from the backend API. */
   apiBacked?: boolean;
 };

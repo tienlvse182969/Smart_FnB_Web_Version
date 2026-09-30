@@ -65,9 +65,9 @@ export async function loginOperational(
     body: JSON.stringify({ email, password }),
   });
   const role = String(response.user.role).toLowerCase();
-  if (role !== "waiter" && role !== "kitchen")
+  if (!["waiter", "kitchen", "cashier", "barista"].includes(role))
     throw new Error(
-      "Chỉ Waiter và Kitchen Staff dùng kết nối API ở giai đoạn này",
+      "Tài khoản này chưa có workspace vận hành trên web",
     );
   saveAccessToken(response.accessToken);
   const employee = response.user.employee;
@@ -77,7 +77,7 @@ export async function loginOperational(
       ? `${employee.firstName} ${employee.lastName}`
       : response.user.email,
     email: response.user.email,
-    role,
+    role: role as AuthUser["role"],
     tenantId: null,
     branchId: employee?.branchId ?? null,
     mustChangePassword: false,

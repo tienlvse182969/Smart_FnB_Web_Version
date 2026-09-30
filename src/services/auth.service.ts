@@ -20,7 +20,7 @@ export async function login(accountId: string, password: string): Promise<AuthUs
   await delay();
   const account = db.demoAccounts.find((a) => a.id === accountId);
   if (!account) throw new Error("Tài khoản không tồn tại");
-  if (operationalApiEnabled && (account.role === "waiter" || account.role === "kitchen")) {
+  if (operationalApiEnabled && ["waiter", "kitchen", "cashier", "barista"].includes(account.role)) {
     return loginOperational(account.email, password);
   }
   if (!account.active) throw new Error("Tài khoản đã bị khoá — liên hệ quản trị viên");

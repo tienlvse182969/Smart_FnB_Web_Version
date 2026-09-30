@@ -55,6 +55,8 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
       manager: "/manager",
       waiter: "/waiter",
       kitchen: "/kitchen",
+      cashier: "/cashier",
+      barista: "/login",
     };
     return <Navigate to={roleRoutes[currentUser.role] || "/login"} replace />;
   }
