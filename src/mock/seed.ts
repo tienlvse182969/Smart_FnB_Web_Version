@@ -435,6 +435,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { id: "ACC-manager", role: "manager", name: "Trần Minh Quân",   email: "manager@comtam.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Branch Manager",   scope: "Cơm Tấm Sài Gòn · Quận 1",     tenantId: T1,        branchId: T1_B1 },
   { id: "ACC-waiter",  role: "waiter",  name: "Waiter Demo",       email: "waiter.demo@smartfnb.local",  password: "demo1234", mustChangePassword: false, active: true, label: "Waiter",        scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
   { id: "ACC-kitchen", role: "kitchen", name: "Kitchen Demo",      email: "kitchen.demo@smartfnb.local", password: "demo1234", mustChangePassword: false, active: true, label: "Kitchen Staff", scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
+  { id: "ACC-cashier", role: "cashier", name: "Cashier Demo", email: "cashier.demo@smartfnb.local", password: "demo1234", mustChangePassword: false, active: true, label: "Cashier", scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
+  { id: "ACC-barista", role: "barista", name: "Barista Demo", email: "barista.demo@smartfnb.local", password: "demo1234", mustChangePassword: false, active: true, label: "Barista", scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
 ];
 
 // =====================================================================

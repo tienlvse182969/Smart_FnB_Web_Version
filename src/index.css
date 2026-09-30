@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+@media print {
+  body * { visibility: hidden !important; }
+  .cashier-receipt, .cashier-receipt * { visibility: visible !important; }
+  .cashier-receipt { position: absolute; inset: 0; width: 80mm; padding: 8mm; color: #000; background: #fff; }
+}
+
 :root {
   --brand-primary: #0a0a0a;
   --brand-ink: #0a0a0a;

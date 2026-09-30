@@ -1,7 +1,7 @@
 /** Shared mock data for the Smart F&B tablet prototype. All values are illustrative. */
 
 /** Thống nhất với types/auth.ts — "manager" là giá trị RoleKey duy nhất cho Branch Manager. */
-export type RoleKey = "admin" | "owner" | "manager" | "waiter" | "kitchen";
+export type RoleKey = "admin" | "owner" | "manager" | "waiter" | "kitchen" | "cashier" | "barista";
 
 export const roleMeta: Record<
   RoleKey,
@@ -12,6 +12,8 @@ export const roleMeta: Record<
   manager: { label: "Branch Manager", scope: "Cơm Tấm Sài Gòn · Q1" },
   waiter: { label: "Waiter", scope: "Chi nhánh Quận 1" },
   kitchen: { label: "Kitchen Staff", scope: "Trạm Bếp chính · Q1" },
+  cashier: { label: "Cashier", scope: "Quầy thanh toán" },
+  barista: { label: "Barista", scope: "Quầy pha chế" },
 };
 
 /* ---- Menu · hai tầng ----

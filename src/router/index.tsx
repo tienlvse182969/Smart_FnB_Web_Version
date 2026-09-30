@@ -7,6 +7,7 @@ import OwnerApp from "../roles/owner/OwnerApp";
 import BranchApp from "../roles/branch/BranchApp";
 import WaiterApp from "../roles/waiter/WaiterApp";
 import KitchenApp from "../roles/kitchen/KitchenApp";
+import CashierApp from "../roles/cashier/CashierApp";
 import { RoleGuard } from "./guards";
 import { useAppStore } from "../store";
 import type { RoleKey } from "../types";
@@ -31,6 +32,8 @@ function LoginWrapper() {
         manager: "/manager",
         waiter: "/waiter",
         kitchen: "/kitchen",
+        cashier: "/cashier",
+        barista: "/login",
       };
       navigate(routes[user.role] || "/login");
     } catch (err) {
@@ -91,6 +94,12 @@ function KitchenWrapper() {
   return <KitchenApp onLogout={handleLogout} />;
 }
 
+function CashierWrapper() {
+  const navigate = useNavigate();
+  const { logout } = useAppStore();
+  return <CashierApp onLogout={() => { logout(); navigate("/login"); }} />;
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -135,6 +144,10 @@ export const router = createBrowserRouter([
         <WaiterWrapper />
       </RoleGuard>
     ),
+  },
+  {
+    path: "/cashier/*",
+    element: <RoleGuard allowedRoles={["cashier"]}><CashierWrapper /></RoleGuard>,
   },
   {
     path: "/kitchen/*",

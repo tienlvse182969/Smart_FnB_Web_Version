@@ -19,13 +19,15 @@ const roleMeta: Record<RoleKey, { label: string; icon: React.ReactNode }> = {
   manager: { label: "Branch Manager", icon: <Store size={20} /> },
   waiter: { label: "Waiter", icon: <ConciergeBell size={20} /> },
   kitchen: { label: "Kitchen Staff", icon: <ChefHat size={20} /> },
+  cashier: { label: "Cashier", icon: <Store size={20} /> },
+  barista: { label: "Barista", icon: <ChefHat size={20} /> },
 };
 
-const roleOrder: RoleKey[] = ["admin", "owner", "manager", "waiter", "kitchen"];
+const roleOrder: RoleKey[] = ["admin", "owner", "manager", "cashier", "barista", "waiter", "kitchen"];
 
 const backendDemoPassword = import.meta.env.VITE_DEMO_PASSWORD || "";
 const passwordForRole = (role: RoleKey) =>
-  operationalApiEnabled && (role === "waiter" || role === "kitchen")
+  operationalApiEnabled && ["waiter", "kitchen", "cashier", "barista"].includes(role)
     ? backendDemoPassword
     : DEFAULT_PASSWORD;
 
