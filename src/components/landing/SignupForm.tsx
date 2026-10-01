@@ -1,26 +1,24 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { adminApi, ApiError } from "../../api";
+import { adminApi, showApiError } from "../../api";
 import { palette } from "../../theme";
 
 type FormValues = {
   businessName: string;
   taxCode: string;
-  address: string;
-  branchCount: string;
+  headquartersAddress: string;
   representativeName: string;
-  email: string;
-  phone: string;
+  representativeEmail: string;
+  representativePhone: string;
 };
 
 const initialValues: FormValues = {
   businessName: "",
   taxCode: "",
-  address: "",
-  branchCount: "",
+  headquartersAddress: "",
   representativeName: "",
-  email: "",
-  phone: "",
+  representativeEmail: "",
+  representativePhone: "",
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,15 +40,12 @@ export default function SignupForm() {
 
     if (!values.businessName.trim()) nextErrors.businessName = "Vui lòng nhập tên doanh nghiệp";
     if (!values.taxCode.trim()) nextErrors.taxCode = "Vui lòng nhập mã số thuế";
-    if (!values.address.trim()) nextErrors.address = "Vui lòng nhập địa chỉ";
-    if (!values.branchCount.trim() || Number(values.branchCount) <= 0) {
-      nextErrors.branchCount = "Vui lòng nhập số chi nhánh dự kiến lớn hơn 0";
-    }
+    if (!values.headquartersAddress.trim()) nextErrors.headquartersAddress = "Vui lòng nhập địa chỉ trụ sở";
     if (!values.representativeName.trim()) {
       nextErrors.representativeName = "Vui lòng nhập họ tên người đại diện";
     }
-    if (!emailPattern.test(values.email.trim())) nextErrors.email = "Email không hợp lệ";
-    if (!phonePattern.test(values.phone.trim())) nextErrors.phone = "Số điện thoại không hợp lệ";
+    if (!emailPattern.test(values.representativeEmail.trim())) nextErrors.representativeEmail = "Email không hợp lệ";
+    if (!phonePattern.test(values.representativePhone.trim())) nextErrors.representativePhone = "Số điện thoại không hợp lệ";
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -66,18 +61,19 @@ export default function SignupForm() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // TODO(BE): BE chưa nhận "số chi nhánh dự kiến" (đặc tả GU-01) và gói mong muốn (chưa có danh sách gói công khai) — giai đoạn 3.3.
+      // TODO(BE): BE chưa nhận "số chi nhánh dự kiến" (đặc tả GU-01) — web bỏ ô này, không thu dữ liệu mà không gửi.
+      // TODO(BE): chưa có danh sách gói công khai nên chưa có ô chọn gói (requestedPlanId) — docs/api-contract-plan.md mục 7, việc #8, #9.
       await adminApi.submitRegistration({
         businessName: values.businessName.trim(),
         taxCode: values.taxCode.trim() || undefined,
-        headquartersAddress: values.address.trim() || undefined,
         representativeName: values.representativeName.trim(),
-        representativeEmail: values.email.trim(),
-        representativePhone: values.phone.trim(),
+        representativeEmail: values.representativeEmail.trim(),
+        representativePhone: values.representativePhone.trim(),
+        headquartersAddress: values.headquartersAddress.trim() || undefined,
       });
       setSubmitted(true);
     } catch (err) {
-      if (!(err instanceof ApiError && err.reported)) setSubmitError(err instanceof Error ? err.message : "Không gửi được hồ sơ");
+      showApiError(setSubmitError, err, "Không gửi được hồ sơ");
     } finally {
       setSubmitting(false);
     }
@@ -136,19 +132,11 @@ export default function SignupForm() {
             error={errors.taxCode}
           />
           <Field
-            id="address"
-            label="Địa chỉ"
-            value={values.address}
-            onChange={updateField("address")}
-            error={errors.address}
-          />
-          <Field
-            id="branchCount"
-            label="Số chi nhánh dự kiến"
-            type="number"
-            value={values.branchCount}
-            onChange={updateField("branchCount")}
-            error={errors.branchCount}
+            id="headquartersAddress"
+            label="Địa chỉ trụ sở"
+            value={values.headquartersAddress}
+            onChange={updateField("headquartersAddress")}
+            error={errors.headquartersAddress}
           />
           <Field
             id="representativeName"
@@ -158,20 +146,20 @@ export default function SignupForm() {
             error={errors.representativeName}
           />
           <Field
-            id="email"
-            label="Email"
+            id="representativeEmail"
+            label="Email người đại diện"
             type="email"
-            value={values.email}
-            onChange={updateField("email")}
-            error={errors.email}
+            value={values.representativeEmail}
+            onChange={updateField("representativeEmail")}
+            error={errors.representativeEmail}
           />
           <Field
-            id="phone"
-            label="Số điện thoại"
+            id="representativePhone"
+            label="Số điện thoại người đại diện"
             type="tel"
-            value={values.phone}
-            onChange={updateField("phone")}
-            error={errors.phone}
+            value={values.representativePhone}
+            onChange={updateField("representativePhone")}
+            error={errors.representativePhone}
           />
 
           {submitError && (
