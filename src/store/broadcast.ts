@@ -8,6 +8,8 @@ const CHANNEL_NAME = "smartfnb_channel";
 export type BroadcastMessage =
   | { type: "SYNC_STATE"; payload: Partial<Record<string, any>> }
   | { type: "REFETCH_ALL" }
+  /** Một tab đã đăng xuất — các tab khác dọn phiên và về /login. */
+  | { type: "LOGOUT" }
   /** Owner đã lưu/khôi phục nhận diện — chỉ tab của CÙNG tenantId cần áp lại theme. */
   | { type: "BRANDING_UPDATED"; tenantId: string };
 

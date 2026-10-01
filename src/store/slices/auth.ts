@@ -5,14 +5,14 @@
  */
 import type { AuthUser, Branding, DemoAccount } from "../../types";
 import { loginWithPassword, restoreSession, logoutSession, getAuthContext } from "../../services/authApi";
-import { setSessionExpiredHandler } from "../../services/http";
+import { clearTokens, setSessionExpiredHandler } from "../../services/http";
 import { getDemoAccounts, getTenantBranding, changePassword as serviceChangePassword } from "../../services";
 import { listChains, listBranches as apiListBranches } from "../../services/branchApi";
 import { registerRealScope, clearRealScope, toMockBranchId, toMockTenantId } from "../../services/mockBridge";
 import { seedAll } from "../../mock/seed";
 import { broadcast } from "../broadcast";
 import { toUiBranch } from "../branchMapping";
-import type { ScopeStatus, SliceCreator } from "../types";
+import type { AppState, ScopeStatus, SliceCreator } from "../types";
 
 export interface AuthSlice {
   currentUser: AuthUser | null;
@@ -43,6 +43,26 @@ export interface AuthSlice {
  * và đá người dùng ra /login. Giữ đúng một promise duy nhất.
  */
 let bootstrapPromise: Promise<void> | null = null;
+
+/** Trạng thái sau khi phiên kết thúc — dùng cho cả đăng xuất ở tab này lẫn tab khác. */
+function emptySession(): Partial<AppState> {
+  return {
+    currentUser: null,
+    tenantBranding: null,
+    scopeStatus: "idle",
+    scopeError: null,
+    chainId: null,
+    chainName: null,
+    plan: null,
+    quotas: [],
+    apiBranches: [],
+    branches: [],
+    currentBranchId: null,
+    menuItems: [],
+    branchMenuItems: [],
+    staff: [],
+  };
+}
 
 export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
   currentUser: null,
@@ -91,6 +111,12 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
         if (msg.type === "REFETCH_ALL") {
           get().loadMenu();
           get().loadStaff();
+        }
+        if (msg.type === "LOGOUT") {
+          // Backend đã thu hồi phiên ở tab vừa đăng xuất; tab này chỉ dọn phía client.
+          clearTokens();
+          clearRealScope();
+          set(emptySession());
         }
         if (msg.type === "BRANDING_UPDATED") {
           const { currentUser } = get();
@@ -229,21 +255,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     // token, nên đã bao gồm việc `clearAccessToken()` của nhánh main làm.
     await logoutSession();
     clearRealScope();
-    set({
-      currentUser: null,
-      tenantBranding: null,
-      scopeStatus: "idle",
-      scopeError: null,
-      chainId: null,
-      chainName: null,
-      plan: null,
-      quotas: [],
-      apiBranches: [],
-      branches: [],
-      currentBranchId: null,
-      menuItems: [],
-      branchMenuItems: [],
-      staff: [],
-    });
+    set(emptySession());
+    broadcast.send({ type: "LOGOUT" });
   },
 });

@@ -80,7 +80,7 @@ export default function SignupRequests() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Đăng ký chờ duyệt"
-        sub="Duyệt để khởi tạo doanh nghiệp, ví, nhận diện mặc định & tài khoản Owner"
+        sub="Duyệt để khởi tạo doanh nghiệp, nhận diện mặc định & tài khoản Owner"
       />
       {requests.length === 0 && (
         <div style={{ fontSize: 13, color: "#a1a1aa", padding: "24px 0", textAlign: "center" }}>

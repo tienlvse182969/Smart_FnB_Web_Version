@@ -82,7 +82,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         </div>
 
         <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.4)" }}>
-          Nhân viên phục vụ &amp; bếp dùng ứng dụng tablet
+          Thu ngân &amp; pha chế dùng ứng dụng tablet
         </div>
       </div>
 
