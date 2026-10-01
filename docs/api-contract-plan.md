@@ -84,3 +84,21 @@ Web nhận diện lỗi gói bằng mã có chứa `PLAN`, `QUOTA`, `LIMIT`, `FE
 ## 6. Còn chưa chốt (CC-12)
 
 Thu phí gói qua hệ thống chưa chốt nên web **không** làm màn gia hạn/thanh toán. Hợp đồng trên chừa chỗ: Admin gia hạn qua `POST /admin/businesses/{id}/subscription/renew` (đã có), web chỉ cần `status`/`expiresAt` đổi.
+
+## 7. Admin và đăng ký — chờ BE
+
+Căn cứ: đối chiếu `/admin/*` và `POST /registration-applications` với đặc tả PA-01..05, GU-01 (xem `src/api/modules/admin/`). Web đã nối real cho hồ sơ + doanh nghiệp (giai đoạn 3.2); các mục dưới đây là chỗ web phải đi đường vòng hoặc còn lệch.
+
+| # | Mức | Việc cần BE | Hiện web làm gì |
+|---|---|---|---|
+| 1 | **CAO** | **Có tiến trình đọc `email_outbox` và gửi mail chưa?** Trong source BE chỉ thấy chỗ *ghi* (`approveRegistrationApplication`, `resetOwnerPassword`, `employees.service.ts`), không thấy chỗ đọc/gửi. Nếu chưa có, Owner **không bao giờ nhận được email đặt mật khẩu** (token một lần nằm trong payload outbox) → không đăng nhập được sau khi duyệt hay đặt lại mật khẩu | Sau duyệt/đặt lại, web ghi "đã xếp email" (đúng hành vi BE), không hiện mật khẩu |
+| 2 | Trung bình | Từ chối hồ sơ **gửi email** cho người đăng ký (đặc tả PA-03). `rejectRegistrationApplication` hiện chỉ cập nhật trạng thái | Web chỉ ghi "đã từ chối", không nói đã gửi email |
+| 3 | Trung bình | **Lý do tạm ngưng bắt buộc** (`SubscriptionStatusReasonDto.reason` hiện tuỳ chọn; đặc tả 5.2: kèm lý do). Nên lưu lý do vào `business_subscription_events.note` | Web bắt buộc nhập lý do |
+| 4 | **CAO (BR-07)** | **Bỏ dữ liệu ví khỏi mọi response `/admin/*`**: `wallet {balance, heldBalance, status}` trong `businessBaseSelect()` (list/get/renew/change-plan/suspend/reactivate) và trong `getRegistrationApplication()` (`approvedChain.wallet`, trả cả từ approve/reject) | Mapper whitelist, không chép ví (có unit test) — nhưng dữ liệu vẫn đi qua mạng |
+| 5 | Trung bình | **Chặn hạ gói lệch BR-11**: `change-plan` trả 409 khi usage vượt hạn mức gói mới (`platform-admin.service.ts:405-416`, kể cả bàn). BR-11: hạ gói không xoá gì, chỉ chặn tạo mới | Web hiện nguyên thông báo 409 của BE |
+| 6 | Trung bình | **Ghi trạng thái `EXPIRED`** hoặc chốt rằng BE không ghi (không có code nào ghi enum này). Đặc tả 5.2: hết hạn là trạng thái tính từ ngày hết hạn | Web tự tính `ACTIVE` mà `expiresAt < now` → "Hết hạn" |
+| 7 | Thấp | `GET /admin/businesses` thêm bộ lọc `status` (active/suspended/expired) để đếm KPI không phải tải trang | Web đếm trong 100 doanh nghiệp mới nhất |
+| 8 | Trung bình | **Endpoint công khai danh sách gói** (id, tên, giá, hạn mức, tính năng, đang bán) cho Landing và form đăng ký, ví dụ `GET /public/service-plans` | Landing còn viết cứng; form chưa có ô chọn gói |
+| 9 | Trung bình | **GU-01 thêm "số chi nhánh dự kiến"** vào `SubmitRegistrationApplicationDto` và model (đặc tả 4.2) | Form có ô này nhưng không gửi lên |
+| 10 | Trung bình | **Gói thêm `tier`** (`BASIC \| STANDARD \| ADVANCED`) và **cờ tính năng** (`branding`, `multiBranchCompare`, `aiAssistant`) — xem mục 2; **bỏ `maxTables` bắt buộc** khi tạo gói (v9 không có bàn; `usage.tableCount` cũng nên bỏ) | Web gửi `maxTables: 0`; tier/cờ tính năng là mock |
+| 11 | Thấp | Duyệt hồ sơ cho chọn **ngày hết hạn** thay vì số tháng (đặc tả PA-02: "ngày hết hạn ban đầu") | Web nhập số tháng và hiện ngày tính được |
