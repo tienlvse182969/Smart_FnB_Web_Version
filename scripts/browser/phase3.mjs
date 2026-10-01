@@ -1,8 +1,9 @@
-// Kiểm tra trình duyệt thật cho Giai đoạn 3.2: hồ sơ đăng ký + doanh nghiệp của Platform Admin.
+// Kiểm tra trình duyệt thật cho Giai đoạn 3.2–3.3: hồ sơ đăng ký + doanh nghiệp + gói của Platform Admin, Landing, form đăng ký.
 //   node scripts/browser/phase3.mjs mock   # dev server có VITE_API_ADMIN=mock (+ auth/branch/report=mock nếu BE không chạy)
 //   node scripts/browser/phase3.mjs real   # chỉ phần ĐỌC (danh sách, KPI, quét ví) + gia hạn 1 lần trên doanh nghiệp seed
 // Xem README.md để biết biến môi trường (BASE_URL, AUTH_MODE…). Chế độ "real" KHÔNG duyệt, từ chối, tạm ngưng, đổi gói,
-// đặt lại mật khẩu trên dữ liệu thật.
+// đặt lại mật khẩu, tạo/sửa gói trên dữ liệu thật; chỉ gửi 1 hồ sơ qua form (tạo hồ sơ PENDING). Gia hạn thật chỉ chạy khi
+// đặt ALLOW_REAL_RENEW=1.
 import { newTab, closeTab, check, results, sleep } from "./cdp.mjs";
 
 const MODE = process.argv[2] ?? "mock";
@@ -73,11 +74,52 @@ async function openRow(name) {
   return ok;
 }
 
+const stamp = Date.now();
+const newBiz = `Quán Thử Nghiệm ${stamp}`;
+
 try {
-  // ------------------------------------------------------------------ đăng nhập admin
+  // ------------------------------------------------------------------ Landing (chưa đăng nhập)
   await tab.goto("/login");
   await tab.clearStorage();
-  await tab.goto("/login");
+  await tab.goto("/");
+  await sleep(1200);
+  const landing = await tab.text();
+  const banned = landing.match(/(^|[^\p{L}])(bàn|waiter|bếp|kitchen|ví)([^\p{L}]|$)/iu);
+  check("Landing: không còn chữ 'bàn', 'waiter', 'bếp', 'ví'", !banned, banned ? `gặp "${banned[2]}"` : "");
+  check(
+    "Landing: bảng giá có Cơ bản / Tiêu chuẩn / Nâng cao, không còn 'Mở rộng' và hạn mức bàn",
+    ["Cơ bản", "Tiêu chuẩn", "Nâng cao"].every((n) => landing.includes(n)) && !landing.includes("Mở rộng") && !/bàn mỗi chi nhánh/i.test(landing) && /₫ \/ tháng/.test(landing),
+  );
+  check("Landing: nội dung v9 (trả trước tại quầy, pha chế, gọi số, PayOS)", /trả tiền trước tại quầy/.test(landing) && /gọi số/i.test(landing) && /PayOS/.test(landing));
+
+  // ------------------------------------------------------------------ form đăng ký GU-01
+  const noBranchField = await q(`!document.querySelector("#branchCount")`);
+  const fieldIds = await q(`[...document.querySelectorAll("#signup-form input")].map((e) => e.id)`);
+  check("Form đăng ký: đúng trường BE, không còn ô 'số chi nhánh dự kiến'", noBranchField && ["businessName", "taxCode", "headquartersAddress", "representativeName", "representativeEmail", "representativePhone"].every((id) => fieldIds.includes(id)), fieldIds.join(","));
+  await click("#signup-form button[type=submit]");
+  await sleep(500);
+  check("Form đăng ký: để trống thì báo lỗi, chưa gửi", /Vui lòng nhập tên doanh nghiệp/.test(await tab.text()));
+  const fill = (id, v) => setInput(`document`, `#${id}`, v);
+  await fill("businessName", newBiz);
+  await fill("taxCode", "0312345999");
+  await fill("headquartersAddress", "99 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh");
+  await fill("representativeName", "Người Thử Nghiệm");
+  await fill("representativeEmail", `thu.${stamp}@example.com`);
+  await fill("representativePhone", "0901234567");
+  await click("#signup-form button[type=submit]");
+  await sleep(2500);
+  check("Form đăng ký: gửi xong hiện xác nhận 'đang chờ duyệt'", /Hồ sơ của bạn đang chờ duyệt/.test(await tab.text()), await tab.text().then((t) => t.slice(0, 0)));
+
+  // ------------------------------------------------------------------ đăng nhập admin
+  if (REAL) {
+    await tab.goto("/login");
+    await tab.clearStorage();
+    await tab.goto("/login");
+  } else {
+    // Mock sống trong bộ nhớ trang: tải lại trang sẽ mất hồ sơ vừa nộp, nên sang đăng nhập bằng điều hướng trong SPA.
+    await click("header button", "Đã có tài khoản");
+    await sleep(800);
+  }
   await tab.login("admin");
   await tab.waitFor(`location.pathname.startsWith("/admin")`, 20000, "vào /admin");
   await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell");
@@ -101,24 +143,31 @@ try {
   await sleep(900);
   const allPage1 = await rows();
   const pagers = await q(`[...document.querySelectorAll(".ant-pagination-item")].map((e) => e.textContent.trim())`);
-  check("Hồ sơ: lọc Tất cả → có phân trang (≥ 2 trang)", pagers.length >= 2, `trang: ${pagers.join(",")}`);
-  await click(".ant-pagination-item", "2");
-  await sleep(1000);
-  const allPage2 = await rows();
-  check("Hồ sơ: chuyển trang đổi nội dung", allPage2.length > 0 && allPage2[0] !== allPage1[0], `${allPage1.length} → ${allPage2.length} hàng`);
-  await click(".ant-pagination-item", "1");
-  await sleep(700);
+  check("Hồ sơ: lọc Tất cả → có phân trang (≥ 2 trang; dữ liệu thật ít thì chỉ cần 1 trang)", REAL ? pagers.length >= 1 : pagers.length >= 2, `trang: ${pagers.join(",")}`);
+  if (pagers.length >= 2) {
+    await click(".ant-pagination-item", "2");
+    await sleep(1000);
+    const allPage2 = await rows();
+    check("Hồ sơ: chuyển trang đổi nội dung", allPage2.length > 0 && allPage2[0] !== allPage1[0], `${allPage1.length} → ${allPage2.length} hàng`);
+    await click(".ant-pagination-item", "1");
+    await sleep(700);
+  }
 
   await pickSelect(`document.querySelector(".ant-card")`, "Bị từ chối");
   await sleep(900);
   list = await rows();
-  check("Hồ sơ: lọc theo trạng thái Bị từ chối", list.length > 0 && list.every((r) => r.includes("Bị từ chối")), `${list.length} hàng`);
+  check("Hồ sơ: lọc theo trạng thái Bị từ chối", (REAL || list.length > 0) && list.every((r) => r.includes("Bị từ chối")), `${list.length} hàng`);
 
   await pickSelect(`document.querySelector(".ant-card")`, "Chờ duyệt");
   await sleep(700);
-  await search("rang xay");
+  if (!REAL) {
+    await search("rang xay");
+    list = await rows();
+    check("Hồ sơ: tìm kiếm chạy ('rang xay' → 1 hồ sơ)", list.length === 1 && /Rang Xay/i.test(list[0]), list.join(" // ").slice(0, 80));
+  }
+  await search(newBiz);
   list = await rows();
-  check("Hồ sơ: tìm kiếm chạy ('rang xay' → 1 hồ sơ)", list.length === 1 && /Rang Xay/i.test(list[0]), list.join(" // ").slice(0, 80));
+  check("Hồ sơ vừa nộp qua form hiện ở màn Admin (Chờ duyệt)", list.length === 1 && list[0].includes(newBiz) && list[0].includes("Chờ duyệt"), list.join(" // ").slice(0, 100));
   await search("");
 
   // ------------------------------------------------------------------ hồ sơ đăng ký — ghi (mock)
@@ -172,8 +221,10 @@ try {
   check("Doanh nghiệp: tìm kiếm chạy", (await rows()).length >= 1);
   await search("");
 
-  // gia hạn (cho phép cả real 1 lần, trên doanh nghiệp đầu tiên)
+  // gia hạn: mock luôn chạy; real chỉ khi ALLOW_REAL_RENEW=1 (1 lần, trên doanh nghiệp đầu tiên)
+  if (REAL && !process.env.ALLOW_REAL_RENEW) console.log("SKIP  gia hạn trên dữ liệu thật (đặt ALLOW_REAL_RENEW=1 để chạy)");
   const target = REAL ? null : "Cà Phê Mộc Nhà";
+  if (!REAL || process.env.ALLOW_REAL_RENEW) {
   if (target) await openRow(target);
   else await click(".ant-table-tbody > tr.ant-table-row");
   await sleep(900);
@@ -191,6 +242,7 @@ try {
   await sleep(1500);
   check("Gia hạn: thông báo thành công đúng ngày mới", (await toasts()).includes(`Đã gia hạn tới ${next}`), await toasts());
   await closeDrawer();
+  }
 
   // ------------------------------------------------------------------ doanh nghiệp — ghi (mock)
   if (!REAL) {
@@ -241,6 +293,73 @@ try {
     await sleep(1500);
     const done = await q(`document.body.innerText`);
     check("Đặt lại mật khẩu: 'Đã xếp email đặt lại mật khẩu … hiệu lực tới …', không có mật khẩu tạm", /Đã xếp email đặt lại mật khẩu/.test(done) && /hiệu lực tới/.test(done) && !/Mật khẩu tạm/i.test(done));
+  }
+
+  // ------------------------------------------------------------------ gói PA-04 (mock; KHÔNG tạo/sửa gói thật)
+  if (!REAL) {
+    await tab.clickMenu("Gói dịch vụ");
+    await sleep(1200);
+    const planHeaders = await q(`[...document.querySelectorAll(".ant-table-thead th")].map((e) => e.textContent.trim())`);
+    check("Gói: bảng có mã, cấp, trạng thái; liệt kê gói thật của mock", ["Gói", "Mã", "Cấp", "Giá / tháng", "Trạng thái"].every((c) => planHeaders.includes(c)) && (await rows()).length >= 3, planHeaders.join(","));
+    const tiers = (await rows()).map((r) => r.replace(/\s+/g, " "));
+    check("Gói: cấp suy từ mã (BASIC → Cơ bản), mã lạ → 'Chưa xếp cấp'", tiers.some((r) => /BASIC Cơ bản/.test(r)) && tiers.some((r) => /LEGACY Chưa xếp cấp/.test(r)), tiers.join(" // ").slice(0, 120));
+
+    // thêm
+    await click(".ant-card button", "Thêm gói");
+    await sleep(900);
+    const drawer = `document.querySelector(".ant-drawer-body")`;
+    const emptyDefaults = await q(`[...document.querySelectorAll(".ant-drawer-body input")].filter((e) => e.type !== "checkbox" && e.getAttribute("role") !== "switch").every((e) => e.value === "")`);
+    check("Gói: form thêm mới để trống, không có số mặc định viết cứng", emptyDefaults);
+    const saveDisabled = await q(`[...document.querySelectorAll(".ant-drawer-body button")].find((b) => b.textContent.includes("Lưu gói")).disabled`);
+    check("Gói: chưa nhập đủ thì nút Lưu bị khoá", saveDisabled === true);
+    await setInput(drawer, "input", "Nâng cao");
+    await sleep(300);
+    const suggested = await q(`document.querySelectorAll(".ant-drawer-body input")[1].value`);
+    const aiOn = await q(`!!document.querySelector('[data-testid="plan-feature-aiAssistant"] .lucide-check')`);
+    check("Gói: mã tự gợi ý từ tên ('Nâng cao' → ADVANCED) và cờ tính năng suy từ cấp (có Trợ lý AI)", suggested === "ADVANCED" && aiOn, `mã=${suggested}`);
+    await setInput(drawer, "input", "Gói Thử Nghiệm");
+    await sleep(300);
+    const suggested2 = await q(`document.querySelectorAll(".ant-drawer-body input")[1].value`);
+    // sửa mã tay: ghi đè gợi ý
+    await q(`(() => { const el = document.querySelectorAll(".ant-drawer-body input")[1];
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "THU_NGHIEM"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await sleep(300);
+    await setInput(drawer, "input", "Gói Thử Nghiệm Hai");
+    await sleep(300);
+    const kept = await q(`document.querySelectorAll(".ant-drawer-body input")[1].value`);
+    check("Gói: mã sửa tay thì không bị gợi ý ghi đè nữa; mã lạ → 'Chưa xếp cấp'", suggested2 === "GOI_THU_NGHIEM" && kept === "THU_NGHIEM" && /Chưa xếp cấp/.test(await q(`document.querySelector(".ant-drawer-body").innerText`)), `gợi ý=${suggested2}, sau sửa=${kept}`);
+    const nums = await q(`[...document.querySelectorAll(".ant-drawer-body .ant-input-number-input")].length`);
+    await setInput(`document.querySelectorAll(".ant-drawer-body .ant-input-number")[0]`, "input", 450000);
+    await setInput(`document.querySelectorAll(".ant-drawer-body .ant-input-number")[1]`, "input", 3);
+    await setInput(`document.querySelectorAll(".ant-drawer-body .ant-input-number")[2]`, "input", 20);
+    await sleep(400);
+    check("Gói: form có giá, chi nhánh, tài khoản và không có ô số bàn", nums === 3 && !/bàn/i.test(await q(`document.querySelector(".ant-drawer-body").innerText`)));
+    await click(".ant-drawer-body button", "Lưu gói");
+    await sleep(1500);
+    check("Gói: thêm gói mới thành công, hiện trong bảng", (await toasts()).includes("Đã tạo gói mới") && (await rows()).some((r) => r.includes("THU_NGHIEM") && r.includes("Chưa xếp cấp")), await toasts());
+
+    // sửa + tắt
+    await click(".ant-table-tbody > tr.ant-table-row", "THU_NGHIEM");
+    await sleep(900);
+    await setInput(`document.querySelectorAll(".ant-drawer-body .ant-input-number")[0]`, "input", 500000);
+    await click(".ant-drawer-body .ant-switch");
+    await sleep(300);
+    await click(".ant-drawer-body button", "Lưu gói");
+    await sleep(1500);
+    const edited = (await rows()).find((r) => r.includes("THU_NGHIEM")) ?? "";
+    check("Gói: sửa giá và tắt 'Đang bán' → bảng hiện giá mới và 'Ngừng bán'", (await toasts()).includes("Đã cập nhật gói") && /500\.000/.test(edited) && /Ngừng bán/.test(edited), edited.slice(0, 100));
+    // gói ngừng bán không chọn được khi duyệt
+    await tab.clickMenu("Hồ sơ đăng ký");
+    await sleep(1200);
+    await openRow(newBiz);
+    await click(".ant-drawer-body button", "Duyệt");
+    await sleep(900);
+    await q(`(() => { const m = ${visibleModal}; m.querySelector(".ant-select-content, .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); })()`);
+    await sleep(400);
+    const offered = await q(`[...document.querySelectorAll(".ant-select-item-option")].map((e) => e.textContent)`);
+    check("Gói ngừng bán không còn trong danh sách chọn khi duyệt hồ sơ", offered.length >= 3 && !offered.some((t) => t.includes("Thử Nghiệm")), offered.map((t) => t.slice(0, 14)).join(" | "));
+    await click(".ant-modal-close");
+    await closeDrawer();
   }
 
   // ------------------------------------------------------------------ quét ví (DOM + storage + store)

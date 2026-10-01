@@ -75,6 +75,8 @@ Giai đoạn 1 trên `refactor/v9-scope` (`8b3008f` … `d768671`, xem `git log`
 | `7566658` | docs: `docs/api-contract-plan.md` — shape JSON gói/cờ tính năng để gửi BE |
 | `0deaedf` | 2-D: Vitest + test, sửa mã BR sai, bỏ cờ staff apps |
 
+Giai đoạn 3 trên `feat/v9-admin` (từ `feat/v9-foundation`, base PR là `feat/v9-foundation`): `4a68aa6` + `fc5e523` (3.2 hồ sơ + doanh nghiệp real, mapper bỏ ví), `340aa81` (api-contract-plan mục 7), `663ae92` (kiểm trình duyệt `scripts/browser/phase3.mjs`), `a9f33dc` (3.3 gói + quy ước cấp), `7090b87` (Landing v9), `741ca22` (form đăng ký).
+
 ### Cấu trúc thư mục mới
 
 ```
@@ -109,11 +111,11 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | plan | `VITE_API_PLAN` | real | hạn mức THẬT; tier, cờ tính năng, hạn dùng, trạng thái là MOCK (chờ BE) |
 | menu | `VITE_API_MENU` | mock | BE có endpoint — giai đoạn 4 |
 | options | `VITE_API_OPTIONS` | mock | BE chưa có (OW-03) — giai đoạn 4 |
-| branding | `VITE_API_BRANDING` | mock | BE có endpoint, chờ giai đoạn 6 (BE đang chạy cũ chưa có; chủ repo tự build lại) |
+| branding | `VITE_API_BRANDING` | mock | BE có endpoint, chờ giai đoạn 6 (BE mới build lại đã có `/branding` và `/stations`; web chưa nối) |
 | account | `VITE_API_ACCOUNT` | mock | BE có /auth/managers, /auth/staff, thiếu Cashier/Barista cho Manager — giai đoạn 5 |
 | order | `VITE_API_ORDER` | mock | BE chưa có (BM-04..06) — giai đoạn 7 |
 | ai | `VITE_API_AI` | mock | BE chưa có (OW-09) — giai đoạn 9 |
-| admin | `VITE_API_ADMIN` | mock | BE có /admin/* — giai đoạn 3 |
+| admin | `VITE_API_ADMIN` | **real** | hồ sơ + doanh nghiệp + gói (3.2, 3.3); mapper bỏ ví (BR-07); nộp hồ sơ công khai real. Còn chờ BE: xem `docs/api-contract-plan.md` mục 7 |
 | payos | `VITE_API_PAYOS` | mock | BE chưa có (OW-06) — giai đoạn 6 |
 
 Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh báo. Mỗi giai đoạn sau tự viết `real.ts` rồi đổi mặc định.
@@ -131,10 +133,10 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 
 | Route | Mã | Trạng thái |
 |---|---|---|
-| `/admin/overview` | — | mock (`adminApi`) — BE có `/admin/*`, web CHƯA nối |
-| `/admin/tenants` | PA-05 | mock (`adminApi`) |
-| `/admin/signups` | PA-01..03 | mock (`adminApi`) |
-| `/admin/plans` | PA-04 | mock (`adminApi`, chỉ hạn mức) |
+| `/admin/overview` | — | real (`adminApi`): KPI đếm bằng `pagination.total` |
+| `/admin/tenants` | PA-05 | real: phân trang/tìm kiếm, gia hạn, đổi gói, tạm ngưng (bắt buộc lý do), đặt lại mật khẩu Owner |
+| `/admin/signups` | PA-01..03 | real: phân trang/lọc/tìm kiếm phía server, duyệt (gói + số tháng), từ chối (bắt buộc lý do) |
+| `/admin/plans` | PA-04 | real: CRUD gói; cấp và cờ tính năng suy từ MÃ gói (BASIC/STANDARD/ADVANCED), chỉ đọc, chờ BE lưu |
 | `/owner/reports` | OW-08 | `reportApi` real (+ banner chờ BE); so sánh đa chi nhánh khoá từ Cơ bản |
 | `/owner/branches` | OW-01 | `branchApi` real; nút thêm báo sớm hết hạn mức |
 | `/owner/menu` | OW-02, OW-04 | mock (`menuApi`) — BE có endpoint, web CHƯA nối |
@@ -166,7 +168,9 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 |---|---|
 | Panel dev đổi doanh nghiệp/gói/hết hạn/lỗi chỉ có ở `vite dev`; mock auth đăng nhập bằng email `*@mock.local` (mật khẩu ở `auth/mock.ts`) | — |
 | `branchApi` mock chỉ trả chi nhánh của doanh nghiệp mock, nên auth real + branch mock lệch ID (chỉ ghép cùng chế độ) | ghi nhận |
-| Landing (Hero, HowItWorks, Pricing… còn "20 bàn mỗi chi nhánh", giá viết cứng); đã bỏ mã màu cứng nhưng nội dung v7 còn | Giai đoạn 3 (cùng PA-04) |
+| Landing: nội dung đã sang v9 (3.3); bảng giá đọc từ cấu hình mock chung (`api/publicPlans.ts`) vì BE chưa có endpoint công khai danh sách gói | chờ BE (mục 7 #8) |
+| Form đăng ký (GU-01): đã bỏ ô số chi nhánh dự kiến, chưa có ô chọn gói | chờ BE (mục 7 #8, #9) |
+| Quy ước cấp gói theo mã (`plan/tiers.ts`) là tạm; BE chưa có `tier` và cờ tính năng trên gói | chờ BE (mục 7 #10) |
 | `BranchMenu.tsx`: cột "Suất còn lại" (quản lý kho v7) | Giai đoạn 5 |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
 | `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD`; `pnpm-lock.yaml` không còn đồng bộ với `package.json` | dọn khi chủ repo quyết dùng npm hay pnpm |
@@ -206,8 +210,8 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 |---|---|---|
 | 1 | Dọn v7, route con theo v9 | ✅ xong |
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
-| 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ▶ tiếp theo |
-| 4 | Owner menu: nhóm tuỳ chọn (OW-03), gán món; `menuApi`/`optionsApi` real | |
+| 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
+| 4 | ▶ tiếp theo — Owner menu: nhóm tuỳ chọn (OW-03), gán món; `menuApi`/`optionsApi` real | |
 | 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại" | |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |

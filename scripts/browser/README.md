@@ -46,16 +46,17 @@ BASE_URL=http://localhost:5174 AUTH_MODE=mock node scripts/browser/phase2.mjs fl
 
 Panel mock (góc dưới trái, chỉ có ở `vite dev`) đổi doanh nghiệp mock, ghi đè gói/hết hạn và giả lập lỗi; các script điều khiển nó qua `data-testid`.
 
-## Giai đoạn 3.2 — `phase3.mjs` (Platform Admin: hồ sơ đăng ký + doanh nghiệp)
+## Giai đoạn 3.2–3.3 — `phase3.mjs` (Platform Admin: hồ sơ, doanh nghiệp, gói; Landing; form đăng ký)
 
 ```bash
 # BE không chạy: mọi thứ mock
 VITE_API_ADMIN=mock VITE_API_AUTH=mock VITE_API_BRANCH=mock VITE_API_REPORT=mock npx vite --port 5175
 BASE_URL=http://localhost:5175 AUTH_MODE=mock node scripts/browser/phase3.mjs mock
 
-# BE chạy: chỉ phần ĐỌC + gia hạn 1 lần (KHÔNG duyệt/từ chối/tạm ngưng/đổi gói/đặt lại mật khẩu trên dữ liệu thật)
-npx vite --port 5175
-BASE_URL=http://localhost:5175 node scripts/browser/phase3.mjs real
+# BE chạy (dev server PHẢI ở cổng BE cho phép CORS, ví dụ 5173): chỉ phần ĐỌC + gửi 1 hồ sơ qua form (tạo hồ sơ PENDING).
+# KHÔNG duyệt/từ chối/tạm ngưng/đổi gói/đặt lại mật khẩu/tạo-sửa gói trên dữ liệu thật; gia hạn thật chỉ khi ALLOW_REAL_RENEW=1.
+npx vite --port 5173
+BASE_URL=http://localhost:5173 node scripts/browser/phase3.mjs real
 ```
 
-Kiểm: danh sách/phân trang/lọc/tìm kiếm, duyệt (ngày hết hạn), từ chối (bắt buộc lý do), gia hạn, đổi gói nâng/hạ (409), tạm ngưng (bắt buộc lý do), đặt lại mật khẩu có xác nhận, KPI, và quét DOM + store + storage không có `balance`/`heldBalance`/ví/số dư.
+Kiểm: Landing không còn chữ v7 (bàn/waiter/bếp/ví) và bảng giá; form đăng ký (trường BE, gửi, hồ sơ hiện ở Admin); danh sách/phân trang/lọc/tìm kiếm, duyệt (ngày hết hạn), từ chối (bắt buộc lý do), gia hạn, đổi gói nâng/hạ (409), tạm ngưng (bắt buộc lý do), đặt lại mật khẩu có xác nhận, thêm/sửa/tắt gói (mock), KPI, và quét DOM + store + storage không có `balance`/`heldBalance`/ví/số dư.
