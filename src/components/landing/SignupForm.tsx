@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { adminApi } from "../../api";
+import { adminApi, ApiError } from "../../api";
 import { palette } from "../../theme";
 
 type FormValues = {
@@ -57,23 +57,27 @@ export default function SignupForm() {
   };
 
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validate()) return;
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
+      // TODO(BE): BE chưa nhận "số chi nhánh dự kiến" (đặc tả GU-01) và gói mong muốn (chưa có danh sách gói công khai) — giai đoạn 3.3.
       await adminApi.submitRegistration({
         businessName: values.businessName.trim(),
-        taxCode: values.taxCode.trim(),
-        address: values.address.trim(),
-        estimatedBranches: Number(values.branchCount),
-        contactName: values.representativeName.trim(),
-        contactEmail: values.email.trim(),
-        contactPhone: values.phone.trim(),
+        taxCode: values.taxCode.trim() || undefined,
+        headquartersAddress: values.address.trim() || undefined,
+        representativeName: values.representativeName.trim(),
+        representativeEmail: values.email.trim(),
+        representativePhone: values.phone.trim(),
       });
       setSubmitted(true);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.reported)) setSubmitError(err instanceof Error ? err.message : "Không gửi được hồ sơ");
     } finally {
       setSubmitting(false);
     }
@@ -169,6 +173,12 @@ export default function SignupForm() {
             onChange={updateField("phone")}
             error={errors.phone}
           />
+
+          {submitError && (
+            <p role="alert" className="text-sm" style={{ color: palette.error.text }}>
+              {submitError}
+            </p>
+          )}
 
           <button
             type="submit"

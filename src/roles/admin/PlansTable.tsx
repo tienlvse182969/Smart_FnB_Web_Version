@@ -1,19 +1,23 @@
-import { App, Button, Card, Drawer, Input, InputNumber, Table } from "antd";
+import { App, Card, Drawer, Input, InputNumber, Table } from "antd";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Plan } from "../../types";
-import { adminApi } from "../../api";
+import type { ServicePlan } from "../../types";
+import { adminApi, showApiError } from "../../api";
+import ActionButton from "../../plan/ActionButton";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
 
-/** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts. */
+/**
+ * Quản lý gói dịch vụ (PA-04). TODO(3.3): thêm mã gói, bật/tắt gói, cấp và cờ tính năng, bỏ số mặc định viết cứng; hiện chỉ đủ để
+ * duyệt hồ sơ và đổi gói chọn được gói thật.
+ */
 export default function PlansTable() {
   const { message } = App.useApp();
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [editing, setEditing] = useState<Plan | "new" | null>(null);
+  const [plans, setPlans] = useState<ServicePlan[]>([]);
+  const [editing, setEditing] = useState<ServicePlan | "new" | null>(null);
 
-  const load = () => adminApi.listPlans().then(setPlans);
+  const load = () => adminApi.listPlans().then(setPlans).catch((err) => showApiError(message.error, err, "Không tải được gói"));
   useEffect(() => {
     load();
   }, []);
@@ -24,12 +28,12 @@ export default function PlansTable() {
         title="Gói dịch vụ"
         sub="Giá tháng và hạn mức chi nhánh / tài khoản — áp cho toàn bộ doanh nghiệp dùng gói này"
         extra={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+          <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
             Thêm gói
-          </Button>
+          </ActionButton>
         }
       />
-      <Table<Plan>
+      <Table<ServicePlan>
         dataSource={plans}
         rowKey="id"
         pagination={false}
@@ -37,7 +41,7 @@ export default function PlansTable() {
         onRow={(r) => ({ onClick: () => setEditing(r), style: { cursor: "pointer" } })}
         columns={[
           { title: "Gói", dataIndex: "name", render: (v) => <span style={{ fontWeight: 600 }}>{v}</span> },
-          { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: money },
+          { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: (v: number) => money(v) },
           { title: "Chi nhánh tối đa", dataIndex: "maxBranches", align: "right" },
           { title: "Tài khoản tối đa", dataIndex: "maxAccounts", align: "right" },
         ]}
@@ -49,7 +53,9 @@ export default function PlansTable() {
         onSave={async (data) => {
           try {
             if (editing === "new") {
-              await adminApi.createPlan(data);
+              // BE bắt buộc `code` duy nhất: tạm sinh từ tên (3.3 cho nhập).
+              const code = data.name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+              await adminApi.createPlan({ code, ...data });
               message.success("Đã tạo gói mới");
             } else if (editing) {
               await adminApi.updatePlan(editing.id, data);
@@ -58,7 +64,7 @@ export default function PlansTable() {
             setEditing(null);
             await load();
           } catch (err) {
-            message.error(err instanceof Error ? err.message : "Không lưu được");
+            showApiError(message.error, err, "Không lưu được");
           }
         }}
       />
@@ -71,9 +77,9 @@ function PlanDrawer({
   onClose,
   onSave,
 }: {
-  plan: Plan | "new" | null;
+  plan: ServicePlan | "new" | null;
   onClose: () => void;
-  onSave: (data: Omit<Plan, "id">) => void;
+  onSave: (data: Pick<ServicePlan, "name" | "monthlyPrice" | "maxBranches" | "maxAccounts">) => void;
 }) {
   const isNew = plan === "new";
   const existing = isNew ? null : plan;
@@ -108,7 +114,7 @@ function PlanDrawer({
       <Field label="Số tài khoản tối đa">
         <InputNumber value={maxAccounts} onChange={(v) => setMaxAccounts(v ?? 1)} style={{ width: "100%" }} min={1} />
       </Field>
-      <Button
+      <ActionButton
         type="primary"
         block
         style={{ marginTop: 8 }}
@@ -116,7 +122,7 @@ function PlanDrawer({
         disabled={!name.trim()}
       >
         Lưu gói
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }
