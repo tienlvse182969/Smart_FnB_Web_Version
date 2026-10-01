@@ -170,6 +170,9 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | `BranchMenu.tsx`: cột "Suất còn lại" (quản lý kho v7) | Giai đoạn 5 |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
 | `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD`; `pnpm-lock.yaml` không còn đồng bộ với `package.json` | dọn khi chủ repo quyết dùng npm hay pnpm |
+| Khu thu ngân trên web (`CashierApp.tsx`, `cashier-api.ts`) của Bảo đã gỡ khi merge main: POS chạy app Android. Code vẫn trong lịch sử (`dc8fcdd`, `32f6cdc`, `6e226af`) | — |
+| `src/api/realtime/operations.ts` (Socket.IO `/operations`, sự kiện `operations.updated`, auth bằng JWT người dùng; dependency `socket.io-client` 4.8.3) chưa dùng ở đâu; để cho màn hình gọi số. Đặc tả dùng token thiết bị chỉ đọc nên gateway BE cần đổi | Giai đoạn 8 |
+| `vitest` ghim 4.1.11 (5.0.3 mới phát hành 30/09 bị pnpm chặn theo tuổi bản phát hành); nâng lên 5.x khi đủ tuổi | khi tiện |
 | File v7 ở gốc (`Smart-FnB-Dac-ta-v7 (1).md`, `PHAN_TICH_NGHIEP_VU.md`) | KHÔNG đụng (dính stash `pre-v9-wip`) |
 | DB local thiếu tài khoản cashier/barista dù seed BE có | Người dùng tự xử lý |
 
