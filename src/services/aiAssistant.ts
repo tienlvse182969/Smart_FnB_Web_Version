@@ -163,25 +163,25 @@ function inRange(value: string, period: Period, now: Date): boolean {
 /* "View báo cáo" giả lập — chỉ đọc, tự lọc theo tenantId (BR-49) */
 /* ============================================================ */
 
-function readBranchRevenueView(tenantId: string, period: Period, now: Date) {
-  return db.payments.filter((p) => p.tenantId === tenantId && p.status === "confirmed" && inRange(p.createdAt, period, now));
+/**
+ * TODO(giai đoạn 2): ba "view" dưới đây từng đọc dữ liệu mock v7 (thanh toán theo
+ * phiên bàn, dòng món waiter/kitchen, phiên bàn) — các thực thể đó đã gỡ cùng v7.
+ * Trả về rỗng cho tới khi có seed v9 (đơn tại quầy) hoặc API trợ lý thật (OW-09).
+ */
+type RevenueRow = { branchId: string; amount: number };
+type OrderLineSalesRow = { branchId: string; menuItemId: string; name: string; qty: number };
+type GuestRow = { branchId: string; guests: number };
+
+function readBranchRevenueView(_tenantId: string, _period: Period, _now: Date): RevenueRow[] {
+  return [];
 }
 
-function readOrderLineSalesView(tenantId: string, period: Period, now: Date) {
-  const sessionsByTenant = new Map(db.tableSessions.filter((s) => s.tenantId === tenantId).map((s) => [s.id, s]));
-  const ordersInPeriod = db.orders.filter((o) => o.tenantId === tenantId && sessionsByTenant.has(o.sessionId) && inRange(o.createdAt, period, now));
-  const orderIds = new Set(ordersInPeriod.map((o) => o.id));
-  return db.orderLines
-    .filter((l) => orderIds.has(l.orderId) && l.status !== "cancelled" && l.status !== "sold_out")
-    .map((l) => {
-      const order = ordersInPeriod.find((o) => o.id === l.orderId)!;
-      const session = sessionsByTenant.get(order.sessionId)!;
-      return { ...l, branchId: session.branchId };
-    });
+function readOrderLineSalesView(_tenantId: string, _period: Period, _now: Date): OrderLineSalesRow[] {
+  return [];
 }
 
-function readTableSessionsView(tenantId: string, period: Period, now: Date) {
-  return db.tableSessions.filter((s) => s.tenantId === tenantId && inRange(s.openedAt, period, now));
+function readTableSessionsView(_tenantId: string, _period: Period, _now: Date): GuestRow[] {
+  return [];
 }
 
 function branchName(branchId: string): string {
