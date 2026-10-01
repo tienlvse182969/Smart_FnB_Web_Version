@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
 import SectionHeading from "./SectionHeading";
+import { palette } from "../../theme";
 
 const fits = [
   "Quán cơm, quán bún phở",
@@ -17,7 +18,7 @@ const notFits = [
 
 export default function FitSection() {
   return (
-    <section className="py-20 md:py-28" style={{ backgroundColor: "#fafafa" }}>
+    <section className="py-20 md:py-28" style={{ backgroundColor: palette.paperSubtle }}>
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeading eyebrow="Phân khúc" title="Phù hợp với ai" />
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -29,7 +30,7 @@ export default function FitSection() {
               >
                 <Check className="h-4 w-4 text-white" strokeWidth={2} aria-hidden="true" />
               </div>
-              <h3 className="text-base font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <h3 className="text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 Phù hợp
               </h3>
             </div>
@@ -47,7 +48,7 @@ export default function FitSection() {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100">
                 <X className="h-4 w-4 text-zinc-500" strokeWidth={2} aria-hidden="true" />
               </div>
-              <h3 className="text-base font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <h3 className="text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 Chưa phù hợp
               </h3>
             </div>

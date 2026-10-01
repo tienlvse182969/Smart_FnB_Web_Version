@@ -6,6 +6,7 @@ import { useAppStore } from "../../store";
 import { describeBranchError, type ApiBranch } from "../../services/branchApi";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
+import { palette } from "../../theme";
 
 function BranchCard({
   b,
@@ -21,10 +22,10 @@ function BranchCard({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#71717a", fontSize: 13, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: palette.textMuted, fontSize: 13, marginTop: 4 }}>
             <MapPin size={14} /> {b.address || "—"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#71717a", fontSize: 13, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, color: palette.textMuted, fontSize: 13, marginTop: 4 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Hash size={14} /> {code}
             </span>
@@ -35,8 +36,8 @@ function BranchCard({
         </div>
         <span
           style={{
-            background: b.status === "open" ? "#e7f7ec" : "#f4f4f5",
-            color: b.status === "open" ? "#0a0a0a" : "#71717a",
+            background: b.status === "open" ? palette.success.bg : palette.neutral.bg,
+            color: b.status === "open" ? palette.success.text : palette.neutral.text,
             padding: "3px 10px",
             borderRadius: 999,
             fontSize: 12,
@@ -147,7 +148,7 @@ function SectionHeader({
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
       <div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>Chi nhánh</div>
-        <div style={{ fontSize: 12.5, color: "#71717a", marginTop: 2 }}>
+        <div style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 2 }}>
           {quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
         </div>
       </div>
@@ -200,7 +201,6 @@ function BranchDrawer({
     setOpenTime("07:00");
     setCloseTime("22:00");
     setStatus(existing?.status ?? "open");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branch, apiBranch]);
 
   const cityNeedsReview = !isNew && !!apiBranch && !isKnownProvince(apiBranch.city);
@@ -240,7 +240,7 @@ function BranchDrawer({
           status={cityNeedsReview && !city ? "warning" : undefined}
         />
         {cityNeedsReview && !city && (
-          <div style={{ fontSize: 12, color: "#9a640c", marginTop: 6 }}>
+          <div style={{ fontSize: 12, color: palette.warning.text, marginTop: 6 }}>
             Vui lòng chọn lại tỉnh/thành. Giá trị đang lưu (“{apiBranch?.city}”) không nằm trong danh
             sách 34 tỉnh/thành sau sáp nhập 2025.
           </div>
@@ -304,7 +304,7 @@ function BranchDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

@@ -55,7 +55,7 @@ export default function FaqSection() {
                   aria-expanded={isOpen}
                   className="group flex w-full items-center justify-between gap-4 py-5 text-left"
                 >
-                  <span className="text-sm font-medium md:text-base" style={{ color: "var(--brand-ink)" }}>
+                  <span className="text-sm font-medium md:text-base" style={{ color: "var(--fnb-ink)" }}>
                     {faq.question}
                   </span>
                   <ChevronDown

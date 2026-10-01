@@ -13,6 +13,7 @@ import {
 } from "../../services";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 /** OW-05/06: Owner tạo/khoá/reset mật khẩu/chuyển chi nhánh cho Branch Manager. */
 export default function ManagerAccounts() {
@@ -35,7 +36,6 @@ export default function ManagerAccounts() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
   const toggleActive = async (a: DemoAccount) => {
@@ -93,7 +93,7 @@ export default function ManagerAccounts() {
                     render: (v, r) => (
                       <div>
                         <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.email}</div>
+                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
                       </div>
                     ),
                   },
@@ -114,7 +114,7 @@ export default function ManagerAccounts() {
                     title: "Trạng thái",
                     dataIndex: "active",
                     render: (active: boolean) => (
-                      <span style={{ background: active ? "#e7f7ec" : "#0a0a0a", color: active ? "#0a0a0a" : "#fff", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>
+                      <span style={{ background: active ? palette.success.bg : palette.error.bg, color: active ? palette.success.text : palette.error.text, padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>
                         {active ? "Đang hoạt động" : "Đã khoá"}
                       </span>
                     ),
@@ -160,7 +160,7 @@ export default function ManagerAccounts() {
                     render: (v, r) => (
                       <div>
                         <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.email}</div>
+                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
                       </div>
                     ),
                   },
@@ -225,7 +225,6 @@ function AddAccountDrawer({
 
   useEffect(() => {
     if (open) setBranchId(branches[0]?.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const reset = () => {
@@ -271,7 +270,7 @@ function AddAccountDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

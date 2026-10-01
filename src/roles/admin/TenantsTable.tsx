@@ -16,25 +16,26 @@ import {
 } from "../../services";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
+import { palette } from "../../theme";
 
 const statusTag: Record<TenantStatus, { label: string; color: string; bg: string }> = {
-  active: { label: "Đang hoạt động", color: "#0a0a0a", bg: "#e7f7ec" },
-  expired: { label: "Hết hạn · chỉ đọc", color: "#0a0a0a", bg: "#fff3d6" },
-  suspended: { label: "Tạm ngưng · chỉ đọc", color: "#fff", bg: "#0a0a0a" },
+  active: { label: "Đang hoạt động", color: palette.success.text, bg: palette.success.bg },
+  expired: { label: "Hết hạn · chỉ đọc", color: palette.warning.text, bg: palette.warning.bg },
+  suspended: { label: "Tạm ngưng · chỉ đọc", color: palette.error.text, bg: palette.error.bg },
 };
 
 function LimitRow({ icon, label, used, limit }: { icon: React.ReactNode; label: string; used: number; limit: number }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 6 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 7, color: "#52525b" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 7, color: palette.textStrong }}>
           {icon} {label}
         </span>
         <span style={{ fontWeight: 600 }}>
           {used}/{limit}
         </span>
       </div>
-      <Progress percent={(used / limit) * 100} showInfo={false} size="small" strokeColor="#0a0a0a" railColor="#ececee" />
+      <Progress percent={(used / limit) * 100} showInfo={false} size="small" strokeColor={palette.brandPrimary} railColor={palette.line} />
     </div>
   );
 }
@@ -128,7 +129,7 @@ export default function TenantsTable() {
             render: (v, r) => (
               <div>
                 <div style={{ fontWeight: 600 }}>{v}</div>
-                <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.id}</div>
+                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.id}</div>
               </div>
             ),
           },
@@ -147,7 +148,7 @@ export default function TenantsTable() {
               return (
                 <div style={{ width: 96 }}>
                   <div style={{ fontSize: 12.5, marginBottom: 4 }}>{used}/{limit}</div>
-                  <Progress percent={(used / limit) * 100} showInfo={false} size="small" strokeColor="#0a0a0a" railColor="#ececee" />
+                  <Progress percent={(used / limit) * 100} showInfo={false} size="small" strokeColor={palette.brandPrimary} railColor={palette.line} />
                 </div>
               );
             },
@@ -185,23 +186,23 @@ export default function TenantsTable() {
               </span>
             </div>
 
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 14 }}>HẠN MỨC GÓI DỊCH VỤ</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 14 }}>HẠN MỨC GÓI DỊCH VỤ</div>
             <LimitRow icon={<Layers size={15} />} label="Chi nhánh" used={branchCounts[sel.id] ?? 0} limit={selPlan.maxBranches} />
             <LimitRow icon={<Users size={15} />} label="Tài khoản" used={accountCounts[sel.id] ?? 0} limit={selPlan.maxAccounts} />
 
             <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderTop: "1px solid var(--ant-color-border)", marginTop: 8 }}>
-              <span style={{ color: "#71717a", display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ color: palette.textMuted, display: "flex", alignItems: "center", gap: 7 }}>
                 <CalendarClock size={15} /> Gia hạn kế tiếp
               </span>
               <span style={{ fontWeight: 600 }}>{sel.renewsAt}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "0 0 18px" }}>
-              <span style={{ color: "#71717a" }}>Phí thuê bao / tháng</span>
+              <span style={{ color: palette.textMuted }}>Phí thuê bao / tháng</span>
               <span style={{ fontWeight: 600 }}>{money(selPlan.monthlyPrice)}</span>
             </div>
 
             {(sel.status === "suspended" || sel.status === "expired") && (
-              <div style={{ background: "#fafafa", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: "#52525b", marginBottom: 16 }}>
+              <div style={{ background: palette.paperSubtle, borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: palette.textStrong, marginBottom: 16 }}>
                 Tenant đang ở chế độ chỉ đọc — không khoá cứng, không xoá dữ liệu (BR-09).
               </div>
             )}

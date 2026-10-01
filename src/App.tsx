@@ -1,36 +1,42 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { App as AntApp, ConfigProvider } from "antd";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
-import { monoTheme, buildTenantTheme } from "./theme";
-import { AccentContext } from "./theme/accentContext";
+import { BrandContext, applyThemeVars, buildTheme, resolveBrand } from "./theme";
 import { useAppStore } from "./store";
 import ForceChangePasswordModal from "./auth/ForceChangePasswordModal";
 
 export default function App() {
-  const { currentUser, tenantBranding, bootstrap, isBootstrapped } = useAppStore();
+  const { currentUser, tenantBranding, bootstrap } = useAppStore();
 
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
 
-  // Platform Admin luôn giữ nhận diện nền tảng (BR-32), không tenant nào áp màu lên được.
-  const theme = currentUser?.role === "admin" ? monoTheme : buildTenantTheme(tenantBranding);
+  // Chưa đăng nhập (trang đăng nhập, landing) và Platform Admin luôn dùng nhận diện nền tảng
+  // (CC-04, BR-44); không tenant nào áp màu lên được.
+  const brand = useMemo(
+    () =>
+      resolveBrand({
+        branding: tenantBranding,
+        platformOnly: !currentUser || currentUser.role === "admin",
+        brandingEnabled: true,
+      }),
+    [currentUser, tenantBranding],
+  );
+  const theme = useMemo(() => buildTheme(brand), [brand]);
 
-  // Chưa custom (hoặc là Admin) → accent mặc định của nền tảng, không phải màu tenant.
-  const accentColor =
-    currentUser?.role !== "admin" && tenantBranding?.isCustom
-      ? tenantBranding.accentColor
-      : "#71717a";
+  // Ghi CSS variables trước khi trình duyệt vẽ để không nhấp nháy màu.
+  useLayoutEffect(() => applyThemeVars(brand), [brand]);
 
   return (
     <ConfigProvider theme={theme}>
-      <AccentContext.Provider value={accentColor}>
+      <BrandContext.Provider value={brand}>
         <AntApp>
           <RouterProvider router={router} />
           <ForceChangePasswordModal />
         </AntApp>
-      </AccentContext.Provider>
+      </BrandContext.Provider>
     </ConfigProvider>
   );
 }

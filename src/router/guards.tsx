@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { Button } from "antd";
 import { useAppStore } from "../store";
 import type { RoleKey } from "../types";
+import { palette } from "../theme";
 
 const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
@@ -23,7 +24,7 @@ interface RoleGuardProps {
 
 function FullScreen({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ height: "100vh", display: "grid", placeItems: "center", background: "#fff", padding: 24 }}>
+    <div style={{ height: "100vh", display: "grid", placeItems: "center", background: palette.surface, padding: 24 }}>
       <div style={{ textAlign: "center", maxWidth: 420 }}>{children}</div>
     </div>
   );
@@ -36,14 +37,14 @@ function Spinner({ label }: { label: string }) {
         style={{
           width: 36,
           height: 36,
-          border: "3px solid #e4e4e7",
-          borderTopColor: "#0a0a0a",
+          border: `3px solid ${palette.line}`,
+          borderTopColor: palette.brandPrimary,
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
           margin: "0 auto 16px",
         }}
       />
-      <div style={{ color: "#71717a", fontSize: 14 }}>{label}</div>
+      <div style={{ color: palette.textMuted, fontSize: 14 }}>{label}</div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </FullScreen>
   );
@@ -72,7 +73,7 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     return (
       <FullScreen>
         <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Không tải được phạm vi làm việc</div>
-        <div style={{ color: "#71717a", fontSize: 14, marginBottom: 20 }}>{scopeError}</div>
+        <div style={{ color: palette.textMuted, fontSize: 14, marginBottom: 20 }}>{scopeError}</div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <Button type="primary" onClick={() => loadScope()}>
             Thử lại

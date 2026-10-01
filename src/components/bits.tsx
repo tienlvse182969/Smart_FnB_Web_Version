@@ -1,6 +1,7 @@
 import { Button, Card } from "antd";
 import { Hammer } from "lucide-react";
 import type { ReactNode } from "react";
+import { palette, onBrandAlpha } from "../theme";
 
 export const page: React.CSSProperties = { padding: 24 };
 
@@ -18,7 +19,7 @@ export function EmptyState({ title }: { title: string }) {
             alignItems: "center",
             justifyContent: "center",
             gap: 12,
-            color: "#a1a1aa",
+            color: palette.textSubtle,
           }}
         >
           <div
@@ -26,15 +27,15 @@ export function EmptyState({ title }: { title: string }) {
               width: 52,
               height: 52,
               borderRadius: 13,
-              background: "#f4f4f5",
+              background: palette.paper,
               display: "grid",
               placeItems: "center",
-              color: "#71717a",
+              color: palette.textMuted,
             }}
           >
             <Hammer size={24} />
           </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#71717a" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: palette.textMuted }}>
             Đang xây dựng
           </div>
         </div>
@@ -64,7 +65,7 @@ export function SectionTitle({
     >
       <div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: "#71717a", marginTop: 2 }}>{sub}</div>}
+        {sub && <div style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 2 }}>{sub}</div>}
       </div>
       {extra}
     </div>
@@ -90,9 +91,9 @@ export function StatCard({
       styles={{ body: { padding: 18 } }}
       style={{
         borderRadius: 14,
-        background: emphasis ? "#0a0a0a" : "#fff",
-        color: emphasis ? "#fff" : undefined,
-        borderColor: emphasis ? "#0a0a0a" : undefined,
+        background: emphasis ? palette.brandPrimary : palette.surface,
+        color: emphasis ? palette.onBrand : undefined,
+        borderColor: emphasis ? palette.brandPrimary : undefined,
         height: "100%",
       }}
     >
@@ -100,13 +101,13 @@ export function StatCard({
         <span
           style={{
             fontSize: 12.5,
-            color: emphasis ? "rgba(255,255,255,0.6)" : "#71717a",
+            color: emphasis ? onBrandAlpha(60) : palette.textMuted,
           }}
         >
           {label}
         </span>
         {icon && (
-          <span style={{ color: emphasis ? "rgba(255,255,255,0.75)" : "#a1a1aa" }}>{icon}</span>
+          <span style={{ color: emphasis ? onBrandAlpha(75) : palette.textSubtle }}>{icon}</span>
         )}
       </div>
       <div style={{ fontSize: 27, fontWeight: 700, marginTop: 10, letterSpacing: -0.5 }}>
@@ -117,7 +118,7 @@ export function StatCard({
           style={{
             fontSize: 12,
             marginTop: 6,
-            color: emphasis ? "rgba(255,255,255,0.55)" : "#a1a1aa",
+            color: emphasis ? onBrandAlpha(55) : palette.textSubtle,
           }}
         >
           {hint}

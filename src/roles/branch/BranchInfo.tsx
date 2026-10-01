@@ -3,6 +3,7 @@ import { Alert, Card, Descriptions, Spin, Tag } from "antd";
 import { useAppStore } from "../../store";
 import { getBranch, type ApiBranchDetail } from "../../services/branchApi";
 import { SectionTitle } from "../../components/bits";
+import { palette } from "../../theme";
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Đang hoạt động",
@@ -71,12 +72,12 @@ export default function BranchInfo() {
       <Card style={{ borderRadius: 14, marginTop: 16 }} styles={{ body: { padding: 20 } }}>
         <div style={{ fontWeight: 700, marginBottom: 12 }}>Giờ hoạt động</div>
         {branch.operatingHours.length === 0 ? (
-          <div style={{ color: "#71717a", fontSize: 13 }}>Chưa khai báo giờ hoạt động cho chi nhánh này.</div>
+          <div style={{ color: palette.textMuted, fontSize: 13 }}>Chưa khai báo giờ hoạt động cho chi nhánh này.</div>
         ) : (
           <div style={{ display: "grid", gap: 6 }}>
             {branch.operatingHours.map((h) => (
               <div key={h.dayOfWeek} style={{ display: "flex", gap: 12, fontSize: 13 }}>
-                <span style={{ width: 90, color: "#71717a" }}>{DAY_LABEL[h.dayOfWeek] ?? h.dayOfWeek}</span>
+                <span style={{ width: 90, color: palette.textMuted }}>{DAY_LABEL[h.dayOfWeek] ?? h.dayOfWeek}</span>
                 <span>{h.isClosed ? "Nghỉ" : `${h.openTime}–${h.closeTime}`}</span>
               </div>
             ))}

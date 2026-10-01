@@ -1,8 +1,9 @@
 import { Col, Row } from "antd";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { StatCard } from "../../components/bits";
+import { palette } from "../../theme";
 
-const PLACEHOLDER = <span style={{ fontSize: 15, color: "#71717a" }}>Chưa có dữ liệu</span>;
+const PLACEHOLDER = <span style={{ fontSize: 15, color: palette.textMuted }}>Chưa có dữ liệu</span>;
 
 /**
  * Dashboard chi nhánh (BM-03). Các ô đang là placeholder: backend chỉ mở

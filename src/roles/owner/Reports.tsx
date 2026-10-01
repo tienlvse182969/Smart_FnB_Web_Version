@@ -18,6 +18,7 @@ import {
   type RangePreset,
 } from "../../services/reportFormat";
 import { useReportData } from "./useReportData";
+import { palette } from "../../theme";
 
 const ALL_BRANCHES = "__all__";
 
@@ -186,7 +187,7 @@ function ChartShell({
       {loading ? (
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : isEmpty ? (
-        <div style={{ padding: "36px 0", textAlign: "center", color: "#71717a", fontSize: 13.5 }}>
+        <div style={{ padding: "36px 0", textAlign: "center", color: palette.textMuted, fontSize: 13.5 }}>
           {emptyText}
         </div>
       ) : (
@@ -222,7 +223,7 @@ function TimeseriesChart({ data, loading }: BlockProps) {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, marginTop: 12, overflowX: "auto" }}>
         {bars.map((bar) => (
           <div key={bar.bucket} style={{ flex: "1 0 28px", textAlign: "center", minWidth: 28 }}>
-            <div style={{ fontSize: 10.5, color: "#71717a", marginBottom: 4, whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 10.5, color: palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>
               {bar.revenue > 0 ? formatVndCompact(bar.revenue) : ""}
             </div>
             <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
@@ -231,12 +232,12 @@ function TimeseriesChart({ data, loading }: BlockProps) {
                 style={{
                   width: "100%",
                   height: `${Math.max((bar.revenue / max) * 100, bar.revenue > 0 ? 3 : 0)}%`,
-                  background: "#0a0a0a",
+                  background: palette.brandPrimary,
                   borderRadius: "4px 4px 0 0",
                 }}
               />
             </div>
-            <div style={{ fontSize: 10.5, color: "#71717a", marginTop: 6, whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>
               {formatDayLabel(bar.bucket)}
             </div>
           </div>
@@ -270,17 +271,17 @@ function BranchComparison({ data, loading }: BlockProps) {
                 </span>
                 <span style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatVnd(revenue)}</span>
               </div>
-              <div style={{ height: 8, background: "#f4f4f5", borderRadius: 999 }}>
+              <div style={{ height: 8, background: palette.paper, borderRadius: 999 }}>
                 <div
                   style={{
                     width: `${(revenue / max) * 100}%`,
                     height: "100%",
-                    background: "#0a0a0a",
+                    background: palette.brandPrimary,
                     borderRadius: 999,
                   }}
                 />
               </div>
-              <div style={{ fontSize: 11.5, color: "#71717a", marginTop: 4 }}>
+              <div style={{ fontSize: 11.5, color: palette.textMuted, marginTop: 4 }}>
                 {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)} · {formatCount(row.guestCount)} khách
               </div>
             </div>
@@ -313,7 +314,7 @@ function TopItemsTable({ data, loading }: BlockProps) {
           {
             title: "Món",
             key: "name",
-            render: (_, row) => row.menuItem.name ?? <span style={{ color: "#a1a1aa" }}>Món đã xoá</span>,
+            render: (_, row) => row.menuItem.name ?? <span style={{ color: palette.textSubtle }}>Món đã xoá</span>,
           },
           { title: "SL", dataIndex: "quantity", align: "right", width: 70, render: (v: number) => formatCount(v) },
           {

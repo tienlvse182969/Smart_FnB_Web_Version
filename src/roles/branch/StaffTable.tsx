@@ -5,6 +5,7 @@ import type { StaffLegacy } from "../../services";
 import { DEFAULT_PASSWORD } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> = {
   Manager: { label: "Manager", black: true },
@@ -58,8 +59,8 @@ export default function StaffTable() {
                   {v}
                   {!r.active && <Tag color="red">Đã khoá</Tag>}
                 </div>
-                <div style={{ fontSize: 12, color: "#52525b" }}>{r.email}</div>
-                <div style={{ fontSize: 11, color: "#a1a1aa" }}>{r.id}</div>
+                <div style={{ fontSize: 12, color: palette.textStrong }}>{r.email}</div>
+                <div style={{ fontSize: 11, color: palette.textSubtle }}>{r.id}</div>
               </div>
             ),
           },
@@ -158,7 +159,7 @@ function AddStaffDrawer({
       }}
       styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}
     >
-      <div style={{ fontSize: 13, color: "#71717a", marginBottom: 18 }}>
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 18 }}>
         Branch Manager tạo tài khoản Cashier và Barista. Vai trò quyết lúc tạo, không đổi giữa chừng.
       </div>
       <Field label="Họ tên">
@@ -196,7 +197,7 @@ function AddStaffDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>
         {label}
       </div>
       {children}

@@ -1,6 +1,7 @@
 import { Card } from "antd";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 /**
  * Doanh thu chi nhánh.
@@ -28,7 +29,7 @@ export default function RevenueChart() {
         }}
       >
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Chưa có dữ liệu</div>
-        <div style={{ color: "#71717a", fontSize: 13, maxWidth: 420, margin: "0 auto", lineHeight: 1.6 }}>
+        <div style={{ color: palette.textMuted, fontSize: 13, maxWidth: 420, margin: "0 auto", lineHeight: 1.6 }}>
           Báo cáo doanh thu hiện chỉ mở cho tài khoản Chủ chuỗi. Khi backend cho phép Quản lý chi
           nhánh đọc báo cáo, phần này sẽ hiển thị số liệu thật của chi nhánh.
         </div>

@@ -1,3 +1,4 @@
+import { palette } from "../../theme";
 type CtaButtonProps = {
   className?: string;
   variant?: "default" | "inverted";
@@ -10,8 +11,8 @@ export default function CtaButton({ className = "", variant = "default" }: CtaBu
 
   const style =
     variant === "inverted"
-      ? { backgroundColor: "#ffffff", color: "var(--brand-primary)" }
-      : { backgroundColor: "var(--brand-primary)", color: "#ffffff" };
+      ? { backgroundColor: palette.surface, color: "var(--brand-primary)" }
+      : { backgroundColor: "var(--brand-primary)", color: palette.onBrand };
 
   return (
     <button

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { App, Button, Input } from "antd";
 import { LogIn, UtensilsCrossed } from "lucide-react";
 import { useAppStore } from "../store";
+import { palette, onBrandAlpha } from "../theme";
 
 /**
  * Đăng nhập bằng email + mật khẩu qua backend thật. Không còn bước chọn vai
@@ -31,14 +32,14 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         height: "100vh",
         display: "grid",
         gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 0.9fr)",
-        background: "#fff",
+        background: palette.surface,
       }}
     >
       {/* Left — brand panel */}
       <div
         style={{
-          background: "#0a0a0a",
-          color: "#fff",
+          background: palette.brandPrimary,
+          color: palette.onBrand,
           padding: "56px 60px",
           display: "flex",
           flexDirection: "column",
@@ -51,12 +52,12 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
               width: 40,
               height: 40,
               borderRadius: 11,
-              background: "#fff",
+              background: palette.surface,
               display: "grid",
               placeItems: "center",
             }}
           >
-            <UtensilsCrossed size={22} color="#0a0a0a" />
+            <UtensilsCrossed size={22} color={palette.brandPrimary} />
           </div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Smart F&amp;B</div>
         </div>
@@ -69,7 +70,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
           </div>
           <p
             style={{
-              color: "rgba(255,255,255,0.6)",
+              color: onBrandAlpha(60),
               fontSize: 15,
               lineHeight: 1.6,
               maxWidth: 420,
@@ -81,7 +82,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
           </p>
         </div>
 
-        <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.4)" }}>
+        <div style={{ fontSize: 12.5, color: onBrandAlpha(40) }}>
           Thu ngân &amp; pha chế dùng ứng dụng tablet
         </div>
       </div>
@@ -97,7 +98,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         }}
       >
         <div style={{ fontSize: 22, fontWeight: 700 }}>Đăng nhập</div>
-        <div style={{ color: "#71717a", fontSize: 14, marginTop: 4, marginBottom: 24 }}>
+        <div style={{ color: palette.textMuted, fontSize: 14, marginTop: 4, marginBottom: 24 }}>
           Dùng email và mật khẩu được cấp cho tài khoản của bạn.
         </div>
 

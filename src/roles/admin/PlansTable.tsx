@@ -5,6 +5,7 @@ import type { Plan } from "../../types";
 import { createPlan, listPlans, updatePlan } from "../../services";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
+import { palette } from "../../theme";
 
 /** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts. */
 export default function PlansTable() {
@@ -86,7 +87,6 @@ function PlanDrawer({
     setMonthlyPrice(existing?.monthlyPrice ?? 900_000);
     setMaxBranches(existing?.maxBranches ?? 2);
     setMaxAccounts(existing?.maxAccounts ?? 15);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
   return (
@@ -124,7 +124,7 @@ function PlanDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

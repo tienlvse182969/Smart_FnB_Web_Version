@@ -4,8 +4,7 @@ import { Bell, CalendarDays, LogOut, Search, Store, User, UtensilsCrossed } from
 import { roleMeta } from "../data";
 import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
-import { useAppStore } from "../store";
-import { ink, pickReadableTextColor } from "../theme";
+import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
 
@@ -40,22 +39,18 @@ export default function RoleShell({
 }) {
   const meta = roleMeta[role];
   const [profileOpen, setProfileOpen] = useState(false);
-  const tenantBranding = useAppStore((s) => s.tenantBranding);
+  const brand = useBrand();
 
-  // BR-32: Admin luôn giữ nhận diện nền tảng. Các vai trò khác — kể cả
-  // Barista (chỉ đổi header/logo) — hiện logo/tên
-  // hiển thị của doanh nghiệp khi Owner đã tự cấu hình (isCustom).
-  const showTenantBrand = role !== "admin" && !!tenantBranding?.isCustom;
-  const brandName = showTenantBrand ? tenantBranding!.displayName || "Smart F&B" : "Smart F&B";
-  const brandLogo = showTenantBrand ? tenantBranding!.logoUrl : undefined;
+  // Nhận diện đã được giải quyết ở một chỗ (theme/resolveBrand): Admin và doanh nghiệp không
+  // có/không được dùng nhận diện riêng nhận nhận diện nền tảng (BR-41, BR-44).
+  const showTenantBrand = brand.custom;
+  const brandName = brand.displayName;
+  const brandLogo = brand.logo;
 
-  // Sider nhuộm theo primaryColor khi đã custom (Owner yêu cầu cả thanh bên
-  // đổi màu, không chỉ nút) — chữ trên sider tự chọn trắng/đen theo tương
-  // phản với màu nền thật (BR-31), không hardcode trắng như trước.
-  const siderBg = showTenantBrand ? tenantBranding!.primaryColor : ink;
-  const siderFg = pickReadableTextColor(siderBg);
-  const siderFgDim = siderFg === "#ffffff" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)";
-  const siderBtnBg = siderFg === "#ffffff" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
+  // Chữ trên thanh bên đã được chọn trắng/đen theo tương phản với màu thương hiệu (BR-43).
+  const siderFg = palette.onBrand;
+  const siderFgDim = onBrandAlpha(55);
+  const siderBtnBg = onBrandAlpha(10);
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -86,7 +81,7 @@ export default function RoleShell({
               width: 34,
               height: 34,
               borderRadius: 9,
-              background: "#fff",
+              background: palette.surface,
               display: "grid",
               placeItems: "center",
               flexShrink: 0,
@@ -96,7 +91,7 @@ export default function RoleShell({
             {brandLogo ? (
               <img src={brandLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <UtensilsCrossed size={19} color="#0a0a0a" />
+              <UtensilsCrossed size={19} color={palette.brandPrimary} />
             )}
           </div>
           <div style={{ lineHeight: 1.15, minWidth: 0 }}>
@@ -137,7 +132,7 @@ export default function RoleShell({
         >
           <div style={{ lineHeight: 1.2 }}>
             <div style={{ fontWeight: 700, fontSize: 17 }}>{meta.label}</div>
-            <div style={{ fontSize: 12, color: "#71717a" }}>{meta.scope}</div>
+            <div style={{ fontSize: 12, color: palette.textMuted }}>{meta.scope}</div>
           </div>
 
           {branchChip && (
@@ -146,8 +141,8 @@ export default function RoleShell({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "#0a0a0a",
-                color: "#fff",
+                background: palette.brandPrimary,
+                color: palette.onBrand,
                 padding: "5px 12px",
                 borderRadius: 999,
                 fontSize: 12.5,
@@ -161,7 +156,7 @@ export default function RoleShell({
           )}
 
           <Input
-            prefix={<Search size={16} color="#a1a1aa" />}
+            prefix={<Search size={16} color={palette.textSubtle} />}
             placeholder={searchPlaceholder}
             variant="filled"
             style={{ maxWidth: 340, marginLeft: 24 }}
@@ -174,15 +169,15 @@ export default function RoleShell({
                 alignItems: "center",
                 gap: 7,
                 fontSize: 13,
-                color: "#52525b",
+                color: palette.textStrong,
                 textTransform: "capitalize",
               }}
             >
-              <CalendarDays size={16} color="#a1a1aa" />
+              <CalendarDays size={16} color={palette.textSubtle} />
               {today}
             </div>
-            <Badge dot color="#0a0a0a">
-              <Bell size={19} color="#3f3f46" />
+            <Badge dot color={palette.brandPrimary}>
+              <Bell size={19} color={palette.textStrong} />
             </Badge>
             <Dropdown
               trigger={["click"]}
@@ -206,7 +201,7 @@ export default function RoleShell({
               }}
             >
               <Avatar
-                style={{ background: "#0a0a0a", fontWeight: 600, cursor: "pointer" }}
+                style={{ background: palette.brandPrimary, fontWeight: 600, cursor: "pointer" }}
                 size={36}
               >
                 {meta.label[0]}

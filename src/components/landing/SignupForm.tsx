@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { submitRegistration } from "../../services";
+import { palette } from "../../theme";
 
 type FormValues = {
   businessName: string;
@@ -80,7 +81,7 @@ export default function SignupForm() {
 
   if (submitted) {
     return (
-      <section id="signup-form" className="py-20 md:py-28" style={{ backgroundColor: "#fafafa" }}>
+      <section id="signup-form" className="py-20 md:py-28" style={{ backgroundColor: palette.paperSubtle }}>
         <div className="mx-auto max-w-2xl px-6 text-center">
           <div
             className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
@@ -88,7 +89,7 @@ export default function SignupForm() {
           >
             <CheckCircle2 className="h-6 w-6 text-white" strokeWidth={1.75} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "var(--brand-ink)" }}>
+          <h2 className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "var(--fnb-ink)" }}>
             Hồ sơ của bạn đang chờ duyệt
           </h2>
           <p className="mt-4 text-sm text-zinc-600 md:text-base">
@@ -100,10 +101,10 @@ export default function SignupForm() {
   }
 
   return (
-    <section id="signup-form" className="py-20 md:py-28" style={{ backgroundColor: "#fafafa" }}>
+    <section id="signup-form" className="py-20 md:py-28" style={{ backgroundColor: palette.paperSubtle }}>
       <div className="mx-auto max-w-2xl px-6">
         <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Bắt đầu</span>
-        <h2 className="mt-2 text-2xl font-bold md:text-3xl" style={{ color: "var(--brand-ink)" }}>
+        <h2 className="mt-2 text-2xl font-bold md:text-3xl" style={{ color: "var(--fnb-ink)" }}>
           Nộp hồ sơ đăng ký
         </h2>
         <p className="mt-3 text-sm text-zinc-600">
@@ -207,7 +208,7 @@ function Field({ id, label, value, onChange, error, type = "text" }: FieldProps)
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
-        style={{ color: "var(--brand-ink)" }}
+        style={{ color: "var(--fnb-ink)" }}
       />
       {error && (
         <p id={`${id}-error`} className="mt-1.5 text-xs text-red-600">

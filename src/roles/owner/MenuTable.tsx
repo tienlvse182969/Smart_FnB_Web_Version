@@ -12,6 +12,7 @@ import {
 } from "../../services";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 /**
  * PHẦN 0: Owner quản menu qua `types/menu.ts` + service thật (mock/db.ts) —
@@ -45,7 +46,6 @@ export default function MenuTable() {
 
   useEffect(() => {
     reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, branches.length]);
 
   const presenceItem = items.find((m) => m.id === presenceId) ?? null;
@@ -97,7 +97,7 @@ export default function MenuTable() {
             render: (v, r) => (
               <div>
                 <div style={{ fontWeight: 600 }}>{v}</div>
-                <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.category}</div>
+                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.category}</div>
               </div>
             ),
           },
@@ -174,7 +174,7 @@ function PresenceDrawer({
     >
       {item && (
         <>
-          <div style={{ fontSize: 13, color: "#71717a", marginBottom: 18 }}>
+          <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 18 }}>
             Chọn chi nhánh có bán món này. Bỏ chọn sẽ gỡ món khỏi chi nhánh đó. Chi nhánh mới chọn mặc định TẮT bán — Manager/Kitchen tự bật.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -194,7 +194,7 @@ function PresenceDrawer({
                 >
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{b.name}</div>
-                    <div style={{ fontSize: 12, color: "#a1a1aa" }}>{b.address}</div>
+                    <div style={{ fontSize: 12, color: palette.textSubtle }}>{b.address}</div>
                   </div>
                   <Checkbox checked={on} onChange={(e) => onToggle(item.id, b.id, e.target.checked)} />
                 </label>
@@ -230,7 +230,6 @@ function AddItemDrawer({
 
   useEffect(() => {
     if (open) setBranchIds(branches.map((b) => b.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const reset = () => {
@@ -324,7 +323,7 @@ function AddItemDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>
         {label}
       </div>
       {children}

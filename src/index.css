@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 
-:root {
-  --brand-primary: #0a0a0a;
-  --brand-ink: #0a0a0a;
-}
 
 @font-face {
   font-family: 'HarmonyOS Sans';
@@ -46,7 +42,7 @@ body {
 }
 *:hover::-webkit-scrollbar-thumb,
 *:focus::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--fnb-ink) 18%, transparent);
 }
 *::-webkit-scrollbar {
   width: 8px;

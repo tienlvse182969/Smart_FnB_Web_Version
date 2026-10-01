@@ -11,6 +11,7 @@ import {
   rejectRegistration,
 } from "../../services";
 import { SectionTitle } from "../../components/bits";
+import { palette } from "../../theme";
 
 /** PA-01→PA-04: xử lý hồ sơ đăng ký — duyệt sinh Tenant + Branding + Owner, hoặc từ chối kèm lý do. */
 export default function SignupRequests() {
@@ -83,7 +84,7 @@ export default function SignupRequests() {
         sub="Duyệt để khởi tạo doanh nghiệp, nhận diện mặc định & tài khoản Owner"
       />
       {requests.length === 0 && (
-        <div style={{ fontSize: 13, color: "#a1a1aa", padding: "24px 0", textAlign: "center" }}>
+        <div style={{ fontSize: 13, color: palette.textSubtle, padding: "24px 0", textAlign: "center" }}>
           Không có hồ sơ nào đang chờ duyệt.
         </div>
       )}
@@ -92,16 +93,16 @@ export default function SignupRequests() {
           <div key={r.id} style={{ border: "1px solid var(--ant-color-border)", borderRadius: 12, padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 600 }}>{r.businessName}</div>
-              <span style={{ fontSize: 12, color: "#a1a1aa" }}>{new Date(r.submittedAt).toLocaleDateString("vi-VN")}</span>
+              <span style={{ fontSize: 12, color: palette.textSubtle }}>{new Date(r.submittedAt).toLocaleDateString("vi-VN")}</span>
             </div>
-            <div style={{ fontSize: 12.5, color: "#71717a", margin: "4px 0 4px" }}>
+            <div style={{ fontSize: 12.5, color: palette.textMuted, margin: "4px 0 4px" }}>
               {r.contactName} · {r.contactEmail} · {r.contactPhone} · {r.estimatedBranches} chi nhánh dự kiến
             </div>
-            <div style={{ fontSize: 12, color: "#a1a1aa", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: palette.textSubtle, marginBottom: 8 }}>
               MST {r.taxCode} · {r.address}
             </div>
             {duplicates[r.id] && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#ad6800", background: "#fffbe6", border: "1px solid #ffe58f", borderRadius: 8, padding: "6px 10px", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: palette.warning.text, background: palette.warning.bg, border: `1px solid ${palette.warning.border}`, borderRadius: 8, padding: "6px 10px", marginBottom: 10 }}>
                 <AlertTriangle size={13} /> Mã số thuế trùng với một doanh nghiệp đã duyệt — kiểm tra trước khi duyệt.
               </div>
             )}

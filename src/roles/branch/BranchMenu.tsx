@@ -4,6 +4,7 @@ import { money } from "../../data";
 import type { BranchMenuItem } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 type Row = BranchMenuItem & {
   name: string;
@@ -58,7 +59,7 @@ export default function BranchMenu() {
                   {v}
                   {!r.activeChain && <Tag>Chuỗi đã tắt</Tag>}
                 </div>
-                <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.category}</div>
+                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.category}</div>
               </div>
             ),
           },
@@ -66,7 +67,7 @@ export default function BranchMenu() {
             title: "Giá",
             dataIndex: "price",
             align: "right",
-            render: (v) => <span style={{ color: "#a1a1aa" }}>{money(v)}</span>,
+            render: (v) => <span style={{ color: palette.textSubtle }}>{money(v)}</span>,
           },
           {
             title: "Còn bán hôm nay",
@@ -85,7 +86,7 @@ export default function BranchMenu() {
             align: "right",
             render: (rem: number | null, r) => {
               if (!r.activeChain) {
-                return <span style={{ fontSize: 12, color: "#a1a1aa" }}>Owner tắt món này</span>;
+                return <span style={{ fontSize: 12, color: palette.textSubtle }}>Owner tắt món này</span>;
               }
               return (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>

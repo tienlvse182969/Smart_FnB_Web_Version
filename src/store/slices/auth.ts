@@ -215,7 +215,12 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
         ? realBranchId
         : (apiBranches[0]?.id ?? null);
 
+      // Nạp nhận diện TRƯỚC khi báo scope sẵn sàng: khu vực đã đăng nhập chỉ render khi đã biết
+      // màu của doanh nghiệp, tránh nhấp nháy đổi màu (đặc tả 10.5).
+      const tenantBranding = await getTenantBranding(mockTenantId);
+
       set({
+        tenantBranding,
         scopeStatus: "ready",
         scopeError: null,
         chainId,
@@ -232,7 +237,6 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
         },
       });
 
-      set({ tenantBranding: await getTenantBranding(mockTenantId) });
       await Promise.all([get().loadMenu(), get().loadStaff()]);
     } catch (err) {
       clearRealScope();

@@ -5,6 +5,7 @@ import type { AiQueryLog } from "../../types";
 import { askAssistant, listAiQueryLogs, logAiQuery, SAMPLE_QUESTIONS, type AiAnswer } from "../../services";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 type ChatMessage = { role: "user"; text: string } | { role: "assistant"; answer: AiAnswer };
 
@@ -62,20 +63,20 @@ export default function AiAssistant() {
         <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 0 } }}>
           <div ref={scrollRef} style={{ height: 480, overflowY: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             {messages.length === 0 && (
-              <div style={{ color: "#a1a1aa", fontSize: 13, textAlign: "center", marginTop: 40 }}>
+              <div style={{ color: palette.textSubtle, fontSize: 13, textAlign: "center", marginTop: 40 }}>
                 Bấm một câu gợi ý bên dưới hoặc tự gõ câu hỏi của bạn.
               </div>
             )}
             {messages.map((m, i) =>
               m.role === "user" ? (
-                <div key={i} style={{ alignSelf: "flex-end", background: "#0a0a0a", color: "#fff", borderRadius: "14px 14px 2px 14px", padding: "10px 16px", maxWidth: "75%", fontSize: 14 }}>
+                <div key={i} style={{ alignSelf: "flex-end", background: palette.brandPrimary, color: palette.onBrand, borderRadius: "14px 14px 2px 14px", padding: "10px 16px", maxWidth: "75%", fontSize: 14 }}>
                   {m.text}
                 </div>
               ) : (
                 <AnswerCard key={i} answer={m.answer} />
               )
             )}
-            {loading && <div style={{ color: "#a1a1aa", fontSize: 13 }}>Đang tính…</div>}
+            {loading && <div style={{ color: palette.textSubtle, fontSize: 13 }}>Đang tính…</div>}
           </div>
 
           <div style={{ borderTop: "1px solid var(--ant-color-border)", padding: 16 }}>
@@ -105,17 +106,17 @@ export default function AiAssistant() {
         <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 16 } }}>
           <SectionTitle title="Lịch sử hỏi đáp" />
           {history.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#a1a1aa" }}>Chưa có câu hỏi nào.</div>
+            <div style={{ fontSize: 13, color: palette.textSubtle }}>Chưa có câu hỏi nào.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 460, overflowY: "auto" }}>
               {history.map((log) => (
                 <button
                   key={log.id}
                   onClick={() => openHistoryEntry(log)}
-                  style={{ textAlign: "left", cursor: "pointer", border: "1px solid var(--ant-color-border)", borderRadius: 10, padding: "10px 12px", background: "#fff", font: "inherit" }}
+                  style={{ textAlign: "left", cursor: "pointer", border: "1px solid var(--ant-color-border)", borderRadius: 10, padding: "10px 12px", background: palette.surface, font: "inherit" }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{log.query}</div>
-                  <div style={{ fontSize: 11.5, color: "#a1a1aa", display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ fontSize: 11.5, color: palette.textSubtle, display: "flex", alignItems: "center", gap: 5 }}>
                     <Clock size={11} /> {new Date(log.createdAt).toLocaleString("vi-VN")}
                     {log.latencyMs != null && <span>· {log.latencyMs}ms</span>}
                   </div>
@@ -133,14 +134,14 @@ function AnswerCard({ answer }: { answer: AiAnswer }) {
   const [showSql, setShowSql] = useState(false);
 
   return (
-    <div style={{ alignSelf: "flex-start", background: "#f4f4f5", borderRadius: "14px 14px 14px 2px", padding: 16, maxWidth: "88%" }}>
+    <div style={{ alignSelf: "flex-start", background: palette.paper, borderRadius: "14px 14px 14px 2px", padding: 16, maxWidth: "88%" }}>
       {answer.refused && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#ad6800", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, color: palette.warning.text, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
           <AlertTriangle size={13} /> Ngoài phạm vi dữ liệu
         </div>
       )}
       {answer.unmatched && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#71717a", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, color: palette.textMuted, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
           <AlertTriangle size={13} /> Chưa nhận ra mẫu câu hỏi
         </div>
       )}
@@ -152,7 +153,7 @@ function AnswerCard({ answer }: { answer: AiAnswer }) {
           pagination={false}
           dataSource={answer.table.rows.map((row, i) => ({ key: i, ...Object.fromEntries(row.map((v, ci) => [`c${ci}`, v])) }))}
           columns={answer.table.columns.map((c, ci) => ({ title: c, dataIndex: `c${ci}` }))}
-          style={{ background: "#fff", borderRadius: 8, marginBottom: 10 }}
+          style={{ background: palette.surface, borderRadius: 8, marginBottom: 10 }}
         />
       )}
 
@@ -166,7 +167,7 @@ function AnswerCard({ answer }: { answer: AiAnswer }) {
         </div>
       )}
       {showSql && (
-        <pre style={{ marginTop: 10, background: "#0a0a0a", color: "#e4e4e7", borderRadius: 8, padding: 12, fontSize: 12, overflowX: "auto" }}>
+        <pre style={{ marginTop: 10, background: palette.codeBg, color: palette.codeText, borderRadius: 8, padding: 12, fontSize: 12, overflowX: "auto" }}>
           {answer.sql}
         </pre>
       )}
