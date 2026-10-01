@@ -12,6 +12,7 @@ import type {
 } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
+import { MOCK_PLAN_CATALOG } from "../../mock/data/plans";
 import { genId, newId, nowISO } from "../../mock/util";
 import { deriveSubscriptionState } from "./mapper";
 import type { AdminApi } from "./index";
@@ -26,9 +27,16 @@ function addMonths(from: Date, months: number): Date {
 }
 
 let plans: ServicePlan[] = [
-  { id: "plan-basic", code: "BASIC", name: "Cơ bản", description: null, monthlyPrice: 300_000, maxBranches: 2, maxAccounts: 10, isActive: true },
-  { id: "plan-standard", code: "STANDARD", name: "Tiêu chuẩn", description: null, monthlyPrice: 600_000, maxBranches: 5, maxAccounts: 30, isActive: true },
-  { id: "plan-advanced", code: "ADVANCED", name: "Nâng cao", description: null, monthlyPrice: 1_200_000, maxBranches: 10, maxAccounts: 80, isActive: true },
+  ...MOCK_PLAN_CATALOG.map((p) => ({
+    id: `plan-${p.tier.toLowerCase()}`,
+    code: p.code,
+    name: p.name,
+    description: null,
+    monthlyPrice: p.monthlyPrice,
+    maxBranches: p.maxBranches,
+    maxAccounts: p.maxAccounts,
+    isActive: true,
+  })),
   { id: "plan-legacy", code: "LEGACY", name: "Gói cũ (ngừng bán)", description: null, monthlyPrice: 150_000, maxBranches: 1, maxAccounts: 5, isActive: false },
 ];
 

@@ -29,6 +29,7 @@ export {
 } from "./http/errors";
 export { clearTokens, setSessionExpiredHandler } from "./http/client";
 export { API_MODULES, DEFAULT_MODES, MODES, flagTable, modeOf, type ApiMode, type ApiModule } from "./flags";
+export { getPublicPlans, type PublicPlan } from "./publicPlans";
 export { mockControl, setMockFailure, type MockFailureKind } from "./mock/control";
 export { getScenario, setScenario, subscribeScenario, type MockScenario, type MockProfileId } from "./mock/scenario";
 

@@ -3,39 +3,14 @@
  * (đặc tả 13). Kịch bản trong `mock/scenario` có thể ghi đè (panel dev) để thử BASIC/STANDARD/ADVANCED/hết hạn.
  * Dùng chung cho bản mock lẫn bản real của module plan (real chỉ thay phần hạn mức bằng số thật).
  */
-import {
-  PLAN_TIER_LABEL,
-  PLAN_TIER_ORDER,
-  type FeatureKey,
-  type PlanFeature,
-  type PlanStatus,
-  type PlanTier,
-} from "../../../types";
+import { PLAN_TIER_LABEL, type FeatureKey, type PlanFeature, type PlanStatus, type PlanTier } from "../../../types";
+import { featuresForTier } from "../../../plan/tiers";
 import { profileOf } from "../../mock/data/profiles";
 import { getScenario } from "../../mock/scenario";
 
-/** Cấp gói thấp nhất có từng tính năng (đặc tả 13.1). */
-export const FEATURE_REQUIRED_TIER: Record<FeatureKey, PlanTier> = {
-  branding: "STANDARD",
-  multiBranchCompare: "STANDARD",
-  aiAssistant: "ADVANCED",
-};
-
-/** Hạn mức mẫu của đặc tả 13.1 — chỉ là dữ liệu mock; số thật do Admin cấu hình và BE trả về (CC-01). */
-export const MOCK_TIER_LIMITS: Record<PlanTier, { branches: number; accounts: number }> = {
-  BASIC: { branches: 2, accounts: 10 },
-  STANDARD: { branches: 5, accounts: 30 },
-  ADVANCED: { branches: 10, accounts: 80 },
-};
-
-export function buildFeatures(tier: PlanTier): Record<FeatureKey, PlanFeature> {
-  const rank = PLAN_TIER_ORDER.indexOf(tier);
-  const make = (key: FeatureKey): PlanFeature => ({
-    enabled: rank >= PLAN_TIER_ORDER.indexOf(FEATURE_REQUIRED_TIER[key]),
-    requiredTier: FEATURE_REQUIRED_TIER[key],
-  });
-  return { branding: make("branding"), multiBranchCompare: make("multiBranchCompare"), aiAssistant: make("aiAssistant") };
-}
+// Quy ước cấp ↔ cờ tính năng và cấu hình gói mẫu dùng chung — xem plan/tiers.ts và mock/data/plans.ts.
+export { FEATURE_REQUIRED_TIER, featuresForTier as buildFeatures } from "../../../plan/tiers";
+export { MOCK_TIER_LIMITS } from "../../mock/data/plans";
 
 const DAY_MS = 86_400_000;
 
@@ -56,6 +31,6 @@ export function mockPlanBase(): MockPlanBase {
     planName: PLAN_TIER_LABEL[tier],
     status: expired ? "expired" : "active",
     expiresAt: new Date(Date.now() + (expired ? -5 : 21) * DAY_MS).toISOString(),
-    features: buildFeatures(tier),
+    features: featuresForTier(tier),
   };
 }

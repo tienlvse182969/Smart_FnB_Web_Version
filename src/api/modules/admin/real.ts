@@ -107,11 +107,11 @@ export const adminReal: AdminApi = {
   },
 
   async createPlan(input) {
-    // TODO(3.3): maxTables là v7 nhưng BE còn bắt buộc → gửi 0.
+    // maxTables là v7 nhưng BE còn bắt buộc → luôn gửi 0 (TODO BE: bỏ bắt buộc, api-contract-plan.md mục 7 #10).
     return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...input, maxTables: 0 } }));
   },
 
   async updatePlan(id, input) {
-    return mapPlan(await request<RawPlan>(`/admin/service-plans/${id}`, { method: "PATCH", body: input }));
+    return mapPlan(await request<RawPlan>(`/admin/service-plans/${id}`, { method: "PATCH", body: { ...input, maxTables: 0 } }));
   },
 };
