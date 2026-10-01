@@ -1,10 +1,11 @@
-import { createBrowserRouter, Navigate, useNavigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useNavigate, type RouteObject } from "react-router-dom";
 import { App } from "antd";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
-import AdminApp from "../roles/admin/AdminApp";
-import OwnerApp from "../roles/owner/OwnerApp";
-import BranchApp from "../roles/branch/BranchApp";
+import DisplayLayout from "../display/DisplayLayout";
+import CallScreen from "../display/CallScreen";
+import RoleLayout from "./RoleLayout";
+import { roleHomePath, roleRoutes, type WebRole } from "./routeConfig";
 import { RoleGuard, homeRouteFor } from "./guards";
 import { useAppStore } from "../store";
 
@@ -30,26 +31,25 @@ function LoginWrapper() {
   return <LoginScreen onLogin={handleLogin} />;
 }
 
-/** Mọi không gian làm việc đều dùng chung một nút Đăng xuất. */
-function useLogoutHandler() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  return async () => {
-    await logout();
-    navigate("/login");
+/**
+ * Khu vực của một vai trò: /{role} chuyển tới màn đầu tiên, các màn con lấy từ
+ * routeConfig (cùng nguồn với sidebar), đường dẫn lạ về màn đầu tiên.
+ */
+function roleArea(role: WebRole): RouteObject {
+  const home = roleHomePath(role);
+  return {
+    path: `/${role}`,
+    element: (
+      <RoleGuard allowedRoles={[role]}>
+        <RoleLayout role={role} />
+      </RoleGuard>
+    ),
+    children: [
+      { index: true, element: <Navigate to={home} replace /> },
+      ...roleRoutes[role].map((def) => ({ path: def.path, element: def.element })),
+      { path: "*", element: <Navigate to={home} replace /> },
+    ],
   };
-}
-
-function AdminWrapper() {
-  return <AdminApp onLogout={useLogoutHandler()} />;
-}
-
-function OwnerWrapper() {
-  return <OwnerApp onLogout={useLogoutHandler()} />;
-}
-
-function ManagerWrapper() {
-  return <BranchApp onLogout={useLogoutHandler()} />;
 }
 
 export const router = createBrowserRouter([
@@ -61,29 +61,18 @@ export const router = createBrowserRouter([
     path: "/login",
     element: <LoginWrapper />,
   },
+  roleArea("admin"),
+  roleArea("owner"),
+  roleArea("manager"),
   {
-    path: "/admin/*",
-    element: (
-      <RoleGuard allowedRoles={["admin"]}>
-        <AdminWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/owner/*",
-    element: (
-      <RoleGuard allowedRoles={["owner"]}>
-        <OwnerWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/manager/*",
-    element: (
-      <RoleGuard allowedRoles={["manager"]}>
-        <ManagerWrapper />
-      </RoleGuard>
-    ),
+    // Màn hình đặt ở quầy: công khai, không sidebar, không đăng nhập người dùng.
+    path: "/display",
+    element: <DisplayLayout />,
+    children: [
+      { index: true, element: <Navigate to="call" replace /> },
+      { path: "call", element: <CallScreen /> },
+      { path: "*", element: <Navigate to="/display/call" replace /> },
+    ],
   },
   {
     path: "/branch/*",
