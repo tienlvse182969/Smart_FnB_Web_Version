@@ -102,3 +102,21 @@ Căn cứ: đối chiếu `/admin/*` và `POST /registration-applications` với
 | 9 | Trung bình | **GU-01 thêm "số chi nhánh dự kiến"** vào `SubmitRegistrationApplicationDto` và model (đặc tả 4.2) | Form có ô này nhưng không gửi lên |
 | 10 | Trung bình | **Gói thêm `tier`** (`BASIC \| STANDARD \| ADVANCED`) và **cờ tính năng** (`branding`, `multiBranchCompare`, `aiAssistant`) — xem mục 2; **bỏ `maxTables` bắt buộc** khi tạo gói (v9 không có bàn; `usage.tableCount` cũng nên bỏ) | Web gửi `maxTables: 0`; tier/cờ tính năng là mock |
 | 11 | Thấp | Duyệt hồ sơ cho chọn **ngày hết hạn** thay vì số tháng (đặc tả PA-02: "ngày hết hạn ban đầu") | Web nhập số tháng và hiện ngày tính được |
+
+### Menu và tuỳ chọn món — chờ BE (giai đoạn 4)
+
+Web đã nối real cho danh mục + món + gán chi nhánh (giai đoạn 4.2). Phần dưới đây BE chưa có; web dùng mock (`src/api/modules/options`) hoặc bỏ qua. Các bảng Prisma `menu_option_groups`, `menu_options`, `menu_item_option_groups`, `branch_menu_options` **đã có** và đang được dùng khi chốt đơn (`counter-operations.service.ts`), chỉ thiếu controller.
+
+| # | Mức | Việc cần BE | Hiện web làm gì |
+|---|---|---|---|
+| 12 | Trung bình | **CRUD nhóm tuỳ chọn và tuỳ chọn** theo chuỗi (OW-03): `name`, `code`, `isRequired`, `minSelections`, `maxSelections`, `displayOrder`, `isActive`; tuỳ chọn có `priceDelta` ≥ 0 (số nguyên đồng — BR-19). Ví dụ `/restaurant-chains/{id}/menu/option-groups[/{groupId}/options]` | Mock theo đúng tên trường Prisma |
+| 13 | Trung bình | **Gắn nhóm vào món**: `PUT /restaurant-chains/{id}/menu/items/{itemId}/option-groups` (danh sách `groupId` kèm thứ tự = `MenuItemOptionGroup.displayOrder`) | Mock |
+| 14 | Trung bình | **Bật/tắt tuỳ chọn cấp chuỗi** (`MenuOption.isActive`, BR-12/OW-04) | Mock |
+| 15 | Thấp | **Trường tuỳ chọn mặc định** (đặc tả 12.2: "tuỳ chọn mặc định", ví dụ đường 100%, đá bình thường): `MenuOption.isDefault` hoặc `defaultOptionIds` trên nhóm. Hiện schema không có | Mock có `defaultOptionIds` |
+| 16 | Trung bình | **Trả `optionGroups` (kèm `options`) trong** `GET …/menu/items` và `GET /branches/{id}/menu` để POS/Manager hiển thị mà không phải gọi riêng | Chưa đọc được từ BE |
+| 17 | Thấp | **Trường "không gom món"** trên `menu_items` (đặc tả 8.3, OW-02 "cờ cho phép gom món khi pha"), ví dụ `allowBatching boolean default true`; có trong `create/update/list` | Chưa có; mock tạm ở 4.3 |
+| 18 | Thấp | **Endpoint tải ảnh món lên** (`multipart` hoặc URL ký trước) trả `imageUrl`; hiện chỉ có `imageUrl` chuỗi ≤ 500 ký tự | Ô nhập URL kèm xem trước, ảnh lỗi hiện ảnh thay thế |
+| 19 | Trung bình | **`GET /branches/{id}/menu` cho Manager thấy cả món Owner đã tắt** (kèm cờ `isActive`/`isEnabled`) để BM-02 hiện "Owner tắt món này" như đặc tả; hiện BE ẩn hẳn món Owner đã tắt | Web chỉ hiện món đang bán |
+| 20 | Trung bình | **Manager bật/tắt tuỳ chọn tại chi nhánh** (BM-02): hiện chỉ có `PATCH /barista/menu-options/{id}/availability` (role BARISTA); thêm `PATCH /branches/{b}/menu/options/{optionId}` cho OWNER, MANAGER | Chưa làm (giai đoạn 5) |
+| 21 | Thấp | `price` là `Decimal(14,2)` và DTO cho phép 2 chữ số thập phân; BR-19 là số nguyên đồng → ép `@IsInt` hoặc bỏ phần thập phân | Web chỉ gửi số nguyên; đọc qua `parseAmount` |
+| 22 | Thấp | `remainingPortions` (kho, v7) còn trong `PATCH /branches/{b}/menu/items/{id}` và response → bỏ khỏi v9 | Web không bao giờ gửi, mapper bỏ qua khi đọc |
