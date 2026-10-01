@@ -46,7 +46,7 @@ export type StaffLegacy = {
   branchId: string;
   name: string;
   email: string;
-  role: "Manager" | "Waiter" | "Kitchen";
+  role: "Manager" | "Cashier" | "Barista";
   active: boolean;
 };
 export let staffLegacy: StaffLegacy[] = [];

@@ -14,7 +14,7 @@ import {
 } from "./http";
 
 /** Tên vai trò do backend trả về. */
-type BackendRole = "ADMIN" | "OWNER" | "MANAGER" | "WAITER" | "KITCHEN" | "CASHIER";
+type BackendRole = "ADMIN" | "OWNER" | "MANAGER" | "WAITER" | "KITCHEN" | "CASHIER" | "BARISTA";
 
 interface BackendAuthUser {
   id: string;
@@ -42,10 +42,19 @@ const WEB_ROLE_BY_BACKEND: Partial<Record<BackendRole, RoleKey>> = {
   MANAGER: "manager",
 };
 
-/** Hai vai trò đã chuyển hẳn sang ứng dụng tablet. */
-const TABLET_ONLY_ROLES: BackendRole[] = ["WAITER", "KITCHEN"];
+/** Hai vai trò vận hành của v9, chỉ dùng ứng dụng tablet. */
+const TABLET_ONLY_ROLES: BackendRole[] = ["CASHIER", "BARISTA"];
 
 export const TABLET_ONLY_MESSAGE = "Vui lòng sử dụng ứng dụng tablet";
+
+/** Vai trò backend còn trả về nhưng không thuộc đặc tả v9 (WAITER, KITCHEN). */
+export const NO_WEB_ACCESS_MESSAGE = "Tài khoản này không có quyền truy cập trang quản trị";
+
+/** Thông báo chặn khi vai trò không được vào web; null nếu được vào. */
+function webAccessBlock(role: BackendRole): string | null {
+  if (WEB_ROLE_BY_BACKEND[role]) return null;
+  return TABLET_ONLY_ROLES.includes(role) ? TABLET_ONLY_MESSAGE : NO_WEB_ACCESS_MESSAGE;
+}
 
 function displayName(user: BackendAuthUser): string {
   const person = user.owner ?? user.employee;
@@ -55,7 +64,7 @@ function displayName(user: BackendAuthUser): string {
 
 function toAuthUser(user: BackendAuthUser): AuthUser {
   const role = WEB_ROLE_BY_BACKEND[user.role];
-  if (!role) throw new ApiError(403, TABLET_ONLY_MESSAGE);
+  if (!role) throw new ApiError(403, webAccessBlock(user.role) ?? NO_WEB_ACCESS_MESSAGE);
 
   return {
     id: user.id,
@@ -75,8 +84,8 @@ function toAuthUser(user: BackendAuthUser): AuthUser {
 /**
  * Đăng nhập bằng email + mật khẩu.
  *
- * Waiter/Kitchen bị chặn: thu hồi luôn phiên vừa tạo ở backend và không lưu
- * token nào ở client.
+ * Cashier/Barista (và vai trò v7 còn sót ở backend) bị chặn: thu hồi luôn phiên
+ * vừa tạo ở backend và không lưu token nào ở client.
  */
 export async function loginWithPassword(email: string, password: string): Promise<AuthUser> {
   const result = await request<BackendAuthResult>("/auth/login", {
@@ -85,9 +94,10 @@ export async function loginWithPassword(email: string, password: string): Promis
     anonymous: true,
   });
 
-  if (TABLET_ONLY_ROLES.includes(result.user.role)) {
+  const blocked = webAccessBlock(result.user.role);
+  if (blocked) {
     await revokeSession(result.refreshToken);
-    throw new ApiError(403, TABLET_ONLY_MESSAGE);
+    throw new ApiError(403, blocked);
   }
 
   const user = toAuthUser(result.user);
@@ -110,7 +120,7 @@ export async function restoreSession(): Promise<AuthUser | null> {
       anonymous: true,
     });
 
-    if (TABLET_ONLY_ROLES.includes(result.user.role)) {
+    if (webAccessBlock(result.user.role)) {
       await revokeSession(result.refreshToken);
       return null;
     }

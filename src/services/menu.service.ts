@@ -17,10 +17,10 @@ export function isSellable(menuItem: MenuItem, branchItem: BranchMenuItem | unde
   );
 }
 
-/** Chỉ Branch Manager và Kitchen Staff được đổi trạng thái món tại chi nhánh (BR-06/4.7.D). */
+/** Chỉ Branch Manager và Barista được bật/tắt món tại chi nhánh (BR-12, BM-02, BA-03). */
 function assertCanEditBranchAvailability(actingRole: RoleKey) {
-  if (actingRole !== "manager" && actingRole !== "kitchen") {
-    throw new Error("Chỉ Branch Manager hoặc Kitchen Staff mới được đổi trạng thái món tại chi nhánh");
+  if (actingRole !== "manager" && actingRole !== "barista") {
+    throw new Error("Chỉ Branch Manager hoặc Barista mới được bật/tắt món tại chi nhánh");
   }
 }
 
@@ -54,7 +54,7 @@ export async function listBranchMenuItems(
 }
 
 /**
- * Bật/tắt món tại chi nhánh (Branch Manager hoặc Kitchen — BR-06, mục 4.7.D).
+ * Bật/tắt món tại chi nhánh (Branch Manager hoặc Barista — BR-12).
  * Owner đã tắt món ở cấp chuỗi (`activeChain = false`) thì chi nhánh KHÔNG
  * bật lại được, kể cả khi gọi hàm này với `isAvailable = true`.
  */
@@ -93,7 +93,7 @@ export async function toggleBranchMenuItem(
   }
 }
 
-/** Cập nhật số suất còn lại trong ngày (Branch Manager hoặc Kitchen). */
+/** Cập nhật số suất còn lại trong ngày (Branch Manager). */
 export async function updateRemaining(
   branchId: string,
   menuItemId: string,
@@ -149,7 +149,7 @@ export async function updateMenuItem(
 
 /**
  * Owner chọn chi nhánh "có mặt" bán món này (mục 4.4.B). Chi nhánh mới được
- * chọn mặc định TẮT (`isAvailable=false`) — Branch Manager/Kitchen tự bật
+ * chọn mặc định TẮT (`isAvailable=false`) — Branch Manager/Barista tự bật
  * (BR-06). Bỏ chọn thì gỡ hẳn bản ghi khỏi chi nhánh đó.
  */
 export async function setMenuItemPresence(menuItemId: string, branchIds: string[]): Promise<void> {

@@ -20,8 +20,8 @@ export async function listStaff(branchId: string): Promise<StaffLegacy[]> {
 }
 
 /**
- * Branch Manager tạo tài khoản Waiter/Kitchen cho chi nhánh mình (BM-08).
- * Owner không tạo được tài khoản này — chỉ xem danh sách (mục 4.4.C).
+ * Branch Manager tạo tài khoản Cashier/Barista cho chi nhánh mình (BM-01).
+ * Owner không tạo được tài khoản này — chỉ xem danh sách (mục 4.4).
  * Chặn khi vượt `maxAccounts` của gói (BR-23) hoặc tenant chỉ đọc (BR-22).
  */
 export async function createStaffAccount(
@@ -29,17 +29,17 @@ export async function createStaffAccount(
   branchId: string,
   name: string,
   email: string,
-  role: "Waiter" | "Kitchen"
+  role: "Cashier" | "Barista"
 ): Promise<StaffLegacy> {
   await delay();
   assertTenantWritable(tenantId);
   assertWithinAccountLimit(tenantId);
 
   const account = buildAccount({
-    role: role === "Waiter" ? "waiter" : "kitchen",
+    role: role === "Cashier" ? "cashier" : "barista",
     name,
     email,
-    label: role === "Waiter" ? "Waiter" : "Kitchen Staff",
+    label: role,
     scope: branchId,
     tenantId,
     branchId,

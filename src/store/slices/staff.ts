@@ -13,7 +13,7 @@ export interface StaffSlice {
   staff: StaffLegacy[];
 
   loadStaff: () => Promise<void>;
-  createStaffAccount: (name: string, email: string, role: "Waiter" | "Kitchen") => Promise<void>;
+  createStaffAccount: (name: string, email: string, role: "Cashier" | "Barista") => Promise<void>;
   setStaffActive: (id: string, active: boolean) => Promise<void>;
 }
 
@@ -27,7 +27,7 @@ export const createStaffSlice: SliceCreator<StaffSlice> = (set, get) => ({
     set({ staff: activeBranchId ? await listStaff(activeBranchId) : [] });
   },
 
-  createStaffAccount: async (name: string, email: string, role: "Waiter" | "Kitchen") => {
+  createStaffAccount: async (name: string, email: string, role: "Cashier" | "Barista") => {
     const { currentUser, currentBranchId } = get();
     if (!currentUser?.tenantId || !currentBranchId) return;
 

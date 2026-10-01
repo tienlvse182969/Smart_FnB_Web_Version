@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { Avatar, Badge, Dropdown, Input, Layout, Menu } from "antd";
 import { Bell, CalendarDays, LogOut, Search, Store, User, UtensilsCrossed } from "lucide-react";
-import { roleMeta, type RoleKey } from "../data";
+import { roleMeta } from "../data";
+import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
 import { useAppStore } from "../store";
 import { ink, pickReadableTextColor } from "../theme";

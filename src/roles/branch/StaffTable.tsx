@@ -8,8 +8,8 @@ import { useAppStore } from "../../store";
 
 const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> = {
   Manager: { label: "Manager", black: true },
-  Waiter: { label: "Waiter" },
-  Kitchen: { label: "Kitchen" },
+  Cashier: { label: "Cashier" },
+  Barista: { label: "Barista" },
 };
 
 /**
@@ -122,17 +122,17 @@ function AddStaffDrawer({
   open: boolean;
   branchLabel: string;
   onClose: () => void;
-  onSave: (name: string, email: string, role: "Waiter" | "Kitchen") => void;
+  onSave: (name: string, email: string, role: "Cashier" | "Barista") => void;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"Waiter" | "Kitchen">("Waiter");
+  const [role, setRole] = useState<"Cashier" | "Barista">("Cashier");
 
   const reset = () => {
     setName("");
     setEmail("");
-    setRole("Waiter");
+    setRole("Cashier");
   };
 
   const save = () => {
@@ -159,7 +159,7 @@ function AddStaffDrawer({
       styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}
     >
       <div style={{ fontSize: 13, color: "#71717a", marginBottom: 18 }}>
-        Branch Manager chỉ tạo được tài khoản Waiter và Kitchen. Vai trò quyết lúc tạo, không đổi giữa chừng.
+        Branch Manager tạo tài khoản Cashier và Barista. Vai trò quyết lúc tạo, không đổi giữa chừng.
       </div>
       <Field label="Họ tên">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Văn A" />
@@ -178,8 +178,8 @@ function AddStaffDrawer({
           onChange={setRole}
           style={{ width: "100%" }}
           options={[
-            { value: "Waiter", label: "Waiter" },
-            { value: "Kitchen", label: "Kitchen" },
+            { value: "Cashier", label: "Cashier" },
+            { value: "Barista", label: "Barista" },
           ]}
         />
       </Field>

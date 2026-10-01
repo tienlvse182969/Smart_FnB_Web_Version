@@ -36,10 +36,10 @@ export async function createManagerAccount(
   });
 }
 
-/** Owner chỉ XEM danh sách Waiter/Kitchen — không tạo/sửa được (mục 4.4.C). */
+/** Owner chỉ XEM danh sách Cashier/Barista — không tạo/sửa được (mục 4.4). */
 export async function listStaffAccountsForOwner(tenantId: string): Promise<DemoAccount[]> {
   await delay();
   return db.demoAccounts.filter(
-    (a) => a.tenantId === tenantId && (a.role === "waiter" || a.role === "kitchen")
+    (a) => a.tenantId === tenantId && (a.role === "cashier" || a.role === "barista")
   );
 }

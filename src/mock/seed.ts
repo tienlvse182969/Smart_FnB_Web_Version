@@ -182,18 +182,18 @@ const BRANCH_MENU_ITEMS: BranchMenuItem[] = [
 ];
 
 // =====================================================================
-// Staff legacy (nhân sự chi nhánh — vai trò Waiter/Kitchen còn lại sẽ bỏ ở bước đổi RoleKey)
+// Staff legacy (nhân sự chi nhánh: Manager, Cashier, Barista)
 // =====================================================================
 // id của Manager demo trùng id DemoAccount tương ứng (ACC-manager). Nhân viên còn lại
 // chỉ có trong roster, không có tài khoản đăng nhập.
 const STAFF_LEGACY: StaffLegacy[] = [
   { id: "ACC-manager", tenantId: T1, branchId: T1_B1, name: "Trần Minh Quân",  email: "manager@comtam.vn",    role: "Manager", active: true },
   { id: "E-02", tenantId: T1, branchId: T1_B1, name: "Lê Thị Hồng",    email: "hong.le@comtam.vn",    role: "Manager", active: true },
-  { id: "ACC-kitchen", tenantId: T1, branchId: T1_B1, name: "Nguyễn Văn Tú",  email: "kitchen@comtam.vn",    role: "Kitchen", active: true },
-  { id: "E-04", tenantId: T1, branchId: T1_B1, name: "Phạm Thu Hà",    email: "ha.pham@comtam.vn",    role: "Kitchen", active: true },
-  { id: "ACC-waiter", tenantId: T1, branchId: T1_B1, name: "Võ Hoàng Nam",   email: "waiter@comtam.vn",     role: "Waiter",  active: true },
-  { id: "E-06", tenantId: T1, branchId: T1_B1, name: "Đặng Mỹ Linh",  email: "linh.dang@comtam.vn",  role: "Waiter",  active: true },
-  { id: "E-07", tenantId: T1, branchId: T1_B2, name: "Bùi Anh Khoa",  email: "khoa.bui@comtam.vn",   role: "Waiter",  active: true },
+  { id: "E-03", tenantId: T1, branchId: T1_B1, name: "Nguyễn Văn Tú",  email: "tu.nguyen@comtam.vn",  role: "Barista", active: true },
+  { id: "E-04", tenantId: T1, branchId: T1_B1, name: "Phạm Thu Hà",    email: "ha.pham@comtam.vn",    role: "Barista", active: true },
+  { id: "E-05", tenantId: T1, branchId: T1_B1, name: "Võ Hoàng Nam",   email: "nam.vo@comtam.vn",     role: "Cashier",  active: true },
+  { id: "E-06", tenantId: T1, branchId: T1_B1, name: "Đặng Mỹ Linh",  email: "linh.dang@comtam.vn",  role: "Cashier",  active: true },
+  { id: "E-07", tenantId: T1, branchId: T1_B2, name: "Bùi Anh Khoa",  email: "khoa.bui@comtam.vn",   role: "Cashier",  active: true },
   { id: "E-08", tenantId: T1, branchId: T1_B2, name: "Ngô Gia Bảo",   email: "bao.ngo@comtam.vn",    role: "Manager", active: true },
 ];
 
@@ -204,8 +204,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { id: "ACC-admin",   role: "admin",   name: "Platform Admin",   email: "admin@platform.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Platform Admin",   scope: "Nền tảng",                      tenantId: undefined, branchId: undefined },
   { id: "ACC-owner",   role: "owner",   name: "Nguyễn Chủ Chuỗi", email: "owner@comtam.vn",    password: "demo1234", mustChangePassword: false, active: true, label: "Owner",            scope: "Cơm Tấm Sài Gòn · Toàn chuỗi", tenantId: T1,        branchId: undefined },
   { id: "ACC-manager", role: "manager", name: "Trần Minh Quân",   email: "manager@comtam.vn",  password: "demo1234", mustChangePassword: false, active: true, label: "Branch Manager",   scope: "Cơm Tấm Sài Gòn · Quận 1",     tenantId: T1,        branchId: T1_B1 },
-  { id: "ACC-waiter",  role: "waiter",  name: "Waiter Demo",       email: "waiter.demo@smartfnb.local",  password: "demo1234", mustChangePassword: false, active: true, label: "Waiter",        scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
-  { id: "ACC-kitchen", role: "kitchen", name: "Kitchen Demo",      email: "kitchen.demo@smartfnb.local", password: "demo1234", mustChangePassword: false, active: true, label: "Kitchen Staff", scope: "Backend demo branch", tenantId: T1, branchId: T1_B1 },
 ];
 
 // =====================================================================

@@ -7,11 +7,11 @@ const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
   owner: "/owner",
   manager: "/manager",
-  waiter: "/login",
-  kitchen: "/login",
+  cashier: "/login",
+  barista: "/login",
 };
 
-/** Trang chủ của một vai trò. Waiter/Kitchen không còn khu vực trên web — về /login. */
+/** Trang chủ của một vai trò. Cashier/Barista không có khu vực trên web — về /login. */
 export function homeRouteFor(role: RoleKey): string {
   return ROLE_HOME[role] ?? "/login";
 }

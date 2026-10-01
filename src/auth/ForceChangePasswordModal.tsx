@@ -4,7 +4,7 @@ import { useAppStore } from "../store";
 
 /**
  * CM-01: bắt đổi mật khẩu ở lần đăng nhập đầu tiên cho mọi vai trò mới tạo
- * (Owner, Manager, Waiter, Kitchen). Không có nút "Huỷ" — modal ở lại cho
+ * (Owner, Manager, Cashier, Barista). Không có nút "Huỷ" — modal ở lại cho
  * tới khi đổi xong.
  */
 export default function ForceChangePasswordModal() {

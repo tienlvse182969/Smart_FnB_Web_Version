@@ -146,7 +146,7 @@ export default function ManagerAccounts() {
           },
           {
             key: "staff",
-            label: `Waiter & Kitchen (${staff.length}) · chỉ xem`,
+            label: `Thu ngân & Pha chế (${staff.length}) · chỉ xem`,
             children: (
               <Table<DemoAccount>
                 dataSource={staff}
@@ -164,7 +164,7 @@ export default function ManagerAccounts() {
                       </div>
                     ),
                   },
-                  { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "waiter" ? "Waiter" : "Kitchen"}</Tag> },
+                  { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "cashier" ? "Cashier" : "Barista"}</Tag> },
                   { title: "Chi nhánh", dataIndex: "branchId", render: (id: string) => branchName(id) },
                   {
                     title: "Trạng thái",

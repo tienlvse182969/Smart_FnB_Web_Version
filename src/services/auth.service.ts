@@ -37,7 +37,7 @@ export async function setAccountActive(accountId: string, active: boolean): Prom
   account.active = active;
 }
 
-/** Chuyển tài khoản (Manager/Waiter/Kitchen) sang chi nhánh khác (OW-06). */
+/** Chuyển tài khoản (Manager/Cashier/Barista) sang chi nhánh khác (OW-05). */
 export async function reassignAccountBranch(accountId: string, branchId: string): Promise<void> {
   await delay();
   const account = db.demoAccounts.find((a) => a.id === accountId);
@@ -48,7 +48,7 @@ export async function reassignAccountBranch(accountId: string, branchId: string)
 /**
  * Tạo tài khoản mới — mật khẩu mặc định, bắt đổi ở lần đăng nhập đầu.
  * Dùng chung cho: Admin duyệt hồ sơ (Owner), Owner tạo Manager, Manager tạo
- * Waiter/Kitchen. Không export hạn mức gói ở đây — caller tự kiểm tra bằng
+ * Cashier/Barista. Không export hạn mức gói ở đây — caller tự kiểm tra bằng
  * `_guard.ts#assertWithinAccountLimit` TRƯỚC khi gọi hàm này.
  */
 export function buildAccount(
