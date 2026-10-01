@@ -18,6 +18,7 @@ import {
   ScrollText,
   Sliders,
   Store,
+  Tags,
   UserCog,
   UserPlus,
   UsersRound,
@@ -31,6 +32,7 @@ import PlansTable from "../roles/admin/PlansTable";
 import Reports from "../roles/owner/Reports";
 import Branches from "../roles/owner/Branches";
 import MenuTable from "../roles/owner/MenuTable";
+import CategoriesTable from "../roles/owner/CategoriesTable";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
 import AiAssistant from "../roles/owner/AiAssistant";
@@ -76,6 +78,7 @@ export const ownerRoutes: RouteDef[] = [
   { path: "reports", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "OW-08", element: <Reports /> },
   { path: "branches", label: "Chi nhánh", icon: <Store size={18} />, code: "OW-01", element: <Branches /> },
   { path: "menu", label: "Menu toàn chuỗi", icon: <UtensilsCrossed size={18} />, code: "OW-02 · OW-04", element: <MenuTable /> },
+  { path: "menu/categories", label: "Danh mục món", icon: <Tags size={18} />, code: "OW-02", element: <CategoriesTable /> },
   {
     path: "menu/options",
     label: "Tuỳ chọn món",
