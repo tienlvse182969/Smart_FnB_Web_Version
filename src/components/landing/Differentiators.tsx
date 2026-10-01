@@ -2,26 +2,26 @@ import { Pencil, Flame, Clock, CircleDashed, CheckCircle2 } from "lucide-react";
 import SectionHeading from "./SectionHeading";
 import { palette } from "../../theme";
 
-const tables = [
-  { id: "3", seats: 4, state: "busy" as const },
-  { id: "4", seats: 4, state: "free" as const },
-  { id: "5", seats: 4, state: "suggested" as const },
-  { id: "6", seats: 4, state: "suggested" as const },
-  { id: "7", seats: 6, state: "free" as const },
-  { id: "8", seats: 2, state: "busy" as const },
+const cups = [
+  { id: "038", note: "Size M", state: "busy" as const },
+  { id: "040", note: "Size L", state: "free" as const },
+  { id: "041", note: "Size L", state: "suggested" as const },
+  { id: "043", note: "Size L", state: "suggested" as const },
+  { id: "044", note: "Size L", state: "suggested" as const },
+  { id: "045", note: "Size M", state: "free" as const },
 ];
 
-function TableSuggestionMock() {
+function BatchQueueMock() {
   return (
     <div className="rounded-[14px] border border-zinc-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-500">Khu vực trong nhà · 9 khách</span>
+        <span className="text-xs font-medium text-zinc-500">Quầy pha chế · Trà sữa trân châu</span>
         <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
-          Phương án 1 / 3
+          Mẻ 1 / 2
         </span>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2.5">
-        {tables.map((t) => {
+        {cups.map((t) => {
           const suggested = t.state === "suggested";
           const busy = t.state === "busy";
           return (
@@ -35,39 +35,39 @@ function TableSuggestionMock() {
               }}
             >
               <div className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
-                Bàn {t.id}
+                Số {t.id}
               </div>
-              <div className="mt-0.5 text-[11px] text-zinc-400">{t.seats} ghế</div>
+              <div className="mt-0.5 text-[11px] text-zinc-400">{t.note}</div>
             </div>
           );
         })}
       </div>
       <div className="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
-        Gợi ý ghép Bàn 5 + Bàn 6 liền kề — nhân viên chọn hoặc xem phương án khác
+        Gom ly số 041 + 043 + 044 (cùng món, cùng size) thành một mẻ — mẻ đầu hàng đợi luôn có ly chờ lâu nhất
       </div>
     </div>
   );
 }
 
-function MenuDraftMock() {
+function OptionTableMock() {
   const rows = [
-    { name: "Cơm sườn bì chả", price: "45.000 ₫", category: "Cơm" },
-    { name: "Bún bò Huế", price: "50.000 ₫", category: "Bún" },
-    { name: "Trà đá", price: "5.000 ₫", category: "Đồ uống" },
+    { name: "Size L", price: "+6.000 ₫", category: "Size" },
+    { name: "Trân châu đen", price: "+5.000 ₫", category: "Topping" },
+    { name: "Pudding", price: "+7.000 ₫", category: "Topping" },
   ];
   return (
     <div className="rounded-[14px] border border-zinc-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-500">Bảng nháp từ ảnh menu</span>
+        <span className="text-xs font-medium text-zinc-500">Nhóm tuỳ chọn · Size, Topping</span>
         <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
-          62 món nhận được
+          Giá lưu lúc bán
         </span>
       </div>
       <div className="mt-4 overflow-hidden rounded-[10px] border border-zinc-100">
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 bg-zinc-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-          <span>Tên món</span>
-          <span>Giá</span>
-          <span>Danh mục</span>
+          <span>Tuỳ chọn</span>
+          <span>Giá cộng thêm</span>
+          <span>Nhóm</span>
           <span />
         </div>
         {rows.map((row) => (
@@ -83,29 +83,29 @@ function MenuDraftMock() {
         ))}
       </div>
       <div className="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
-        Owner xem lại, sửa chỗ sai rồi nhập hàng loạt vào menu chuỗi
+        Giá món và giá cộng thêm được chụp vào đơn lúc bán — đổi giá không làm sai bill cũ
       </div>
     </div>
   );
 }
 
 const ticketLines = [
-  { name: "2x Cơm sườn", note: "Ít cay", status: "done" as const },
-  { name: "1x Canh chua cá", note: null, status: "cooking" as const },
-  { name: "3x Trà đá", note: null, status: "queued" as const },
+  { name: "2x Trà sữa trân châu", note: "50% đường, thêm pudding", status: "done" as const },
+  { name: "1x Cà phê muối", note: null, status: "cooking" as const },
+  { name: "3x Trà đào", note: null, status: "queued" as const },
 ];
 
 const ticketStatusMeta = {
   done: { label: "Xong", icon: CheckCircle2, tone: "text-zinc-400" },
-  cooking: { label: "Đang làm", icon: Flame, tone: "" },
-  queued: { label: "Chờ", icon: CircleDashed, tone: "text-zinc-300" },
+  cooking: { label: "Đang pha", icon: Flame, tone: "" },
+  queued: { label: "Chờ pha", icon: CircleDashed, tone: "text-zinc-300" },
 };
 
-function KitchenTicketMock() {
+function BarTicketMock() {
   return (
     <div className="rounded-[14px] border border-zinc-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-500">Hàng đợi bếp · Bàn 12</span>
+        <span className="text-xs font-medium text-zinc-500">Hàng đợi pha chế · Số 42</span>
         <Clock className="h-4 w-4 text-zinc-300" strokeWidth={1.75} aria-hidden="true" />
       </div>
       <div className="mt-4 space-y-2.5">
@@ -126,7 +126,7 @@ function KitchenTicketMock() {
                 <div className="text-sm font-medium" style={{ color: "var(--fnb-ink)" }}>
                   {line.name}
                 </div>
-                {line.note && <div className="mt-0.5 text-xs text-zinc-500">Ghi chú: {line.note}</div>}
+                {line.note && <div className="mt-0.5 text-xs text-zinc-500">Tuỳ chọn: {line.note}</div>}
               </div>
               <div className={`flex items-center gap-1.5 text-xs font-medium ${meta.tone}`} style={cooking ? { color: "var(--brand-primary)" } : undefined}>
                 <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -142,22 +142,22 @@ function KitchenTicketMock() {
 
 const items = [
   {
-    title: "Thuật toán gợi ý xếp và ghép bàn",
+    title: "Thuật toán gom món theo mẻ",
     description:
-      "Nhập số khách, hệ thống đề xuất tối đa 3 phương án xếp hoặc ghép bàn liền kề theo sơ đồ thực tế của chi nhánh. Nhân viên luôn là người quyết định cuối cùng — hệ thống chỉ gợi ý, không tự xếp.",
-    Mock: TableSuggestionMock,
+      "Ly cùng món và cùng size, thanh toán gần nhau trong cửa sổ gom, được gom thành một mẻ để pha nền một lần; đường, đá, topping thêm ở bước cuối cho từng ly. Mẻ đầu hàng đợi luôn chứa ly chờ lâu nhất — gom không làm ly nào phải chờ thêm.",
+    Mock: BatchQueueMock,
   },
   {
-    title: "AI bóc tách ảnh menu giấy",
+    title: "Tuỳ chọn món có giá cộng thêm",
     description:
-      "Chụp ảnh menu giấy, AI bóc tách thành bảng món gồm tên, giá, danh mục. Chủ quán xem lại, sửa những chỗ sai rồi nhập hàng loạt vào hệ thống thay vì gõ tay từng món.",
-    Mock: MenuDraftMock,
+      "Owner tạo nhóm tuỳ chọn như size, đường, đá, topping, đặt quy tắc chọn bắt buộc hoặc tối đa bao nhiêu, rồi gắn một nhóm cho nhiều món. Giá tính ở backend và được lưu vào đơn lúc bán.",
+    Mock: OptionTableMock,
   },
   {
-    title: "Màn hình bếp xử lý theo từng món",
+    title: "Màn hình pha chế xử lý theo từng ly",
     description:
-      "Bếp làm xong món nào báo món đó, nhân viên bưng ngay món đó ra bàn — không phải chờ cả bàn nấu xong mới bắt đầu phục vụ.",
-    Mock: KitchenTicketMock,
+      "Pha chế cập nhật từng ly: xong ly nào báo ly đó. Đơn đủ ly thì màn hình gọi số mời khách nhận — không chờ các đơn khác trong cùng mẻ.",
+    Mock: BarTicketMock,
   },
 ];
 

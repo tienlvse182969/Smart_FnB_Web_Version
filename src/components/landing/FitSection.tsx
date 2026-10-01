@@ -3,17 +3,18 @@ import SectionHeading from "./SectionHeading";
 import { palette } from "../../theme";
 
 const fits = [
-  "Quán cơm, quán bún phở",
-  "Quán ăn tầm trung",
-  "Cà phê, trà sữa",
-  "Quán nhậu, lẩu nướng",
-  "Kể cả loại hình khách gọi thêm nhiều lần trong bữa",
+  "Chuỗi cà phê",
+  "Trà sữa, nước ép, đồ uống mang đi",
+  "Đồ ăn nhanh gọi tại quầy: bánh mì, cơm văn phòng, xôi",
+  "Chuỗi 2–10 chi nhánh cùng một chủ",
+  "Khách gọi món và trả tiền ngay tại quầy",
 ];
 
 const notFits = [
-  "Buffet tính theo đầu người",
-  "Quán tự phục vụ tại quầy",
-  "Chuỗi trên 20 chi nhánh",
+  "Nhà hàng ngồi ăn xong mới trả tiền",
+  "Buffet, quán nhậu, lẩu nướng",
+  "Chuỗi trên 10 chi nhánh",
+  "Mô hình chủ yếu bán qua ứng dụng giao hàng",
 ];
 
 export default function FitSection() {

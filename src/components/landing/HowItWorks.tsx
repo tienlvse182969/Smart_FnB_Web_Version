@@ -2,20 +2,20 @@ import SectionHeading from "./SectionHeading";
 
 const steps = [
   {
-    title: "Nhập số khách, hệ thống gợi ý phương án xếp bàn",
-    description: "Nhân viên nhập số khách trên tablet, hệ thống đề xuất phương án xếp hoặc ghép bàn liền kề.",
+    title: "Khách gọi món tại quầy, thu ngân chọn món và tuỳ chọn",
+    description: "Thu ngân chọn món, size, đường, đá, topping trên POS; màn hình phía khách hiện món và tổng tiền theo thời gian thực.",
   },
   {
-    title: "Mang tablet ra bàn, khách chọn món, bấm gửi là xuống bếp",
-    description: "Khách chọn món ngay trên tablet, nhân viên bấm gửi, order chạy thẳng xuống màn hình bếp.",
+    title: "Khách trả tiền mặt hoặc quét QR",
+    description: "QR do PayOS tạo từ kênh của chính chủ quán, tiền về thẳng tài khoản ngân hàng của chủ chuỗi; chưa trả tiền thì chưa pha.",
   },
   {
-    title: "Bếp xử lý theo từng món, xong món nào báo món đó",
-    description: "Không chờ cả bàn xong mới ra — món nào xong, bếp báo ngay để nhân viên bưng lên.",
+    title: "Đơn xuống quầy pha chế, ly giống nhau được gom thành mẻ",
+    description: "Pha chế cập nhật từng ly; xong ly nào báo ly đó, không chờ các đơn khác trong cùng mẻ.",
   },
   {
-    title: "Thu tiền qua QR hoặc tiền mặt tại quầy, in hoá đơn",
-    description: "Quản lý chi nhánh xác nhận thanh toán tại quầy và in hoá đơn cho mọi giao dịch.",
+    title: "Gọi số, khách nhận ly, in bill và phiếu số",
+    description: "Đủ ly thì màn hình gọi số mời khách nhận; mọi đơn đã thanh toán đều có bill và phiếu số.",
   },
 ];
 

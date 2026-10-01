@@ -53,7 +53,7 @@ export default function MultiBranchDashboard() {
             <SectionHeading eyebrow="Đa chi nhánh" title="Quản lý đa chi nhánh" />
             <p className="mt-4 text-sm text-zinc-600 md:text-base">
               Chủ chuỗi xem dashboard so sánh doanh thu giữa các chi nhánh trên cùng một biểu đồ,
-              theo ngày, tuần, tháng — thay vì mở từng chi nhánh riêng lẻ rồi tự cộng trừ so sánh.
+              theo ngày, tuần, tháng — thay vì mở từng chi nhánh riêng lẻ rồi tự cộng trừ so sánh. Có từ gói Tiêu chuẩn.
             </p>
           </div>
           <BranchChartMock />

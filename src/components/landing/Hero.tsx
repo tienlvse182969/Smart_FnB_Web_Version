@@ -3,9 +3,9 @@ import CtaButton from "./CtaButton";
 import Logo from "./Logo";
 
 const orderLines = [
-  { name: "2x Cơm sườn", note: "Ít cay", status: "done" },
-  { name: "1x Canh chua cá", note: null, status: "cooking" },
-  { name: "3x Trà đá", note: null, status: "queued" },
+  { name: "2x Trà sữa trân châu", note: "Size L · 50% đường", status: "done" },
+  { name: "1x Cà phê muối", note: null, status: "cooking" },
+  { name: "3x Trà đào", note: null, status: "queued" },
 ];
 
 const statusIcon = {
@@ -23,18 +23,18 @@ export default function Hero() {
             <Logo inverted />
             <div className="mt-14 max-w-xl">
               <span className="text-xs font-semibold uppercase tracking-widest text-white/40">
-                Chuỗi quán ăn 2–10 chi nhánh
+                Chuỗi đồ uống 2–10 chi nhánh
               </span>
               <h1
                 className="mt-4 text-3xl font-bold leading-tight text-white md:text-5xl"
                 style={{ letterSpacing: "-0.02em" }}
               >
-                Phần mềm vận hành chuỗi quán ăn, thuê theo tháng
+                Phần mềm bán hàng tại quầy cho chuỗi đồ uống, thuê theo tháng
               </h1>
               <p className="mt-6 text-base leading-relaxed text-white/60 md:text-lg">
-                Từ lúc khách ngồi xuống bàn tới lúc thu tiền xong: ghi order tại bàn, chạy thẳng
-                xuống bếp, thu tiền qua QR hoặc tiền mặt, và so sánh doanh thu giữa các chi nhánh
-                trên một màn hình.
+                Từ lúc khách gọi món tới lúc nhận ly: gọi món và trả tiền trước tại quầy, đơn xuống
+                quầy pha chế ngay khi khách trả tiền, tiền QR về thẳng tài khoản của chủ quán, và
+                so sánh doanh thu giữa các chi nhánh trên một màn hình.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-5">
                 <CtaButton variant="inverted" />
@@ -47,10 +47,10 @@ export default function Hero() {
             <div className="rounded-[14px] border border-zinc-200 bg-white p-5">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                 <span className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
-                  Bàn 12 · 4 khách
+                  Phiếu số 042 · Đã thanh toán
                 </span>
                 <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
-                  Đang phục vụ
+                  Đang pha
                 </span>
               </div>
               <div className="mt-4 space-y-4">
@@ -60,14 +60,14 @@ export default function Hero() {
                       <div className="text-sm font-medium" style={{ color: "var(--fnb-ink)" }}>
                         {line.name}
                       </div>
-                      {line.note && <div className="mt-0.5 text-xs text-zinc-500">Ghi chú: {line.note}</div>}
+                      {line.note && <div className="mt-0.5 text-xs text-zinc-500">Tuỳ chọn: {line.note}</div>}
                     </div>
                     {statusIcon[line.status as keyof typeof statusIcon]}
                   </div>
                 ))}
               </div>
               <div className="mt-5 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
-                Order chạy thẳng xuống màn hình bếp ngay khi bấm gửi
+                Đơn xuống quầy pha chế ngay khi khách trả tiền
               </div>
             </div>
 
@@ -81,9 +81,9 @@ export default function Hero() {
                 />
                 <div>
                   <div className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
-                    Món xong — Bàn 12
+                    Sẵn sàng — Số 042
                   </div>
-                  <div className="text-xs text-zinc-500">Nhân viên nào rảnh bấm nhận trước</div>
+                  <div className="text-xs text-zinc-500">Màn hình gọi số mời khách nhận ly</div>
                 </div>
               </div>
             </div>

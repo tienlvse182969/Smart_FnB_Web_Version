@@ -6,29 +6,34 @@ const faqs = [
   {
     question: "Phần mềm có xuất hoá đơn điện tử theo quy định thuế không?",
     answer:
-      "Chưa. Phần mềm hiện in hoá đơn nội bộ cho từng giao dịch, chưa xuất hoá đơn điện tử theo quy định thuế.",
+      "Chưa. Phần mềm in bill và phiếu số cho mọi đơn đã thanh toán, nhưng chưa xuất hoá đơn điện tử theo quy định thuế.",
   },
   {
     question: "Phần mềm có quản lý kho nguyên liệu không?",
-    answer: "Không. Hệ thống không quản lý kho nguyên liệu, không theo dõi tồn kho hay nhập xuất hàng.",
+    answer: "Không. Hệ thống không quản lý kho nguyên liệu, không theo dõi tồn kho hay nhập xuất hàng; chỉ có báo hết món và hết tuỳ chọn.",
   },
   {
     question: "Có cần kết nối internet để hoạt động không?",
-    answer: "Có. Phần mềm cần kết nối internet để hoạt động, từ ghi order tới thanh toán và báo cáo.",
+    answer: "Có. Phần mềm cần kết nối internet để hoạt động, từ gọi món tới thanh toán và báo cáo; chưa có chế độ hoạt động offline.",
   },
   {
-    question: "Ai được xác nhận thu tiền?",
+    question: "Ai được xác nhận chuyển khoản thủ công?",
     answer:
-      "Chỉ quản lý chi nhánh mới xác nhận được thanh toán. Nhân viên phục vụ chỉ thu tiền hộ, không tự xác nhận, và hệ thống ghi lại tên người thu để truy vết.",
+      "Chỉ quản lý chi nhánh. Khi số tiền chuyển khoản không khớp, đơn chuyển sang Cần xử lý; thu ngân không tự xác nhận, và hệ thống ghi lại lý do cùng tên người xác nhận để truy vết.",
   },
   {
     question: "Phần mềm có tính lương hoặc chấm công không?",
     answer: "Không. Phần mềm không có chức năng chấm công hay tính lương cho nhân viên.",
   },
   {
-    question: "Khách có thể tự đặt món qua điện thoại của khách không?",
+    question: "Khách có tự gọi món qua điện thoại hoặc kiosk không?",
     answer:
-      "Không. Khách không cài đặt gì và không thao tác trên thiết bị nào cả — nhân viên phục vụ là người thao tác trên tablet tại bàn.",
+      "Chưa. Khách gọi món tại quầy với thu ngân, nhìn món và tổng tiền trên màn hình phía khách rồi trả tiền mặt hoặc quét QR; khách không cài gì và không cần tài khoản.",
+  },
+  {
+    question: "Tiền thanh toán QR đi đâu?",
+    answer:
+      "Về thẳng tài khoản ngân hàng của chủ chuỗi, qua kênh PayOS của chính chủ chuỗi. Nền tảng không giữ tiền và không thu phí giao dịch — chỉ thu phí thuê bao theo tháng.",
   },
   {
     question: "Đăng ký sử dụng như thế nào?",
