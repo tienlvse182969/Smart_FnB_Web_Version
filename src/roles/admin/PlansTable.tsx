@@ -2,17 +2,18 @@ import { App, Button, Card, Drawer, Input, InputNumber, Table } from "antd";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Plan } from "../../types";
-import { createPlan, listPlans, updatePlan } from "../../services";
+import { adminApi } from "../../api";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
+import { palette } from "../../theme";
 
-/** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts, maxTables. */
+/** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts. */
 export default function PlansTable() {
   const { message } = App.useApp();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
 
-  const load = () => listPlans().then(setPlans);
+  const load = () => adminApi.listPlans().then(setPlans);
   useEffect(() => {
     load();
   }, []);
@@ -21,7 +22,7 @@ export default function PlansTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Gói dịch vụ"
-        sub="Giá tháng và hạn mức chi nhánh / tài khoản / bàn — áp cho toàn bộ doanh nghiệp dùng gói này"
+        sub="Giá tháng và hạn mức chi nhánh / tài khoản — áp cho toàn bộ doanh nghiệp dùng gói này"
         extra={
           <Button type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
             Thêm gói
@@ -39,7 +40,6 @@ export default function PlansTable() {
           { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: money },
           { title: "Chi nhánh tối đa", dataIndex: "maxBranches", align: "right" },
           { title: "Tài khoản tối đa", dataIndex: "maxAccounts", align: "right" },
-          { title: "Bàn tối đa", dataIndex: "maxTables", align: "right" },
         ]}
       />
 
@@ -49,10 +49,10 @@ export default function PlansTable() {
         onSave={async (data) => {
           try {
             if (editing === "new") {
-              await createPlan(data);
+              await adminApi.createPlan(data);
               message.success("Đã tạo gói mới");
             } else if (editing) {
-              await updatePlan(editing.id, data);
+              await adminApi.updatePlan(editing.id, data);
               message.success("Đã cập nhật gói");
             }
             setEditing(null);
@@ -81,15 +81,12 @@ function PlanDrawer({
   const [monthlyPrice, setMonthlyPrice] = useState(existing?.monthlyPrice ?? 900_000);
   const [maxBranches, setMaxBranches] = useState(existing?.maxBranches ?? 2);
   const [maxAccounts, setMaxAccounts] = useState(existing?.maxAccounts ?? 15);
-  const [maxTables, setMaxTables] = useState(existing?.maxTables ?? 20);
 
   useEffect(() => {
     setName(existing?.name ?? "");
     setMonthlyPrice(existing?.monthlyPrice ?? 900_000);
     setMaxBranches(existing?.maxBranches ?? 2);
     setMaxAccounts(existing?.maxAccounts ?? 15);
-    setMaxTables(existing?.maxTables ?? 20);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
   return (
@@ -111,14 +108,11 @@ function PlanDrawer({
       <Field label="Số tài khoản tối đa">
         <InputNumber value={maxAccounts} onChange={(v) => setMaxAccounts(v ?? 1)} style={{ width: "100%" }} min={1} />
       </Field>
-      <Field label="Số bàn tối đa">
-        <InputNumber value={maxTables} onChange={(v) => setMaxTables(v ?? 1)} style={{ width: "100%" }} min={1} />
-      </Field>
       <Button
         type="primary"
         block
         style={{ marginTop: 8 }}
-        onClick={() => onSave({ name: name.trim(), monthlyPrice, maxBranches, maxAccounts, maxTables })}
+        onClick={() => onSave({ name: name.trim(), monthlyPrice, maxBranches, maxAccounts })}
         disabled={!name.trim()}
       >
         Lưu gói
@@ -130,7 +124,7 @@ function PlanDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

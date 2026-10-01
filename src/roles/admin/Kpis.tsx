@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Col, Row } from "antd";
 import { Building2, CheckCircle2, Clock3 } from "lucide-react";
 import type { RegistrationRequest, Tenant } from "../../types";
-import { listRegistrations, listTenants } from "../../services";
+import { adminApi } from "../../api";
 import { StatCard } from "../../components/bits";
 
 export default function Kpis() {
@@ -10,8 +10,8 @@ export default function Kpis() {
   const [registrations, setRegistrations] = useState<RegistrationRequest[]>([]);
 
   useEffect(() => {
-    listTenants().then(setTenants);
-    listRegistrations().then(setRegistrations);
+    adminApi.listTenants().then(setTenants);
+    adminApi.listRegistrations().then(setRegistrations);
   }, []);
 
   const active = tenants.filter((t) => t.status === "active").length;

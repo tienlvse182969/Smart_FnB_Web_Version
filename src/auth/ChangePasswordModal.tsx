@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { App, Button, Input, Modal } from "antd";
 import { useAppStore } from "../store";
+import { palette } from "../theme";
 
 /** Đổi mật khẩu tự nguyện — mở từ menu tài khoản (Hồ sơ cá nhân), dùng chung mọi vai trò. */
 export default function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -39,9 +40,9 @@ export default function ChangePasswordModal({ open, onClose }: { open: boolean; 
       footer={null}
       title={<span style={{ fontSize: 17, fontWeight: 700 }}>Hồ sơ cá nhân</span>}
     >
-      <div style={{ fontSize: 13, color: "#71717a", marginBottom: 4 }}>Họ tên</div>
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 4 }}>Họ tên</div>
       <div style={{ fontWeight: 600, marginBottom: 12 }}>{currentUser?.name}</div>
-      <div style={{ fontSize: 13, color: "#71717a", marginBottom: 4 }}>Email</div>
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 4 }}>Email</div>
       <div style={{ fontWeight: 600, marginBottom: 18 }}>{currentUser?.email}</div>
 
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Đổi mật khẩu</div>

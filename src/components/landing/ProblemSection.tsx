@@ -40,7 +40,7 @@ export default function ProblemSection() {
               >
                 <item.icon className="h-5 w-5" style={{ color: "var(--brand-primary)" }} strokeWidth={1.75} aria-hidden="true" />
               </div>
-              <h3 className="mt-4 text-base font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <h3 className="mt-4 text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 {item.title}
               </h3>
               <p className="mt-2 text-sm text-zinc-600">{item.description}</p>

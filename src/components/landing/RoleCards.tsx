@@ -1,5 +1,6 @@
 import { LayoutGrid, Store, ConciergeBell, ChefHat } from "lucide-react";
 import SectionHeading from "./SectionHeading";
+import { palette } from "../../theme";
 
 const roles = [
   {
@@ -42,7 +43,7 @@ const roles = [
 
 export default function RoleCards() {
   return (
-    <section className="py-20 md:py-28" style={{ backgroundColor: "#fafafa" }}>
+    <section className="py-20 md:py-28" style={{ backgroundColor: palette.paperSubtle }}>
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeading eyebrow="Không gian làm việc" title="Theo vai trò" />
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -57,7 +58,7 @@ export default function RoleCards() {
               >
                 <role.icon className="h-5 w-5 text-white" strokeWidth={1.75} aria-hidden="true" />
               </div>
-              <h3 className="mt-4 text-base font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <h3 className="mt-4 text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 {role.title}
               </h3>
               <ul className="mt-4 space-y-2">

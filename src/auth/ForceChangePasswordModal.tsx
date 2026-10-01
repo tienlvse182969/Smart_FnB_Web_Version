@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { App, Button, Input, Modal } from "antd";
 import { useAppStore } from "../store";
+import { palette } from "../theme";
 
 /**
  * CM-01: bắt đổi mật khẩu ở lần đăng nhập đầu tiên cho mọi vai trò mới tạo
- * (Owner, Manager, Waiter, Kitchen). Không có nút "Huỷ" — modal ở lại cho
+ * (Owner, Manager, Cashier, Barista). Không có nút "Huỷ" — modal ở lại cho
  * tới khi đổi xong.
  */
 export default function ForceChangePasswordModal() {
@@ -44,7 +45,7 @@ export default function ForceChangePasswordModal() {
       footer={null}
       title={<span style={{ fontSize: 17, fontWeight: 700 }}>Đổi mật khẩu để tiếp tục</span>}
     >
-      <div style={{ fontSize: 13, color: "#71717a", marginBottom: 16 }}>
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 16 }}>
         Tài khoản của bạn đang dùng mật khẩu tạm — hãy đặt mật khẩu mới trước khi vào hệ thống.
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>

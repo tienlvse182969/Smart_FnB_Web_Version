@@ -3,16 +3,11 @@ import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DemoAccount } from "../../types";
 import { DEFAULT_PASSWORD } from "../../types";
-import {
-  createManagerAccount,
-  listManagerAccounts,
-  listStaffAccountsForOwner,
-  reassignAccountBranch,
-  resetPassword,
-  setAccountActive,
-} from "../../services";
+import { accountApi } from "../../api";
+import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import { palette } from "../../theme";
 
 /** OW-05/06: Owner tạo/khoá/reset mật khẩu/chuyển chi nhánh cho Branch Manager. */
 export default function ManagerAccounts() {
@@ -29,23 +24,22 @@ export default function ManagerAccounts() {
 
   const load = async () => {
     if (!tenantId) return;
-    setManagers(await listManagerAccounts(tenantId));
-    setStaff(await listStaffAccountsForOwner(tenantId));
+    setManagers(await accountApi.listManagers(tenantId));
+    setStaff(await accountApi.listStaffAccounts(tenantId));
   };
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
   const toggleActive = async (a: DemoAccount) => {
-    await setAccountActive(a.id, !a.active);
+    await accountApi.setActive(a.id, !a.active);
     message.success(!a.active ? `Đã mở khoá tài khoản ${a.name}` : `Đã khoá tài khoản ${a.name}`);
     await load();
   };
 
   const doReset = async (a: DemoAccount) => {
-    await resetPassword(a.id);
+    await accountApi.resetPassword(a.id);
     modal.success({
       title: `Đã đặt lại mật khẩu ${a.name}`,
       content: (
@@ -59,7 +53,7 @@ export default function ManagerAccounts() {
   };
 
   const changeBranch = async (a: DemoAccount, branchId: string) => {
-    await reassignAccountBranch(a.id, branchId);
+    await accountApi.reassignBranch(a.id, branchId);
     message.success(`Đã chuyển ${a.name} sang ${branchName(branchId)}`);
     await load();
   };
@@ -70,9 +64,9 @@ export default function ManagerAccounts() {
         title="Tài khoản quản lý"
         sub="Một chi nhánh có thể có nhiều Branch Manager để trực ca — không phải một người làm cả ngày"
         extra={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" onClick={() => setAdding(true)}>
             Thêm tài khoản
-          </Button>
+          </ActionButton>
         }
       />
       <Tabs
@@ -93,7 +87,7 @@ export default function ManagerAccounts() {
                     render: (v, r) => (
                       <div>
                         <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.email}</div>
+                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
                       </div>
                     ),
                   },
@@ -114,7 +108,7 @@ export default function ManagerAccounts() {
                     title: "Trạng thái",
                     dataIndex: "active",
                     render: (active: boolean) => (
-                      <span style={{ background: active ? "#e7f7ec" : "#0a0a0a", color: active ? "#0a0a0a" : "#fff", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>
+                      <span style={{ background: active ? palette.success.bg : palette.error.bg, color: active ? palette.success.text : palette.error.text, padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>
                         {active ? "Đang hoạt động" : "Đã khoá"}
                       </span>
                     ),
@@ -125,17 +119,17 @@ export default function ManagerAccounts() {
                     align: "right",
                     render: (_, r) => (
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <Button size="small" icon={<KeyRound size={14} />} onClick={() => doReset(r)}>
+                        <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => doReset(r)}>
                           Reset mật khẩu
-                        </Button>
+                        </ActionButton>
                         {r.active ? (
-                          <Button size="small" icon={<Lock size={14} />} onClick={() => toggleActive(r)}>
+                          <ActionButton size="small" icon={<Lock size={14} />} onClick={() => toggleActive(r)}>
                             Khoá
-                          </Button>
+                          </ActionButton>
                         ) : (
-                          <Button size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r)}>
+                          <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r)}>
                             Mở khoá
-                          </Button>
+                          </ActionButton>
                         )}
                       </div>
                     ),
@@ -146,7 +140,7 @@ export default function ManagerAccounts() {
           },
           {
             key: "staff",
-            label: `Waiter & Kitchen (${staff.length}) · chỉ xem`,
+            label: `Thu ngân & Pha chế (${staff.length}) · chỉ xem`,
             children: (
               <Table<DemoAccount>
                 dataSource={staff}
@@ -160,11 +154,11 @@ export default function ManagerAccounts() {
                     render: (v, r) => (
                       <div>
                         <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.email}</div>
+                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
                       </div>
                     ),
                   },
-                  { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "waiter" ? "Waiter" : "Kitchen"}</Tag> },
+                  { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "cashier" ? "Cashier" : "Barista"}</Tag> },
                   { title: "Chi nhánh", dataIndex: "branchId", render: (id: string) => branchName(id) },
                   {
                     title: "Trạng thái",
@@ -185,7 +179,7 @@ export default function ManagerAccounts() {
         onSave={async (name, email, branchId) => {
           if (!tenantId) return;
           try {
-            const acc = await createManagerAccount(tenantId, branchId, name, email);
+            const acc = await accountApi.createManager(tenantId, branchId, name, email);
             setAdding(false);
             modal.success({
               title: "Đã tạo tài khoản Branch Manager",
@@ -225,7 +219,6 @@ function AddAccountDrawer({
 
   useEffect(() => {
     if (open) setBranchId(branches[0]?.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const reset = () => {
@@ -261,9 +254,9 @@ function AddAccountDrawer({
       <Field label="Chi nhánh được gán">
         <Select value={branchId} onChange={setBranchId} style={{ width: "100%" }} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
       </Field>
-      <Button type="primary" block style={{ marginTop: 8 }} onClick={save}>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={save}>
         Tạo tài khoản
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }
@@ -271,7 +264,7 @@ function AddAccountDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

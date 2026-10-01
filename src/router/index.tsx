@@ -1,16 +1,13 @@
-import { createBrowserRouter, Navigate, useNavigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useNavigate, type RouteObject } from "react-router-dom";
 import { App } from "antd";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
-import AdminApp from "../roles/admin/AdminApp";
-import OwnerApp from "../roles/owner/OwnerApp";
-import BranchApp from "../roles/branch/BranchApp";
-import WaiterApp from "../roles/waiter/WaiterApp";
-import KitchenApp from "../roles/kitchen/KitchenApp";
-import CashierApp from "../roles/cashier/CashierApp";
-import { RoleGuard } from "./guards";
+import DisplayLayout from "../display/DisplayLayout";
+import CallScreen from "../display/CallScreen";
+import RoleLayout from "./RoleLayout";
+import { roleHomePath, roleRoutes, type WebRole } from "./routeConfig";
+import { RoleGuard, homeRouteFor } from "./guards";
 import { useAppStore } from "../store";
-import type { RoleKey } from "../types";
 
 function LandingWrapper() {
   const navigate = useNavigate();
@@ -22,20 +19,10 @@ function LoginWrapper() {
   const { message } = App.useApp();
   const { login } = useAppStore();
 
-  const handleLogin = async (accountId: string, password: string) => {
+  const handleLogin = async (email: string, password: string) => {
     try {
-      const user = await login(accountId, password);
-
-      const routes: Record<RoleKey, string> = {
-        admin: "/admin",
-        owner: "/owner",
-        manager: "/manager",
-        waiter: "/waiter",
-        kitchen: "/kitchen",
-        cashier: "/cashier",
-        barista: "/login",
-      };
-      navigate(routes[user.role] || "/login");
+      const user = await login(email, password);
+      navigate(homeRouteFor(user.role));
     } catch (err) {
       message.error(err instanceof Error ? err.message : "Đăng nhập thất bại");
     }
@@ -44,60 +31,25 @@ function LoginWrapper() {
   return <LoginScreen onLogin={handleLogin} />;
 }
 
-function AdminWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+/**
+ * Khu vực của một vai trò: /{role} chuyển tới màn đầu tiên, các màn con lấy từ
+ * routeConfig (cùng nguồn với sidebar), đường dẫn lạ về màn đầu tiên.
+ */
+function roleArea(role: WebRole): RouteObject {
+  const home = roleHomePath(role);
+  return {
+    path: `/${role}`,
+    element: (
+      <RoleGuard allowedRoles={[role]}>
+        <RoleLayout role={role} />
+      </RoleGuard>
+    ),
+    children: [
+      { index: true, element: <Navigate to={home} replace /> },
+      ...roleRoutes[role].map((def) => ({ path: def.path, element: def.element })),
+      { path: "*", element: <Navigate to={home} replace /> },
+    ],
   };
-  return <AdminApp onLogout={handleLogout} />;
-}
-
-function OwnerWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <OwnerApp onLogout={handleLogout} />;
-}
-
-function ManagerWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <BranchApp onLogout={handleLogout} />;
-}
-
-function WaiterWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <WaiterApp onLogout={handleLogout} />;
-}
-
-function KitchenWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  return <KitchenApp onLogout={handleLogout} />;
-}
-
-function CashierWrapper() {
-  const navigate = useNavigate();
-  const { logout } = useAppStore();
-  return <CashierApp onLogout={() => { logout(); navigate("/login"); }} />;
 }
 
 export const router = createBrowserRouter([
@@ -109,53 +61,22 @@ export const router = createBrowserRouter([
     path: "/login",
     element: <LoginWrapper />,
   },
+  roleArea("admin"),
+  roleArea("owner"),
+  roleArea("manager"),
   {
-    path: "/admin/*",
-    element: (
-      <RoleGuard allowedRoles={["admin"]}>
-        <AdminWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/owner/*",
-    element: (
-      <RoleGuard allowedRoles={["owner"]}>
-        <OwnerWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/manager/*",
-    element: (
-      <RoleGuard allowedRoles={["manager"]}>
-        <ManagerWrapper />
-      </RoleGuard>
-    ),
+    // Màn hình đặt ở quầy: công khai, không sidebar, không đăng nhập người dùng.
+    path: "/display",
+    element: <DisplayLayout />,
+    children: [
+      { index: true, element: <Navigate to="call" replace /> },
+      { path: "call", element: <CallScreen /> },
+      { path: "*", element: <Navigate to="/display/call" replace /> },
+    ],
   },
   {
     path: "/branch/*",
     element: <Navigate to="/manager" replace />,
-  },
-  {
-    path: "/waiter/*",
-    element: (
-      <RoleGuard allowedRoles={["waiter"]}>
-        <WaiterWrapper />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: "/cashier/*",
-    element: <RoleGuard allowedRoles={["cashier"]}><CashierWrapper /></RoleGuard>,
-  },
-  {
-    path: "/kitchen/*",
-    element: (
-      <RoleGuard allowedRoles={["kitchen"]}>
-        <KitchenWrapper />
-      </RoleGuard>
-    ),
   },
   {
     path: "*",

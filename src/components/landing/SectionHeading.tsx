@@ -11,7 +11,7 @@ export default function SectionHeading({ eyebrow, title, description, align = "l
       {eyebrow && (
         <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">{eyebrow}</span>
       )}
-      <h2 className="mt-2 text-2xl font-bold md:text-3xl" style={{ color: "var(--brand-ink)", letterSpacing: "-0.01em" }}>
+      <h2 className="mt-2 text-2xl font-bold md:text-3xl" style={{ color: "var(--fnb-ink)", letterSpacing: "-0.01em" }}>
         {title}
       </h2>
       {description && <p className="mt-3 text-sm text-zinc-600 md:text-base">{description}</p>}

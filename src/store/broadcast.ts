@@ -1,6 +1,6 @@
 /**
  * BroadcastChannel sync giữa các tab trình duyệt.
- * Cho phép multi-tab (ví dụ Waiter mở bàn ở tab 1, Kitchen thấy order ở tab 2).
+ * Cho phép multi-tab (ví dụ đăng xuất hoặc đổi nhận diện ở tab này thì tab kia cập nhật).
  */
 
 const CHANNEL_NAME = "smartfnb_channel";
@@ -8,6 +8,8 @@ const CHANNEL_NAME = "smartfnb_channel";
 export type BroadcastMessage =
   | { type: "SYNC_STATE"; payload: Partial<Record<string, any>> }
   | { type: "REFETCH_ALL" }
+  /** Một tab đã đăng xuất — các tab khác dọn phiên và về /login. */
+  | { type: "LOGOUT" }
   /** Owner đã lưu/khôi phục nhận diện — chỉ tab của CÙNG tenantId cần áp lại theme. */
   | { type: "BRANDING_UPDATED"; tenantId: string };
 

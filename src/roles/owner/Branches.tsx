@@ -1,35 +1,45 @@
-import { App, Button, Card, Drawer, Input, Select, Table } from "antd";
-import { Clock, MapPin, Plus, Table2, Users } from "lucide-react";
+import { Alert, App, Button, Card, Drawer, Input, Select, Spin } from "antd";
+import { Hash, MapPin, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Branch } from "../../types";
+import type { ApiBranch, Branch } from "../../types";
 import { useAppStore } from "../../store";
-import { getFloorTables } from "../../services";
+import { describeBranchError } from "../../api";
+import ActionButton from "../../plan/ActionButton";
+import { usePlan } from "../../plan/usePlan";
+import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
+import type { BranchFormData } from "../../store";
+import { palette } from "../../theme";
 
-function BranchCard({ b, tableCount, onEdit }: { b: Branch; tableCount: number; onEdit: () => void }) {
+function BranchCard({
+  b,
+  code,
+  onEdit,
+}: {
+  b: Branch;
+  code: string;
+  onEdit: () => void;
+}) {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{b.name}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#71717a", fontSize: 13, marginTop: 4 }}>
-            <MapPin size={14} /> {b.address}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: palette.textMuted, fontSize: 13, marginTop: 4 }}>
+            <MapPin size={14} /> {b.address || "—"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#71717a", fontSize: 13, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, color: palette.textMuted, fontSize: 13, marginTop: 4 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={14} /> {b.openTime}–{b.closeTime}
+              <Hash size={14} /> {code}
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Table2 size={14} /> {tableCount} bàn
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Users size={14} /> {b.phone}
+              <Users size={14} /> {b.phone || "—"}
             </span>
           </div>
         </div>
         <span
           style={{
-            background: b.status === "open" ? "#e7f7ec" : "#f4f4f5",
-            color: b.status === "open" ? "#0a0a0a" : "#71717a",
+            background: b.status === "open" ? palette.success.bg : palette.neutral.bg,
+            color: b.status === "open" ? palette.success.text : palette.neutral.text,
             padding: "3px 10px",
             borderRadius: 999,
             fontSize: 12,
@@ -41,42 +51,70 @@ function BranchCard({ b, tableCount, onEdit }: { b: Branch; tableCount: number; 
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <Button size="small" onClick={onEdit}>
+        <ActionButton size="small" onClick={onEdit}>
           Sửa chi nhánh
-        </Button>
+        </ActionButton>
       </div>
     </Card>
   );
 }
 
-/** OW-01: CRUD chi nhánh — chặn ở service khi vượt maxBranches của gói (BR-23). */
+/** OW-01: CRUD chi nhánh. FE báo sớm khi hết hạn mức chi nhánh của gói; BE chặn thật (BR-08). */
 export default function Branches() {
   const { message } = App.useApp();
   const branches = useAppStore((s) => s.branches);
+  const apiBranches = useAppStore((s) => s.apiBranches);
+  const { planName, limitOf } = usePlan();
+  const scopeStatus = useAppStore((s) => s.scopeStatus);
+  const scopeError = useAppStore((s) => s.scopeError);
   const createBranch = useAppStore((s) => s.createBranch);
   const updateBranch = useAppStore((s) => s.updateBranch);
-  const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    Promise.all(branches.map(async (b) => [b.id, (await getFloorTables(b.id)).length] as const)).then((entries) =>
-      setTableCounts(Object.fromEntries(entries))
+  const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
+  const branchQuota = limitOf("branches");
+
+  if (scopeStatus === "loading" || scopeStatus === "idle") {
+    return (
+      <div style={{ display: "grid", placeItems: "center", padding: 60 }}>
+        <Spin tip="Đang tải chi nhánh…" />
+      </div>
     );
-  }, [branches]);
+  }
+
+  if (scopeStatus === "error") {
+    return <Alert type="error" showIcon message="Không tải được danh sách chi nhánh" description={scopeError} />;
+  }
 
   return (
     <div>
-      <SectionHeader onAdd={() => setEditing("new")} />
+      <SectionHeader
+        onAdd={() => setEditing("new")}
+        quotaLabel={
+          branchQuota && planName
+            ? `Gói ${planName} · đã dùng ${branchQuota.used}/${branchQuota.limit} chi nhánh`
+            : null
+        }
+      />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 16 }}>
         {branches.map((b) => (
-          <BranchCard key={b.id} b={b} tableCount={tableCounts[b.id] ?? 0} onEdit={() => setEditing(b)} />
+          <BranchCard
+            key={b.id}
+            b={b}
+            code={codeById[b.id] ?? "—"}
+            onEdit={() => setEditing(b)}
+          />
         ))}
       </div>
 
       <BranchDrawer
         branch={editing}
+        existing={editing && editing !== "new" ? apiBranches.find((b) => b.id === editing.id) : undefined}
+        saving={saving}
         onClose={() => setEditing(null)}
         onSave={async (data) => {
+          setSaving(true);
           try {
             if (editing === "new") {
               await createBranch(data);
@@ -87,7 +125,9 @@ export default function Branches() {
             }
             setEditing(null);
           } catch (err) {
-            message.error(err instanceof Error ? err.message : "Không lưu được — có thể đã vượt hạn mức gói");
+            message.error(describeBranchError(err));
+          } finally {
+            setSaving(false);
           }
         }}
       />
@@ -95,47 +135,68 @@ export default function Branches() {
   );
 }
 
-function SectionHeader({ onAdd }: { onAdd: () => void }) {
+function SectionHeader({
+  onAdd,
+  quotaLabel,
+}: {
+  onAdd: () => void;
+  quotaLabel: string | null;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
       <div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>Chi nhánh</div>
-        <div style={{ fontSize: 12.5, color: "#71717a", marginTop: 2 }}>Mỗi chi nhánh có sơ đồ bàn, menu và nhân viên riêng</div>
+        <div style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 2 }}>
+          {quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
+        </div>
       </div>
-      <Button type="primary" icon={<Plus size={15} />} onClick={onAdd}>
+      <ActionButton type="primary" icon={<Plus size={15} />} consumes="branches" onClick={onAdd}>
         Thêm chi nhánh
-      </Button>
+      </ActionButton>
     </div>
   );
 }
 
 function BranchDrawer({
   branch,
+  existing: apiBranch,
+  saving,
   onClose,
   onSave,
 }: {
   branch: Branch | "new" | null;
+  existing: ApiBranch | undefined;
+  saving: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; address: string; phone: string; openTime: string; closeTime: string; status?: "open" | "closed" | "suspended" }) => void;
+  onSave: (data: BranchFormData & { status?: "open" | "closed" | "suspended" }) => void;
 }) {
   const isNew = branch === "new";
   const existing = isNew ? null : branch;
-  const [name, setName] = useState(existing?.name ?? "");
-  const [address, setAddress] = useState(existing?.address ?? "");
-  const [phone, setPhone] = useState(existing?.phone ?? "");
-  const [openTime, setOpenTime] = useState(existing?.openTime ?? "07:00");
-  const [closeTime, setCloseTime] = useState(existing?.closeTime ?? "22:00");
-  const [status, setStatus] = useState<"open" | "closed" | "suspended">(existing?.status ?? "open");
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [ward, setWard] = useState("");
+  const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
+  const [openTime, setOpenTime] = useState("07:00");
+  const [closeTime, setCloseTime] = useState("22:00");
+  const [status, setStatus] = useState<"open" | "closed" | "suspended">("open");
 
   useEffect(() => {
-    setName(existing?.name ?? "");
-    setAddress(existing?.address ?? "");
-    setPhone(existing?.phone ?? "");
-    setOpenTime(existing?.openTime ?? "07:00");
-    setCloseTime(existing?.closeTime ?? "22:00");
+    setCode(apiBranch?.code ?? "");
+    setName(apiBranch?.name ?? "");
+    setAddressLine1(apiBranch?.addressLine1 ?? "");
+    setWard(apiBranch?.ward ?? "");
+    // Chi nhánh cũ có thể mang tên tỉnh đã sáp nhập, hoặc mang chuỗi địa chỉ do
+    // form một ô trước đây ghi đè. Không đoán — để trống và yêu cầu chọn lại.
+    setCity(isKnownProvince(apiBranch?.city) ? (apiBranch?.city ?? "") : "");
+    setPhone(apiBranch?.phone ?? "");
+    setOpenTime("07:00");
+    setCloseTime("22:00");
     setStatus(existing?.status ?? "open");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branch]);
+  }, [branch, apiBranch]);
+
+  const cityNeedsReview = !isNew && !!apiBranch && !isKnownProvince(apiBranch.city);
 
   return (
     <Drawer
@@ -144,21 +205,55 @@ function BranchDrawer({
       onClose={onClose}
       styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}
     >
+      <Field label="Mã chi nhánh">
+        <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="VD: HCM-Q10" />
+      </Field>
       <Field label="Tên chi nhánh">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Chi nhánh Quận 10" />
       </Field>
-      <Field label="Địa chỉ">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+      <Field label="Số nhà, tên đường">
+        <Input
+          value={addressLine1}
+          onChange={(e) => setAddressLine1(e.target.value)}
+          placeholder="VD: 123 Nguyễn Huệ"
+        />
+      </Field>
+      <Field label="Phường/Xã">
+        <Input value={ward} onChange={(e) => setWard(e.target.value)} placeholder="VD: Phường Bến Nghé" />
+      </Field>
+      <Field label="Tỉnh/Thành phố">
+        <Select
+          value={city || undefined}
+          onChange={setCity}
+          style={{ width: "100%" }}
+          showSearch
+          optionFilterProp="label"
+          placeholder="Chọn tỉnh/thành phố"
+          options={PROVINCE_OPTIONS}
+          status={cityNeedsReview && !city ? "warning" : undefined}
+        />
+        {cityNeedsReview && !city && (
+          <div style={{ fontSize: 12, color: palette.warning.text, marginTop: 6 }}>
+            Vui lòng chọn lại tỉnh/thành. Giá trị đang lưu (“{apiBranch?.city}”) không nằm trong danh
+            sách 34 tỉnh/thành sau sáp nhập 2025.
+          </div>
+        )}
       </Field>
       <Field label="Số điện thoại">
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
       </Field>
-      <Field label="Giờ mở cửa">
-        <Input value={openTime} onChange={(e) => setOpenTime(e.target.value)} placeholder="07:00" />
-      </Field>
-      <Field label="Giờ đóng cửa">
-        <Input value={closeTime} onChange={(e) => setCloseTime(e.target.value)} placeholder="22:00" />
-      </Field>
+      {/* Giờ mở/đóng chỉ gửi được lúc tạo — backend không trả lại hai trường
+          này trong response chi nhánh, nên khi sửa thì ẩn đi. */}
+      {isNew && (
+        <>
+          <Field label="Giờ mở cửa">
+            <Input value={openTime} onChange={(e) => setOpenTime(e.target.value)} placeholder="07:00" />
+          </Field>
+          <Field label="Giờ đóng cửa">
+            <Input value={closeTime} onChange={(e) => setCloseTime(e.target.value)} placeholder="22:00" />
+          </Field>
+        </>
+      )}
       {!isNew && (
         <Field label="Trạng thái">
           <Select
@@ -173,15 +268,28 @@ function BranchDrawer({
           />
         </Field>
       )}
-      <Button
+      <ActionButton
         type="primary"
         block
+        loading={saving}
         style={{ marginTop: 8 }}
-        disabled={!name.trim() || !address.trim()}
-        onClick={() => onSave({ name: name.trim(), address: address.trim(), phone: phone.trim(), openTime, closeTime, status: isNew ? undefined : status })}
+        disabled={!code.trim() || !name.trim() || !addressLine1.trim() || !city}
+        onClick={() =>
+          onSave({
+            code: code.trim(),
+            name: name.trim(),
+            addressLine1: addressLine1.trim(),
+            ward: ward.trim(),
+            city,
+            phone: phone.trim(),
+            openTime,
+            closeTime,
+            status: isNew ? undefined : status,
+          })
+        }
       >
         {isNew ? "Tạo chi nhánh" : "Lưu thay đổi"}
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }
@@ -189,7 +297,7 @@ function BranchDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

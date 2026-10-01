@@ -1,94 +1,68 @@
 /**
- * Màu trạng thái ngữ nghĩa — cố định, KHÔNG thay đổi theo branding tenant.
- * Dùng cho badge trạng thái, alert, tag trạng thái vận hành.
+ * Ánh xạ trạng thái nghiệp vụ → màu ngữ nghĩa (đặc tả v9 mục 5). Cố định, KHÔNG đổi theo
+ * nhận diện của doanh nghiệp (BR-42). Khoá là mã trạng thái tiếng Anh, chú thích là tên
+ * trạng thái đúng như đặc tả.
  */
-export const STATUS_COLORS = {
-  danger: {
-    bg: "#FFF1F0",
-    text: "#CF1322",
-    border: "#FFA39E",
-  },
-  warning: {
-    bg: "#FFFBE6",
-    text: "#D46B08",
-    border: "#FFE58F",
-  },
-  success: {
-    bg: "#F6FFED",
-    text: "#389E0D",
-    border: "#B7EB8F",
-  },
-  info: {
-    bg: "#E6F4FF",
-    text: "#0958D9",
-    border: "#91CAFF",
-  },
-  neutral: {
-    bg: "#FAFAFA",
-    text: "#595959",
-    border: "#D9D9D9",
-  },
-  purple: {
-    bg: "#F9F0FF",
-    text: "#531DAB",
-    border: "#D3ADF7",
-  },
-} as const;
+import { SEMANTIC, type SemanticKey } from "./tokens";
 
-export type StatusColorKey = keyof typeof STATUS_COLORS;
+export { SEMANTIC as STATUS_COLORS };
+export type StatusColorKey = SemanticKey;
 
-/**
- * Map trạng thái vận hành → màu ngữ nghĩa.
- * Thêm vào đây khi cần ánh xạ trạng thái mới.
- */
+/** Đơn — mục 5.3. */
+export const ORDER_STATUS_COLOR = {
+  pendingPayment: "warning", // Chờ thanh toán
+  paid: "info", // Đã thanh toán
+  preparing: "purple", // Đang pha
+  ready: "success", // Sẵn sàng (đã gọi số)
+  completed: "neutral", // Hoàn tất
+  cancelled: "neutral", // Đã huỷ
+  needsAttention: "error", // Cần xử lý
+} as const satisfies Record<string, StatusColorKey>;
 
-// OrderLine status colors
-export const ORDER_LINE_STATUS_COLOR: Record<string, StatusColorKey> = {
-  queued: "warning",
-  cooking: "info",
-  done: "purple",
-  awaiting_pickup: "purple",
-  served: "success",
-  "sold-out": "danger",
-  sold_out: "danger",
-  cancelled: "neutral",
-};
+/** Dòng món — mục 5.4. */
+export const ORDER_LINE_STATUS_COLOR = {
+  queued: "warning", // Chờ pha
+  preparing: "purple", // Đang pha
+  done: "success", // Xong
+  soldOut: "error", // Hết món
+  cancelled: "neutral", // Đã huỷ
+} as const satisfies Record<string, StatusColorKey>;
 
-// FloorTable status colors — Trống / Đã đặt / Đang phục vụ / Tạm khoá (mục 4.6.B)
-export const TABLE_STATUS_COLOR: Record<string, StatusColorKey> = {
-  available: "success",
-  reserved: "warning",
-  occupied: "info",
-  locked: "danger",
-};
+/** Thanh toán — mục 5.5. */
+export const PAYMENT_STATUS_COLOR = {
+  initiated: "neutral", // Khởi tạo
+  awaitingTransfer: "warning", // Chờ chuyển khoản
+  paid: "success", // Đã thanh toán
+  expired: "error", // Hết hạn
+  cancelled: "neutral", // Đã huỷ
+  amountMismatch: "error", // Lệch số tiền
+} as const satisfies Record<string, StatusColorKey>;
 
-// TableSession status colors
-export const SESSION_STATUS_COLOR: Record<string, StatusColorKey> = {
-  open: "info",
-  serving: "success",
-  paid: "warning",
-  closed: "neutral",
-  cancelled: "neutral",
-};
+/** Hoàn tiền của đơn đã huỷ — mục 6.5, BR-49. */
+export const REFUND_STATUS_COLOR = {
+  refundedCash: "success", // Đã hoàn tiền mặt tại quầy
+  awaitingOwnerRefund: "warning", // Chờ chủ chuỗi hoàn
+  refunded: "success", // Đã hoàn
+} as const satisfies Record<string, StatusColorKey>;
 
-// Payment status colors
-export const PAYMENT_STATUS_COLOR: Record<string, StatusColorKey> = {
-  initiated: "neutral",
-  awaiting_transfer: "warning",
-  cash_received: "info",
-  confirmed: "success",
-  failed: "danger",
-  expired: "danger",
-  partially_refunded: "warning",
-  refunded: "neutral",
-  // Backward-compat cũ
-  pending: "warning",
-  refund: "warning",
-};
+/** Liên kết PayOS — mục 5.6. */
+export const PAYOS_STATUS_COLOR = {
+  unlinked: "neutral", // Chưa liên kết
+  verifying: "warning", // Đang kiểm tra
+  linked: "success", // Đã liên kết
+  error: "error", // Lỗi
+} as const satisfies Record<string, StatusColorKey>;
 
-// Tenant status colors
-export const TENANT_STATUS_COLOR: Record<string, StatusColorKey> = {
-  active: "success",
-  suspended: "danger",
-  expired: "neutral",
-};
+/** Doanh nghiệp — mục 5.2. */
+export const TENANT_STATUS_COLOR = {
+  active: "success", // Hoạt động
+  suspended: "error", // Tạm ngưng
+  expired: "warning", // Hết hạn — chỉ đọc
+} as const satisfies Record<string, StatusColorKey>;
+
+/** Hồ sơ đăng ký — mục 5.1. */
+export const REGISTRATION_STATUS_COLOR = {
+  pending: "warning", // Chờ duyệt
+  approved: "success", // Đã duyệt
+  rejected: "error", // Bị từ chối
+} as const satisfies Record<string, StatusColorKey>;

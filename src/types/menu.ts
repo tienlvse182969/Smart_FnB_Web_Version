@@ -1,4 +1,4 @@
-/** Kiểu dữ liệu Menu theo đặc tả v7. */
+/** Kiểu dữ liệu Menu theo đặc tả v9 (mục 12, BR-12/BR-13). `tenantId` chính là chainId của backend. */
 
 /**
  * Món ăn thuộc về CHUỖI (owner quản lý).
@@ -14,15 +14,17 @@ export type MenuItem = {
   price: number;
   /** Owner tắt → mọi chi nhánh đều không bán. */
   activeChain: boolean;
+  /** Nhóm tuỳ chọn gắn vào món (đặc tả 12.2). Rỗng/không có = món không có tuỳ chọn. */
+  optionGroupIds?: string[];
 };
 
 /**
  * Trạng thái của món tại một chi nhánh cụ thể.
  * Sự tồn tại của bản ghi = món có mặt ở chi nhánh đó.
  *
- * BR-06: món bán được khi CẢ HAI cờ đều bật — `MenuItem.activeChain` (Owner,
- * cấp chuỗi) VÀ `isAvailable` (Branch Manager/bếp, cấp chi nhánh). Owner tắt
- * thì chi nhánh không bật lại được — xem `menu.service.ts#isSellable`.
+ * BR-12: món hiện trên POS khi cờ cấp chuỗi (`activeChain`, Owner) bật, món được gán cho
+ * chi nhánh (có bản ghi này) và cờ còn bán hôm nay (`isAvailable`, Manager/Barista) bật.
+ * Owner tắt thì chi nhánh không bật lại được.
  */
 export type BranchMenuItem = {
   branchId: string;

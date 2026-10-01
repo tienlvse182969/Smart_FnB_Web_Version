@@ -50,7 +50,7 @@ export default function HowItWorks() {
                   {index + 1}
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold" style={{ color: "var(--brand-ink)" }}>
+                  <h3 className="text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                     {step.title}
                   </h3>
                   <p className="mt-1.5 text-sm text-zinc-600">{step.description}</p>

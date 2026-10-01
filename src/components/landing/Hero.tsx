@@ -46,7 +46,7 @@ export default function Hero() {
           <div className="relative mx-auto w-full max-w-sm lg:mx-0 lg:ml-auto">
             <div className="rounded-[14px] border border-zinc-200 bg-white p-5">
               <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                <span className="text-sm font-semibold" style={{ color: "var(--brand-ink)" }}>
+                <span className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
                   Bàn 12 · 4 khách
                 </span>
                 <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
@@ -57,7 +57,7 @@ export default function Hero() {
                 {orderLines.map((line) => (
                   <div key={line.name} className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-medium" style={{ color: "var(--brand-ink)" }}>
+                      <div className="text-sm font-medium" style={{ color: "var(--fnb-ink)" }}>
                         {line.name}
                       </div>
                       {line.note && <div className="mt-0.5 text-xs text-zinc-500">Ghi chú: {line.note}</div>}
@@ -80,7 +80,7 @@ export default function Hero() {
                   aria-hidden="true"
                 />
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: "var(--brand-ink)" }}>
+                  <div className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
                     Món xong — Bàn 12
                   </div>
                   <div className="text-xs text-zinc-500">Nhân viên nào rảnh bấm nhận trước</div>

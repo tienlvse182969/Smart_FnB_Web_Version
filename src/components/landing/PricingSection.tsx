@@ -1,3 +1,4 @@
+import { palette } from "../../theme";
 import CtaButton from "./CtaButton";
 import SectionHeading from "./SectionHeading";
 
@@ -33,7 +34,7 @@ export default function PricingSection() {
               key={plan.name}
               className="relative flex flex-col rounded-[14px] bg-white p-6"
               style={{
-                border: plan.highlighted ? "2px solid var(--brand-primary)" : "1px solid #e4e4e7",
+                border: plan.highlighted ? "2px solid var(--brand-primary)" : `1px solid ${palette.line}`,
               }}
             >
               {plan.highlighted && (
@@ -44,10 +45,10 @@ export default function PricingSection() {
                   Phổ biến nhất
                 </span>
               )}
-              <h3 className="text-lg font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <h3 className="text-lg font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 {plan.name}
               </h3>
-              <p className="mt-2 text-2xl font-bold" style={{ color: "var(--brand-ink)" }}>
+              <p className="mt-2 text-2xl font-bold" style={{ color: "var(--fnb-ink)" }}>
                 {plan.price}
               </p>
               <ul className="mt-6 flex-1 space-y-2">

@@ -1,5 +1,6 @@
 import { Pencil, Flame, Clock, CircleDashed, CheckCircle2 } from "lucide-react";
 import SectionHeading from "./SectionHeading";
+import { palette } from "../../theme";
 
 const tables = [
   { id: "3", seats: 4, state: "busy" as const },
@@ -28,12 +29,12 @@ function TableSuggestionMock() {
               key={t.id}
               className="rounded-[10px] border p-3 text-center"
               style={{
-                borderColor: suggested ? "var(--brand-primary)" : "#e4e4e7",
+                borderColor: suggested ? "var(--brand-primary)" : palette.line,
                 borderWidth: suggested ? 2 : 1,
-                backgroundColor: busy ? "#f4f4f5" : "#ffffff",
+                backgroundColor: busy ? palette.paper : palette.surface,
               }}
             >
-              <div className="text-sm font-semibold" style={{ color: "var(--brand-ink)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 Bàn {t.id}
               </div>
               <div className="mt-0.5 text-[11px] text-zinc-400">{t.seats} ghế</div>
@@ -74,7 +75,7 @@ function MenuDraftMock() {
             key={row.name}
             className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-t border-zinc-100 px-3 py-2.5 text-sm"
           >
-            <span style={{ color: "var(--brand-ink)" }}>{row.name}</span>
+            <span style={{ color: "var(--fnb-ink)" }}>{row.name}</span>
             <span className="text-zinc-500">{row.price}</span>
             <span className="text-zinc-500">{row.category}</span>
             <Pencil className="h-3.5 w-3.5 text-zinc-300" strokeWidth={1.75} aria-hidden="true" />
@@ -117,12 +118,12 @@ function KitchenTicketMock() {
               key={line.name}
               className="flex items-center justify-between rounded-[10px] border p-3"
               style={{
-                borderColor: cooking ? "var(--brand-primary)" : "#f4f4f5",
-                backgroundColor: cooking ? "#fafafa" : "#ffffff",
+                borderColor: cooking ? "var(--brand-primary)" : palette.paper,
+                backgroundColor: cooking ? palette.paperSubtle : palette.surface,
               }}
             >
               <div>
-                <div className="text-sm font-medium" style={{ color: "var(--brand-ink)" }}>
+                <div className="text-sm font-medium" style={{ color: "var(--fnb-ink)" }}>
                   {line.name}
                 </div>
                 {line.note && <div className="mt-0.5 text-xs text-zinc-500">Ghi chú: {line.note}</div>}
@@ -172,7 +173,7 @@ export default function Differentiators() {
               <div key={item.title} className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
                 <div className={imageFirst ? "md:order-2" : ""}>
                   <span className="text-xs font-semibold text-zinc-400">0{index + 1}</span>
-                  <h3 className="mt-2 text-xl font-semibold" style={{ color: "var(--brand-ink)" }}>
+                  <h3 className="mt-2 text-xl font-semibold" style={{ color: "var(--fnb-ink)" }}>
                     {item.title}
                   </h3>
                   <p className="mt-3 text-sm text-zinc-600 md:text-base">{item.description}</p>

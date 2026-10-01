@@ -1,20 +1,21 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
-import { LogIn, LogOut, Lock, Plus, Unlock } from "lucide-react";
+import { Lock, Plus, Unlock } from "lucide-react";
 import { useState } from "react";
-import type { StaffLegacy } from "../../services";
-import { DEFAULT_PASSWORD } from "../../types";
+import { DEFAULT_PASSWORD, type StaffMember } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import ActionButton from "../../plan/ActionButton";
+import { palette } from "../../theme";
 
-const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> = {
+const roleTag: Record<StaffMember["role"], { label: string; black?: boolean }> = {
   Manager: { label: "Manager", black: true },
-  Waiter: { label: "Waiter" },
-  Kitchen: { label: "Kitchen" },
+  Cashier: { label: "Cashier" },
+  Barista: { label: "Barista" },
 };
 
 /**
- * Nhân sự chi nhánh (mục 4.5.H): Branch Manager tạo tài khoản Waiter/Kitchen,
- * check-in/out do Manager thao tác (BR-42) — không phải nhân viên tự làm.
+ * Nhân sự chi nhánh (BM-01). Màn hình tạo/khoá tài khoản thu ngân và pha chế sẽ
+ * dựng lại theo v9 ở giai đoạn sau; hiện chỉ giữ danh sách mock.
  */
 export default function StaffTable() {
   const { message, modal } = App.useApp();
@@ -22,18 +23,12 @@ export default function StaffTable() {
   const currentBranchId = useAppStore((s) => s.currentBranchId);
   const staff = useAppStore((s) => s.staff);
   const createStaffAccount = useAppStore((s) => s.createStaffAccount);
-  const setStaffShift = useAppStore((s) => s.setStaffShift);
   const setStaffActive = useAppStore((s) => s.setStaffActive);
   const [adding, setAdding] = useState(false);
 
   const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
 
-  const toggleShift = async (r: StaffLegacy, on: boolean) => {
-    await setStaffShift(r.id, on);
-    message.success(on ? "Đã check-in — hệ thống ghi nhận có mặt" : "Đã check-out");
-  };
-
-  const toggleActive = async (r: StaffLegacy, active: boolean) => {
+  const toggleActive = async (r: StaffMember, active: boolean) => {
     await setStaffActive(r.id, active);
     message.success(active ? "Đã mở khoá tài khoản" : "Đã khoá tài khoản — nhân viên không đăng nhập được");
   };
@@ -42,14 +37,14 @@ export default function StaffTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Nhân viên"
-        sub="Check-in để hệ thống biết ai đang có mặt mà bắn thông báo — không phải để chấm công"
+        sub="Tài khoản nhân viên của chi nhánh"
         extra={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" onClick={() => setAdding(true)}>
             Thêm nhân viên
-          </Button>
+          </ActionButton>
         }
       />
-      <Table<StaffLegacy>
+      <Table<StaffMember>
         dataSource={staff}
         rowKey="id"
         pagination={false}
@@ -64,22 +59,16 @@ export default function StaffTable() {
                   {v}
                   {!r.active && <Tag color="red">Đã khoá</Tag>}
                 </div>
-                <div style={{ fontSize: 12, color: "#52525b" }}>{r.email}</div>
-                <div style={{ fontSize: 11, color: "#a1a1aa" }}>{r.id}</div>
+                <div style={{ fontSize: 12, color: palette.textStrong }}>{r.email}</div>
+                <div style={{ fontSize: 11, color: palette.textSubtle }}>{r.id}</div>
               </div>
             ),
           },
           {
             title: "Vai trò",
             dataIndex: "role",
-            render: (r: StaffLegacy["role"]) =>
+            render: (r: StaffMember["role"]) =>
               roleTag[r].black ? <Tag color="black">{roleTag[r].label}</Tag> : <Tag>{roleTag[r].label}</Tag>,
-          },
-          {
-            title: "Có mặt",
-            dataIndex: "onShift",
-            align: "center",
-            render: (on: boolean) => (on ? <Tag color="black">Đang trong ca</Tag> : <Tag>Vắng mặt</Tag>),
           },
           {
             title: "",
@@ -87,29 +76,14 @@ export default function StaffTable() {
             align: "right",
             render: (_, r) => (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                {r.onShift ? (
-                  <Button size="small" icon={<LogOut size={14} />} onClick={() => toggleShift(r, false)}>
-                    Check-out
-                  </Button>
-                ) : (
-                  <Button
-                    size="small"
-                    type="primary"
-                    disabled={!r.active}
-                    icon={<LogIn size={14} />}
-                    onClick={() => toggleShift(r, true)}
-                  >
-                    Check-in
-                  </Button>
-                )}
                 {r.active ? (
-                  <Button size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
+                  <ActionButton size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
                     Khoá
-                  </Button>
+                  </ActionButton>
                 ) : (
-                  <Button size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r, true)}>
+                  <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r, true)}>
                     Mở khoá
-                  </Button>
+                  </ActionButton>
                 )}
               </div>
             ),
@@ -149,17 +123,17 @@ function AddStaffDrawer({
   open: boolean;
   branchLabel: string;
   onClose: () => void;
-  onSave: (name: string, email: string, role: "Waiter" | "Kitchen") => void;
+  onSave: (name: string, email: string, role: "Cashier" | "Barista") => void;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"Waiter" | "Kitchen">("Waiter");
+  const [role, setRole] = useState<"Cashier" | "Barista">("Cashier");
 
   const reset = () => {
     setName("");
     setEmail("");
-    setRole("Waiter");
+    setRole("Cashier");
   };
 
   const save = () => {
@@ -185,8 +159,8 @@ function AddStaffDrawer({
       }}
       styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}
     >
-      <div style={{ fontSize: 13, color: "#71717a", marginBottom: 18 }}>
-        Branch Manager chỉ tạo được tài khoản Waiter và Kitchen. Vai trò quyết lúc tạo, không đổi giữa chừng.
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 18 }}>
+        Branch Manager tạo tài khoản Cashier và Barista. Vai trò quyết lúc tạo, không đổi giữa chừng.
       </div>
       <Field label="Họ tên">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Văn A" />
@@ -205,17 +179,17 @@ function AddStaffDrawer({
           onChange={setRole}
           style={{ width: "100%" }}
           options={[
-            { value: "Waiter", label: "Waiter" },
-            { value: "Kitchen", label: "Kitchen" },
+            { value: "Cashier", label: "Cashier" },
+            { value: "Barista", label: "Barista" },
           ]}
         />
       </Field>
       <Field label="Chi nhánh">
         <Input value={branchLabel} disabled />
       </Field>
-      <Button type="primary" block style={{ marginTop: 8 }} onClick={save}>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={save}>
         Tạo tài khoản
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }
@@ -223,7 +197,7 @@ function AddStaffDrawer({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>
         {label}
       </div>
       {children}

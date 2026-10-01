@@ -4,6 +4,9 @@ import { money } from "../../data";
 import type { BranchMenuItem } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import ActionButton from "../../plan/ActionButton";
+import { useWriteGuard } from "../../plan/useReadOnly";
+import { palette } from "../../theme";
 
 type Row = BranchMenuItem & {
   name: string;
@@ -12,12 +15,13 @@ type Row = BranchMenuItem & {
   activeChain: boolean;
 };
 
-/** Món tại chi nhánh (mục 4.5.G, BR-06) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
+/** Món tại chi nhánh (đặc tả 4.5, BR-12) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
 export default function BranchMenu() {
   const { message } = App.useApp();
   const menuItems = useAppStore((s) => s.menuItems);
   const branchMenuItems = useAppStore((s) => s.branchMenuItems);
   const toggleMenuItemAvailability = useAppStore((s) => s.toggleMenuItemAvailability);
+  const writeGuard = useWriteGuard();
   const updateRemainingToday = useAppStore((s) => s.updateRemainingToday);
 
   const rows: Row[] = branchMenuItems
@@ -58,7 +62,7 @@ export default function BranchMenu() {
                   {v}
                   {!r.activeChain && <Tag>Chuỗi đã tắt</Tag>}
                 </div>
-                <div style={{ fontSize: 12, color: "#a1a1aa" }}>{r.category}</div>
+                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.category}</div>
               </div>
             ),
           },
@@ -66,7 +70,7 @@ export default function BranchMenu() {
             title: "Giá",
             dataIndex: "price",
             align: "right",
-            render: (v) => <span style={{ color: "#a1a1aa" }}>{money(v)}</span>,
+            render: (v) => <span style={{ color: palette.textSubtle }}>{money(v)}</span>,
           },
           {
             title: "Còn bán hôm nay",
@@ -74,7 +78,7 @@ export default function BranchMenu() {
             align: "center",
             render: (on: boolean, r) =>
               r.activeChain ? (
-                <Switch checked={on} size="small" onChange={(c) => toggle(r, c)} />
+                <Switch checked={on} size="small" disabled={writeGuard.disabled} onChange={(c) => toggle(r, c)} />
               ) : (
                 <Switch checked={false} size="small" disabled />
               ),
@@ -85,7 +89,7 @@ export default function BranchMenu() {
             align: "right",
             render: (rem: number | null, r) => {
               if (!r.activeChain) {
-                return <span style={{ fontSize: 12, color: "#a1a1aa" }}>Owner tắt món này</span>;
+                return <span style={{ fontSize: 12, color: palette.textSubtle }}>Owner tắt món này</span>;
               }
               return (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
@@ -100,16 +104,17 @@ export default function BranchMenu() {
                     min={0}
                     size="small"
                     style={{ width: 92 }}
+                    disabled={writeGuard.disabled}
                     onChange={(v) => updateRemainingToday(r.menuItemId, v ?? 0)}
                   />
-                  <Button
+                  <ActionButton
                     size="small"
                     icon={<InfinityIcon size={14} />}
                     type={rem === null ? "primary" : "default"}
                     onClick={() => updateRemainingToday(r.menuItemId, null)}
                   >
                     Không giới hạn
-                  </Button>
+                  </ActionButton>
                 </div>
               );
             },
