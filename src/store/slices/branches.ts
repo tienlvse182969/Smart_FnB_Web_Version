@@ -35,7 +35,7 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
       currentBranchId: branchId,
       currentUser: currentUser ? { ...currentUser, branchId: toMockBranchId(branchId) } : null,
     });
-    await Promise.all([get().refreshOperationalData(), get().loadTables(), get().loadPayments()]);
+    await Promise.all([get().loadMenu(), get().loadStaff()]);
   },
 
   createBranch: async (data) => {

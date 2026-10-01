@@ -1,6 +1,6 @@
 /** Kiểu dữ liệu Tenant, Plan, Branding theo đặc tả v7 mục 5. */
 
-/** Gói dịch vụ — giá tháng, giới hạn chi nhánh / tài khoản / bàn. */
+/** Gói dịch vụ — giá tháng, giới hạn chi nhánh / tài khoản. */
 export type Plan = {
   id: string;
   name: string;
@@ -8,7 +8,6 @@ export type Plan = {
   monthlyPrice: number;
   maxBranches: number;
   maxAccounts: number;
-  maxTables: number;
 };
 
 /** Trạng thái thuê bao của tenant. */
@@ -69,12 +68,3 @@ export type RegistrationRequest = {
   rejectReason?: string;
 };
 
-/** Cấu hình nền tảng — áp dụng cho toàn bộ hệ thống. */
-export type PlatformConfig = {
-  /** Phần trăm phí nền tảng (0–100). */
-  feePercent: number;
-  /** Thời gian giữ tiền trước khi settle (giờ). Mặc định 24. */
-  holdHours: number;
-  /** Số tiền tối thiểu để yêu cầu rút (VNĐ). */
-  minWithdraw: number;
-};

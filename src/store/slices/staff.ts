@@ -1,42 +1,44 @@
-/** v7 — nhân sự Waiter/Kitchen và ca làm. BM-01 v9 (thu ngân, pha chế, quầy) sẽ dựng lại. Gỡ ở bước xoá v7. */
+/** Nhân sự chi nhánh (BM-01) — tạm chạy bằng mock cho tới khi BE có endpoint Manager tạo tài khoản. */
 import {
+  listStaff,
   createStaffAccount as serviceCreateStaffAccount,
-  setStaffShift as serviceSetStaffShift,
   setStaffActive as serviceSetStaffActive,
   type StaffLegacy,
 } from "../../services";
+import { toMockBranchId } from "../../services/mockBridge";
 import { broadcast } from "../broadcast";
 import type { SliceCreator } from "../types";
 
-export interface LegacyStaffSlice {
+export interface StaffSlice {
   staff: StaffLegacy[];
 
+  loadStaff: () => Promise<void>;
   createStaffAccount: (name: string, email: string, role: "Waiter" | "Kitchen") => Promise<void>;
-  setStaffShift: (id: string, onShift: boolean) => Promise<void>;
   setStaffActive: (id: string, active: boolean) => Promise<void>;
 }
 
-export const createLegacyStaffSlice: SliceCreator<LegacyStaffSlice> = (_set, get) => ({
+export const createStaffSlice: SliceCreator<StaffSlice> = (set, get) => ({
   staff: [],
+
+  loadStaff: async () => {
+    const { currentUser, currentBranchId } = get();
+    if (!currentUser) return;
+    const activeBranchId = toMockBranchId(currentBranchId);
+    set({ staff: activeBranchId ? await listStaff(activeBranchId) : [] });
+  },
 
   createStaffAccount: async (name: string, email: string, role: "Waiter" | "Kitchen") => {
     const { currentUser, currentBranchId } = get();
     if (!currentUser?.tenantId || !currentBranchId) return;
 
     await serviceCreateStaffAccount(currentUser.tenantId, currentBranchId, name, email, role);
-    await get().refreshOperationalData();
-    broadcast.send({ type: "REFETCH_ALL" });
-  },
-
-  setStaffShift: async (id: string, onShift: boolean) => {
-    await serviceSetStaffShift(id, onShift);
-    await get().refreshOperationalData();
+    await get().loadStaff();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
   setStaffActive: async (id: string, active: boolean) => {
     await serviceSetStaffActive(id, active);
-    await get().refreshOperationalData();
+    await get().loadStaff();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 });

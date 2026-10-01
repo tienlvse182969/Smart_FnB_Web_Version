@@ -90,6 +90,16 @@ export default function Reports() {
         </div>
       </Card>
 
+      {/* TODO(BE): reports.service.ts:469 chỉ cộng đơn có status COMPLETED và đếm khách từ
+          TableSession; đơn tại quầy kết thúc ở DELIVERED nên chưa vào số liệu. Gỡ banner khi BE sửa. */}
+      <Alert
+        type="warning"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Số liệu đang chờ backend cập nhật cho đơn tại quầy"
+        description="Các con số dưới đây chưa phản ánh đơn bán tại quầy theo mô hình mới, đừng dùng làm số liệu chính thức."
+      />
+
       {error && (
         <Alert
           type="error"

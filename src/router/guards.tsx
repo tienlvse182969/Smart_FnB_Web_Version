@@ -1,20 +1,18 @@
 import { Navigate } from "react-router-dom";
 import { Button } from "antd";
 import { useAppStore } from "../store";
-import { ENABLE_STAFF_APPS } from "../config";
 import type { RoleKey } from "../types";
 
 const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
   owner: "/owner",
   manager: "/manager",
-  waiter: "/waiter",
-  kitchen: "/kitchen",
+  waiter: "/login",
+  kitchen: "/login",
 };
 
-/** Trang chủ của một vai trò. Waiter/Kitchen về /login khi phân hệ bị tắt. */
+/** Trang chủ của một vai trò. Waiter/Kitchen không còn khu vực trên web — về /login. */
 export function homeRouteFor(role: RoleKey): string {
-  if (!ENABLE_STAFF_APPS && (role === "waiter" || role === "kitchen")) return "/login";
   return ROLE_HOME[role] ?? "/login";
 }
 

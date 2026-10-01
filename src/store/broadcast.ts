@@ -1,6 +1,6 @@
 /**
  * BroadcastChannel sync giữa các tab trình duyệt.
- * Cho phép multi-tab (ví dụ Waiter mở bàn ở tab 1, Kitchen thấy order ở tab 2).
+ * Cho phép multi-tab (ví dụ đăng xuất hoặc đổi nhận diện ở tab này thì tab kia cập nhật).
  */
 
 const CHANNEL_NAME = "smartfnb_channel";

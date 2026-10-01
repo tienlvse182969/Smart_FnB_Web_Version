@@ -1,6 +1,6 @@
 /**
  * Seed dữ liệu demo cho Smart FnB.
- * 2 tenant × 2 chi nhánh × 12 bàn/chi nhánh.
+ * 2 tenant × 2 chi nhánh.
  * Gọi seedAll() một lần duy nhất khi khởi động app.
  */
 import { db } from "./db";
@@ -11,28 +11,19 @@ import type {
   Branding,
   RegistrationRequest,
   Branch,
-  FloorTable,
   MenuItem,
   BranchMenuItem,
-  TableSession,
-  Order,
-  OrderLine,
-  Payment,
-  LedgerEntry,
-  ShiftTemplate,
-  ShiftAssignment,
-  WorkSession,
   DemoAccount,
 } from "../types";
-import type { StaffLegacy, AuditEntryLegacy } from "./db";
+import type { StaffLegacy } from "./db";
 
 // =====================================================================
 // Plans
 // =====================================================================
 const PLANS: Plan[] = [
-  { id: "plan-starter", name: "Starter", monthlyPrice: 900_000, maxBranches: 2, maxAccounts: 15, maxTables: 20 },
-  { id: "plan-growth",  name: "Growth",  monthlyPrice: 2_700_000, maxBranches: 6, maxAccounts: 60, maxTables: 80 },
-  { id: "plan-chain",   name: "Chain",   monthlyPrice: 8_100_000, maxBranches: 10, maxAccounts: 150, maxTables: 200 },
+  { id: "plan-starter", name: "Starter", monthlyPrice: 900_000, maxBranches: 2, maxAccounts: 15 },
+  { id: "plan-growth",  name: "Growth",  monthlyPrice: 2_700_000, maxBranches: 6, maxAccounts: 60 },
+  { id: "plan-chain",   name: "Chain",   monthlyPrice: 8_100_000, maxBranches: 10, maxAccounts: 150 },
 ];
 
 // =====================================================================
@@ -130,38 +121,6 @@ const BRANCHES: Branch[] = [
 ];
 
 // =====================================================================
-// Floor Tables — 12 bàn / chi nhánh với khu vực và cặp liền kề
-// =====================================================================
-function makeTables(branchId: string): FloorTable[] {
-  return [
-    // Khu Trong nhà: cụm A (A1–A2–A3), cụm B (B1–B2–B3), B4 đứng riêng
-    { id: `${branchId}-A1`, branchId, area: "Trong nhà", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-A2`] },
-    { id: `${branchId}-A2`, branchId, area: "Trong nhà", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-A1`, `${branchId}-A3`] },
-    { id: `${branchId}-A3`, branchId, area: "Trong nhà", seats: 2, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-A2`] },
-    { id: `${branchId}-B1`, branchId, area: "Trong nhà", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-B2`] },
-    { id: `${branchId}-B2`, branchId, area: "Trong nhà", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-B1`, `${branchId}-B3`] },
-    { id: `${branchId}-B3`, branchId, area: "Trong nhà", seats: 2, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-B2`] },
-    { id: `${branchId}-B4`, branchId, area: "Trong nhà", seats: 6, status: "available", currentSessionId: null, adjacentTableIds: [] },
-    // Khu Sân vườn: cụm C (C1–C2), cụm D (D1–D2), D3 đứng riêng
-    { id: `${branchId}-C1`, branchId, area: "Sân vườn", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-C2`] },
-    { id: `${branchId}-C2`, branchId, area: "Sân vườn", seats: 4, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-C1`] },
-    { id: `${branchId}-D1`, branchId, area: "Sân vườn", seats: 6, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-D2`] },
-    { id: `${branchId}-D2`, branchId, area: "Sân vườn", seats: 6, status: "available", currentSessionId: null, adjacentTableIds: [`${branchId}-D1`] },
-    { id: `${branchId}-D3`, branchId, area: "Sân vườn", seats: 2, status: "reserved",  currentSessionId: null, adjacentTableIds: [] },
-  ];
-}
-
-const FLOOR_TABLES: FloorTable[] = [
-  ...makeTables(T1_B1),
-  ...makeTables(T1_B2),
-  ...makeTables(T2_B1),
-  ...makeTables(T2_B2),
-];
-
-// Alias ngắn để seed session (dùng id cũ format ngắn cho T1_B1)
-const t = (s: string) => `${T1_B1}-${s}`; // e.g. t("A1") = "BR-CT-Q1-A1"
-
-// =====================================================================
 // Menu — Cơm Tấm Sài Gòn (T1)
 // =====================================================================
 const MENU_T1: MenuItem[] = [
@@ -223,207 +182,19 @@ const BRANCH_MENU_ITEMS: BranchMenuItem[] = [
 ];
 
 // =====================================================================
-// TableSessions + Orders + OrderLines (T1_B1 — demo chính)
+// Staff legacy (nhân sự chi nhánh — vai trò Waiter/Kitchen còn lại sẽ bỏ ở bước đổi RoleKey)
 // =====================================================================
-const TABLE_SESSIONS: TableSession[] = [
-  // Đang mở
-  { id: "S-4471", tenantId: T1, branchId: T1_B1, tableIds: [t("B4")], guests: 5, openedBy: "Võ Hoàng Nam",   openedAt: "12:35", status: "open" },
-  { id: "S-4472", tenantId: T1, branchId: T1_B1, tableIds: [t("C2")], guests: 3, openedBy: "Bùi Anh Khoa",   openedAt: "12:41", status: "open" },
-  // Bàn ghép B2+B3
-  { id: "S-4473", tenantId: T1, branchId: T1_B1, tableIds: [t("B2"), t("B3")], guests: 7, openedBy: "Đặng Mỹ Linh", openedAt: "12:30", status: "open" },
-  // Đã trả tiền nhưng chưa đóng bàn
-  { id: "S-4470", tenantId: T1, branchId: T1_B1, tableIds: [t("A1")], guests: 3, openedBy: "Đặng Mỹ Linh",   openedAt: "12:05", status: "paid",
-    paymentMethod: "cash", collectedBy: "Đặng Mỹ Linh", confirmedBy: "Trần Minh Quân", paidAt: "12:42" },
-  // Đã đóng bàn — doanh thu trong ngày (T1_B1)
-  { id: "S-P101", tenantId: T1, branchId: T1_B1, tableIds: [t("A2")], guests: 4, openedBy: "Võ Hoàng Nam",   openedAt: "10:15", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Trần Minh Quân", paidAt: "10:48" },
-  { id: "S-P102", tenantId: T1, branchId: T1_B1, tableIds: [t("B1")], guests: 6, openedBy: "Đặng Mỹ Linh",  openedAt: "10:40", status: "closed",
-    paymentMethod: "cash", collectedBy: "Đặng Mỹ Linh",  confirmedBy: "Lê Thị Hồng",   paidAt: "11:22" },
-  { id: "S-P103", tenantId: T1, branchId: T1_B1, tableIds: [t("C1"), t("C2")], guests: 8, openedBy: "Võ Hoàng Nam", openedAt: "11:00", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Lê Thị Hồng", paidAt: "11:58" },
-  { id: "S-P104", tenantId: T1, branchId: T1_B1, tableIds: [t("B3")], guests: 6, openedBy: "Đặng Mỹ Linh",  openedAt: "11:20", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Trần Minh Quân", paidAt: "12:12" },
-  { id: "S-P105", tenantId: T1, branchId: T1_B1, tableIds: [t("A3")], guests: 3, openedBy: "Võ Hoàng Nam",   openedAt: "11:45", status: "closed",
-    paymentMethod: "cash", collectedBy: "Võ Hoàng Nam", confirmedBy: "Trần Minh Quân", paidAt: "12:28" },
-  // T1_B2 — đã đóng
-  { id: "S-P201", tenantId: T1, branchId: T1_B2, tableIds: [`${T1_B2}-A1`], guests: 4, openedBy: "Bùi Anh Khoa", openedAt: "10:30", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Ngô Gia Bảo", paidAt: "11:05" },
-  { id: "S-P202", tenantId: T1, branchId: T1_B2, tableIds: [`${T1_B2}-A2`], guests: 5, openedBy: "Bùi Anh Khoa", openedAt: "11:05", status: "closed",
-    paymentMethod: "cash", collectedBy: "Bùi Anh Khoa", confirmedBy: "Ngô Gia Bảo", paidAt: "11:52" },
-  { id: "S-P203", tenantId: T1, branchId: T1_B2, tableIds: [`${T1_B2}-B1`], guests: 3, openedBy: "Bùi Anh Khoa", openedAt: "11:30", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Ngô Gia Bảo", paidAt: "12:02" },
-  { id: "S-P204", tenantId: T1, branchId: T1_B2, tableIds: [`${T1_B2}-B2`], guests: 2, openedBy: "Bùi Anh Khoa", openedAt: "12:00", status: "closed",
-    paymentMethod: "qr",   confirmedBy: "Ngô Gia Bảo", paidAt: "12:32" },
-];
-
-const ORDERS: Order[] = [
-  { id: "O-1",    tenantId: T1, sessionId: "S-4471", createdBy: "Võ Hoàng Nam",   createdAt: "12:36" },
-  { id: "O-2",    tenantId: T1, sessionId: "S-4471", createdBy: "Võ Hoàng Nam",   createdAt: "12:44" },
-  { id: "O-3",    tenantId: T1, sessionId: "S-4472", createdBy: "Bùi Anh Khoa",   createdAt: "12:41" },
-  { id: "O-4",    tenantId: T1, sessionId: "S-4470", createdBy: "Đặng Mỹ Linh",   createdAt: "12:06" },
-  { id: "O-5",    tenantId: T1, sessionId: "S-4473", createdBy: "Đặng Mỹ Linh",   createdAt: "12:31" },
-  { id: "O-P101", tenantId: T1, sessionId: "S-P101", createdBy: "Võ Hoàng Nam",   createdAt: "10:16" },
-  { id: "O-P102", tenantId: T1, sessionId: "S-P102", createdBy: "Đặng Mỹ Linh",  createdAt: "10:41" },
-  { id: "O-P103", tenantId: T1, sessionId: "S-P103", createdBy: "Võ Hoàng Nam",   createdAt: "11:01" },
-  { id: "O-P104", tenantId: T1, sessionId: "S-P104", createdBy: "Đặng Mỹ Linh",  createdAt: "11:21" },
-  { id: "O-P105", tenantId: T1, sessionId: "S-P105", createdBy: "Võ Hoàng Nam",   createdAt: "11:46" },
-  { id: "O-P201", tenantId: T1, sessionId: "S-P201", createdBy: "Bùi Anh Khoa",  createdAt: "10:31" },
-  { id: "O-P202", tenantId: T1, sessionId: "S-P202", createdBy: "Bùi Anh Khoa",  createdAt: "11:06" },
-  { id: "O-P203", tenantId: T1, sessionId: "S-P203", createdBy: "Bùi Anh Khoa",  createdAt: "11:31" },
-  { id: "O-P204", tenantId: T1, sessionId: "S-P204", createdBy: "Bùi Anh Khoa",  createdAt: "12:01" },
-];
-
-const ORDER_LINES: OrderLine[] = [
-  // O-1 · bàn B4
-  { id: "OL-1",  orderId: "O-1", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 2, note: "Ít mỡ hành", status: "cooking",  startedAt: "12:40" },
-  { id: "OL-2",  orderId: "O-1", menuItemId: "M-03", name: "Chả trứng hấp",        unitPrice: 15_000, qty: 2, status: "queued" },
-  { id: "OL-3",  orderId: "O-1", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 2, status: "served",   claimedBy: "Võ Hoàng Nam", startedAt: "12:36", doneAt: "12:38" },
-  // O-2 · bàn B4 (gọi thêm)
-  { id: "OL-4",  orderId: "O-2", menuItemId: "M-07", name: "Rau câu dừa",          unitPrice: 12_000, qty: 2, status: "done",     startedAt: "12:44", doneAt: "12:46" },
-  // O-3 · bàn C2
-  { id: "OL-5",  orderId: "O-3", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 1, note: "Không cay",  status: "cooking",  startedAt: "12:43" },
-  { id: "OL-6",  orderId: "O-3", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 1, status: "queued" },
-  { id: "OL-7",  orderId: "O-3", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 2, status: "done",     startedAt: "12:42", doneAt: "12:43" },
-  { id: "OL-8",  orderId: "O-3", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 1, status: "served",   claimedBy: "Bùi Anh Khoa", startedAt: "12:41", doneAt: "12:42" },
-  // O-4 · bàn A1 (phiên đã thanh toán)
-  { id: "OL-9",  orderId: "O-4", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 2, status: "served",   claimedBy: "Đặng Mỹ Linh" },
-  { id: "OL-10", orderId: "O-4", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 2, status: "served",   claimedBy: "Đặng Mỹ Linh" },
-  // O-5 · bàn ghép B2+B3
-  { id: "OL-11", orderId: "O-5", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 4, note: "1 phần không mỡ hành", status: "cooking", startedAt: "12:33" },
-  { id: "OL-12", orderId: "O-5", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 4, status: "queued" },
-  { id: "OL-13", orderId: "O-5", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 3, status: "done",     startedAt: "12:41", doneAt: "12:45" },
-  // Phiên đóng T1_B1
-  { id: "OL-P101-1", orderId: "O-P101", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 3, status: "served" },
-  { id: "OL-P101-2", orderId: "O-P101", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 3, status: "served" },
-  { id: "OL-P101-3", orderId: "O-P101", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 1, status: "served" },
-  { id: "OL-P102-1", orderId: "O-P102", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 4, status: "served" },
-  { id: "OL-P102-2", orderId: "O-P102", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 2, status: "served" },
-  { id: "OL-P102-3", orderId: "O-P102", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 4, status: "served" },
-  { id: "OL-P102-4", orderId: "O-P102", menuItemId: "M-07", name: "Rau câu dừa",          unitPrice: 12_000, qty: 2, status: "served" },
-  { id: "OL-P103-1", orderId: "O-P103", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 6, status: "served" },
-  { id: "OL-P103-2", orderId: "O-P103", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 2, status: "served" },
-  { id: "OL-P103-3", orderId: "O-P103", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 6, status: "served" },
-  { id: "OL-P103-4", orderId: "O-P103", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 2, status: "served" },
-  { id: "OL-P104-1", orderId: "O-P104", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 5, status: "served" },
-  { id: "OL-P104-2", orderId: "O-P104", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 1, status: "served" },
-  { id: "OL-P104-3", orderId: "O-P104", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 5, status: "served" },
-  { id: "OL-P104-4", orderId: "O-P104", menuItemId: "M-03", name: "Chả trứng hấp",        unitPrice: 15_000, qty: 1, status: "served" },
-  { id: "OL-P105-1", orderId: "O-P105", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 3, status: "served" },
-  { id: "OL-P105-2", orderId: "O-P105", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 3, status: "served" },
-  // Phiên đóng T1_B2
-  { id: "OL-P201-1", orderId: "O-P201", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 3, status: "served" },
-  { id: "OL-P201-2", orderId: "O-P201", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 1, status: "served" },
-  { id: "OL-P201-3", orderId: "O-P201", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 3, status: "served" },
-  { id: "OL-P202-1", orderId: "O-P202", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 4, status: "served" },
-  { id: "OL-P202-2", orderId: "O-P202", menuItemId: "M-02", name: "Cơm tấm sườn cây",     unitPrice: 62_000, qty: 1, status: "served" },
-  { id: "OL-P202-3", orderId: "O-P202", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 4, status: "served" },
-  { id: "OL-P203-1", orderId: "O-P203", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 2, status: "served" },
-  { id: "OL-P203-2", orderId: "O-P203", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 1, status: "served" },
-  { id: "OL-P203-3", orderId: "O-P203", menuItemId: "M-06", name: "Cà phê sữa đá",        unitPrice: 25_000, qty: 1, status: "served" },
-  { id: "OL-P204-1", orderId: "O-P204", menuItemId: "M-01", name: "Cơm tấm sườn bì chả", unitPrice: 55_000, qty: 2, status: "served" },
-  { id: "OL-P204-2", orderId: "O-P204", menuItemId: "M-05", name: "Trà tắc",              unitPrice: 18_000, qty: 2, status: "served" },
-];
-
-// =====================================================================
-// Payments (cho các phiên đã đóng)
-// =====================================================================
-const PAYMENTS: Payment[] = [
-  { id: "PAY-9081", tenantId: T1, branchId: T1_B1, sessionId: "S-P101", invoiceCode: "INV-20260917-001", amount: 258_000, method: "qr",   status: "confirmed", confirmedBy: "Trần Minh Quân", createdAt: "10:48", updatedAt: "10:48" },
-  { id: "PAY-9082", tenantId: T1, branchId: T1_B1, sessionId: "S-P102", invoiceCode: "INV-20260917-002", amount: 440_000, method: "cash", status: "confirmed", collectedBy: "Đặng Mỹ Linh", confirmedBy: "Lê Thị Hồng", createdAt: "11:22", updatedAt: "11:22" },
-  { id: "PAY-9083", tenantId: T1, branchId: T1_B1, sessionId: "S-P103", invoiceCode: "INV-20260917-003", amount: 612_000, method: "qr",   status: "confirmed", confirmedBy: "Lê Thị Hồng", createdAt: "11:58", updatedAt: "11:58" },
-  { id: "PAY-9084", tenantId: T1, branchId: T1_B1, sessionId: "S-P104", invoiceCode: "INV-20260917-004", amount: 442_000, method: "qr",   status: "confirmed", confirmedBy: "Trần Minh Quân", createdAt: "12:12", updatedAt: "12:12" },
-  { id: "PAY-9085", tenantId: T1, branchId: T1_B1, sessionId: "S-P105", invoiceCode: "INV-20260917-005", amount: 240_000, method: "cash", status: "confirmed", collectedBy: "Võ Hoàng Nam", confirmedBy: "Trần Minh Quân", createdAt: "12:28", updatedAt: "12:28" },
-  // Phiên paid đang chờ đóng bàn (A1)
-  { id: "PAY-9086", tenantId: T1, branchId: T1_B1, sessionId: "S-4470", invoiceCode: "INV-20260917-006", amount: 146_000, method: "cash", status: "cash_received", collectedBy: "Đặng Mỹ Linh", createdAt: "12:42", updatedAt: "12:42" },
-];
-
-// =====================================================================
-// Ledger Entries (ví Cơm Tấm Sài Gòn)
-// =====================================================================
-function holdEntry(id: string, refId: string, amount: number, at: string): LedgerEntry {
-  return { id, tenantId: T1, type: "hold", amount, refId, createdAt: at };
-}
-/**
- * `settle` ghi đúng số tiền QR đã thu (không trừ phí); `fee` là bút toán
- * riêng, dương, trừ ra khỏi số dư khả dụng trong công thức của
- * `wallet.service.ts#getWalletBalance` — không trừ hai lần.
- */
-function settleEntry(id: string, refId: string, grossAmount: number, fee: number, at: string): LedgerEntry[] {
-  return [
-    { id: `${id}-settle`, tenantId: T1, type: "settle", amount: grossAmount, refId, createdAt: at },
-    { id: `${id}-fee`,    tenantId: T1, type: "fee",    amount: fee,         refId, note: `Phí dịch vụ thanh toán 2.5%`, createdAt: at },
-  ];
-}
-
-const LEDGER_ENTRIES: LedgerEntry[] = [
-  // Mốc cố định trong quá khứ xa (không phải "10:48" — Date không parse được
-  // giờ ngắn) để job quyết toán luôn thấy các khoản này đã đủ holdHours,
-  // bấm "Chạy quyết toán" ở màn Admin ra kết quả ngay, không cần chờ thật.
-  holdEntry("LE-001", "PAY-9081", 258_000, "2024-01-01T10:48:00.000Z"),
-  holdEntry("LE-002", "PAY-9082", 440_000, "2024-01-01T11:22:00.000Z"),
-  holdEntry("LE-003", "PAY-9083", 612_000, "2024-01-01T11:58:00.000Z"),
-  holdEntry("LE-004", "PAY-9084", 442_000, "2024-01-01T12:12:00.000Z"),
-  holdEntry("LE-005", "PAY-9085", 240_000, "2024-01-01T12:28:00.000Z"),
-  // Settle ngày hôm qua (demo)
-  ...settleEntry("LE-010", "PAY-8800", 1_500_000, 37_500, "2026-09-16T09:00:00"),
-  ...settleEntry("LE-020", "PAY-8801", 2_200_000, 55_000, "2026-09-16T09:00:00"),
-];
-
-// =====================================================================
-// Staff legacy (dùng cho các màn manager/owner cũ)
-// =====================================================================
-// LƯU Ý: id của Manager/Kitchen/Waiter demo (E-01/E-03/E-05) trùng với id
-// DemoAccount tương ứng (ACC-manager/ACC-kitchen/ACC-waiter) — bắt buộc phải
-// khớp vì WorkSession/ShiftAssignment gắn vào `staffId`, và màn hình chặn
-// "chưa vào ca" so `staffId` với `currentUser.id` (BR-43). Nhân viên còn lại
-// (E-02, E-04, E-06→E-08) chỉ có trong roster, không có tài khoản đăng nhập.
+// id của Manager demo trùng id DemoAccount tương ứng (ACC-manager). Nhân viên còn lại
+// chỉ có trong roster, không có tài khoản đăng nhập.
 const STAFF_LEGACY: StaffLegacy[] = [
-  { id: "ACC-manager", tenantId: T1, branchId: T1_B1, name: "Trần Minh Quân",  email: "manager@comtam.vn",    role: "Manager", onShift: true,  active: true },
-  { id: "E-02", tenantId: T1, branchId: T1_B1, name: "Lê Thị Hồng",    email: "hong.le@comtam.vn",    role: "Manager", onShift: true,  active: true },
-  { id: "ACC-kitchen", tenantId: T1, branchId: T1_B1, name: "Nguyễn Văn Tú",  email: "kitchen@comtam.vn",    role: "Kitchen", onShift: true,  active: true },
-  { id: "E-04", tenantId: T1, branchId: T1_B1, name: "Phạm Thu Hà",    email: "ha.pham@comtam.vn",    role: "Kitchen", onShift: true,  active: true },
-  { id: "ACC-waiter", tenantId: T1, branchId: T1_B1, name: "Võ Hoàng Nam",   email: "waiter@comtam.vn",     role: "Waiter",  onShift: true,  active: true },
-  { id: "E-06", tenantId: T1, branchId: T1_B1, name: "Đặng Mỹ Linh",  email: "linh.dang@comtam.vn",  role: "Waiter",  onShift: false, active: true },
-  { id: "E-07", tenantId: T1, branchId: T1_B2, name: "Bùi Anh Khoa",  email: "khoa.bui@comtam.vn",   role: "Waiter",  onShift: true,  active: true },
-  { id: "E-08", tenantId: T1, branchId: T1_B2, name: "Ngô Gia Bảo",   email: "bao.ngo@comtam.vn",    role: "Manager", onShift: true,  active: true },
-];
-
-// =====================================================================
-// ShiftTemplates + WorkSessions
-// =====================================================================
-const SHIFT_TEMPLATES: ShiftTemplate[] = [
-  { id: "ST-01", tenantId: T1, branchId: T1_B1, name: "Ca sáng", startTime: "07:00", endTime: "14:00", active: true },
-  { id: "ST-02", tenantId: T1, branchId: T1_B1, name: "Ca chiều", startTime: "14:00", endTime: "22:00", active: true },
-  { id: "ST-03", tenantId: T1, branchId: T1_B2, name: "Ca sáng", startTime: "07:00", endTime: "14:00", active: true },
-];
-
-// Phân ca hôm nay (2026-09-17) — khớp 3 lượt đang inShift bên dưới.
-const SHIFT_ASSIGNMENTS: ShiftAssignment[] = [
-  { id: "SA-01", tenantId: T1, branchId: T1_B1, staffId: "ACC-manager", shiftTemplateId: "ST-01", date: "2026-09-17" },
-  { id: "SA-02", tenantId: T1, branchId: T1_B1, staffId: "ACC-kitchen", shiftTemplateId: "ST-01", date: "2026-09-17" },
-  { id: "SA-03", tenantId: T1, branchId: T1_B1, staffId: "ACC-waiter", shiftTemplateId: "ST-01", date: "2026-09-17" },
-  { id: "SA-04", tenantId: T1, branchId: T1_B1, staffId: "E-06", shiftTemplateId: "ST-02", date: "2026-09-17" },
-  // Tuần trước (thứ Năm 2026-09-10) — dữ liệu demo cho nút "Sao chép tuần trước".
-  { id: "SA-11", tenantId: T1, branchId: T1_B1, staffId: "ACC-manager", shiftTemplateId: "ST-01", date: "2026-09-10" },
-  { id: "SA-12", tenantId: T1, branchId: T1_B1, staffId: "ACC-waiter", shiftTemplateId: "ST-01", date: "2026-09-10" },
-  { id: "SA-13", tenantId: T1, branchId: T1_B1, staffId: "E-06", shiftTemplateId: "ST-02", date: "2026-09-10" },
-];
-
-const WORK_SESSIONS: WorkSession[] = [
-  { id: "WS-001", tenantId: T1, branchId: T1_B1, staffId: "ACC-manager", shiftAssignmentId: "SA-01", status: "inShift", offSchedule: false, autoClosed: false, checkedInAt: "2026-09-17T07:05:00" },
-  { id: "WS-002", tenantId: T1, branchId: T1_B1, staffId: "ACC-kitchen", shiftAssignmentId: "SA-02", status: "inShift", offSchedule: false, autoClosed: false, checkedInAt: "2026-09-17T07:10:00" },
-  { id: "WS-003", tenantId: T1, branchId: T1_B1, staffId: "ACC-waiter", shiftAssignmentId: "SA-03", status: "inShift", offSchedule: false, autoClosed: false, checkedInAt: "2026-09-17T07:00:00" },
-];
-
-// =====================================================================
-// Audit log legacy
-// =====================================================================
-const AUDIT_LOG: AuditEntryLegacy[] = [
-  { id: "L-5521", tenantId: null, time: "12:44", actor: "admin@platform.vn", action: "Tạm ngưng tenant",  target: "Cà Phê Muối Đà Lạt (T-1062)" },
-  { id: "L-5519", tenantId: null, time: "11:20", actor: "admin@platform.vn", action: "Khởi tạo tenant",   target: "Bún Bò O Xuân (T-1071)" },
-  { id: "L-5516", tenantId: null, time: "10:02", actor: "system",            action: "Gia hạn thuê bao",  target: "Trà Sữa BoBa Lab (T-1043)" },
-  { id: "L-5510", tenantId: null, time: "09:12", actor: "admin@platform.vn", action: "Sửa gói dịch vụ",  target: "Phở Hà Nội 1979 (T-1043)" },
-  { id: "L-5507", tenantId: null, time: "hôm qua", actor: "admin@platform.vn", action: "Duyệt đăng ký", target: "Cơm Tấm Sài Gòn (T-CT)" },
+  { id: "ACC-manager", tenantId: T1, branchId: T1_B1, name: "Trần Minh Quân",  email: "manager@comtam.vn",    role: "Manager", active: true },
+  { id: "E-02", tenantId: T1, branchId: T1_B1, name: "Lê Thị Hồng",    email: "hong.le@comtam.vn",    role: "Manager", active: true },
+  { id: "ACC-kitchen", tenantId: T1, branchId: T1_B1, name: "Nguyễn Văn Tú",  email: "kitchen@comtam.vn",    role: "Kitchen", active: true },
+  { id: "E-04", tenantId: T1, branchId: T1_B1, name: "Phạm Thu Hà",    email: "ha.pham@comtam.vn",    role: "Kitchen", active: true },
+  { id: "ACC-waiter", tenantId: T1, branchId: T1_B1, name: "Võ Hoàng Nam",   email: "waiter@comtam.vn",     role: "Waiter",  active: true },
+  { id: "E-06", tenantId: T1, branchId: T1_B1, name: "Đặng Mỹ Linh",  email: "linh.dang@comtam.vn",  role: "Waiter",  active: true },
+  { id: "E-07", tenantId: T1, branchId: T1_B2, name: "Bùi Anh Khoa",  email: "khoa.bui@comtam.vn",   role: "Waiter",  active: true },
+  { id: "E-08", tenantId: T1, branchId: T1_B2, name: "Ngô Gia Bảo",   email: "bao.ngo@comtam.vn",    role: "Manager", active: true },
 ];
 
 // =====================================================================
@@ -451,19 +222,9 @@ export function seedAll() {
   db.brandings           = BRANDINGS;
   db.registrationRequests = REGISTRATION_REQUESTS;
   db.branches            = BRANCHES;
-  db.floorTables         = FLOOR_TABLES;
   db.menuItems           = MENU_ITEMS;
   db.branchMenuItems     = BRANCH_MENU_ITEMS;
-  db.tableSessions       = TABLE_SESSIONS;
-  db.orders              = ORDERS;
-  db.orderLines          = ORDER_LINES;
-  db.payments            = PAYMENTS;
-  db.ledgerEntries       = LEDGER_ENTRIES;
-  db.shiftTemplates      = SHIFT_TEMPLATES;
-  db.shiftAssignments    = SHIFT_ASSIGNMENTS;
-  db.workSessions        = WORK_SESSIONS;
   db.staffLegacy         = STAFF_LEGACY;
-  db.auditLog            = AUDIT_LOG;
   db.demoAccounts        = DEMO_ACCOUNTS;
 }
 

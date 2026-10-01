@@ -1,7 +1,7 @@
 /**
  * Phiên đăng nhập và phạm vi làm việc (CM-01).
- * `loadScope` còn nạp luôn dữ liệu của các slice khác sau khi biết chuỗi và chi
- * nhánh — hành vi giữ nguyên như khi còn một file.
+ * `loadScope` nạp phạm vi (chi nhánh), branding, gói; sau đó nạp menu và nhân sự
+ * của chi nhánh đang chọn.
  */
 import type { AuthUser, Branding, DemoAccount } from "../../types";
 import { loginWithPassword, restoreSession, logoutSession, getAuthContext } from "../../services/authApi";
@@ -89,7 +89,8 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       // Subscribe to cross-tab broadcast
       broadcast.subscribe((msg) => {
         if (msg.type === "REFETCH_ALL") {
-          get().refreshOperationalData();
+          get().loadMenu();
+          get().loadStaff();
         }
         if (msg.type === "BRANDING_UPDATED") {
           const { currentUser } = get();
@@ -206,11 +207,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       });
 
       set({ tenantBranding: await getTenantBranding(mockTenantId) });
-      await Promise.all([
-        get().refreshOperationalData(),
-        get().loadTables(),
-        get().loadPayments(),
-      ]);
+      await Promise.all([get().loadMenu(), get().loadStaff()]);
     } catch (err) {
       clearRealScope();
       set({
@@ -242,20 +239,11 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       plan: null,
       quotas: [],
       apiBranches: [],
-      apiTables: [],
-      tablesStatus: "idle",
-      tablesError: null,
-      branchPayments: [],
-      paymentsTotal: 0,
-      paymentsStatus: "idle",
-      paymentsError: null,
       branches: [],
       currentBranchId: null,
-      tables: [],
-      sessions: [],
-      orderLines: [],
+      menuItems: [],
+      branchMenuItems: [],
       staff: [],
-      workSessions: [],
     });
   },
 });

@@ -1,5 +1,5 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
-import { LogIn, LogOut, Lock, Plus, Unlock } from "lucide-react";
+import { Lock, Plus, Unlock } from "lucide-react";
 import { useState } from "react";
 import type { StaffLegacy } from "../../services";
 import { DEFAULT_PASSWORD } from "../../types";
@@ -13,8 +13,8 @@ const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> =
 };
 
 /**
- * Nhân sự chi nhánh (mục 4.5.H): Branch Manager tạo tài khoản Waiter/Kitchen,
- * check-in/out do Manager thao tác (BR-42) — không phải nhân viên tự làm.
+ * Nhân sự chi nhánh (BM-01). Màn hình tạo/khoá tài khoản thu ngân và pha chế sẽ
+ * dựng lại theo v9 ở giai đoạn sau; hiện chỉ giữ danh sách mock.
  */
 export default function StaffTable() {
   const { message, modal } = App.useApp();
@@ -22,16 +22,10 @@ export default function StaffTable() {
   const currentBranchId = useAppStore((s) => s.currentBranchId);
   const staff = useAppStore((s) => s.staff);
   const createStaffAccount = useAppStore((s) => s.createStaffAccount);
-  const setStaffShift = useAppStore((s) => s.setStaffShift);
   const setStaffActive = useAppStore((s) => s.setStaffActive);
   const [adding, setAdding] = useState(false);
 
   const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
-
-  const toggleShift = async (r: StaffLegacy, on: boolean) => {
-    await setStaffShift(r.id, on);
-    message.success(on ? "Đã check-in — hệ thống ghi nhận có mặt" : "Đã check-out");
-  };
 
   const toggleActive = async (r: StaffLegacy, active: boolean) => {
     await setStaffActive(r.id, active);
@@ -42,7 +36,7 @@ export default function StaffTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Nhân viên"
-        sub="Check-in để hệ thống biết ai đang có mặt mà bắn thông báo — không phải để chấm công"
+        sub="Tài khoản nhân viên của chi nhánh"
         extra={
           <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
             Thêm nhân viên
@@ -76,32 +70,11 @@ export default function StaffTable() {
               roleTag[r].black ? <Tag color="black">{roleTag[r].label}</Tag> : <Tag>{roleTag[r].label}</Tag>,
           },
           {
-            title: "Có mặt",
-            dataIndex: "onShift",
-            align: "center",
-            render: (on: boolean) => (on ? <Tag color="black">Đang trong ca</Tag> : <Tag>Vắng mặt</Tag>),
-          },
-          {
             title: "",
             key: "act",
             align: "right",
             render: (_, r) => (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                {r.onShift ? (
-                  <Button size="small" icon={<LogOut size={14} />} onClick={() => toggleShift(r, false)}>
-                    Check-out
-                  </Button>
-                ) : (
-                  <Button
-                    size="small"
-                    type="primary"
-                    disabled={!r.active}
-                    icon={<LogIn size={14} />}
-                    onClick={() => toggleShift(r, true)}
-                  >
-                    Check-in
-                  </Button>
-                )}
                 {r.active ? (
                   <Button size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
                     Khoá

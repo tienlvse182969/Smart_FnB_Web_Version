@@ -10,11 +10,9 @@ import type { BrandingSlice } from "./slices/branding";
 import type { PlanSlice } from "./slices/plan";
 import type { BranchSlice } from "./slices/branches";
 import type { MenuSlice } from "./slices/menu";
-import type { OperationalSlice } from "./slices/operational";
-import type { LegacyV7Slice } from "./legacy-v7";
+import type { StaffSlice } from "./slices/staff";
 
 export type ScopeStatus = "idle" | "loading" | "ready" | "error";
-export type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 /** Địa chỉ gửi lên backend theo hai cấp: không còn `district`. */
 export interface BranchFormData {
@@ -33,8 +31,7 @@ export type AppState = AuthSlice &
   PlanSlice &
   BranchSlice &
   MenuSlice &
-  OperationalSlice &
-  LegacyV7Slice;
+  StaffSlice;
 
 /** Hàm tạo một slice — nhìn thấy toàn bộ `AppState` qua `get()`. */
 export type SliceCreator<T> = StateCreator<AppState, [], [], T>;

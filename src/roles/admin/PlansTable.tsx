@@ -6,7 +6,7 @@ import { createPlan, listPlans, updatePlan } from "../../services";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
 
-/** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts, maxTables. */
+/** Quản lý gói dịch vụ (mục 4.3.B): giá tháng, maxBranches, maxAccounts. */
 export default function PlansTable() {
   const { message } = App.useApp();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -21,7 +21,7 @@ export default function PlansTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Gói dịch vụ"
-        sub="Giá tháng và hạn mức chi nhánh / tài khoản / bàn — áp cho toàn bộ doanh nghiệp dùng gói này"
+        sub="Giá tháng và hạn mức chi nhánh / tài khoản — áp cho toàn bộ doanh nghiệp dùng gói này"
         extra={
           <Button type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
             Thêm gói
@@ -39,7 +39,6 @@ export default function PlansTable() {
           { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: money },
           { title: "Chi nhánh tối đa", dataIndex: "maxBranches", align: "right" },
           { title: "Tài khoản tối đa", dataIndex: "maxAccounts", align: "right" },
-          { title: "Bàn tối đa", dataIndex: "maxTables", align: "right" },
         ]}
       />
 
@@ -81,14 +80,12 @@ function PlanDrawer({
   const [monthlyPrice, setMonthlyPrice] = useState(existing?.monthlyPrice ?? 900_000);
   const [maxBranches, setMaxBranches] = useState(existing?.maxBranches ?? 2);
   const [maxAccounts, setMaxAccounts] = useState(existing?.maxAccounts ?? 15);
-  const [maxTables, setMaxTables] = useState(existing?.maxTables ?? 20);
 
   useEffect(() => {
     setName(existing?.name ?? "");
     setMonthlyPrice(existing?.monthlyPrice ?? 900_000);
     setMaxBranches(existing?.maxBranches ?? 2);
     setMaxAccounts(existing?.maxAccounts ?? 15);
-    setMaxTables(existing?.maxTables ?? 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
@@ -111,14 +108,11 @@ function PlanDrawer({
       <Field label="Số tài khoản tối đa">
         <InputNumber value={maxAccounts} onChange={(v) => setMaxAccounts(v ?? 1)} style={{ width: "100%" }} min={1} />
       </Field>
-      <Field label="Số bàn tối đa">
-        <InputNumber value={maxTables} onChange={(v) => setMaxTables(v ?? 1)} style={{ width: "100%" }} min={1} />
-      </Field>
       <Button
         type="primary"
         block
         style={{ marginTop: 8 }}
-        onClick={() => onSave({ name: name.trim(), monthlyPrice, maxBranches, maxAccounts, maxTables })}
+        onClick={() => onSave({ name: name.trim(), monthlyPrice, maxBranches, maxAccounts })}
         disabled={!name.trim()}
       >
         Lưu gói

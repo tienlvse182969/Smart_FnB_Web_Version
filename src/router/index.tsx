@@ -1,14 +1,11 @@
-import { createBrowserRouter, Navigate, type RouteObject, useNavigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useNavigate } from "react-router-dom";
 import { App } from "antd";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
 import AdminApp from "../roles/admin/AdminApp";
 import OwnerApp from "../roles/owner/OwnerApp";
 import BranchApp from "../roles/branch/BranchApp";
-import WaiterApp from "../roles/waiter/WaiterApp";
-import KitchenApp from "../roles/kitchen/KitchenApp";
 import { RoleGuard, homeRouteFor } from "./guards";
-import { ENABLE_STAFF_APPS } from "../config";
 import { useAppStore } from "../store";
 
 function LandingWrapper() {
@@ -55,39 +52,6 @@ function ManagerWrapper() {
   return <BranchApp onLogout={useLogoutHandler()} />;
 }
 
-function WaiterWrapper() {
-  return <WaiterApp onLogout={useLogoutHandler()} />;
-}
-
-function KitchenWrapper() {
-  return <KitchenApp onLogout={useLogoutHandler()} />;
-}
-
-/**
- * Waiter/Kitchen đã chuyển sang ứng dụng tablet. Giữ nguyên màn hình, chỉ
- * không đăng ký route khi cờ tắt — mọi đường dẫn /waiter, /kitchen rơi về "*".
- */
-const staffRoutes: RouteObject[] = ENABLE_STAFF_APPS
-  ? [
-      {
-        path: "/waiter/*",
-        element: (
-          <RoleGuard allowedRoles={["waiter"]}>
-            <WaiterWrapper />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: "/kitchen/*",
-        element: (
-          <RoleGuard allowedRoles={["kitchen"]}>
-            <KitchenWrapper />
-          </RoleGuard>
-        ),
-      },
-    ]
-  : [];
-
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -125,7 +89,6 @@ export const router = createBrowserRouter([
     path: "/branch/*",
     element: <Navigate to="/manager" replace />,
   },
-  ...staffRoutes,
   {
     path: "*",
     element: <Navigate to="/" replace />,

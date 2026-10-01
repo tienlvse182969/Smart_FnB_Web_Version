@@ -1,22 +1,19 @@
 import { Alert, App, Button, Card, Drawer, Input, Select, Spin } from "antd";
-import { Hash, MapPin, Plus, Table2, Users } from "lucide-react";
+import { Hash, MapPin, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Branch } from "../../types";
 import { useAppStore } from "../../store";
 import { describeBranchError, type ApiBranch } from "../../services/branchApi";
-import { listTables } from "../../services/tablesApi";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
 
 function BranchCard({
   b,
   code,
-  tableCount,
   onEdit,
 }: {
   b: Branch;
   code: string;
-  tableCount: number;
   onEdit: () => void;
 }) {
   return (
@@ -30,9 +27,6 @@ function BranchCard({
           <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#71717a", fontSize: 13, marginTop: 4 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Hash size={14} /> {code}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Table2 size={14} /> {tableCount} bàn
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Users size={14} /> {b.phone || "—"}
@@ -73,29 +67,8 @@ export default function Branches() {
   const scopeError = useAppStore((s) => s.scopeError);
   const createBranch = useAppStore((s) => s.createBranch);
   const updateBranch = useAppStore((s) => s.updateBranch);
-  const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Số bàn lấy thật, mỗi chi nhánh một lượt gọi. Chi nhánh nào đọc lỗi thì
-  // hiện 0 thay vì làm hỏng cả danh sách.
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      branches.map(async (b) => {
-        try {
-          return [b.id, (await listTables(b.id)).length] as const;
-        } catch {
-          return [b.id, 0] as const;
-        }
-      }),
-    ).then((entries) => {
-      if (!cancelled) setTableCounts(Object.fromEntries(entries));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [branches]);
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
   const branchQuota = quotas.find((q) => q.resource === "branches");
@@ -129,7 +102,6 @@ export default function Branches() {
             key={b.id}
             b={b}
             code={codeById[b.id] ?? "—"}
-            tableCount={tableCounts[b.id] ?? 0}
             onEdit={() => setEditing(b)}
           />
         ))}
@@ -176,7 +148,7 @@ function SectionHeader({
       <div>
         <div style={{ fontSize: 15, fontWeight: 700 }}>Chi nhánh</div>
         <div style={{ fontSize: 12.5, color: "#71717a", marginTop: 2 }}>
-          {quotaLabel ?? "Mỗi chi nhánh có sơ đồ bàn, menu và nhân viên riêng"}
+          {quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
         </div>
       </div>
       <Button

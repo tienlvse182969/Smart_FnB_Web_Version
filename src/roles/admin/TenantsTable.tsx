@@ -1,21 +1,18 @@
-import { App, Button, Card, Collapse, Drawer, Progress, Select, Table, Tag } from "antd";
-import { Ban, CalendarClock, KeyRound, Layers, Play, Users, Wallet as WalletIcon } from "lucide-react";
+import { App, Button, Card, Drawer, Progress, Select, Table, Tag } from "antd";
+import { Ban, CalendarClock, KeyRound, Layers, Play, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { LedgerEntry, LedgerEntryType, Plan, Tenant, TenantStatus } from "../../types";
+import type { Plan, Tenant, TenantStatus } from "../../types";
 import { DEFAULT_PASSWORD } from "../../types";
 import {
   changeTenantPlan,
   countTenantAccounts,
   getDemoAccounts,
-  getWalletBalance,
   listBranches,
-  listLedger,
   listPlans,
   listTenants,
   renewTenant,
   resetPassword,
   setTenantStatus,
-  type WalletBalance,
 } from "../../services";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
@@ -53,30 +50,8 @@ export default function TenantsTable() {
   const [branchCounts, setBranchCounts] = useState<Record<string, number>>({});
   const [accountCounts, setAccountCounts] = useState<Record<string, number>>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null);
-  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const sel = tenants.find((t) => t.id === openId) ?? null;
   const selPlan = sel ? plans.find((p) => p.id === sel.planId) : null;
-
-  const LEDGER_TYPE_LABEL: Record<LedgerEntryType, string> = {
-    hold: "Tạm giữ",
-    settle: "Quyết toán",
-    fee: "Phí",
-    refund: "Hoàn tiền (GĐ2)",
-    withdraw_hold: "Giữ để rút",
-    withdraw_release: "Trả lại",
-    withdraw_paid: "Đã chuyển",
-  };
-
-  useEffect(() => {
-    if (!openId) {
-      setWalletBalance(null);
-      setLedger([]);
-      return;
-    }
-    getWalletBalance(openId, "admin").then(setWalletBalance);
-    listLedger(openId, "admin").then((entries) => setLedger(entries.slice(0, 20)));
-  }, [openId]);
 
   const load = async () => {
     const [tenantList, planList] = await Promise.all([listTenants(), listPlans()]);
@@ -225,44 +200,9 @@ export default function TenantsTable() {
               <span style={{ fontWeight: 600 }}>{money(selPlan.monthlyPrice)}</span>
             </div>
 
-            <Collapse
-              ghost
-              style={{ marginBottom: 16 }}
-              items={[
-                {
-                  key: "wallet",
-                  label: (
-                    <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "#52525b" }}>
-                      <WalletIcon size={15} /> Ví & sổ cái (chỉ xem — Admin không sửa được số dư)
-                    </span>
-                  ),
-                  children: (
-                    <>
-                      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 12.5 }}>
-                        <div>Tạm giữ: <b>{money(walletBalance?.heldBalance ?? 0)}</b></div>
-                        <div>Khả dụng: <b>{money(walletBalance?.availableBalance ?? 0)}</b></div>
-                        <div>Chờ rút: <b>{money(walletBalance?.pendingWithdraw ?? 0)}</b></div>
-                      </div>
-                      <Table<LedgerEntry>
-                        dataSource={ledger}
-                        rowKey="id"
-                        size="small"
-                        pagination={false}
-                        columns={[
-                          { title: "Thời gian", dataIndex: "createdAt", render: (v) => new Date(v).toLocaleString("vi-VN") },
-                          { title: "Loại", dataIndex: "type", render: (t: LedgerEntryType) => LEDGER_TYPE_LABEL[t] },
-                          { title: "Số tiền", dataIndex: "amount", align: "right", render: money },
-                        ]}
-                      />
-                    </>
-                  ),
-                },
-              ]}
-            />
-
             {(sel.status === "suspended" || sel.status === "expired") && (
               <div style={{ background: "#fafafa", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: "#52525b", marginBottom: 16 }}>
-                Tenant đang ở chế độ chỉ đọc — không khoá cứng, không xoá dữ liệu (BR-22). Owner vẫn rút được số dư khả dụng trong ví.
+                Tenant đang ở chế độ chỉ đọc — không khoá cứng, không xoá dữ liệu (BR-09).
               </div>
             )}
 

@@ -42,7 +42,7 @@ export default function RoleShell({
   const tenantBranding = useAppStore((s) => s.tenantBranding);
 
   // BR-32: Admin luôn giữ nhận diện nền tảng. Các vai trò khác — kể cả
-  // Kitchen (chỉ đổi header/logo, thẻ món giữ STATUS_COLORS) — hiện logo/tên
+  // Barista (chỉ đổi header/logo) — hiện logo/tên
   // hiển thị của doanh nghiệp khi Owner đã tự cấu hình (isCustom).
   const showTenantBrand = role !== "admin" && !!tenantBranding?.isCustom;
   const brandName = showTenantBrand ? tenantBranding!.displayName || "Smart F&B" : "Smart F&B";

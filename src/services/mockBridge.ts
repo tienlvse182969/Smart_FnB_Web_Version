@@ -2,8 +2,7 @@
  * TẠM THỜI — cầu nối giữa ID thật của backend và bộ dữ liệu mock.
  *
  * Phân hệ Chuỗi & Chi nhánh đã dùng API thật, nên `chainId`/`branchId` trong
- * store là UUID của backend. Các phân hệ còn lại (menu, orders, tables,
- * payments, wallet, shifts, staff, reports, branding, AI) vẫn đọc mock và lọc
+ * store là UUID của backend. Các phân hệ còn lại (menu, staff, branding, AI) vẫn đọc mock và lọc
  * theo ID mock (`T-CT`, `BR-CT-Q1`…), nên cần ánh xạ UUID thật về ID mock thì
  * chúng mới có dữ liệu để hiển thị.
  *

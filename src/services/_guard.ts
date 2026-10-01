@@ -7,8 +7,7 @@ import { db } from "../mock/db";
 
 /**
  * BR-22: doanh nghiệp `suspended`/`expired` chuyển chế độ chỉ đọc — mọi thao
- * tác GHI dữ liệu vận hành (bàn, order, menu, thanh toán, nhân sự...) bị
- * chặn. Rút tiền (ví) KHÔNG áp guard này — Owner vẫn rút được số dư khả dụng.
+ * tác GHI dữ liệu (menu, nhân sự, chi nhánh...) bị chặn.
  */
 export function assertTenantWritable(tenantId: string): void {
   const tenant = db.tenants.find((t) => t.id === tenantId);

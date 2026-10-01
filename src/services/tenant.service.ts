@@ -6,13 +6,6 @@ import { buildAccount } from "./auth.service";
 import { assertTenantWritable } from "./_guard";
 import { delay, newId, nowISO } from "./_utils";
 
-function addAudit(tenantId: string | null, actor: string, action: string, target: string) {
-  db.auditLog = [
-    { id: `L-${newId()}`, tenantId, time: nowISO(), actor, action, target },
-    ...db.auditLog,
-  ];
-}
-
 /** Danh sách toàn bộ tenant (Platform Admin). */
 export async function listTenants(): Promise<Tenant[]> {
   await delay();
@@ -90,8 +83,7 @@ export async function findDuplicateTaxCode(taxCode: string, excludeId?: string):
 /**
  * PA-02: Duyệt hồ sơ — sinh Tenant (status active), Branding mặc định
  * (isCustom=false), tài khoản Owner (mật khẩu tạm, bắt đổi ở lần đăng nhập
- * đầu). Ví doanh nghiệp không cần khởi tạo riêng — số dư luôn tính từ sổ cái
- * (BR-34), rỗng nghiễm nhiên vì chưa có bút toán nào.
+ * đầu).
  */
 export async function approveRegistration(
   id: string,
@@ -133,7 +125,6 @@ export async function approveRegistration(
   req.approvedPlanId = planId;
   req.approvedTenantId = tenantId;
 
-  addAudit(null, "admin@platform.vn", "Duyệt đăng ký", `${req.businessName} (${tenantId})`);
   // Giả lập gửi email — không có dịch vụ email thật trong đồ án.
   console.info(`[mock email] Gửi tài khoản Owner tới ${ownerAccount.email}: mật khẩu tạm phải đổi ở lần đăng nhập đầu.`);
 
@@ -149,7 +140,6 @@ export async function rejectRegistration(id: string, rejectReason: string): Prom
   if (req.status !== "pending") throw new Error("Hồ sơ đã được xử lý");
   req.status = "rejected";
   req.rejectReason = rejectReason;
-  addAudit(null, "admin@platform.vn", "Từ chối đăng ký", `${req.businessName}: ${rejectReason}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +158,6 @@ export async function setTenantStatus(id: string, status: TenantStatus): Promise
     suspended: "Tạm ngưng tenant",
     expired: "Đánh dấu hết hạn",
   };
-  addAudit(null, "admin@platform.vn", actionLabel[status], id);
 }
 
 /** Gia hạn thuê bao thêm 1 tháng — cũng chuyển tenant về active nếu đang expired. */
@@ -181,7 +170,6 @@ export async function renewTenant(id: string): Promise<Tenant> {
   base.setMonth(base.getMonth() + 1);
   tenant.renewsAt = base.toISOString().slice(0, 10);
   tenant.status = "active";
-  addAudit(null, "admin@platform.vn", "Gia hạn thuê bao", `${id} → ${tenant.renewsAt}`);
   return tenant;
 }
 
@@ -193,45 +181,7 @@ export async function changeTenantPlan(id: string, planId: string): Promise<Tena
   const plan = db.plans.find((p) => p.id === planId);
   if (!plan) throw new Error("Gói dịch vụ không tồn tại");
   tenant.planId = planId;
-  addAudit(null, "admin@platform.vn", "Đổi gói dịch vụ", `${id} → ${plan.name}`);
   return tenant;
-}
-
-/** Cấu hình nền tảng (feePercent, holdHours, minWithdraw). */
-export async function getPlatformConfig() {
-  await delay();
-  return { ...db.platformConfig };
-}
-
-/**
- * Platform Admin đổi cấu hình nền tảng — KHÔNG hồi tố: mức phí/tạm giữ chỉ
- * áp cho các bút toán quyết toán SAU thời điểm đổi (BR-37: mức phí chốt vào
- * bút toán tại thời điểm thanh toán/quyết toán, không tính lại các lô đã
- * quyết toán trước đó). Ghi audit log (BR-20).
- */
-export async function updatePlatformConfig(
-  data: { feePercent: number; holdHours: number; minWithdraw: number },
-  actorEmail: string
-) {
-  await delay();
-  if (data.feePercent < 0 || data.feePercent > 100) throw new Error("Phí dịch vụ phải trong khoảng 0–100%");
-  if (data.holdHours < 0) throw new Error("Thời gian tạm giữ không được âm");
-  if (data.minWithdraw < 0) throw new Error("Mức rút tối thiểu không được âm");
-
-  db.platformConfig = { ...data };
-  addAudit(
-    null,
-    actorEmail,
-    "Đổi cấu hình nền tảng",
-    `Phí ${data.feePercent}% · Tạm giữ ${data.holdHours}h · Rút tối thiểu ${data.minWithdraw.toLocaleString("vi-VN")}đ`
-  );
-  return { ...db.platformConfig };
-}
-
-/** Audit log (Platform Admin). */
-export async function listAuditLog() {
-  await delay();
-  return [...db.auditLog];
 }
 
 /** Branding của một tenant. */
@@ -260,7 +210,6 @@ export async function updateBranding(
   branding.displayName = data.displayName;
   branding.logoUrl = data.logoUrl;
   branding.isCustom = true;
-  addAudit(tenantId, actorEmail, "Đổi nhận diện thương hiệu", tenantId);
   return branding;
 }
 
@@ -275,6 +224,5 @@ export async function resetBranding(tenantId: string, actorEmail: string) {
   branding.accentColor = defaults.accentColor;
   branding.logoUrl = undefined;
   branding.isCustom = false;
-  addAudit(tenantId, actorEmail, "Khôi phục nhận diện mặc định", tenantId);
   return branding;
 }

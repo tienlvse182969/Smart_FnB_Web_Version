@@ -1,6 +1,6 @@
 /**
  * Global Zustand Store cho Smart FnB.
- * Quản lý Auth, Branch context, và Dữ liệu vận hành (bàn, order, menu, thanh toán).
+ * Quản lý Auth, phạm vi chuỗi/chi nhánh, gói, nhận diện, menu và nhân sự.
  * Đồng bộ real-time giữa các tab qua BroadcastChannel.
  *
  * Một store duy nhất, ghép từ các slice theo domain:
@@ -9,8 +9,7 @@
  *   slices/plan        gói dịch vụ và hạn mức (OW-10)
  *   slices/branches    chi nhánh và chi nhánh đang chọn (OW-01)
  *   slices/menu        menu chuỗi, món tại chi nhánh (OW-02..04, BM-02)
- *   slices/operational nạp dữ liệu vận hành theo chi nhánh
- *   legacy-v7/         phục vụ tại bàn của v7 — sẽ gỡ ở bước xoá v7
+ *   slices/staff       nhân sự chi nhánh (BM-01, tạm mock)
  */
 import { create } from "zustand";
 import type { AppState } from "./types";
@@ -19,10 +18,9 @@ import { createBrandingSlice } from "./slices/branding";
 import { createPlanSlice } from "./slices/plan";
 import { createBranchSlice } from "./slices/branches";
 import { createMenuSlice } from "./slices/menu";
-import { createOperationalSlice } from "./slices/operational";
-import { createLegacyV7Slice } from "./legacy-v7";
+import { createStaffSlice } from "./slices/staff";
 
-export type { AppState, BranchFormData, LoadStatus, ScopeStatus } from "./types";
+export type { AppState, BranchFormData, ScopeStatus } from "./types";
 
 export const useAppStore = create<AppState>()((...args) => ({
   ...createAuthSlice(...args),
@@ -30,6 +28,5 @@ export const useAppStore = create<AppState>()((...args) => ({
   ...createPlanSlice(...args),
   ...createBranchSlice(...args),
   ...createMenuSlice(...args),
-  ...createOperationalSlice(...args),
-  ...createLegacyV7Slice(...args),
+  ...createStaffSlice(...args),
 }));

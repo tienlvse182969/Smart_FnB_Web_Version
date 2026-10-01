@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Tabs } from "antd";
 import {
-  Banknote,
-  CalendarDays,
   LayoutDashboard,
   Settings,
   Sparkles,
@@ -16,9 +14,7 @@ import Reports from "./Reports";
 import MenuTable from "./MenuTable";
 import Branches from "./Branches";
 import ManagerAccounts from "./ManagerAccounts";
-import Wallet from "./Wallet";
 import Branding from "./Branding";
-import ShiftScheduleView from "./ShiftScheduleView";
 import AiAssistant from "./AiAssistant";
 
 const nav: NavItem[] = [
@@ -26,8 +22,6 @@ const nav: NavItem[] = [
   { key: "branches", label: "Chi nhánh", icon: <Store size={18} /> },
   { key: "menu", label: "Menu toàn chuỗi", icon: <UtensilsCrossed size={18} /> },
   { key: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} /> },
-  { key: "shifts", label: "Lịch phân ca", icon: <CalendarDays size={18} /> },
-  { key: "wallet", label: "Ví doanh nghiệp", icon: <Banknote size={18} /> },
   { key: "ai", label: "Trợ lý số liệu", icon: <Sparkles size={18} /> },
   { key: "settings", label: "Cài đặt doanh nghiệp", icon: <Settings size={18} /> },
 ];
@@ -49,8 +43,6 @@ export default function OwnerApp({ onLogout }: { onLogout: () => void }) {
         {section === "branches" && <Branches />}
         {section === "menu" && <MenuTable />}
         {section === "accounts" && <ManagerAccounts />}
-        {section === "shifts" && <ShiftScheduleView />}
-        {section === "wallet" && <Wallet />}
         {section === "ai" && <AiAssistant />}
         {section === "settings" && (
           <Tabs items={[{ key: "branding", label: "Nhận diện", children: <Branding /> }]} />
