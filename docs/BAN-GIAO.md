@@ -109,7 +109,7 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | branch | `VITE_API_BRANCH` | real | |
 | report | `VITE_API_REPORT` | real | BE chưa đếm đơn quầy; thẻ khách đã ẩn (TODO BE) |
 | plan | `VITE_API_PLAN` | real | hạn mức THẬT; tier, cờ tính năng, hạn dùng, trạng thái là MOCK (chờ BE) |
-| menu | `VITE_API_MENU` | mock | BE có endpoint — giai đoạn 4 |
+| menu | `VITE_API_MENU` | **real** | danh mục + món + gán chi nhánh + menu chi nhánh (4.2); không gửi/đọc `remainingPortions`; giá số nguyên (BR-19) |
 | options | `VITE_API_OPTIONS` | mock | BE chưa có (OW-03) — giai đoạn 4 |
 | branding | `VITE_API_BRANDING` | mock | BE có endpoint, chờ giai đoạn 6 (BE mới build lại đã có `/branding` và `/stations`; web chưa nối) |
 | account | `VITE_API_ACCOUNT` | mock | BE có /auth/managers, /auth/staff, thiếu Cashier/Barista cho Manager — giai đoạn 5 |
@@ -139,7 +139,8 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/admin/plans` | PA-04 | real: CRUD gói; cấp và cờ tính năng suy từ MÃ gói (BASIC/STANDARD/ADVANCED), chỉ đọc, chờ BE lưu |
 | `/owner/reports` | OW-08 | `reportApi` real (+ banner chờ BE); so sánh đa chi nhánh khoá từ Cơ bản |
 | `/owner/branches` | OW-01 | `branchApi` real; nút thêm báo sớm hết hạn mức |
-| `/owner/menu` | OW-02, OW-04 | mock (`menuApi`) — BE có endpoint, web CHƯA nối |
+| `/owner/menu` | OW-02, OW-04 | real: lọc danh mục/trạng thái/tìm kiếm phía server, thêm/sửa món (SKU, ảnh URL), bật/tắt cấp chuỗi, gán chi nhánh, xoá |
+| `/owner/menu/categories` | OW-02 | real: thêm, sửa, ẩn/hiện, đổi thứ tự (displayOrder), xoá (409 còn món) |
 | `/owner/menu/options` | OW-03 | placeholder (đã có `optionsApi` mock + dữ liệu) |
 | `/owner/accounts` | OW-05 | mock (`accountApi`) — BE có endpoint, web CHƯA nối |
 | `/owner/payos` | OW-06 | placeholder (`payosApi` mock) |
@@ -148,7 +149,7 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/owner/plan` | OW-10 | placeholder (đã có `usePlan()`) |
 | `/manager/dashboard` | BM-03 | placeholder |
 | `/manager/branch-info` | — | `branchApi` real |
-| `/manager/menu` | BM-02 | mock (`menuApi`) — còn cột "suất còn lại" của v7 (v9 bỏ kho), gỡ ở giai đoạn 5 |
+| `/manager/menu` | BM-02 | real (`GET /branches/{id}/menu`): chỉ bật/tắt còn bán hôm nay; đã gỡ cột Suất còn lại; làm lại màn ở giai đoạn 5 |
 | `/manager/staff` | BM-01 | mock (`accountApi`) |
 | `/manager/stations` | BM-01 | placeholder |
 | `/manager/orders` | BM-04 | placeholder (`orderApi` mock + bộ đơn có sẵn) |
@@ -171,7 +172,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | Landing: nội dung đã sang v9 (3.3); bảng giá đọc từ cấu hình mock chung (`api/publicPlans.ts`) vì BE chưa có endpoint công khai danh sách gói | chờ BE (mục 7 #8) |
 | Form đăng ký (GU-01): đã bỏ ô số chi nhánh dự kiến, chưa có ô chọn gói | chờ BE (mục 7 #8, #9) |
 | Quy ước cấp gói theo mã (`plan/tiers.ts`) là tạm; BE chưa có `tier` và cờ tính năng trên gói | chờ BE (mục 7 #10) |
-| `BranchMenu.tsx`: cột "Suất còn lại" (quản lý kho v7) | Giai đoạn 5 |
+| `BranchMenu.tsx`: màn tối thiểu, chưa có bật/tắt tuỳ chọn (BE chỉ có endpoint Barista) | Giai đoạn 5 |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
 | `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD`; `pnpm-lock.yaml` không còn đồng bộ với `package.json` | dọn khi chủ repo quyết dùng npm hay pnpm |
 | Khu thu ngân trên web (`CashierApp.tsx`, `cashier-api.ts`) của Bảo đã gỡ khi merge main: POS chạy app Android. Code vẫn trong lịch sử (`dc8fcdd`, `32f6cdc`, `6e226af`) | — |
@@ -211,7 +212,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 1 | Dọn v7, route con theo v9 | ✅ xong |
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
-| 4 | ▶ tiếp theo — Owner menu: nhóm tuỳ chọn (OW-03), gán món; `menuApi`/`optionsApi` real | |
+| 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ▶ tiếp theo | |
 | 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại" | |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
