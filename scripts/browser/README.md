@@ -45,3 +45,17 @@ BASE_URL=http://localhost:5174 AUTH_MODE=mock node scripts/browser/phase2.mjs fl
 ```
 
 Panel mock (góc dưới trái, chỉ có ở `vite dev`) đổi doanh nghiệp mock, ghi đè gói/hết hạn và giả lập lỗi; các script điều khiển nó qua `data-testid`.
+
+## Giai đoạn 3.2 — `phase3.mjs` (Platform Admin: hồ sơ đăng ký + doanh nghiệp)
+
+```bash
+# BE không chạy: mọi thứ mock
+VITE_API_ADMIN=mock VITE_API_AUTH=mock VITE_API_BRANCH=mock VITE_API_REPORT=mock npx vite --port 5175
+BASE_URL=http://localhost:5175 AUTH_MODE=mock node scripts/browser/phase3.mjs mock
+
+# BE chạy: chỉ phần ĐỌC + gia hạn 1 lần (KHÔNG duyệt/từ chối/tạm ngưng/đổi gói/đặt lại mật khẩu trên dữ liệu thật)
+npx vite --port 5175
+BASE_URL=http://localhost:5175 node scripts/browser/phase3.mjs real
+```
+
+Kiểm: danh sách/phân trang/lọc/tìm kiếm, duyệt (ngày hết hạn), từ chối (bắt buộc lý do), gia hạn, đổi gói nâng/hạ (409), tạm ngưng (bắt buộc lý do), đặt lại mật khẩu có xác nhận, KPI, và quét DOM + store + storage không có `balance`/`heldBalance`/ví/số dư.

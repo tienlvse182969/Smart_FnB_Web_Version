@@ -141,6 +141,15 @@ let registrations: StoredRegistration[] = [
       ownerEmail: "ngo.thi.tam@mock.local",
     },
   }),
+  // Thêm hồ sơ để danh sách vượt một trang (10) khi xem "Tất cả".
+  ...[
+    "Bánh Mì Que Cô Sáu",
+    "Trà Xanh Matcha Lab",
+    "Cà Phê Chồn Đắk Lắk",
+    "Nước Dừa Xiêm Bến Tre",
+    "Sữa Hạt Mộc",
+    "Kem Trà Sữa Đà Nẵng",
+  ].map((name, i) => reg(9 + i, name, `Người đại diện ${9 + i}`, "PENDING")),
 ];
 
 function paginate<T>(rows: T[], { page = 1, limit = 20 }: PageQuery): Paginated<T> {
