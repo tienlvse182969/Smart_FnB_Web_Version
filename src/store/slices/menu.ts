@@ -1,12 +1,6 @@
 /** Menu của chuỗi và tình trạng bán tại chi nhánh (OW-02..04, BM-02). */
 import type { BranchMenuItem, MenuItem } from "../../types";
-import {
-  listMenuItems,
-  listBranchMenuItems,
-  updateRemaining as serviceUpdateRemaining,
-  toggleBranchMenuItem as serviceToggleBranchMenuItem,
-} from "../../services";
-import { toMockBranchId } from "../../services/mockBridge";
+import { menuApi } from "../../api";
 import { broadcast } from "../broadcast";
 import type { SliceCreator } from "../types";
 
@@ -32,11 +26,9 @@ export const createMenuSlice: SliceCreator<MenuSlice> = (set, get) => ({
     const { currentUser, currentBranchId } = get();
     if (!currentUser) return;
 
-    // Menu vẫn là mock nên phải đổi sang ID mock qua cầu nối.
-    const activeBranchId = toMockBranchId(currentBranchId);
-
-    const menu = currentUser.tenantId ? await listMenuItems(currentUser.tenantId, currentUser.role) : [];
-    const branchMenu = activeBranchId ? await listBranchMenuItems(activeBranchId) : [];
+    const { chainId } = get();
+    const menu = chainId ? await menuApi.listMenuItems(chainId, currentUser.role) : [];
+    const branchMenu = chainId && currentBranchId ? await menuApi.listBranchMenu(chainId, currentBranchId) : [];
 
     set({ menuItems: menu, branchMenuItems: branchMenu });
   },
@@ -45,19 +37,19 @@ export const createMenuSlice: SliceCreator<MenuSlice> = (set, get) => ({
     menuItemId: string,
     isAvailable: boolean
   ) => {
-    const { currentBranchId, currentUser } = get();
-    if (!currentBranchId || !currentUser) return;
+    const { chainId, currentBranchId, currentUser } = get();
+    if (!chainId || !currentBranchId || !currentUser) return;
 
-    await serviceToggleBranchMenuItem(currentBranchId, menuItemId, isAvailable, currentUser.role);
+    await menuApi.toggleBranchItem(chainId, currentBranchId, menuItemId, isAvailable, currentUser.role);
     await get().loadMenu();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
   updateRemainingToday: async (menuItemId: string, remainingToday: number | null) => {
-    const { currentBranchId, currentUser } = get();
-    if (!currentBranchId || !currentUser) return;
+    const { chainId, currentBranchId, currentUser } = get();
+    if (!chainId || !currentBranchId || !currentUser) return;
 
-    await serviceUpdateRemaining(currentBranchId, menuItemId, remainingToday, currentUser.role);
+    await menuApi.updateRemaining(chainId, currentBranchId, menuItemId, remainingToday, currentUser.role);
     await get().loadMenu();
     broadcast.send({ type: "REFETCH_ALL" });
   },

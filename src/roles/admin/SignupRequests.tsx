@@ -3,13 +3,7 @@ import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Plan, RegistrationRequest } from "../../types";
 import { DEFAULT_PASSWORD } from "../../types";
-import {
-  approveRegistration,
-  findDuplicateTaxCode,
-  listPlans,
-  listRegistrations,
-  rejectRegistration,
-} from "../../services";
+import { adminApi } from "../../api";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
 
@@ -25,12 +19,12 @@ export default function SignupRequests() {
   const [planId, setPlanId] = useState<string | undefined>();
 
   const load = async () => {
-    const [reqs, planList] = await Promise.all([listRegistrations(), listPlans()]);
+    const [reqs, planList] = await Promise.all([adminApi.listRegistrations(), adminApi.listPlans()]);
     const pending = reqs.filter((r) => r.status === "pending");
     setRequests(pending);
     setPlans(planList);
     const dupChecks = await Promise.all(
-      pending.map(async (r) => [r.id, (await findDuplicateTaxCode(r.taxCode, r.id)).length > 0] as const)
+      pending.map(async (r) => [r.id, (await adminApi.findDuplicateTaxCode(r.taxCode, r.id)).length > 0] as const)
     );
     setDuplicates(Object.fromEntries(dupChecks));
   };
@@ -42,7 +36,7 @@ export default function SignupRequests() {
   const doApprove = async () => {
     if (!approvingId || !planId) return;
     try {
-      const { tenant, ownerEmail } = await approveRegistration(approvingId, planId);
+      const { tenant, ownerEmail } = await adminApi.approveRegistration(approvingId, planId);
       modal.success({
         title: `Đã khởi tạo doanh nghiệp "${tenant.name}"`,
         content: (
@@ -67,7 +61,7 @@ export default function SignupRequests() {
   const doReject = async () => {
     if (!rejectingId) return;
     try {
-      await rejectRegistration(rejectingId, rejectReason);
+      await adminApi.rejectRegistration(rejectingId, rejectReason);
       message.success("Đã từ chối hồ sơ");
       setRejectingId(null);
       setRejectReason("");

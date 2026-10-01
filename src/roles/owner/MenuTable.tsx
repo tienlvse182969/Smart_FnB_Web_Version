@@ -3,27 +3,20 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { money } from "../../data";
 import type { BranchMenuItem, MenuItem } from "../../types";
-import {
-  createMenuItem as serviceCreateMenuItem,
-  listBranchMenuItems,
-  listMenuItems,
-  setMenuItemPresence as serviceSetMenuItemPresence,
-  updateMenuItem as serviceUpdateMenuItem,
-} from "../../services";
+import { menuApi } from "../../api";
+import ActionButton from "../../plan/ActionButton";
+import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
-/**
- * PHẦN 0: Owner quản menu qua `types/menu.ts` + service thật (mock/db.ts) —
- * cùng dữ liệu với Waiter/Kitchen/Manager, không còn state cục bộ tách biệt
- * khỏi `data.ts` như trước.
- */
+/** OW-02, OW-04: Owner quản menu toàn chuỗi qua `menuApi` (mock cho tới giai đoạn 4). */
 export default function MenuTable() {
   const { message } = App.useApp();
   const currentUser = useAppStore((s) => s.currentUser);
   const branches = useAppStore((s) => s.branches);
   const tenantId = currentUser?.tenantId ?? null;
+  const writeGuard = useWriteGuard();
 
   const [items, setItems] = useState<MenuItem[]>([]);
   const [bmis, setBmis] = useState<BranchMenuItem[]>([]);
@@ -35,8 +28,8 @@ export default function MenuTable() {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const menu = await listMenuItems(tenantId, currentUser?.role ?? "owner");
-      const lists = await Promise.all(branches.map((b) => listBranchMenuItems(b.id)));
+      const menu = await menuApi.listMenuItems(tenantId, currentUser?.role ?? "owner");
+      const lists = await Promise.all(branches.map((b) => menuApi.listBranchMenu(tenantId, b.id)));
       setItems(menu);
       setBmis(lists.flat());
     } finally {
@@ -52,8 +45,9 @@ export default function MenuTable() {
   const countOffering = (menuItemId: string) => bmis.filter((b) => b.menuItemId === menuItemId).length;
 
   const toggleChain = async (id: string, activeChain: boolean) => {
+    if (!tenantId) return;
     try {
-      await serviceUpdateMenuItem(id, { activeChain });
+      await menuApi.updateItem(tenantId, id, { activeChain });
       await reload();
       message.success(activeChain ? "Đã bật món trên toàn chuỗi" : "Đã tắt món — ẩn khỏi menu mọi chi nhánh");
     } catch (err) {
@@ -62,10 +56,11 @@ export default function MenuTable() {
   };
 
   const togglePresence = async (menuItemId: string, branchId: string, on: boolean) => {
+    if (!tenantId) return;
     const current = bmis.filter((b) => b.menuItemId === menuItemId).map((b) => b.branchId);
     const next = on ? [...current, branchId] : current.filter((id) => id !== branchId);
     try {
-      await serviceSetMenuItemPresence(menuItemId, next);
+      await menuApi.setItemPresence(tenantId, menuItemId, next);
       await reload();
       message.success(on ? "Đã thêm món vào chi nhánh (mặc định tắt bán)" : "Đã gỡ món khỏi chi nhánh");
     } catch (err) {
@@ -77,11 +72,11 @@ export default function MenuTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Quản lý menu"
-        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt (BR-06)"
+        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt (BR-12)"
         extra={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
             Thêm món
-          </Button>
+          </ActionButton>
         }
       />
       <Table<MenuItem>
@@ -117,7 +112,7 @@ export default function MenuTable() {
             dataIndex: "activeChain",
             align: "center",
             render: (a: boolean, r) => (
-              <Switch checked={a} size="small" onChange={(c) => toggleChain(r.id, c)} />
+              <Switch checked={a} size="small" disabled={writeGuard.disabled} onChange={(c) => toggleChain(r.id, c)} />
             ),
           },
         ]}
@@ -138,8 +133,9 @@ export default function MenuTable() {
         onClose={() => setAdding(false)}
         onSave={async (item, branchIds) => {
           try {
-            const created = await serviceCreateMenuItem(item);
-            await serviceSetMenuItemPresence(created.id, branchIds);
+            if (!tenantId) return;
+            const created = await menuApi.createItem(tenantId, item);
+            await menuApi.setItemPresence(tenantId, created.id, branchIds);
             await reload();
             setAdding(false);
             message.success("Đã thêm món vào menu chuỗi");
@@ -313,9 +309,9 @@ function AddItemDrawer({
           ))}
         </div>
       </Field>
-      <Button type="primary" block style={{ marginTop: 8 }} onClick={save}>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={save}>
         Lưu món
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }

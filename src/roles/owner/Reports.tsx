@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton, Table } from "antd";
-import { Banknote, ReceiptText, Users, Wallet } from "lucide-react";
+import { Banknote, ReceiptText, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 import { SectionTitle, StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
-import type { ReportGranularity, TopItemRow } from "../../services/reportApi";
+import type { ReportGranularity, TopItemRow } from "../../types";
+import { modeOf } from "../../api";
+import FeatureGate from "../../plan/FeatureGate";
 import {
   RANGE_PRESETS,
   parseAmount,
@@ -16,7 +18,7 @@ import {
   presetRange,
   type DateRange,
   type RangePreset,
-} from "../../services/reportFormat";
+} from "../../lib/reportFormat";
 import { useReportData } from "./useReportData";
 import { palette } from "../../theme";
 
@@ -91,15 +93,17 @@ export default function Reports() {
         </div>
       </Card>
 
-      {/* TODO(BE): reports.service.ts:469 chỉ cộng đơn có status COMPLETED và đếm khách từ
-          TableSession; đơn tại quầy kết thúc ở DELIVERED nên chưa vào số liệu. Gỡ banner khi BE sửa. */}
-      <Alert
-        type="warning"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="Số liệu đang chờ backend cập nhật cho đơn tại quầy"
-        description="Các con số dưới đây chưa phản ánh đơn bán tại quầy theo mô hình mới, đừng dùng làm số liệu chính thức."
-      />
+      {/* TODO(BE): reports.service.ts:469 chỉ cộng đơn có status COMPLETED; đơn tại quầy kết thúc ở DELIVERED
+          nên chưa vào số liệu. Gỡ banner khi BE sửa. Bản mock tính đúng theo v9 nên không cần banner. */}
+      {modeOf("report") === "real" && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Số liệu đang chờ backend cập nhật cho đơn tại quầy"
+          description="Các con số dưới đây chưa phản ánh đơn bán tại quầy theo mô hình mới, đừng dùng làm số liệu chính thức."
+        />
+      )}
 
       {error && (
         <Alert
@@ -123,7 +127,9 @@ export default function Reports() {
           <TimeseriesChart data={data} loading={loading} />
         </Col>
         <Col xs={24} lg={12}>
-          <BranchComparison data={data} loading={loading} />
+          <FeatureGate feature="multiBranchCompare" compact>
+            <BranchComparison data={data} loading={loading} />
+          </FeatureGate>
         </Col>
         <Col xs={24} lg={12}>
           <TopItemsTable data={data} loading={loading} />
@@ -139,20 +145,18 @@ function KpiRow({ data, loading }: BlockProps) {
   const totals = data?.comparison.totals;
   const revenue = parseAmount(totals?.revenue);
   const orders = totals?.orderCount ?? 0;
-  const guests = data?.customers.totals.guestCount ?? 0;
   const aov = orders > 0 ? revenue / orders : 0;
 
   const tiles = [
     { label: "Doanh thu", value: formatVnd(revenue), icon: <Banknote size={16} />, emphasis: true },
     { label: "Số đơn hoàn tất", value: formatCount(orders), icon: <ReceiptText size={16} /> },
     { label: "Giá trị đơn trung bình", value: formatVnd(aov), icon: <Wallet size={16} /> },
-    { label: "Lượt khách", value: formatCount(guests), icon: <Users size={16} /> },
   ];
 
   return (
     <Row gutter={[16, 16]}>
       {tiles.map((tile) => (
-        <Col xs={12} md={6} key={tile.label}>
+        <Col xs={12} md={8} key={tile.label}>
           {loading && !data ? (
             <Card style={{ borderRadius: 14, height: "100%" }} styles={{ body: { padding: 18 } }}>
               <Skeleton active paragraph={false} title={{ width: "70%" }} />
@@ -282,7 +286,7 @@ function BranchComparison({ data, loading }: BlockProps) {
                 />
               </div>
               <div style={{ fontSize: 11.5, color: palette.textMuted, marginTop: 4 }}>
-                {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)} · {formatCount(row.guestCount)} khách
+                {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)}
               </div>
             </div>
           );

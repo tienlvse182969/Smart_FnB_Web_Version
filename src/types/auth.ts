@@ -44,3 +44,37 @@ export type AuthUser = {
   /** true = phải đổi mật khẩu trước khi dùng hệ thống (CM-01). */
   mustChangePassword: boolean;
 };
+
+/** Tên vai trò do backend trả về (còn WAITER/KITCHEN vì JSON BE hiện tại — web chặn không cho vào). */
+export type BackendRole = "ADMIN" | "OWNER" | "MANAGER" | "WAITER" | "KITCHEN" | "CASHIER" | "BARISTA";
+
+/**
+ * Ngữ cảnh của phiên đang đăng nhập (`GET /auth/me`), gồm phạm vi chuỗi và chi nhánh.
+ * Nguồn chuẩn cho phạm vi: `chainId` cho nhân viên, `chainIds` cho OWNER (có thể giữ nhiều chuỗi).
+ */
+export interface AuthContext {
+  id: string;
+  email: string;
+  phone: string | null;
+  role: BackendRole;
+  sessionId: string;
+  employeeId: string | null;
+  ownerId: string | null;
+  /** Chi nhánh được gán — chỉ nhân viên mới có. */
+  branchId: string | null;
+  /** Chuỗi của chi nhánh được gán — chỉ nhân viên mới có. */
+  chainId: string | null;
+  /** Mọi chuỗi OWNER đang quản lý. Rỗng với nhân viên và ADMIN. */
+  chainIds: string[];
+}
+
+/** Một dòng trong danh sách nhân sự của chi nhánh (BM-01). `tenantId` chính là chainId. */
+export type StaffMember = {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  name: string;
+  email: string;
+  role: "Manager" | "Cashier" | "Barista";
+  active: boolean;
+};

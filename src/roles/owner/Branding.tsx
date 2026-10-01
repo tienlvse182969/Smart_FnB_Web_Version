@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { App, Button, Card, ColorPicker, Input } from "antd";
 import { ImageUp, RotateCcw, Save, Send, Ticket } from "lucide-react";
 import { SectionTitle } from "../../components/bits";
+import ActionButton from "../../plan/ActionButton";
+import FeatureGate from "../../plan/FeatureGate";
 import { useAppStore } from "../../store";
 import {
   BRAND_COLOR_PRESETS,
@@ -22,6 +24,14 @@ const MAX_NAME_LENGTH = 50;
  * và trang đăng nhập không đổi (BR-44, CC-04).
  */
 export default function Branding() {
+  return (
+    <FeatureGate feature="branding">
+      <BrandingForm />
+    </FeatureGate>
+  );
+}
+
+function BrandingForm() {
   const { message } = App.useApp();
   const tenantBranding = useAppStore((s) => s.tenantBranding);
   const updateBranding = useAppStore((s) => s.updateBranding);
@@ -135,9 +145,9 @@ export default function Branding() {
                 )}
               </div>
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" onChange={handleLogoChange} style={{ display: "none" }} />
-              <Button icon={<ImageUp size={14} />} onClick={() => fileInputRef.current?.click()}>
+              <ActionButton icon={<ImageUp size={14} />} onClick={() => fileInputRef.current?.click()}>
                 Tải logo
-              </Button>
+              </ActionButton>
             </div>
           </Field>
 
@@ -169,12 +179,12 @@ export default function Branding() {
           </Field>
 
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <Button type="primary" icon={<Save size={14} />} loading={saving} onClick={handleSave}>
+            <ActionButton type="primary" icon={<Save size={14} />} loading={saving} onClick={handleSave}>
               Lưu nhận diện
-            </Button>
-            <Button icon={<RotateCcw size={14} />} loading={saving} onClick={handleReset}>
+            </ActionButton>
+            <ActionButton icon={<RotateCcw size={14} />} loading={saving} onClick={handleReset}>
               Khôi phục mặc định
-            </Button>
+            </ActionButton>
           </div>
         </Card>
 

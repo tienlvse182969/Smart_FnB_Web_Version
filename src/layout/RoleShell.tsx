@@ -4,6 +4,7 @@ import { Bell, CalendarDays, LogOut, Search, Store, User, UtensilsCrossed } from
 import { roleMeta } from "../data";
 import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
+import ReadOnlyBanner from "../plan/ReadOnlyBanner";
 import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
@@ -211,6 +212,8 @@ export default function RoleShell({
         </Header>
 
         <ChangePasswordModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+
+        <ReadOnlyBanner />
 
         <Content
           style={{

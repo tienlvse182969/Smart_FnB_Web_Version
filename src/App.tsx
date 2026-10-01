@@ -5,9 +5,12 @@ import { router } from "./router";
 import { BrandContext, applyThemeVars, buildTheme, resolveBrand } from "./theme";
 import { useAppStore } from "./store";
 import ForceChangePasswordModal from "./auth/ForceChangePasswordModal";
+import ApiErrorBridge from "./components/ApiErrorBridge";
+import MockPanel from "./dev/MockPanel";
+import { describePlan } from "./plan/usePlan";
 
 export default function App() {
-  const { currentUser, tenantBranding, bootstrap } = useAppStore();
+  const { currentUser, tenantBranding, plan, bootstrap } = useAppStore();
 
   useEffect(() => {
     bootstrap();
@@ -20,9 +23,10 @@ export default function App() {
       resolveBrand({
         branding: tenantBranding,
         platformOnly: !currentUser || currentUser.role === "admin",
-        brandingEnabled: true,
+        // Nhận diện chỉ áp từ gói Tiêu chuẩn (BR-41); gói thấp hơn dùng nhận diện nền tảng, cấu hình vẫn được giữ.
+        brandingEnabled: describePlan(plan).hasFeature("branding"),
       }),
-    [currentUser, tenantBranding],
+    [currentUser, tenantBranding, plan],
   );
   const theme = useMemo(() => buildTheme(brand), [brand]);
 
@@ -35,6 +39,8 @@ export default function App() {
         <AntApp>
           <RouterProvider router={router} />
           <ForceChangePasswordModal />
+          <ApiErrorBridge />
+          {import.meta.env.DEV && <MockPanel />}
         </AntApp>
       </BrandContext.Provider>
     </ConfigProvider>

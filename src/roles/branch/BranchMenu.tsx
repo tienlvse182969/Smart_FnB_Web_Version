@@ -4,6 +4,8 @@ import { money } from "../../data";
 import type { BranchMenuItem } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import ActionButton from "../../plan/ActionButton";
+import { useWriteGuard } from "../../plan/useReadOnly";
 import { palette } from "../../theme";
 
 type Row = BranchMenuItem & {
@@ -19,6 +21,7 @@ export default function BranchMenu() {
   const menuItems = useAppStore((s) => s.menuItems);
   const branchMenuItems = useAppStore((s) => s.branchMenuItems);
   const toggleMenuItemAvailability = useAppStore((s) => s.toggleMenuItemAvailability);
+  const writeGuard = useWriteGuard();
   const updateRemainingToday = useAppStore((s) => s.updateRemainingToday);
 
   const rows: Row[] = branchMenuItems
@@ -75,7 +78,7 @@ export default function BranchMenu() {
             align: "center",
             render: (on: boolean, r) =>
               r.activeChain ? (
-                <Switch checked={on} size="small" onChange={(c) => toggle(r, c)} />
+                <Switch checked={on} size="small" disabled={writeGuard.disabled} onChange={(c) => toggle(r, c)} />
               ) : (
                 <Switch checked={false} size="small" disabled />
               ),
@@ -101,16 +104,17 @@ export default function BranchMenu() {
                     min={0}
                     size="small"
                     style={{ width: 92 }}
+                    disabled={writeGuard.disabled}
                     onChange={(v) => updateRemainingToday(r.menuItemId, v ?? 0)}
                   />
-                  <Button
+                  <ActionButton
                     size="small"
                     icon={<InfinityIcon size={14} />}
                     type={rem === null ? "primary" : "default"}
                     onClick={() => updateRemainingToday(r.menuItemId, null)}
                   >
                     Không giới hạn
-                  </Button>
+                  </ActionButton>
                 </div>
               );
             },

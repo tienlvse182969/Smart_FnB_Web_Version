@@ -1,6 +1,5 @@
 /** Ánh xạ chi nhánh giữa hình dạng backend và hình dạng UI đang dùng. */
-import type { ApiBranch, ApiBranchStatus } from "../services/branchApi";
-import type { Branch, BranchStatus } from "../types";
+import type { ApiBranch, ApiBranchStatus, Branch, BranchStatus } from "../types";
 
 const UI_STATUS: Record<ApiBranchStatus, BranchStatus> = {
   ACTIVE: "open",
@@ -33,16 +32,16 @@ export function formatAddress(branch: Pick<ApiBranch, "addressLine1" | "ward" | 
 }
 
 /**
- * `tenantId` nhận ID mock để các màn còn chạy mock vẫn lọc được.
+ * `tenantId` chính là chainId của backend.
  *
  * `openTime`/`closeTime` để rỗng: backend nhận hai trường này lúc tạo nhưng
  * không trả lại trong response chi nhánh (giờ mở cửa nằm ở endpoint
  * operating-hours riêng). UI hiện "—" thay vì bịa giá trị.
  */
-export function toUiBranch(branch: ApiBranch, mockTenantId: string | null): Branch {
+export function toUiBranch(branch: ApiBranch): Branch {
   return {
     id: branch.id,
-    tenantId: mockTenantId ?? branch.chainId,
+    tenantId: branch.chainId,
     name: branch.name,
     address: formatAddress(branch),
     phone: branch.phone ?? "",

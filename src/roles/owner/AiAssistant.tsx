@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Table, Tag } from "antd";
 import { AlertTriangle, Clock, Code2, Send, Sparkles } from "lucide-react";
-import type { AiQueryLog } from "../../types";
-import { askAssistant, listAiQueryLogs, logAiQuery, SAMPLE_QUESTIONS, type AiAnswer } from "../../services";
+import type { AiAnswer, AiQueryLog } from "../../types";
+import { aiApi, SAMPLE_QUESTIONS } from "../../api";
+import FeatureGate from "../../plan/FeatureGate";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
@@ -10,12 +11,18 @@ import { palette } from "../../theme";
 type ChatMessage = { role: "user"; text: string } | { role: "assistant"; answer: AiAnswer };
 
 /**
- * OW-14: Trợ lý số liệu (mục 9) — chat hỏi đáp bằng tiếng Việt, mọi số liệu
- * lấy từ dữ liệu mock thật (BR-50), không có backend/mô hình AI thật ở bước
- * này. `askAssistant` là hàm async — sau này đổi sang gọi API thật không
- * phải sửa file này.
+ * OW-09: Trợ lý số liệu (mục 9) — chat hỏi đáp bằng tiếng Việt, mọi số liệu lấy từ đơn mock (BR-39), chưa có
+ * backend/mô hình AI thật. Chỉ gói Nâng cao dùng được (BR-40): gói thấp hơn thấy thẻ khoá, không bị ẩn.
  */
 export default function AiAssistant() {
+  return (
+    <FeatureGate feature="aiAssistant">
+      <AiAssistantChat />
+    </FeatureGate>
+  );
+}
+
+function AiAssistantChat() {
   const currentUser = useAppStore((s) => s.currentUser);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -26,7 +33,7 @@ export default function AiAssistant() {
   const tenantId = currentUser?.tenantId ?? null;
 
   const loadHistory = () => {
-    if (tenantId) listAiQueryLogs(tenantId).then(setHistory);
+    if (tenantId) aiApi.listLogs(tenantId).then(setHistory);
   };
   useEffect(loadHistory, [tenantId]);
 
@@ -41,9 +48,9 @@ export default function AiAssistant() {
     setLoading(true);
     const startedAt = Date.now();
     try {
-      const answer = await askAssistant(tenantId, currentUser.id, question);
+      const answer = await aiApi.ask(tenantId, currentUser.id, question);
       setMessages((p) => [...p, { role: "assistant", answer }]);
-      await logAiQuery(tenantId, currentUser.id, answer, Date.now() - startedAt);
+      await aiApi.logQuery(tenantId, currentUser.id, answer, Date.now() - startedAt);
       loadHistory();
     } finally {
       setLoading(false);

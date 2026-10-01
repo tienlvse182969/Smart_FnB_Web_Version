@@ -1,23 +1,14 @@
-/** Nạp bốn báo cáo doanh thu song song, kèm trạng thái tải / lỗi / thử lại. */
+/** Nạp ba báo cáo doanh thu song song, kèm trạng thái tải / lỗi / thử lại. */
 import { useCallback, useEffect, useState } from "react";
-import {
-  getCustomerTraffic,
-  getRevenueComparison,
-  getRevenueTimeseries,
-  getTopItems,
-  type CustomerTraffic,
-  type ReportGranularity,
-  type RevenueComparison,
-  type RevenueTimeseries,
-  type TopItems,
-} from "../../services/reportApi";
-import type { DateRange } from "../../services/reportFormat";
+import { reportApi } from "../../api";
+import type { DateRange } from "../../lib/reportFormat";
+import type { ReportGranularity, RevenueComparison, RevenueTimeseries, TopItems } from "../../types";
 
 export interface ReportBundle {
   comparison: RevenueComparison;
   timeseries: RevenueTimeseries;
   topItems: TopItems;
-  customers: CustomerTraffic;
+  // TODO(BE): thẻ khách đã ẩn — /reports/customers đang đếm lượt bàn (v7). Thêm lại khi BE có số khách theo đơn.
 }
 
 export interface ReportQuery extends DateRange {
@@ -54,14 +45,13 @@ export function useReportData(query: ReportQuery): ReportState {
     setError(null);
 
     Promise.all([
-      getRevenueComparison(params),
-      getRevenueTimeseries({ ...params, granularity: granularity ?? "day" }),
-      getTopItems({ ...params, limit: 10 }),
-      getCustomerTraffic(params),
+      reportApi.getRevenueComparison(params),
+      reportApi.getRevenueTimeseries({ ...params, granularity: granularity ?? "day" }),
+      reportApi.getTopItems({ ...params, limit: 10 }),
     ])
-      .then(([comparison, timeseries, topItems, customers]) => {
+      .then(([comparison, timeseries, topItems]) => {
         if (cancelled) return;
-        setData({ comparison, timeseries, topItems, customers });
+        setData({ comparison, timeseries, topItems });
         setLoading(false);
       })
       .catch((err: unknown) => {

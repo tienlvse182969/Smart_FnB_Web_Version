@@ -1,13 +1,13 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
 import { Lock, Plus, Unlock } from "lucide-react";
 import { useState } from "react";
-import type { StaffLegacy } from "../../services";
-import { DEFAULT_PASSWORD } from "../../types";
+import { DEFAULT_PASSWORD, type StaffMember } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
+import ActionButton from "../../plan/ActionButton";
 import { palette } from "../../theme";
 
-const roleTag: Record<StaffLegacy["role"], { label: string; black?: boolean }> = {
+const roleTag: Record<StaffMember["role"], { label: string; black?: boolean }> = {
   Manager: { label: "Manager", black: true },
   Cashier: { label: "Cashier" },
   Barista: { label: "Barista" },
@@ -28,7 +28,7 @@ export default function StaffTable() {
 
   const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
 
-  const toggleActive = async (r: StaffLegacy, active: boolean) => {
+  const toggleActive = async (r: StaffMember, active: boolean) => {
     await setStaffActive(r.id, active);
     message.success(active ? "Đã mở khoá tài khoản" : "Đã khoá tài khoản — nhân viên không đăng nhập được");
   };
@@ -39,12 +39,12 @@ export default function StaffTable() {
         title="Nhân viên"
         sub="Tài khoản nhân viên của chi nhánh"
         extra={
-          <Button type="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" onClick={() => setAdding(true)}>
             Thêm nhân viên
-          </Button>
+          </ActionButton>
         }
       />
-      <Table<StaffLegacy>
+      <Table<StaffMember>
         dataSource={staff}
         rowKey="id"
         pagination={false}
@@ -67,7 +67,7 @@ export default function StaffTable() {
           {
             title: "Vai trò",
             dataIndex: "role",
-            render: (r: StaffLegacy["role"]) =>
+            render: (r: StaffMember["role"]) =>
               roleTag[r].black ? <Tag color="black">{roleTag[r].label}</Tag> : <Tag>{roleTag[r].label}</Tag>,
           },
           {
@@ -77,13 +77,13 @@ export default function StaffTable() {
             render: (_, r) => (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 {r.active ? (
-                  <Button size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
+                  <ActionButton size="small" danger icon={<Lock size={14} />} onClick={() => toggleActive(r, false)}>
                     Khoá
-                  </Button>
+                  </ActionButton>
                 ) : (
-                  <Button size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r, true)}>
+                  <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r, true)}>
                     Mở khoá
-                  </Button>
+                  </ActionButton>
                 )}
               </div>
             ),
@@ -187,9 +187,9 @@ function AddStaffDrawer({
       <Field label="Chi nhánh">
         <Input value={branchLabel} disabled />
       </Field>
-      <Button type="primary" block style={{ marginTop: 8 }} onClick={save}>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={save}>
         Tạo tài khoản
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }

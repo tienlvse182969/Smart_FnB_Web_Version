@@ -1,12 +1,6 @@
 /** Chi nhánh thật của chuỗi và chi nhánh đang chọn (OW-01). */
-import type { Branch } from "../../types";
-import {
-  createBranch as apiCreateBranch,
-  updateBranch as apiUpdateBranch,
-  updateBranchStatus as apiUpdateBranchStatus,
-  type ApiBranch,
-} from "../../services/branchApi";
-import { toMockBranchId } from "../../services/mockBridge";
+import type { ApiBranch, Branch } from "../../types";
+import { branchApi } from "../../api";
 import { broadcast } from "../broadcast";
 import { toApiStatus } from "../branchMapping";
 import type { BranchFormData, SliceCreator } from "../types";
@@ -33,7 +27,7 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
     const { currentUser } = get();
     set({
       currentBranchId: branchId,
-      currentUser: currentUser ? { ...currentUser, branchId: toMockBranchId(branchId) } : null,
+      currentUser: currentUser ? { ...currentUser, branchId } : null,
     });
     await Promise.all([get().loadMenu(), get().loadStaff()]);
   },
@@ -42,7 +36,7 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
     const { chainId } = get();
     if (!chainId) throw new Error("Chưa xác định được chuỗi nhà hàng");
 
-    await apiCreateBranch(chainId, {
+    await branchApi.createBranch(chainId, {
       code: data.code,
       name: data.name,
       addressLine1: data.addressLine1,
@@ -67,8 +61,8 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
       ...(fields.ward !== undefined ? { ward: fields.ward } : {}),
       ...(fields.city !== undefined ? { city: fields.city } : {}),
     };
-    if (Object.keys(patch).length) await apiUpdateBranch(id, patch);
-    if (status) await apiUpdateBranchStatus(id, toApiStatus(status));
+    if (Object.keys(patch).length) await branchApi.updateBranch(id, patch);
+    if (status) await branchApi.updateBranchStatus(id, toApiStatus(status));
 
     await get().loadScope();
     broadcast.send({ type: "REFETCH_ALL" });

@@ -1,18 +1,15 @@
 /** Nhận diện thương hiệu theo doanh nghiệp (OW-07). */
 import type { Branding } from "../../types";
-import {
-  updateBranding as serviceUpdateBranding,
-  resetBranding as serviceResetBranding,
-} from "../../services";
+import { brandingApi, type BrandingInput } from "../../api";
 import { broadcast } from "../broadcast";
 import type { SliceCreator } from "../types";
 
 export interface BrandingSlice {
   tenantBranding: Branding | null;
 
-  /** Owner lưu nhận diện riêng (BR-28/29) — phát broadcast cho các tab cùng tenant. */
-  updateBranding: (data: { primaryColor: string; accentColor: string; displayName: string; logoUrl?: string }) => Promise<void>;
-  /** Owner khôi phục về theme đơn sắc mặc định của nền tảng. */
+  /** Owner lưu nhận diện riêng (BR-41, BR-43) — phát broadcast cho các tab cùng doanh nghiệp. */
+  updateBranding: (data: BrandingInput) => Promise<void>;
+  /** Owner khôi phục về nhận diện mặc định của nền tảng. */
   resetBranding: () => Promise<void>;
 }
 
@@ -20,20 +17,20 @@ export const createBrandingSlice: SliceCreator<BrandingSlice> = (set, get) => ({
   tenantBranding: null,
 
   updateBranding: async (data) => {
-    const { currentUser } = get();
-    if (!currentUser?.tenantId) return;
+    const { chainId } = get();
+    if (!chainId) return;
 
-    const branding = await serviceUpdateBranding(currentUser.tenantId, data, currentUser.email);
+    const branding = await brandingApi.updateBranding(chainId, data);
     set({ tenantBranding: branding });
-    broadcast.send({ type: "BRANDING_UPDATED", tenantId: currentUser.tenantId });
+    broadcast.send({ type: "BRANDING_UPDATED", tenantId: chainId });
   },
 
   resetBranding: async () => {
-    const { currentUser } = get();
-    if (!currentUser?.tenantId) return;
+    const { chainId } = get();
+    if (!chainId) return;
 
-    const branding = await serviceResetBranding(currentUser.tenantId, currentUser.email);
+    const branding = await brandingApi.resetBranding(chainId);
     set({ tenantBranding: branding });
-    broadcast.send({ type: "BRANDING_UPDATED", tenantId: currentUser.tenantId });
+    broadcast.send({ type: "BRANDING_UPDATED", tenantId: chainId });
   },
 });

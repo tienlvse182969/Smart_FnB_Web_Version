@@ -1,16 +1,11 @@
 /** Nhân sự chi nhánh (BM-01) — tạm chạy bằng mock cho tới khi BE có endpoint Manager tạo tài khoản. */
-import {
-  listStaff,
-  createStaffAccount as serviceCreateStaffAccount,
-  setStaffActive as serviceSetStaffActive,
-  type StaffLegacy,
-} from "../../services";
-import { toMockBranchId } from "../../services/mockBridge";
+import type { StaffMember } from "../../types";
+import { accountApi } from "../../api";
 import { broadcast } from "../broadcast";
 import type { SliceCreator } from "../types";
 
 export interface StaffSlice {
-  staff: StaffLegacy[];
+  staff: StaffMember[];
 
   loadStaff: () => Promise<void>;
   createStaffAccount: (name: string, email: string, role: "Cashier" | "Barista") => Promise<void>;
@@ -21,23 +16,22 @@ export const createStaffSlice: SliceCreator<StaffSlice> = (set, get) => ({
   staff: [],
 
   loadStaff: async () => {
-    const { currentUser, currentBranchId } = get();
-    if (!currentUser) return;
-    const activeBranchId = toMockBranchId(currentBranchId);
-    set({ staff: activeBranchId ? await listStaff(activeBranchId) : [] });
+    const { currentUser, chainId, currentBranchId } = get();
+    if (!currentUser || !chainId) return;
+    set({ staff: currentBranchId ? await accountApi.listStaff(chainId, currentBranchId) : [] });
   },
 
   createStaffAccount: async (name: string, email: string, role: "Cashier" | "Barista") => {
-    const { currentUser, currentBranchId } = get();
-    if (!currentUser?.tenantId || !currentBranchId) return;
+    const { chainId, currentBranchId } = get();
+    if (!chainId || !currentBranchId) return;
 
-    await serviceCreateStaffAccount(currentUser.tenantId, currentBranchId, name, email, role);
+    await accountApi.createStaff(chainId, currentBranchId, name, email, role);
     await get().loadStaff();
     broadcast.send({ type: "REFETCH_ALL" });
   },
 
   setStaffActive: async (id: string, active: boolean) => {
-    await serviceSetStaffActive(id, active);
+    await accountApi.setActive(id, active);
     await get().loadStaff();
     broadcast.send({ type: "REFETCH_ALL" });
   },

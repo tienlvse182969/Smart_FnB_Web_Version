@@ -3,17 +3,7 @@ import { Ban, CalendarClock, KeyRound, Layers, Play, Users } from "lucide-react"
 import { useEffect, useState } from "react";
 import type { Plan, Tenant, TenantStatus } from "../../types";
 import { DEFAULT_PASSWORD } from "../../types";
-import {
-  changeTenantPlan,
-  countTenantAccounts,
-  getDemoAccounts,
-  listBranches,
-  listPlans,
-  listTenants,
-  renewTenant,
-  resetPassword,
-  setTenantStatus,
-} from "../../services";
+import { adminApi } from "../../api";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
@@ -55,17 +45,15 @@ export default function TenantsTable() {
   const selPlan = sel ? plans.find((p) => p.id === sel.planId) : null;
 
   const load = async () => {
-    const [tenantList, planList] = await Promise.all([listTenants(), listPlans()]);
+    const [tenantList, planList] = await Promise.all([adminApi.listTenants(), adminApi.listPlans()]);
     setTenants(tenantList);
     setPlans(planList);
-    const branchEntries = await Promise.all(
-      tenantList.map(async (t) => [t.id, (await listBranches(t.id)).length] as const)
+    // Chỉ số liệu tổng hợp phục vụ tính phí (BR-07).
+    const usageEntries = await Promise.all(
+      tenantList.map(async (t) => [t.id, await adminApi.getTenantUsage(t.id)] as const)
     );
-    setBranchCounts(Object.fromEntries(branchEntries));
-    const accountEntries = await Promise.all(
-      tenantList.map(async (t) => [t.id, await countTenantAccounts(t.id)] as const)
-    );
-    setAccountCounts(Object.fromEntries(accountEntries));
+    setBranchCounts(Object.fromEntries(usageEntries.map(([id, u]) => [id, u.branches])));
+    setAccountCounts(Object.fromEntries(usageEntries.map(([id, u]) => [id, u.accounts])));
   };
 
   useEffect(() => {
@@ -73,31 +61,25 @@ export default function TenantsTable() {
   }, []);
 
   const doSetStatus = async (id: string, status: TenantStatus, msg: string) => {
-    await setTenantStatus(id, status);
+    await adminApi.setTenantStatus(id, status);
     message.success(msg);
     await load();
   };
 
   const doRenew = async (id: string) => {
-    const t = await renewTenant(id);
+    const t = await adminApi.renewTenant(id);
     message.success(`Đã gia hạn tới ${t.renewsAt}`);
     await load();
   };
 
   const doChangePlan = async (id: string, planId: string) => {
-    await changeTenantPlan(id, planId);
+    await adminApi.changeTenantPlan(id, planId);
     message.success("Đã đổi gói dịch vụ");
     await load();
   };
 
   const doResetOwnerPassword = async (tenantId: string) => {
-    const accounts = await getDemoAccounts();
-    const owner = accounts.find((a) => a.tenantId === tenantId && a.role === "owner");
-    if (!owner) {
-      message.error("Không tìm thấy tài khoản Owner của doanh nghiệp này");
-      return;
-    }
-    await resetPassword(owner.id);
+    const owner = await adminApi.resetOwnerPassword(tenantId);
     modal.success({
       title: `Đã đặt lại mật khẩu Owner`,
       content: (

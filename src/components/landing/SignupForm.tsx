@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { submitRegistration } from "../../services";
+import { adminApi } from "../../api";
 import { palette } from "../../theme";
 
 type FormValues = {
@@ -64,7 +64,7 @@ export default function SignupForm() {
 
     setSubmitting(true);
     try {
-      await submitRegistration({
+      await adminApi.submitRegistration({
         businessName: values.businessName.trim(),
         taxCode: values.taxCode.trim(),
         address: values.address.trim(),

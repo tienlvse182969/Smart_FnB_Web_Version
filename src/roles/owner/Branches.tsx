@@ -1,9 +1,11 @@
 import { Alert, App, Button, Card, Drawer, Input, Select, Spin } from "antd";
 import { Hash, MapPin, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Branch } from "../../types";
+import type { ApiBranch, Branch } from "../../types";
 import { useAppStore } from "../../store";
-import { describeBranchError, type ApiBranch } from "../../services/branchApi";
+import { describeBranchError } from "../../api";
+import ActionButton from "../../plan/ActionButton";
+import { usePlan } from "../../plan/usePlan";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
 import { palette } from "../../theme";
@@ -49,21 +51,20 @@ function BranchCard({
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-        <Button size="small" onClick={onEdit}>
+        <ActionButton size="small" onClick={onEdit}>
           Sửa chi nhánh
-        </Button>
+        </ActionButton>
       </div>
     </Card>
   );
 }
 
-/** OW-01: CRUD chi nhánh — chặn ở service khi vượt maxBranches của gói (BR-23). */
+/** OW-01: CRUD chi nhánh. FE báo sớm khi hết hạn mức chi nhánh của gói; BE chặn thật (BR-08). */
 export default function Branches() {
   const { message } = App.useApp();
   const branches = useAppStore((s) => s.branches);
   const apiBranches = useAppStore((s) => s.apiBranches);
-  const plan = useAppStore((s) => s.plan);
-  const quotas = useAppStore((s) => s.quotas);
+  const { planName, limitOf } = usePlan();
   const scopeStatus = useAppStore((s) => s.scopeStatus);
   const scopeError = useAppStore((s) => s.scopeError);
   const createBranch = useAppStore((s) => s.createBranch);
@@ -72,7 +73,7 @@ export default function Branches() {
   const [saving, setSaving] = useState(false);
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
-  const branchQuota = quotas.find((q) => q.resource === "branches");
+  const branchQuota = limitOf("branches");
 
   if (scopeStatus === "loading" || scopeStatus === "idle") {
     return (
@@ -91,11 +92,10 @@ export default function Branches() {
       <SectionHeader
         onAdd={() => setEditing("new")}
         quotaLabel={
-          branchQuota && plan
-            ? `Gói ${plan.name} · đã dùng ${branchQuota.used}/${branchQuota.limit} chi nhánh`
+          branchQuota && planName
+            ? `Gói ${planName} · đã dùng ${branchQuota.used}/${branchQuota.limit} chi nhánh`
             : null
         }
-        addDisabled={!!branchQuota && branchQuota.remaining <= 0}
       />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 16 }}>
         {branches.map((b) => (
@@ -138,11 +138,9 @@ export default function Branches() {
 function SectionHeader({
   onAdd,
   quotaLabel,
-  addDisabled,
 }: {
   onAdd: () => void;
   quotaLabel: string | null;
-  addDisabled: boolean;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
@@ -152,14 +150,9 @@ function SectionHeader({
           {quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
         </div>
       </div>
-      <Button
-        type="primary"
-        icon={<Plus size={15} />}
-        onClick={onAdd}
-        title={addDisabled ? "Đã dùng hết số chi nhánh của gói hiện tại" : undefined}
-      >
+      <ActionButton type="primary" icon={<Plus size={15} />} consumes="branches" onClick={onAdd}>
         Thêm chi nhánh
-      </Button>
+      </ActionButton>
     </div>
   );
 }
@@ -275,7 +268,7 @@ function BranchDrawer({
           />
         </Field>
       )}
-      <Button
+      <ActionButton
         type="primary"
         block
         loading={saving}
@@ -296,7 +289,7 @@ function BranchDrawer({
         }
       >
         {isNew ? "Tạo chi nhánh" : "Lưu thay đổi"}
-      </Button>
+      </ActionButton>
     </Drawer>
   );
 }

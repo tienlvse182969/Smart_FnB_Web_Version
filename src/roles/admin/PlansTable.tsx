@@ -2,7 +2,7 @@ import { App, Button, Card, Drawer, Input, InputNumber, Table } from "antd";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Plan } from "../../types";
-import { createPlan, listPlans, updatePlan } from "../../services";
+import { adminApi } from "../../api";
 import { money } from "../../data";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
@@ -13,7 +13,7 @@ export default function PlansTable() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
 
-  const load = () => listPlans().then(setPlans);
+  const load = () => adminApi.listPlans().then(setPlans);
   useEffect(() => {
     load();
   }, []);
@@ -49,10 +49,10 @@ export default function PlansTable() {
         onSave={async (data) => {
           try {
             if (editing === "new") {
-              await createPlan(data);
+              await adminApi.createPlan(data);
               message.success("Đã tạo gói mới");
             } else if (editing) {
-              await updatePlan(editing.id, data);
+              await adminApi.updatePlan(editing.id, data);
               message.success("Đã cập nhật gói");
             }
             setEditing(null);

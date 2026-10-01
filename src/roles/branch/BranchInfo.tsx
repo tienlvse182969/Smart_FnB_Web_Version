@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Alert, Card, Descriptions, Spin, Tag } from "antd";
 import { useAppStore } from "../../store";
-import { getBranch, type ApiBranchDetail } from "../../services/branchApi";
+import { branchApi } from "../../api";
+import type { ApiBranchDetail } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
 
@@ -24,7 +25,7 @@ export default function BranchInfo() {
     let cancelled = false;
     setBranch(null);
     setError(null);
-    getBranch(branchId)
+    branchApi.getBranch(branchId)
       .then((data) => !cancelled && setBranch(data))
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : "Không tải được chi nhánh"));
     return () => {

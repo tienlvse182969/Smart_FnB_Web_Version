@@ -1,17 +1,14 @@
 /**
- * Gói dịch vụ và hạn mức của doanh nghiệp (OW-10).
- * `loadScope` (slice auth) là nơi ghi hai trường này sau khi đọc `/restaurant-chains`.
+ * Gói dịch vụ của doanh nghiệp (OW-10): cấp, hạn mức, tính năng, trạng thái. `loadScope` (slice auth) ghi `plan`;
+ * màn hình đọc qua `usePlan()` (src/plan), không đọc trực tiếp.
  */
-import type { ApiPlan, ApiQuota } from "../../services/branchApi";
+import type { PlanInfo } from "../../types";
 import type { SliceCreator } from "../types";
 
 export interface PlanSlice {
-  /** Gói dịch vụ và hạn mức — chỉ OWNER đọc được, MANAGER nhận 403 nên để null. */
-  plan: ApiPlan | null;
-  quotas: ApiQuota[];
+  plan: PlanInfo | null;
 }
 
 export const createPlanSlice: SliceCreator<PlanSlice> = () => ({
   plan: null,
-  quotas: [],
 });
