@@ -8,7 +8,7 @@ export { authApi, TABLET_ONLY_MESSAGE, NO_WEB_ACCESS_MESSAGE, type AuthApi } fro
 export { branchApi, describeBranchError, type BranchApi } from "./modules/branch";
 export { reportApi, type ReportApi } from "./modules/report";
 export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
-export { menuApi, type MenuApi } from "./modules/menu";
+export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
 export { accountApi, type AccountApi } from "./modules/account";

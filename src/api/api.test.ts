@@ -19,11 +19,11 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan/admin = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin/menu = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["menu", "options", "branding", "account", "order", "ai", "payos"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["options", "branding", "account", "order", "ai", "payos"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });
@@ -221,7 +221,7 @@ describe("dữ liệu mock v9", () => {
   const now = new Date();
   const mk = (id: "A" | "B") => {
     const profile = MOCK_PROFILES[id];
-    const items = buildMenu(profile, profile.chainId);
+    const items = buildMenu(profile);
     const groups = buildOptionGroups(profile, profile.chainId);
     return { profile, items, groups };
   };
@@ -310,32 +310,19 @@ describe("dữ liệu mock v9", () => {
 });
 
 describe("mock chạy được với ID thật (không có lớp ánh xạ)", () => {
-  it("menu sinh dữ liệu lần đầu gặp chainId/branchId lạ và giữ trong bộ nhớ", async () => {
-    setScenario({ profile: "A" });
+  it("menu mock sinh dữ liệu lần đầu cho chainId lạ và giữ trong bộ nhớ", async () => {
+    setScenario({ profile: "A", expired: false });
     const chainId = "11111111-2222-3333-4444-555555555555";
-    const branchId = "99999999-8888-7777-6666-555555555555";
-    const items = await menuMock.listMenuItems(chainId, "owner");
+    const items = await menuMock.listItems(chainId);
     expect(items.length).toBeGreaterThan(0);
     expect(items.some((i) => (i.optionGroupIds?.length ?? 0) > 0)).toBe(true);
-    const branchMenu = await menuMock.listBranchMenu(chainId, branchId);
-    expect(branchMenu).toHaveLength(items.length);
-    const first = branchMenu.find((b) => b.isAvailable)!;
-    await menuMock.toggleBranchItem(chainId, branchId, first.menuItemId, false, "manager");
-    expect((await menuMock.listBranchMenu(chainId, branchId)).find((b) => b.menuItemId === first.menuItemId)!.isAvailable).toBe(false);
-  });
-
-  it("Admin không xem được menu (BR-07); Cashier không tắt món cấp chi nhánh trên web", async () => {
-    await expect(menuMock.listMenuItems("c", "admin")).rejects.toMatchObject({ status: 403 });
-    await expect(menuMock.toggleBranchItem("c", "b", "x", false, "owner")).rejects.toMatchObject({ status: 403 });
+    expect((await menuMock.listCategories(chainId)).length).toBeGreaterThan(1);
   });
 
   it("hết hạn thì mock chặn ghi nhưng vẫn cho đọc (BR-09)", async () => {
     setScenario({ profile: "A", expired: true });
-    await expect(menuMock.listMenuItems("c2", "owner")).resolves.toBeDefined();
-    await expect(menuMock.createItem("c2", { name: "x", category: "y", price: 1000, activeChain: true })).rejects.toMatchObject({
-      status: 403,
-      code: "SUBSCRIPTION_READ_ONLY",
-    });
+    await expect(menuMock.listItems("c2")).resolves.toBeDefined();
+    await expect(menuMock.createCategory("c2", { name: "Mới" })).rejects.toMatchObject({ status: 403, code: "SUBSCRIPTION_READ_ONLY" });
     setScenario({ expired: false });
   });
 

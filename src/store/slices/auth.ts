@@ -61,8 +61,7 @@ function emptySession(): Partial<AppState> {
     apiBranches: [],
     branches: [],
     currentBranchId: null,
-    menuItems: [],
-    branchMenuItems: [],
+    branchMenu: [],
     staff: [],
   };
 }

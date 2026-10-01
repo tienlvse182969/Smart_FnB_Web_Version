@@ -9,6 +9,6 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/test/setup.ts"],
     // Test chạy không cần BE: các module đã nối real (mặc định) chuyển sang mock.
-    env: { VITE_API_AUTH: "mock", VITE_API_BRANCH: "mock", VITE_API_REPORT: "mock", VITE_API_PLAN: "mock" },
+    env: { VITE_API_AUTH: "mock", VITE_API_BRANCH: "mock", VITE_API_REPORT: "mock", VITE_API_PLAN: "mock", VITE_API_MENU: "mock" },
   },
 });

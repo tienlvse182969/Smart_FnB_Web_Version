@@ -6,14 +6,8 @@
  * áp, giữ cấu hình"). Muốn thấy màu của B thì ghi đè gói lên Tiêu chuẩn bằng panel dev.
  */
 import { BRAND_COLOR_PRESETS } from "../../../theme";
-import type {
-  ApiBranch,
-  BranchMenuItem,
-  Branding,
-  MenuItem,
-  OptionGroup,
-  PlanTier,
-} from "../../../types";
+import type { ApiBranch, Branding, MenuCategory, OptionGroup, PlanTier } from "../../../types";
+import type { StoredMenuItem } from "../store";
 import type { MockProfileId } from "../scenario";
 import { hashString, mulberry32 } from "../prng";
 
@@ -202,7 +196,16 @@ const MENU_SEEDS: Record<MockProfileId, ItemSeed[]> = {
   ],
 };
 
-export function buildMenu(profile: MockProfile, chainId: string): MenuItem[] {
+const catSlug = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** Danh mục suy từ các món mẫu, theo thứ tự xuất hiện. */
+export function buildCategories(profile: MockProfile): MenuCategory[] {
+  const p = profile.id.toLowerCase();
+  const names = [...new Set(MENU_SEEDS[profile.id].map((s) => s.category))];
+  return names.map((name, i) => ({ id: `${p}-cat-${catSlug(name)}`, name, description: null, displayOrder: i, isActive: true, itemCount: 0 }));
+}
+
+export function buildMenu(profile: MockProfile): StoredMenuItem[] {
   const p = profile.id.toLowerCase();
   const groups = (kind: ItemSeed["kind"]): string[] =>
     kind === "drink"
@@ -212,25 +215,16 @@ export function buildMenu(profile: MockProfile, chainId: string): MenuItem[] {
         : [];
   return MENU_SEEDS[profile.id].map((seed, i) => ({
     id: `${p}-m${String(i + 1).padStart(2, "0")}`,
-    tenantId: chainId,
+    categoryId: `${p}-cat-${catSlug(seed.category)}`,
+    categoryName: seed.category,
+    sku: `${profile.code}-${String(i + 1).padStart(3, "0")}`,
     name: seed.name,
-    category: seed.category,
+    description: null,
     price: seed.price,
-    activeChain: seed.activeChain ?? true,
+    imageUrl: null,
+    preparationMinutes: null,
+    isActive: seed.activeChain ?? true,
     optionGroupIds: groups(seed.kind),
+    seeded: true,
   }));
-}
-
-/** Món có mặt ở chi nhánh: mọi món; vài món tắt hôm nay, xác định theo (chi nhánh, món). */
-export function buildBranchMenu(branchId: string, items: MenuItem[]): BranchMenuItem[] {
-  return items.map((item) => {
-    const rng = mulberry32(hashString(`${branchId}:${item.id}`));
-    return {
-      branchId,
-      menuItemId: item.id,
-      isAvailable: rng() > 0.12,
-      remainingToday: null,
-      soldToday: 0,
-    };
-  });
 }
