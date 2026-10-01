@@ -19,11 +19,11 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["menu", "options", "branding", "account", "order", "ai", "admin", "payos"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["menu", "options", "branding", "account", "order", "ai", "payos"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });

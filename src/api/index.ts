@@ -14,7 +14,7 @@ export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/bra
 export { accountApi, type AccountApi } from "./modules/account";
 export { orderApi, type OrderApi, type ListOrdersParams } from "./modules/order";
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
-export { adminApi, type AdminApi, type RegistrationInput, type TenantUsage } from "./modules/admin";
+export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosLinkStatus } from "./modules/payos";
 
 export {
@@ -22,6 +22,7 @@ export {
   classifyApiError,
   describeApiError,
   isQuotaError,
+  showApiError,
   setApiErrorHandler,
   type ApiErrorEvent,
   type ApiErrorKind,

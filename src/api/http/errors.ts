@@ -73,6 +73,15 @@ export function describeApiError(err: unknown): string {
   }
 }
 
+/**
+ * Hiện lỗi từ một lời gọi API trong màn hình — trừ khi lớp API đã báo toàn cục (403, hạn mức, mạng, 401), để không
+ * có hai thông báo cho cùng một lỗi. `show` thường là `message.error`.
+ */
+export function showApiError(show: (text: string) => unknown, err: unknown, fallback = "Có lỗi xảy ra"): void {
+  if (err instanceof ApiError && err.reported) return;
+  show(err instanceof Error && err.message ? err.message : fallback);
+}
+
 export interface ApiErrorEvent {
   kind: ApiErrorKind;
   error: ApiError;

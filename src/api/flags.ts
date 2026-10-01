@@ -34,7 +34,7 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   account: "mock",
   order: "mock",
   ai: "mock",
-  admin: "mock",
+  admin: "real",
   payos: "mock",
 };
 
@@ -50,7 +50,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   account: "mock — BE có endpoint Manager, thiếu Cashier/Barista, chờ giai đoạn 5",
   order: "mock — BE chưa có (BM-04..06), chờ giai đoạn 7",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
-  admin: "mock — BE có /admin/*, chờ giai đoạn 3",
+  admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
   payos: "mock — BE chưa có (OW-06), chờ giai đoạn 6",
 };
 

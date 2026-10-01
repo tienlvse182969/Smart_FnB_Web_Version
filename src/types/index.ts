@@ -9,3 +9,4 @@ export * from "./plan";
 export * from "./option";
 export * from "./order";
 export * from "./report";
+export * from "./admin";
