@@ -26,8 +26,8 @@ export type Tenant = {
 
 /**
  * Branding thương hiệu của tenant — dùng cho AntD ConfigProvider.
- * BR-28: thuộc về doanh nghiệp, áp cho mọi tài khoản (kể cả tạo sau).
- * BR-29: chỉ Owner sửa được. BR-32: Platform Admin luôn giữ nhận diện nền tảng.
+ * BR-41: thuộc về doanh nghiệp, áp cho mọi tài khoản (kể cả tạo sau), chỉ từ gói Tiêu chuẩn.
+ * BR-43: chỉ Owner sửa được. BR-44: Platform Admin luôn giữ nhận diện nền tảng.
  */
 export type Branding = {
   tenantId: string;

@@ -31,7 +31,7 @@ function LimitRow({ icon, label, used, limit }: { icon: React.ReactNode; label: 
 }
 
 /**
- * PA-05→PA-07: danh sách/chi tiết doanh nghiệp — chỉ số liệu tổng hợp (BR-21:
+ * PA-05→PA-07: danh sách/chi tiết doanh nghiệp — chỉ số liệu tổng hợp (BR-07:
  * không hiện menu, món, doanh thu tiền mặt, nội dung đơn hàng).
  */
 export default function TenantsTable() {
@@ -96,7 +96,7 @@ export default function TenantsTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Doanh nghiệp thuê bao"
-        sub="Chỉ số liệu tổng hợp phục vụ tính phí — không xem menu, món, doanh thu tiền mặt, nội dung đơn hàng (BR-21)"
+        sub="Chỉ số liệu tổng hợp phục vụ tính phí — không xem menu, món, doanh thu tiền mặt, nội dung đơn hàng (BR-07)"
       />
       <Table<Tenant>
         dataSource={tenants}

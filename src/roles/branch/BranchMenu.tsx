@@ -15,7 +15,7 @@ type Row = BranchMenuItem & {
   activeChain: boolean;
 };
 
-/** Món tại chi nhánh (mục 4.5.G, BR-06) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
+/** Món tại chi nhánh (đặc tả 4.5, BR-12) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
 export default function BranchMenu() {
   const { message } = App.useApp();
   const menuItems = useAppStore((s) => s.menuItems);
