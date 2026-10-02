@@ -119,4 +119,17 @@ Web đã nối real cho danh mục + món + gán chi nhánh (giai đoạn 4.2). 
 | 19 | Trung bình | **`GET /branches/{id}/menu` cho Manager thấy cả món Owner đã tắt** (kèm cờ `isActive`/`isEnabled`) để BM-02 hiện "Owner tắt món này" như đặc tả; hiện BE ẩn hẳn món Owner đã tắt | Web chỉ hiện món đang bán |
 | 20 | Trung bình | **Manager bật/tắt tuỳ chọn tại chi nhánh** (BM-02): hiện chỉ có `PATCH /barista/menu-options/{id}/availability` (role BARISTA); thêm `PATCH /branches/{b}/menu/options/{optionId}` cho OWNER, MANAGER | Chưa làm (giai đoạn 5) |
 | 21 | Thấp | `price` là `Decimal(14,2)` và DTO cho phép 2 chữ số thập phân; BR-19 là số nguyên đồng → ép `@IsInt` hoặc bỏ phần thập phân | Web chỉ gửi số nguyên; đọc qua `parseAmount` |
-| 22 | Thấp | `remainingPortions` (kho, v7) còn trong `PATCH /branches/{b}/menu/items/{id}` và response → bỏ khỏi v9 | Web không bao giờ gửi, mapper bỏ qua khi đọc |
+| 22 | Thấp | `remainingPortions` (kho, v7) còn trong `PATCH /branches/{b}/menu/items/{id}` và response, **và trong từng món của `GET /branches/{b}/menu`** (Manager gọi thật vẫn thấy) → bỏ khỏi v9 | Web không bao giờ gửi, mapper bỏ qua khi đọc |
+
+### Manager (giai đoạn 5) — chờ BE
+
+Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_outbox` không có tiến trình gửi → #1; Manager bật/tắt tuỳ chọn → #20.
+
+| # | Mức | Việc cần BE | Hiện web làm gì |
+|---|---|---|---|
+| 23 | **CAO** | **Bỏ `password` ở `POST /auth/managers`** (`create-staff.dto.ts`, hiện bắt buộc 8–128 ký tự) và chuyển sang **gửi email đặt mật khẩu** như duyệt hồ sơ (`PasswordSetupToken` + `email_outbox`, hiệu lực 24 giờ). Đặc tả BM-01/OW-05: tạo tài khoản rồi gửi email | Web đã bỏ mọi mật khẩu cứng; tạo Manager còn mock cho tới khi BE đổi |
+| 24 | **CAO** | **CRUD Cashier/Barista cho Branch Manager** (BR-05, ma trận quyền: Manager tạo/sửa): tạo (không `password`, gửi email đặt mật khẩu), danh sách theo chi nhánh của Manager, khoá/mở, đặt lại mật khẩu, sửa. Hiện không có endpoint nào; `/employees` chỉ OWNER và chỉ thao tác được Manager | Mock (`accountApi`) |
+| 25 | Trung bình | **Link trong email trỏ tới trang web** `<WEB_BASE_URL>/setup-password?token=…` (payload hiện chỉ có `setupPath: '/auth/setup-password'`, là đường của BE, không phải trang) — cần cấu hình URL web ở BE | Web có trang `/setup-password?token=` gọi `POST /auth/setup-password` |
+| 26 | Trung bình | **Hạn mức số tài khoản không tính tài khoản đã khoá** (đặc tả 13.1; `users.service.ts` `assertOwnerCanCreateAccount` đếm cả tài khoản khoá) | Mock tính theo đặc tả |
+| 27 | Trung bình | **`PATCH /stations/{id}`**: đổi tên, ngừng/bật lại quầy (`status` ACTIVE/INACTIVE), sửa máy in (`printerConnection`, `printerAddress`); kiểm định dạng IP/MAC thay vì chỉ "không rỗng" | Chưa có; web chỉ tạo quầy (giai đoạn 5.5) |
+| 28 | Trung bình | **Ghép màn hình gọi số**: endpoint dùng mã ghép `CALLING_DISPLAY` (token gắn chi nhánh, `stationId` null) và **`GET /display-devices`** liệt kê thiết bị cấp chi nhánh (hiện danh sách chỉ nằm trong `GET /stations`, không có màn hình gọi số) | Mock (giai đoạn 5.6) |

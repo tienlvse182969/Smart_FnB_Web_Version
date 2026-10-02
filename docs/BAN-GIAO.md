@@ -2,7 +2,7 @@
 
 > Đọc hết file này trước khi làm gì. Đặc tả chuẩn: `docs/Smart-FnB-Dac-ta-v9.md`.
 > Kế hoạch: `docs/Smart-FnB-Ke-hoach-v9.md`. Khi file này, prompt và đặc tả mâu thuẫn: **đặc tả thắng**, và báo lại chỗ lệch.
-> Cập nhật: 2026-10-02, sau 4.4, đã push `feat/v9-menu`.
+> Cập nhật: 2026-10-02, sau 5.2, đã push `feat/v9-manager`.
 
 ---
 
@@ -31,7 +31,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Stack BE | NestJS + Prisma + PostgreSQL, chạy Docker |
 | BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json` |
 | Tài khoản demo | Đọc từ `.env` của BE. **Không in mật khẩu ra báo cáo hay log** |
-| Nhánh hiện tại | `feat/v9-menu`. Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` (mỗi PR lấy nhánh trước làm base) |
+| Nhánh hiện tại | `feat/v9-manager` (từ `feat/v9-menu`). Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` ← `feat/v9-manager` (mỗi PR lấy nhánh trước làm base) |
 | Chạy web real | Cổng **5173** (CORS của BE chỉ cho `localhost` 5173, 8443, 8081): `npx vite --port 5173` |
 
 ## 4. Quy tắc làm việc (bắt buộc)
@@ -168,6 +168,7 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/manager/orders/needs-attention` | BM-05 | placeholder |
 | `/manager/orders/:orderId` | BM-04, BM-06 | placeholder (ẩn khỏi sidebar) |
 | `/display/call` | (không phải use case) | placeholder, công khai, không sidebar |
+| `/setup-password?token=…` | (không phải use case) | công khai, không sidebar: đặt mật khẩu từ link email (`authApi.setupPassword`: real `POST /auth/setup-password` + mock; token `mock-valid`). Token xoá khỏi URL ngay khi đọc |
 
 CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không có route riêng.
 
@@ -228,7 +229,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
-| 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại". **Bắt đầu bằng một lượt khảo sát** | ▶ tiếp theo |
+| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real; **5.4** Cashier/Barista (mock); **5.5** quầy + máy in; **5.6** thiết bị (ghép màn hình khách, thu hồi, màn hình gọi số mock); **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt | 5.2 ✅ · ▶ 5.3 |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
