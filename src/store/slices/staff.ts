@@ -32,7 +32,7 @@ export const createStaffSlice: SliceCreator<StaffSlice> = (set, get) => ({
   },
 
   setStaffActive: async (id: string, active: boolean) => {
-    await accountApi.setActive(id, active);
+    await accountApi.setStaffActive(id, active);
     await get().loadStaff();
     broadcast.send({ type: "REFETCH_ALL" });
   },
