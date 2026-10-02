@@ -2,7 +2,7 @@
 
 > Đọc hết file này trước khi làm gì. Đặc tả chuẩn: `docs/Smart-FnB-Dac-ta-v9.md`.
 > Kế hoạch: `docs/Smart-FnB-Ke-hoach-v9.md`. Khi file này, prompt và đặc tả mâu thuẫn: **đặc tả thắng**, và báo lại chỗ lệch.
-> Cập nhật: 2026-10-02, sau 5.5, đã push `feat/v9-manager`.
+> Cập nhật: 2026-10-02, sau 5.6, đã push `feat/v9-manager`.
 
 ---
 
@@ -171,7 +171,7 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/manager/branch-info` | — | `branchApi` real |
 | `/manager/menu` | BM-02 | real (`GET /branches/{id}/menu`): chỉ bật/tắt còn bán hôm nay; đã gỡ cột Suất còn lại; làm lại màn ở giai đoạn 5 |
 | `/manager/staff` | BM-01 | mock (`accountApi`) |
-| `/manager/stations` | BM-01 | real (`stationsApi`, `GET/POST /stations`): bảng quầy (tên, trạng thái, máy in, số màn hình đã ghép), thêm quầy (kiểm IPv4 kèm cổng / MAC ở web, báo trùng tên sớm, hộp xác nhận). Đổi tên, ngừng dùng, sửa máy in khoá chờ BE #27; ghép/thu hồi thiết bị ở 5.6 |
+| `/manager/stations` | BM-01 | real (`stationsApi`, `GET/POST /stations`): bảng quầy (tên, trạng thái, máy in, số màn hình đã ghép), thêm quầy (kiểm IPv4 kèm cổng / MAC ở web, báo trùng tên sớm, hộp xác nhận). Đổi tên, ngừng dùng, sửa máy in khoá chờ BE #27. **5.6:** mỗi quầy mở rộng xem màn hình khách đã ghép (tên, ngày ghép, "lần cuối thấy"), nút Ghép màn hình khách (hộp nhập 6 ô, dán được; cảnh báo thay máy cũ, BR-45) và Thu hồi (có xác nhận); khu Màn hình gọi số của chi nhánh có nút ghép, chưa liệt kê được (chờ BE #28, web không tự lưu danh sách); hết hạn gói thì các nút khoá. Không hiện token thiết bị |
 | `/manager/orders` | BM-04 | placeholder (`orderApi` mock + bộ đơn có sẵn) |
 | `/manager/orders/needs-attention` | BM-05 | placeholder |
 | `/manager/orders/:orderId` | BM-04, BM-06 | placeholder (ẩn khỏi sidebar) |
@@ -202,6 +202,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | File v7 ở gốc (`Smart-FnB-Dac-ta-v7 (1).md`, `PHAN_TICH_NGHIEP_VU.md`) | KHÔNG đụng (dính stash `pre-v9-wip`) |
 | DB local thiếu tài khoản cashier/barista dù seed BE có | Người dùng tự xử lý |
 | Hồ sơ đăng ký "Probe Quán" do agent tạo nhầm trên BE thật. **KHÔNG xoá, KHÔNG tạo thêm**; chờ Khánh quyết | Khánh |
+| Giả lập lỗi (403, mạng, 401…) bằng MockPanel chỉ chạm module mock. Module real chưa có kiểm giao diện lỗi; làm ở 5.8 bằng CDP `Fetch.fulfillRequest` trả lỗi giả | 5.8 |
 | Mock tuỳ chọn lưu localStorage (`smartfnb:mock:options:v1:<chainId>`, 4.4); bỏ khi `options` có `real.ts` | khi BE có OW-03 |
 | Định dạng `code` nhóm/tuỳ chọn đang giả định giống SKU (`^[A-Z0-9_-]{1,50}$`); chờ BE công bố (`docs/api-contract-plan.md` mục 7 #12) | chờ BE |
 
@@ -237,7 +238,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
-| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách, thu hồi, màn hình gọi số mock); **5.4** Cashier/Barista (mock); **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · ▶ 5.6 |
+| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista (mock); **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · ▶ 5.4 |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
