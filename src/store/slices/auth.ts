@@ -1,6 +1,6 @@
 /**
  * Phiên đăng nhập và phạm vi làm việc (CM-01).
- * `loadScope` nạp phạm vi (chi nhánh), gói, nhận diện; sau đó nạp menu và nhân sự của chi nhánh đang chọn.
+ * `loadScope` nạp phạm vi (chi nhánh), gói, nhận diện; sau đó nạp menu của chi nhánh đang chọn.
  * Chỉ gọi lớp API (`src/api`) — không biết module đang chạy real hay mock.
  */
 import type { AuthUser } from "../../types";
@@ -62,7 +62,6 @@ function emptySession(): Partial<AppState> {
     branches: [],
     currentBranchId: null,
     branchMenu: [],
-    staff: [],
   };
 }
 
@@ -96,7 +95,6 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       broadcast.subscribe((msg) => {
         if (msg.type === "REFETCH_ALL") {
           get().loadMenu();
-          get().loadStaff();
         }
         if (msg.type === "LOGOUT") {
           // Backend đã thu hồi phiên ở tab vừa đăng xuất; tab này chỉ dọn phía client.
@@ -218,7 +216,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
         },
       });
 
-      await Promise.all([get().loadMenu(), get().loadStaff()]);
+      await get().loadMenu();
     } catch (err) {
       set({
         scopeStatus: "error",

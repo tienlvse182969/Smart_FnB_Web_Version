@@ -14,6 +14,7 @@ import type {
   Order,
   OptionGroup,
 } from "../../types";
+import { loadPersistedAccounts } from "../modules/account/persist";
 import { loadPersistedOptions } from "../modules/options/persist";
 import { generateBranchOrders } from "./data/orders";
 import {
@@ -97,6 +98,12 @@ export function getChainState(chainId: string): ChainState {
     if (saved) {
       state.optionGroups = saved.groups;
       state.itemOptions = new Map(saved.itemOptions.map((c) => [c.menuItemId, c]));
+    }
+    // Mock tài khoản (5.4) cũng lưu qua F5; `staffSeeded` đi kèm để không sinh nhân sự trùng.
+    const savedAccounts = loadPersistedAccounts(chainId);
+    if (savedAccounts) {
+      state.accounts = savedAccounts.accounts;
+      state.staffSeeded = new Set(savedAccounts.staffSeeded);
     }
     states.set(key, state);
   }

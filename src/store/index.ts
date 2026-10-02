@@ -9,7 +9,6 @@
  *   slices/plan        gói dịch vụ và hạn mức (OW-10)
  *   slices/branches    chi nhánh và chi nhánh đang chọn (OW-01)
  *   slices/menu        menu chuỗi, món tại chi nhánh (OW-02..04, BM-02)
- *   slices/staff       nhân sự chi nhánh (BM-01, tạm mock)
  */
 import { create } from "zustand";
 import type { AppState } from "./types";
@@ -18,7 +17,6 @@ import { createBrandingSlice } from "./slices/branding";
 import { createPlanSlice } from "./slices/plan";
 import { createBranchSlice } from "./slices/branches";
 import { createMenuSlice } from "./slices/menu";
-import { createStaffSlice } from "./slices/staff";
 
 export type { AppState, BranchFormData, ScopeStatus } from "./types";
 
@@ -28,5 +26,4 @@ export const useAppStore = create<AppState>()((...args) => ({
   ...createPlanSlice(...args),
   ...createBranchSlice(...args),
   ...createMenuSlice(...args),
-  ...createStaffSlice(...args),
 }));

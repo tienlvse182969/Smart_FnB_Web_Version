@@ -26,6 +26,10 @@ export type DemoAccount = {
   tenantId?: string;
   /** branchId nếu là manager/cashier/barista */
   branchId?: string;
+  /** Trường theo model `User`/`Employee` của BE (mock của BM-01): mã nhân viên, điện thoại, đăng nhập gần nhất. */
+  employeeCode?: string;
+  phone?: string | null;
+  lastLoginAt?: string | null;
 };
 
 /** Người dùng đã đăng nhập — gắn tenant/branch context. */
@@ -60,17 +64,6 @@ export interface AuthContext {
   /** Mọi chuỗi OWNER đang quản lý. Rỗng với nhân viên và ADMIN. */
   chainIds: string[];
 }
-
-/** Một dòng trong danh sách nhân sự của chi nhánh (BM-01). `tenantId` chính là chainId. */
-export type StaffMember = {
-  id: string;
-  tenantId: string;
-  branchId: string;
-  name: string;
-  email: string;
-  role: "Manager" | "Cashier" | "Barista";
-  active: boolean;
-};
 
 /** Kết quả xếp email đặt mật khẩu một lần (tạo tài khoản, đặt lại) — như Admin: không bao giờ trả mật khẩu hay token về web. */
 export type PasswordSetupNotice = { expiresAt: string };

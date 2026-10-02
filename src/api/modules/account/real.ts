@@ -55,9 +55,13 @@ export const accountReal: AccountApi = {
     return all;
   },
 
-  // --- Manager quản Cashier/Barista: MOCK (chờ BE #24 — Manager chưa có endpoint tạo/liệt kê/khoá nhân viên; 5.4 làm tiếp) ---
+  // --- Manager quản Cashier/Barista: MOCK (chờ BE #24 — Manager bị 403 ở /employees và chưa có endpoint tạo/khoá nhân viên). ---
+  // Cố ý KHÔNG gọi BE: màn Nhân viên của Manager hiện banner "Dữ liệu mẫu" và không phát sinh request hay toast lỗi nào.
   listStaff: accountMock.listStaff,
   createStaff: accountMock.createStaff,
+  updateStaff: accountMock.updateStaff,
   setStaffActive: accountMock.setStaffActive,
+  resetStaffPassword: accountMock.resetStaffPassword,
+  getAccountQuota: accountMock.getAccountQuota,
   countAccounts: accountMock.countAccounts,
 };
