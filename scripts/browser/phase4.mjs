@@ -452,6 +452,101 @@ try {
     await confirmModal("Xoá món");
     await sleep(1200);
 
+    // ============================================================ MOCK — 4.4: xác nhận tắt mặc định, BE lỗi, lưu qua F5
+    // --- tắt tuỳ chọn đang mặc định: phải hỏi, Huỷ thì giữ nguyên, đồng ý mới bỏ cờ
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1300);
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Đường")); r.querySelector(".ant-table-row-expand-icon").click() })()`);
+    await sleep(600);
+    check("Mặc định: trước khi tắt, 100% là mặc định (★)", /100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? ""));
+    await clickTid("option-active-SUGAR:SUGAR-100");
+    await sleep(700);
+    const confirmText = await q(`${tid("confirm-default-off")}?.innerText ?? ""`);
+    check("Mặc định: tắt tuỳ chọn mặc định → hộp xác nhận nêu rõ nhóm", /đang là mặc định/.test(confirmText) && /bỏ mặc định của nhóm Đường/.test(confirmText), confirmText);
+    check("Mặc định: bấm Huỷ thì tuỳ chọn vẫn bật và vẫn là mặc định", await (async () => {
+      await q(`(() => { const b = [...document.querySelectorAll(".ant-modal-confirm button")].find((x) => x.textContent.includes("Huỷ")); b.click() })()`);
+      await sleep(700);
+      const on = await q(`${tid("option-active-SUGAR:SUGAR-100")}.getAttribute("aria-checked")`);
+      return on === "true" && /100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? "");
+    })());
+    await clickTid("option-active-SUGAR:SUGAR-100");
+    await sleep(600);
+    await confirmModal("Tắt và bỏ mặc định");
+    const offT = await waitToast("Đã tắt tuỳ chọn");
+    await sleep(600);
+    check("Mặc định: đồng ý → tuỳ chọn tắt và hết cờ mặc định", offT.includes("Đã tắt tuỳ chọn") && !/100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? ""), offT);
+
+    // --- BE lỗi khi lưu món: tuỳ chọn KHÔNG được lưu vào mock
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1500);
+    await rowButton("Cà phê sữa đá", "Sửa");
+    await openedDrawer();
+    await sleep(700);
+    await setInput(drawer, "input", "Cà phê sữa đá ĐỔI", 1);
+    await pickSelect(drawer, "Topping", 1);
+    await sleep(300);
+    check("Lỗi BE: form đã thêm nhóm Topping (chưa lưu)", await has("item-group-TOPPING"));
+    await tab.openMockPanel();
+    await tab.setSelect("mock-failure", "server");
+    await clickTid("item-save");
+    await sleep(1500);
+    check("Lỗi BE: lưu món báo lỗi, drawer còn mở", /lỗi|Không lưu được/i.test(await toasts()) && (await has("item-save")), await toasts());
+    await tab.setSelect("mock-failure", "none");
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(800);
+    await rowButton("Cà phê sữa đá", "Sửa");
+    await openedDrawer();
+    await sleep(900);
+    check("Lỗi BE: mở lại thấy tên cũ và nhóm Topping KHÔNG được lưu", !(await has("item-group-TOPPING")) && !(await q(`${drawer}.querySelectorAll("input")[1].value`)).includes("ĐỔI"));
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(700);
+
+    // tạo món mới thất bại → không tạo liên kết (món không có, và nhóm không đếm thêm món)
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1200);
+    const usedBefore = (await rows()).find((r) => r.startsWith("Topping")) ?? "";
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1500);
+    await click(".ant-card button", "Thêm món");
+    await openedDrawer();
+    await pickSelect(drawer, "Cà phê", 0);
+    await setInput(drawer, "input", "Món Lỗi Tạo", 1);
+    await setInput(drawer, ".ant-input-number input", "25000");
+    await pickSelect(drawer, "Topping", 1);
+    await tab.setSelect("mock-failure", "server");
+    await clickTid("item-save");
+    await sleep(1500);
+    await tab.setSelect("mock-failure", "none");
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(900);
+    check("Lỗi BE: tạo món thất bại → món không xuất hiện", !(await rows()).some((r) => r.includes("Món Lỗi Tạo")));
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1200);
+    check("Lỗi BE: tạo món thất bại → nhóm Topping không có thêm món (không có liên kết)", ((await rows()).find((r) => r.startsWith("Topping")) ?? "") === usedBefore, usedBefore.slice(-20));
+
+    // --- lưu qua F5 và nút xoá dữ liệu mock
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Nhóm F5");
+    await setInput(modal, '[data-testid="opt-name"]', "Một");
+    await sleep(300);
+    await clickTid("group-save");
+    await waitRowWith("Nhóm F5");
+    const stored = await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:options:v1:")).length`);
+    check("F5: tạo nhóm ghi vào localStorage 'smartfnb:mock:options:v1:<chainId>'", stored >= 1, `${stored} khoá`);
+    await tab.goto("/owner/menu/options");
+    await sleep(2500);
+    check("F5: tải lại trang, nhóm vừa tạo vẫn còn", (await waitRowWith("Nhóm F5")).some((r) => r.includes("Nhóm F5")));
+    check("F5: tuỳ chọn đã tắt mặc định ở trên cũng còn sau khi tải lại", !/100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? ""));
+    await tab.openMockPanel();
+    await clickTid("mock-clear");
+    await sleep(3000);
+    await tab.waitFor(`document.querySelector(".ant-table-tbody")`, 15000, "bảng sau khi xoá dữ liệu mock");
+    await sleep(1200);
+    const afterClear = await rows();
+    check("F5: xoá dữ liệu mock → nhóm tự tạo mất, dữ liệu sinh sẵn trở lại (Đường lại có 100% ★)", !afterClear.some((r) => r.includes("Nhóm F5")) && /100% ★/.test(afterClear.find((r) => r.includes("Đường")) ?? ""));
+    check("F5: khoá localStorage đã bị xoá sạch", (await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:options:v1:")).length`)) === 0);
+
     // ============================================================ MOCK — Manager: món chi nhánh
     await login("manager");
     await tab.clickMenu("Món tại chi nhánh");

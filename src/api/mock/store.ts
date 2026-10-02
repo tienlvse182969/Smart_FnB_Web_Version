@@ -14,6 +14,7 @@ import type {
   Order,
   OptionGroup,
 } from "../../types";
+import { loadPersistedOptions } from "../modules/options/persist";
 import { generateBranchOrders } from "./data/orders";
 import {
   buildBranding,
@@ -62,6 +63,11 @@ export interface ChainState {
 
 const states = new Map<string, ChainState>();
 
+/** Chỉ cho test: bỏ state trong bộ nhớ để mô phỏng tải lại trang. */
+export function resetMockStates(): void {
+  states.clear();
+}
+
 export function getChainState(chainId: string): ChainState {
   const profile = profileOf(getScenario().profile);
   const key = `${profile.id}:${chainId}`;
@@ -85,6 +91,12 @@ export function getChainState(chainId: string): ChainState {
     };
     for (const m of state.menuItems) {
       if (m.seedOptionGroupIds?.length) state.itemOptions.set(m.id, { menuItemId: m.id, groupIds: [...m.seedOptionGroupIds], noBatch: false });
+    }
+    // Mock tuỳ chọn lưu qua F5: nạp trước khi ai đó dùng state (kể cả bộ sinh đơn).
+    const saved = loadPersistedOptions(chainId);
+    if (saved) {
+      state.optionGroups = saved.groups;
+      state.itemOptions = new Map(saved.itemOptions.map((c) => [c.menuItemId, c]));
     }
     states.set(key, state);
   }

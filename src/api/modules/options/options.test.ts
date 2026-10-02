@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OptionGroup, OptionGroupInput, OptionInput } from "../../../types";
 import { mockControl } from "../../mock/control";
 import { setScenario } from "../../mock/scenario";
+import { resetMockStates } from "../../mock/store";
 import { branchMock } from "../branch/mock";
 import { menuMock } from "../menu/mock";
 import { optionsMock } from "./mock";
+import { clearPersistedOptions } from "./persist";
 import { defaultSelection, toggleOption, unitPrice, validateGroupInput, validateSelection } from "./rules";
 
 mockControl.latency = [0, 0];
@@ -164,5 +166,59 @@ describe("mock options — cùng quy tắc khi gọi vòng qua form", () => {
     expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)!.groupIds).toEqual([top.id]);
     await menuMock.deleteItem(chainId, item.id);
     expect((await optionsMock.listItemConfigs(chainId)).some((c) => c.menuItemId === item.id)).toBe(false);
+  });
+});
+
+describe("mock options lưu qua F5 (localStorage, 4.4)", () => {
+  let chainId = "";
+  const key = () => `smartfnb:mock:options:v1:${chainId}`;
+  beforeEach(async () => {
+    setScenario({ profile: "A", tier: null, expired: false });
+    chainId = (await branchMock.listChains())[0].id;
+    localStorage.removeItem(key());
+    resetMockStates();
+  });
+
+  it("tạo nhóm rồi 'tải lại trang' (bỏ state trong bộ nhớ) → nhóm và liên kết món vẫn còn", async () => {
+    const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST1" });
+    await optionsMock.setItemConfig(chainId, { menuItemId: "mon-that-da-xoa", groupIds: [g.id], noBatch: true });
+    expect(localStorage.getItem(key())).toContain("PERSIST1");
+    resetMockStates();
+    expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(true);
+    // Liên kết tới món không còn trên danh sách món thật vẫn được giữ (không tự xoá).
+    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === "mon-that-da-xoa")).toMatchObject({ groupIds: [g.id], noBatch: true });
+  });
+
+  it("xoá dữ liệu mock → nhóm tự tạo biến mất sau khi tải lại", async () => {
+    const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST2" });
+    clearPersistedOptions();
+    expect(localStorage.getItem(key())).toBeNull();
+    resetMockStates();
+    expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(false);
+  });
+
+  it("dữ liệu đã lưu hỏng hoặc rỗng → dùng dữ liệu sinh sẵn, không lỗi", async () => {
+    for (const bad of ["{không phải json", "null", "{}", JSON.stringify({ groups: [], itemOptions: [] })]) {
+      localStorage.setItem(key(), bad);
+      resetMockStates();
+      expect((await optionsMock.listGroups(chainId)).length).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it("localStorage ném lỗi (bị chặn/đầy) → vẫn đọc và ghi trong bộ nhớ", async () => {
+    const getSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const setSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("full");
+    });
+    try {
+      resetMockStates();
+      const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST3" });
+      expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(true);
+    } finally {
+      getSpy.mockRestore();
+      setSpy.mockRestore();
+    }
   });
 });

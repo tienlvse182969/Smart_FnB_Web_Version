@@ -13,6 +13,7 @@ import {
   type MockFailureKind,
   type MockProfileId,
 } from "../api";
+import { clearPersistedOptions } from "../api/modules/options/persist";
 import { useAppStore } from "../store";
 import { palette } from "../theme";
 
@@ -121,6 +122,18 @@ export default function MockPanel() {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            data-testid="mock-clear"
+            style={select}
+            onClick={() => {
+              // Xoá dữ liệu mock đã lưu qua F5 (hiện có: tuỳ chọn món) rồi tải lại để bộ nhớ phiên cũng sinh lại.
+              clearPersistedOptions();
+              window.location.reload();
+            }}
+          >
+            Xoá dữ liệu mock đã lưu
+          </button>
         </div>
       )}
     </div>
