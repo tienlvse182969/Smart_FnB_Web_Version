@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mockControl } from "../../mock/control";
 import { adminMock } from "./mock";
+import { adminReal, MIN_MAX_TABLES } from "./real";
 import {
+  mapPlan,
   deriveSubscriptionState,
   mapBusiness,
   mapPage,
@@ -265,5 +267,41 @@ describe("mock admin — cùng shape và quy tắc với BE, không ví", () => 
     expect(Object.keys(result).sort()).toEqual(["expiresAt", "ownerId"]);
     expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
     await expect(adminMock.resetOwnerPassword("không-có")).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("adminReal — gói dịch vụ khớp DTO của BE dfe8100", () => {
+  const respond = (body: unknown) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
+  const input = { code: "PRO", name: "Pro", monthlyPrice: 500000, maxBranches: 5, maxAccounts: 30, brandingEnabled: true, multiBranchComparisonEnabled: false, isActive: true };
+
+  it("tạo gói: POST kèm hai cờ bắt buộc và maxTables = giá trị nhỏ nhất BE chấp nhận (không hiện trên form)", async () => {
+    const fetchMock = respond({ ...input, id: "p1", description: null, monthlyPrice: "500000.00", maxTables: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+    const plan = await adminReal.createPlan(input);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toMatch(/\/admin\/service-plans$/);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toMatchObject({ ...input, maxTables: MIN_MAX_TABLES });
+    expect(MIN_MAX_TABLES).toBe(1);
+    expect(plan).toMatchObject({ brandingEnabled: true, multiBranchComparisonEnabled: false });
+    vi.unstubAllGlobals();
+  });
+
+  it("sửa gói: PATCH không gửi maxTables, có gửi hai cờ", async () => {
+    const fetchMock = respond({ ...input, id: "p1", description: null, monthlyPrice: "500000.00", maxTables: 7 });
+    vi.stubGlobal("fetch", fetchMock);
+    await adminReal.updatePlan("p1", input);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toMatch(/\/admin\/service-plans\/p1$/);
+    expect(init.method).toBe("PATCH");
+    const body = JSON.parse(String(init.body));
+    expect(body).not.toHaveProperty("maxTables");
+    expect(body).toMatchObject({ brandingEnabled: true, multiBranchComparisonEnabled: false });
+    vi.unstubAllGlobals();
+  });
+
+  it("đọc gói: hai cờ từ BE; BE cũ không có cờ thì coi như tắt", () => {
+    expect(mapPlan({ ...plan, brandingEnabled: true, multiBranchComparisonEnabled: true })).toMatchObject({ brandingEnabled: true, multiBranchComparisonEnabled: true });
+    expect(mapPlan(plan)).toMatchObject({ brandingEnabled: false, multiBranchComparisonEnabled: false });
   });
 });

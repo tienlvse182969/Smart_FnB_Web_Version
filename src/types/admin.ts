@@ -21,6 +21,9 @@ export type ServicePlan = {
   monthlyPrice: number;
   maxBranches: number;
   maxAccounts: number;
+  /** Cờ tính năng BE đã lưu trên gói (BE `dfe8100`). Cờ AI và cấp (`tier`) chưa có ở BE: vẫn suy từ mã gói (`plan/tiers.ts`). */
+  brandingEnabled: boolean;
+  multiBranchComparisonEnabled: boolean;
   isActive: boolean;
 };
 
@@ -31,6 +34,8 @@ export type ServicePlanInput = {
   monthlyPrice: number;
   maxBranches: number;
   maxAccounts: number;
+  brandingEnabled: boolean;
+  multiBranchComparisonEnabled: boolean;
   isActive?: boolean;
 };
 

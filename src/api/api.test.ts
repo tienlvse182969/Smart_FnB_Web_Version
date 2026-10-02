@@ -210,6 +210,28 @@ describe("gói (plan)", () => {
     expect(plan.source).toEqual({ limits: "real", features: "mock" });
   });
 
+  it("bản real: cờ nhận diện và so sánh lấy từ BE (ưu tiên hơn suy từ mã gói), cờ AI vẫn suy từ mã", async () => {
+    setScenario({ profile: "A", tier: null, expired: false });
+    const chainOf = (code: string, flags: object) =>
+      ({ id: "c", subscription: { plan: { name: "G", code, ...flags }, quotas: [] } }) as unknown as ApiChain;
+    // Mã ADVANCED nhưng BE tắt hai cờ → theo BE; AI vẫn bật theo mã.
+    const off = await planReal.getPlan("c", { chains: [chainOf("ADVANCED", { brandingEnabled: false, multiBranchComparisonEnabled: false })] });
+    expect([off.features.branding.enabled, off.features.multiBranchCompare.enabled, off.features.aiAssistant.enabled]).toEqual([false, false, true]);
+    expect(off.source.features).toBe("real");
+    // Mã BASIC (lạ) nhưng BE bật cờ → theo BE.
+    const on = await planReal.getPlan("c", { chains: [chainOf("DEMO_OPERATIONS", { brandingEnabled: true, multiBranchComparisonEnabled: true })] });
+    expect([on.features.branding.enabled, on.features.multiBranchCompare.enabled, on.features.aiAssistant.enabled]).toEqual([true, true, false]);
+    // BE cũ không trả cờ → suy từ mã.
+    const legacy = await planReal.getPlan("c", { chains: [chainOf("STANDARD", {})] });
+    expect([legacy.features.branding.enabled, legacy.features.multiBranchCompare.enabled]).toEqual([true, true]);
+    expect(legacy.source.features).toBe("mock");
+    // Panel dev ghi đè cấp thì theo cấp ghi đè.
+    setScenario({ tier: "BASIC" });
+    const forced = await planReal.getPlan("c", { chains: [chainOf("ADVANCED", { brandingEnabled: true, multiBranchComparisonEnabled: true })] });
+    expect(forced.features.branding.enabled).toBe(false);
+    setScenario({ tier: null });
+  });
+
   it("bản real không có chuỗi (Manager): hạn mức rỗng, vẫn có cờ để khoá giao diện", async () => {
     const plan = await planReal.getPlan("c");
     expect(plan.limits).toEqual([]);

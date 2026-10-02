@@ -125,7 +125,19 @@ export const accountMock: AccountApi = {
   async listStaffAccounts(chainId) {
     await mockDelay();
     await seedChain(track(chainId));
-    return getChainState(chainId).accounts.filter((a) => a.role === "cashier" || a.role === "barista");
+    const branches = await branchApi.listBranches(chainId);
+    return getChainState(chainId)
+      .accounts.filter((a) => a.role === "cashier" || a.role === "barista")
+      .map((a) => ({
+        id: a.id,
+        employeeCode: `${a.role === "cashier" ? "CSH" : "BRS"}-${a.id.slice(-4).toUpperCase()}`,
+        name: a.name,
+        email: a.email,
+        status: statusOf(a),
+        branchId: a.branchId ?? "",
+        branchName: branches.find((b) => b.id === a.branchId)?.name ?? "—",
+        role: a.role === "cashier" ? ("Cashier" as const) : ("Barista" as const),
+      }));
   },
 
   async listStaff(chainId, branchId) {

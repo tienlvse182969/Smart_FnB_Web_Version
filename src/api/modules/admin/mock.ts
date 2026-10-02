@@ -12,6 +12,7 @@ import type {
 } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
+import { featuresForTier } from "../../../plan/tiers";
 import { MOCK_PLAN_CATALOG } from "../../mock/data/plans";
 import { genId, newId, nowISO } from "../../mock/util";
 import { deriveSubscriptionState } from "./mapper";
@@ -35,9 +36,11 @@ let plans: ServicePlan[] = [
     monthlyPrice: p.monthlyPrice,
     maxBranches: p.maxBranches,
     maxAccounts: p.maxAccounts,
+    brandingEnabled: featuresForTier(p.tier).branding.enabled,
+    multiBranchComparisonEnabled: featuresForTier(p.tier).multiBranchCompare.enabled,
     isActive: true,
   })),
-  { id: "plan-legacy", code: "LEGACY", name: "Gói cũ (ngừng bán)", description: null, monthlyPrice: 150_000, maxBranches: 1, maxAccounts: 5, isActive: false },
+  { id: "plan-legacy", code: "LEGACY", name: "Gói cũ (ngừng bán)", description: null, monthlyPrice: 150_000, maxBranches: 1, maxAccounts: 5, brandingEnabled: false, multiBranchComparisonEnabled: false, isActive: false },
 ];
 
 const planById = (id: string): ServicePlan => {

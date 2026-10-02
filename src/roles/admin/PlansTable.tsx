@@ -13,10 +13,11 @@ import { Chip } from "./adminUi";
 
 /**
  * PA-04: quản lý gói (real qua /admin/service-plans). Số liệu (giá, hạn mức) do Admin nhập, không có số mặc định viết cứng (CC-01).
- * `maxTables` là v7 nhưng BE còn bắt buộc → ẩn, luôn gửi 0 (xem admin/real.ts).
+ * `maxTables` là v7 nhưng BE còn bắt buộc → ẩn, gửi giá trị nhỏ nhất BE chấp nhận (xem admin/real.ts). Hai cờ gói
+ * (`brandingEnabled`, `multiBranchComparisonEnabled`) đọc/ghi thật; cờ AI và cấp vẫn suy từ mã gói (chờ BE).
  */
 export default function PlansTable() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [plans, setPlans] = useState<ServicePlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<ServicePlan | "new" | null>(null);
@@ -62,6 +63,8 @@ export default function PlansTable() {
           { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: (v: number) => formatVnd(v) },
           { title: "Chi nhánh tối đa", dataIndex: "maxBranches", align: "right" },
           { title: "Tài khoản tối đa", dataIndex: "maxAccounts", align: "right" },
+          { title: "Nhận diện", dataIndex: "brandingEnabled", align: "center", render: (v: boolean) => (v ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />) },
+          { title: "So sánh chi nhánh", dataIndex: "multiBranchComparisonEnabled", align: "center", render: (v: boolean) => (v ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />) },
           { title: "Trạng thái", dataIndex: "isActive", render: (v: boolean) => <Chip tone={v ? "success" : "neutral"}>{v ? "Đang bán" : "Ngừng bán"}</Chip> },
         ]}
       />
@@ -69,21 +72,44 @@ export default function PlansTable() {
       <PlanDrawer
         plan={editing}
         onClose={() => setEditing(null)}
-        onSave={async (input) => {
-          try {
-            if (editing === "new") {
-              await adminApi.createPlan(input);
-              message.success("Đã tạo gói mới");
-            } else if (editing) {
-              await adminApi.updatePlan(editing.id, input);
-              message.success("Đã cập nhật gói");
-            }
-            setEditing(null);
-            await load();
-          } catch (err) {
-            showApiError(message.error, err, "Không lưu được gói");
-          }
-        }}
+        onSave={(input) =>
+          // Mọi thao tác ghi đều qua hộp xác nhận; đóng drawer + nạp lại chỉ khi lưu xong.
+          new Promise<void>((resolve) => {
+            const creating = editing === "new";
+            modal.confirm({
+              title: creating ? `Tạo gói "${input.name}"?` : `Lưu thay đổi gói "${input.name}"?`,
+              content: (
+                <div data-testid="confirm-plan" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+                  Mã <b>{input.code}</b> · {formatVnd(input.monthlyPrice)} / tháng · {input.maxBranches} chi nhánh · {input.maxAccounts} tài khoản
+                  <br />
+                  Nhận diện thương hiệu: <b>{input.brandingEnabled ? "bật" : "tắt"}</b> · So sánh đa chi nhánh: <b>{input.multiBranchComparisonEnabled ? "bật" : "tắt"}</b>
+                  <br />
+                  Áp cho mọi doanh nghiệp đang dùng gói này.
+                </div>
+              ),
+              okText: creating ? "Tạo gói" : "Lưu gói",
+              cancelText: "Huỷ",
+              onCancel: () => resolve(),
+              onOk: async () => {
+                try {
+                  if (creating) {
+                    await adminApi.createPlan(input);
+                    message.success("Đã tạo gói mới");
+                  } else if (editing) {
+                    await adminApi.updatePlan(editing.id, input);
+                    message.success("Đã cập nhật gói");
+                  }
+                  setEditing(null);
+                  await load();
+                } catch (err) {
+                  showApiError(message.error, err, "Không lưu được gói");
+                } finally {
+                  resolve();
+                }
+              },
+            });
+          })
+        }
       />
     </Card>
   );
@@ -113,6 +139,8 @@ function PlanDrawer({
   const [monthlyPrice, setMonthlyPrice] = useState<number | null>(null);
   const [maxBranches, setMaxBranches] = useState<number | null>(null);
   const [maxAccounts, setMaxAccounts] = useState<number | null>(null);
+  const [brandingEnabled, setBrandingEnabled] = useState(false);
+  const [comparisonEnabled, setComparisonEnabled] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -124,6 +152,8 @@ function PlanDrawer({
     setMonthlyPrice(existing?.monthlyPrice ?? null);
     setMaxBranches(existing?.maxBranches ?? null);
     setMaxAccounts(existing?.maxAccounts ?? null);
+    setBrandingEnabled(existing?.brandingEnabled ?? false);
+    setComparisonEnabled(existing?.multiBranchComparisonEnabled ?? false);
     setIsActive(existing?.isActive ?? true);
   }, [plan]);
 
@@ -137,13 +167,22 @@ function PlanDrawer({
     !!name.trim() && CODE_PATTERN.test(code) && monthlyPrice !== null && maxBranches !== null && maxBranches >= 1 && maxAccounts !== null && maxAccounts >= 1;
 
   const tier = tierFromCode(code);
-  const flags = featuresForTier(tier ?? "BASIC");
+  const derived = featuresForTier(tier ?? "BASIC");
 
   const submit = async () => {
     if (!valid) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), code, monthlyPrice: monthlyPrice!, maxBranches: maxBranches!, maxAccounts: maxAccounts!, isActive });
+      await onSave({
+        name: name.trim(),
+        code,
+        monthlyPrice: monthlyPrice!,
+        maxBranches: maxBranches!,
+        maxAccounts: maxAccounts!,
+        brandingEnabled,
+        multiBranchComparisonEnabled: comparisonEnabled,
+        isActive,
+      });
     } finally {
       setSaving(false);
     }
@@ -182,16 +221,28 @@ function PlanDrawer({
       <Field label="Đang bán">
         <Switch checked={isActive} onChange={setIsActive} />
       </Field>
+      <Field label="Tính năng của gói (BE lưu)">
+        <div style={{ display: "grid", gap: 10 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5 }}>
+            <Switch checked={brandingEnabled} onChange={setBrandingEnabled} data-testid="plan-branding" />
+            {FEATURE_LABEL.branding}
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5 }}>
+            <Switch checked={comparisonEnabled} onChange={setComparisonEnabled} data-testid="plan-comparison" />
+            {FEATURE_LABEL.multiBranchCompare}
+          </label>
+        </div>
+      </Field>
 
       <div style={{ background: palette.paperSubtle, borderRadius: 10, padding: "12px 14px", marginBottom: 18 }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 2 }}>
           Cấp: {tier ? PLAN_TIER_LABEL[tier] : "Chưa xếp cấp (coi như Cơ bản)"}
         </div>
-        <div style={{ fontSize: 11.5, color: palette.textSubtle, marginBottom: 8 }}>Theo đặc tả 13.1 — chờ BE lưu cấu hình</div>
-        {FEATURE_KEYS.map((key) => (
+        <div style={{ fontSize: 11.5, color: palette.textSubtle, marginBottom: 8 }}>Cờ AI suy từ mã gói theo đặc tả 13.1 — chờ BE lưu cờ AI và cấp (api-contract-plan #30)</div>
+        {FEATURE_KEYS.filter((key) => key === "aiAssistant").map((key) => (
           <div key={key} data-testid={`plan-feature-${key}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "3px 0" }}>
-            {flags[key].enabled ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />}
-            <span style={{ color: flags[key].enabled ? palette.ink : palette.textSubtle }}>{FEATURE_LABEL[key]}</span>
+            {derived[key].enabled ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />}
+            <span style={{ color: derived[key].enabled ? palette.ink : palette.textSubtle }}>{FEATURE_LABEL[key]}</span>
           </div>
         ))}
       </div>

@@ -20,6 +20,16 @@ export const planReal: PlanApi = {
     const realPlan = chain?.subscription?.plan;
     const tier = getScenario().tier ?? (realPlan ? effectiveTier(realPlan.code) : base.tier);
 
+    // Cờ tính năng: ưu tiên cờ BE lưu trên gói (nhận diện, so sánh đa chi nhánh); chỉ suy từ cấp khi BE không trả
+    // (BE cũ) hoặc khi panel dev ghi đè cấp. Cờ AI chưa có ở BE → luôn suy từ mã gói (api-contract-plan #30).
+    const features = featuresForTier(tier);
+    const overridden = getScenario().tier !== null && getScenario().tier !== undefined;
+    const hasBackendFlags = !!realPlan && typeof realPlan.brandingEnabled === "boolean" && typeof realPlan.multiBranchComparisonEnabled === "boolean";
+    if (hasBackendFlags && !overridden) {
+      features.branding = { ...features.branding, enabled: realPlan.brandingEnabled === true };
+      features.multiBranchCompare = { ...features.multiBranchCompare, enabled: realPlan.multiBranchComparisonEnabled === true };
+    }
+
     return {
       chainId,
       tier,
@@ -28,8 +38,9 @@ export const planReal: PlanApi = {
       status: base.status,
       expiresAt: base.expiresAt,
       limits,
-      features: featuresForTier(tier),
-      source: { limits: chain ? "real" : "mock", features: "mock" },
+      features,
+      // Hai cờ là thật khi BE trả; cờ AI vẫn suy từ mã nên cả khối ghi "real" chỉ khi có cờ BE.
+      source: { limits: chain ? "real" : "mock", features: hasBackendFlags && !overridden ? "real" : "mock" },
     };
   },
 };

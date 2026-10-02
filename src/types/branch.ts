@@ -76,6 +76,9 @@ export interface ApiPlan {
   maxBranches: number;
   maxAccounts: number;
   maxTables: number;
+  /** Cờ tính năng của gói, `GET /restaurant-chains` → `subscription.plan` (BE `dfe8100`). Thiếu = BE cũ → suy từ mã gói. */
+  brandingEnabled?: boolean;
+  multiBranchComparisonEnabled?: boolean;
 }
 
 export interface ApiQuota {

@@ -12,6 +12,9 @@ import {
 } from "./mapper";
 import type { AdminApi } from "./index";
 
+/** Giá trị nhỏ nhất BE chấp nhận cho `maxTables` (v7, `@Min(1)`). */
+export const MIN_MAX_TABLES = 1;
+
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -107,11 +110,13 @@ export const adminReal: AdminApi = {
   },
 
   async createPlan(input) {
-    // maxTables là v7 nhưng BE còn bắt buộc → luôn gửi 0 (TODO BE: bỏ bắt buộc, api-contract-plan.md mục 7 #10).
-    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...input, maxTables: 0 } }));
+    // `maxTables`: trường v7, chờ BE gỡ (api-contract-plan #29). BE bắt buộc và `@Min(1)` (platform-admin.dto.ts, CreateServicePlanDto)
+    // nên gửi giá trị nhỏ nhất BE chấp nhận; KHÔNG hiện trên form. Hai cờ gói là bắt buộc khi tạo.
+    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...input, maxTables: MIN_MAX_TABLES } }));
   },
 
   async updatePlan(id, input) {
-    return mapPlan(await request<RawPlan>(`/admin/service-plans/${id}`, { method: "PATCH", body: { ...input, maxTables: 0 } }));
+    // PATCH là partial: không gửi `maxTables` để không đụng giá trị đang lưu.
+    return mapPlan(await request<RawPlan>(`/admin/service-plans/${id}`, { method: "PATCH", body: input }));
   },
 };

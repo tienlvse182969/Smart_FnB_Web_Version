@@ -1,11 +1,13 @@
 /**
  * Bản real của module account — CHỈ phần Manager (OW-05), qua `/employees` của BE (role OWNER, employees.controller.ts).
- * Phần Cashier/Barista KHÔNG có endpoint ở BE (api-contract-plan #24) nên chuyển rõ ràng sang mock; tạo Manager cũng chờ BE
- * (#23: `POST /auth/managers` bắt buộc mật khẩu, web không còn mật khẩu).
+ * Owner XEM Cashier/Barista cũng bằng `/employees` (OW-05). Phần Manager quản Cashier/Barista KHÔNG có endpoint ở BE
+ * (api-contract-plan #24) nên chuyển rõ ràng sang mock; tạo Manager cũng chờ BE (#23: `POST /auth/managers` bắt buộc mật khẩu,
+ * web không còn mật khẩu).
  */
 import { ApiError, request } from "../../http/client";
 import { accountMock } from "./mock";
-import { mapManagerPage, type RawEmployeePage } from "./mapper";
+import type { StaffAccount } from "../../../types";
+import { mapManagerPage, mapStaff, type RawEmployeePage } from "./mapper";
 import type { AccountApi } from "./index";
 
 /** Khoá tài khoản = `SUSPENDED` (BE: mọi trạng thái khác ACTIVE đều khoá và thu hồi phiên; INACTIVE dành cho chưa kích hoạt). */
@@ -40,8 +42,20 @@ export const accountReal: AccountApi = {
     throw new ApiError(501, "Chờ BE gửi email thay vì đặt mật khẩu (api-contract-plan #23).");
   },
 
-  // --- Cashier/Barista: MOCK (chờ BE #24 — Manager chưa có endpoint tạo/liệt kê/khoá nhân viên; 5.4 làm tiếp) ---------
-  listStaffAccounts: accountMock.listStaffAccounts,
+  // --- Cashier/Barista: Owner XEM thật (OW-05: Owner chỉ xem; `GET /employees?role=…` mở cho OWNER) --------------------
+  async listStaffAccounts() {
+    const all: StaffAccount[] = [];
+    for (const role of ["CASHIER", "BARISTA"]) {
+      for (let page = 1; ; page += 1) {
+        const raw = await request<RawEmployeePage>(`/employees?${new URLSearchParams({ role, page: String(page), limit: "100" })}`);
+        all.push(...raw.items.flatMap((e) => mapStaff(e) ?? []));
+        if (page >= raw.pagination.totalPages) break;
+      }
+    }
+    return all;
+  },
+
+  // --- Manager quản Cashier/Barista: MOCK (chờ BE #24 — Manager chưa có endpoint tạo/liệt kê/khoá nhân viên; 5.4 làm tiếp) ---
   listStaff: accountMock.listStaff,
   createStaff: accountMock.createStaff,
   setStaffActive: accountMock.setStaffActive,

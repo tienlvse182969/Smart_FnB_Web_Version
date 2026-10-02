@@ -1,7 +1,7 @@
 import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
 import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { AccountStatus, DemoAccount, ManagerAccount, ManagerPage } from "../../types";
+import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, modeOf, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt đ�
 /**
  * OW-05: Owner quản Branch Manager — danh sách phân trang/tìm kiếm/lọc, khoá/mở khoá, gửi lại email đặt mật khẩu,
  * chuyển chi nhánh (BE `/employees`, real). Mọi thao tác ghi đều qua hộp xác nhận. Tạo Manager chờ BE (#23) ở chế độ real.
- * Cashier/Barista: Owner chỉ xem; dữ liệu mock tới khi BE có endpoint (#24).
+ * Cashier/Barista: Owner chỉ XEM (OW-05), đọc thật `GET /employees?role=CASHIER|BARISTA`.
  */
 export default function ManagerAccounts() {
   const { message, modal } = App.useApp();
@@ -32,7 +32,7 @@ export default function ManagerAccounts() {
   const [status, setStatus] = useState<AccountStatus | undefined>();
   const [data, setData] = useState<ManagerPage>({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } });
   const [loading, setLoading] = useState(false);
-  const [staff, setStaff] = useState<DemoAccount[]>([]);
+  const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
 
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? id ?? "—";
@@ -279,12 +279,7 @@ export default function ManagerAccounts() {
             label: `Thu ngân & Pha chế (${staff.length}) · chỉ xem`,
             children: (
               <>
-                {realManagers && (
-                  <div data-testid="staff-mock-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-                    Dữ liệu mẫu — BE chưa có danh sách Cashier/Barista cho màn này (api-contract-plan #24).
-                  </div>
-                )}
-                <Table<DemoAccount>
+                <Table<StaffAccount>
                   dataSource={staff}
                   rowKey="id"
                   pagination={false}
@@ -300,12 +295,12 @@ export default function ManagerAccounts() {
                         </div>
                       ),
                     },
-                    { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "cashier" ? "Cashier" : "Barista"}</Tag> },
-                    { title: "Chi nhánh", dataIndex: "branchId", render: (id: string) => branchName(id) },
+                    { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r}</Tag> },
+                    { title: "Chi nhánh", dataIndex: "branchName" },
                     {
                       title: "Trạng thái",
-                      dataIndex: "active",
-                      render: (active: boolean) => (active ? <Tag color="green">Đang hoạt động</Tag> : <Tag>Đã khoá</Tag>),
+                      dataIndex: "status",
+                      render: (s: AccountStatus) => (s === "ACTIVE" ? <Tag color="green">{STATUS_LABEL[s]}</Tag> : <Tag>{STATUS_LABEL[s]}</Tag>),
                     },
                   ]}
                 />

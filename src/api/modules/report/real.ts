@@ -12,7 +12,8 @@
  * - Bỏ trống khoảng ngày thì backend lấy 30 ngày gần nhất. Tối đa 366 ngày.
  * - Mọi số tiền là **chuỗi thập phân** (`"7420000.00"`), không phải số. Dùng
  *   `parseAmount` để đổi sang số trước khi tính toán hoặc vẽ biểu đồ.
- * - Doanh thu chỉ đếm đơn `COMPLETED`, xếp theo `placedAt`.
+ * - Doanh thu đếm đơn đã thanh toán (`paymentStatus = PAID`), xếp theo `paidAt` (BE `dfe8100`, reports.service.ts); đơn quầy đã
+ *   được tính. Chưa trừ đơn huỷ sau thanh toán vì BE chưa có huỷ đơn đã trả (BR-50).
  *
  * Các hàm ở đây cố ý không phụ thuộc UI và nhận tham số tường minh, để sau này
  * dùng lại làm "tool" cho trợ lý AI hỏi đáp số liệu.
