@@ -73,14 +73,36 @@ export default function OptionGroups() {
 
   const toggleOption = async (g: OptionGroup, optionId: string, isActive: boolean) => {
     if (!chainId) return;
-    const wasDefault = g.options.find((o) => o.id === optionId)?.isDefault;
-    try {
-      await optionsApi.setOptionActive(chainId, g.id, optionId, isActive);
-      await load();
-      message.success(isActive ? "Đã bật tuỳ chọn" : wasDefault ? "Đã tắt tuỳ chọn — không còn là mặc định" : "Đã tắt tuỳ chọn");
-    } catch (err) {
-      showApiError(message.error, err, "Không cập nhật được tuỳ chọn");
+    const option = g.options.find((o) => o.id === optionId);
+    const apply = async () => {
+      try {
+        if (!isActive && option?.isDefault) {
+          // Owner đã đồng ý bỏ mặc định: gửi cả nhóm với tuỳ chọn này tắt và hết mặc định.
+          const { id: _id, options, ...rest } = g;
+          await optionsApi.updateGroup(chainId, g.id, {
+            ...rest,
+            options: options.map((o) => (o.id === optionId ? { ...o, isActive: false, isDefault: false } : o)),
+          });
+        } else {
+          await optionsApi.setOptionActive(chainId, g.id, optionId, isActive);
+        }
+        await load();
+        message.success(isActive ? "Đã bật tuỳ chọn" : "Đã tắt tuỳ chọn");
+      } catch (err) {
+        showApiError(message.error, err, "Không cập nhật được tuỳ chọn");
+      }
+    };
+    if (!isActive && option?.isDefault) {
+      modal.confirm({
+        title: "Tắt tuỳ chọn mặc định?",
+        content: <div data-testid="confirm-default-off">Tuỳ chọn này đang là mặc định. Tắt sẽ bỏ mặc định của nhóm {g.name}.</div>,
+        okText: "Tắt và bỏ mặc định",
+        cancelText: "Huỷ",
+        onOk: apply,
+      });
+      return;
     }
+    await apply();
   };
 
   const confirmDelete = (g: OptionGroup) => {
@@ -259,7 +281,7 @@ const newKey = () => `k${++keySeq}`;
 const blankOption = (): FormOption => ({ key: newKey(), name: "", code: "", priceDelta: 0, isActive: true, isDefault: false });
 
 function GroupModal({ target, onClose, onSaved }: { target: OptionGroup | "new" | null; onClose: () => void; onSaved: (text: string) => Promise<void> }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const chainId = useAppStore((s) => s.chainId);
   const existing = target && target !== "new" ? target : null;
   const [name, setName] = useState("");
@@ -297,6 +319,17 @@ function GroupModal({ target, onClose, onSaved }: { target: OptionGroup | "new" 
   const errors = useMemo(() => (target ? validateGroupInput(input) : []), [input, target]);
 
   const patch = (key: string, p: Partial<OptionInput>) => setOptions((cur) => cur.map((o) => (o.key === key ? { ...o, ...p } : o)));
+  /** Tắt tuỳ chọn đang mặc định: hỏi trước, đồng ý mới bỏ cờ mặc định (đặc tả không quy định → không âm thầm bỏ). */
+  const setActive = (o: FormOption, active: boolean) => {
+    if (active || !o.isDefault) return patch(o.key, { isActive: active });
+    modal.confirm({
+      title: "Tắt tuỳ chọn mặc định?",
+      content: <div data-testid="confirm-default-off">Tuỳ chọn này đang là mặc định. Tắt sẽ bỏ mặc định của nhóm {name.trim() || "này"}.</div>,
+      okText: "Tắt và bỏ mặc định",
+      cancelText: "Huỷ",
+      onOk: () => patch(o.key, { isActive: false, isDefault: false }),
+    });
+  };
   const moveOption = (i: number, d: -1 | 1) =>
     setOptions((cur) => {
       const next = [...cur];
@@ -392,7 +425,7 @@ function GroupModal({ target, onClose, onSaved }: { target: OptionGroup | "new" 
             <Checkbox data-testid="opt-default" checked={o.isDefault} onChange={(e) => patch(o.key, { isDefault: e.target.checked })}>
               Mặc định
             </Checkbox>
-            <Switch size="small" data-testid="opt-active" checked={o.isActive} onChange={(c) => patch(o.key, { isActive: c, ...(c ? {} : { isDefault: false }) })} aria-label="Đang bán" />
+            <Switch size="small" data-testid="opt-active" checked={o.isActive} onChange={(c) => setActive(o, c)} aria-label="Đang bán" />
             <ActionButton size="small" danger aria-label="Bỏ tuỳ chọn" icon={<X size={13} />} onClick={() => setOptions((cur) => cur.filter((x) => x.key !== o.key))} />
           </div>
         ))}

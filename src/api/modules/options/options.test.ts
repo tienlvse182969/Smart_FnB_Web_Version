@@ -132,11 +132,23 @@ describe("mock options — cùng quy tắc khi gọi vòng qua form", () => {
     await expect(optionsMock.updateGroup(chainId, g.id, { ...toppingInput, code: "SIZE" })).rejects.toMatchObject({ status: 409 });
   });
 
-  it("tắt tuỳ chọn cấp chuỗi; tắt tuỳ chọn mặc định thì bỏ cờ mặc định", async () => {
+  it("tắt tuỳ chọn cấp chuỗi; tuỳ chọn đang mặc định thì mock từ chối, phải bỏ mặc định tường minh", async () => {
     const g = await optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE4" });
     const m = g.options.find((o) => o.isDefault)!;
-    const after = await optionsMock.setOptionActive(chainId, g.id, m.id, false);
-    expect(after.options.find((o) => o.id === m.id)).toMatchObject({ isActive: false, isDefault: false });
+    const l = g.options.find((o) => !o.isDefault)!;
+    // Tuỳ chọn không mặc định: tắt được.
+    expect((await optionsMock.setOptionActive(chainId, g.id, l.id, false)).options.find((o) => o.id === l.id)!.isActive).toBe(false);
+    await optionsMock.setOptionActive(chainId, g.id, l.id, true);
+    // Mặc định: bị từ chối, trạng thái không đổi (không âm thầm bỏ cờ).
+    await expect(optionsMock.setOptionActive(chainId, g.id, m.id, false)).rejects.toMatchObject({ status: 400, message: expect.stringContaining("bỏ mặc định") });
+    expect((await optionsMock.listGroups(chainId)).find((x) => x.id === g.id)!.options.find((o) => o.id === m.id)).toMatchObject({ isActive: true, isDefault: true });
+    // Lưu cả nhóm với tuỳ chọn mặc định đang tắt cũng bị từ chối (đi vòng qua form).
+    const bad = { ...sizeInput, code: "SIZE4", options: g.options.map((o) => (o.id === m.id ? { ...o, isActive: false } : o)) };
+    await expect(optionsMock.updateGroup(chainId, g.id, bad)).rejects.toMatchObject({ status: 400 });
+    // Owner đồng ý bỏ mặc định: tắt và bỏ cờ trong cùng một lần lưu thì được.
+    const ok = { ...bad, options: bad.options.map((o) => (o.id === m.id ? { ...o, isDefault: false } : o)) };
+    const saved = await optionsMock.updateGroup(chainId, g.id, ok);
+    expect(saved.options.find((o) => o.id === m.id)).toMatchObject({ isActive: false, isDefault: false });
   });
 
   it("gắn nhóm cho món theo ID thật, cờ không gom món; xoá nhóm gỡ khỏi món", async () => {

@@ -20,7 +20,7 @@ export interface OptionsApi {
   deleteGroup(chainId: string, id: string): Promise<void>;
   /** Đặt lại `displayOrder` của nhóm theo thứ tự id truyền vào. */
   reorderGroups(chainId: string, orderedIds: string[]): Promise<void>;
-  /** Cờ kinh doanh cấp chuỗi của một tuỳ chọn (OW-04). Tắt tuỳ chọn đang mặc định thì bỏ cờ mặc định. */
+  /** Cờ kinh doanh cấp chuỗi của một tuỳ chọn (OW-04). Tuỳ chọn đang mặc định thì không tắt được ở đây (400): Owner phải bỏ mặc định tường minh qua `updateGroup`. */
   setOptionActive(chainId: string, groupId: string, optionId: string, isActive: boolean): Promise<OptionGroup>;
   /** Cấu hình tuỳ chọn của mọi món có cấu hình (món không có = chưa gắn nhóm, gom món bình thường). */
   listItemConfigs(chainId: string): Promise<ItemOptionConfig[]>;

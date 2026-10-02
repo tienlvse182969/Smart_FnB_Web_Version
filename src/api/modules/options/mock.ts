@@ -101,8 +101,11 @@ export const optionsMock: OptionsApi = {
     const g = groupOf(getChainState(chainId), groupId);
     const o = g.options.find((x) => x.id === optionId);
     if (!o) throw new ApiError(404, "Tuỳ chọn không tồn tại");
+    // Đặc tả không nói tắt tuỳ chọn mặc định thì sao → không âm thầm bỏ cờ: từ chối, buộc bỏ mặc định tường minh qua `updateGroup`.
+    if (!isActive && o.isDefault) {
+      throw new ApiError(400, `Tuỳ chọn mặc định "${o.name}" phải đang bật kinh doanh — bỏ mặc định của nhóm "${g.name}" trước khi tắt`);
+    }
     o.isActive = isActive;
-    if (!isActive) o.isDefault = false; // mặc định phải đang bật (đặc tả 12.2)
     return sorted([g])[0];
   },
 
