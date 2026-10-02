@@ -67,14 +67,18 @@ const clickBtn = (scope, text) =>
   q(`(() => { const root = ${scope}; const b = root && [...root.querySelectorAll("button")].find((x) => x.textContent.includes(${J(text)})); if (!b) return false; b.click(); return true })()`);
 
 /** Đọc dữ liệu BE bằng GET (đăng nhập bằng .env của BE, không in mật khẩu/token). */
-async function readEmployees() {
-  const base = "http://localhost:3100/api/v1";
-  const [email, password] = accounts("real").owner;
-  const login = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+const BE_BASE = "http://localhost:3100/api/v1";
+async function beGet(path, who = "owner") {
+  const [email, password] = accounts("real")[who];
+  const login = await fetch(BE_BASE + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
   const token = (await login.json()).accessToken;
-  const get = async (p) => (await fetch(base + p, { headers: { Authorization: `Bearer ${token}` } })).json();
-  return { managers: await get("/employees?role=MANAGER&limit=100"), branches: await get("/branches") };
+  return (await fetch(BE_BASE + path, { headers: { Authorization: `Bearer ${token}` } })).json();
 }
+async function readEmployees(role) {
+  if (role) return beGet(`/employees?role=${role}&limit=100`);
+  return { managers: await beGet("/employees?role=MANAGER&limit=100"), branches: await beGet("/branches") };
+}
+const readReport = (path) => beGet(path);
 
 const LONG_TOKEN = "x".repeat(48);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -224,6 +228,12 @@ try {
     list = await waitRows((r) => r.length > 0 && r.every((x) => x.includes("Đã khoá")));
     check("Lọc 'Đã khoá': chỉ còn tài khoản đã khoá", list.length >= 1 && list.every((r) => r.includes("Đã khoá")), `${list.length} dòng`);
 
+    // tab Thu ngân & Pha chế: chỉ xem
+    await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((t) => t.textContent.includes("Thu ngân"))?.click()`);
+    await sleep(900);
+    const staffList = await waitRows((r) => r.length >= 4);
+    check("Thu ngân & Pha chế (mock): có Cashier và Barista, chỉ xem (không có nút thao tác)", staffList.length >= 4 && staffList.some((r) => r.includes("Cashier")) && staffList.some((r) => r.includes("Barista")) && (await q(`[...document.querySelectorAll(".ant-table-tbody button")].filter((b) => b.offsetParent !== null).length`)) === 0, `${staffList.length} dòng`);
+
     // /setup-password khi đang có phiên Owner: nhận diện nền tảng, không đăng xuất
     await spaGo(`/setup-password?token=${LONG_TOKEN}`);
     const brandOnSetup = await brandVar();
@@ -357,6 +367,44 @@ try {
     check("Real · Cuối cùng GET lại /employees: dữ liệu Manager không đổi", J(after.managers) === J(be.managers));
     check("Real · Chỉ các request ghi định trước bị chặn (khoá, đặt lại, chuyển) — không có request ghi nào khác", tab.blockedWrites.every((w) => /\/employees\/[^/]+\/(status|reset-password|branch)$/.test(w.path)), tab.blockedWrites.map((w) => `${w.method} ${w.path}`).join(" | "));
 
+    // ---- 5.3b: tab Thu ngân & Pha chế đọc thật, chỉ xem
+    await tab.clickMenu("Tài khoản quản lý");
+    await sleep(1200);
+    await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((t) => t.textContent.includes("Thu ngân"))?.click()`);
+    await sleep(1200);
+    const beStaff = [...(await readEmployees("CASHIER")).items, ...(await readEmployees("BARISTA")).items];
+    // Chỉ đếm bảng của tab đang mở (tab Manager vẫn nằm trong DOM, bị ẩn).
+    const activeRows = () => q(`[...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].filter((r) => r.offsetParent !== null).map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    let staffRows = await activeRows();
+    for (let i = 0; i < 20 && staffRows.length !== beStaff.length; i++) {
+      await sleep(250);
+      staffRows = await activeRows();
+    }
+    check("Real · Thu ngân & Pha chế: số dòng khớp GET /employees?role=CASHIER|BARISTA", staffRows.length === beStaff.length && beStaff.length > 0, `${staffRows.length} dòng (BE ${beStaff.length})`);
+    check(
+      "Real · Thu ngân & Pha chế: tên, email, vai trò khớp BE",
+      beStaff.every((e) => staffRows.some((r) => r.includes(nameOf(e)) && r.includes(e.user.email) && r.includes(e.user.role.code === "CASHIER" ? "Cashier" : "Barista"))),
+      beStaff.map((e) => `${nameOf(e)}/${e.user.role.code}`).join(", "),
+    );
+    const staffText = await pageText();
+    check("Real · Thu ngân & Pha chế: không còn ghi chú 'Dữ liệu mẫu', chỉ xem (không có nút thao tác trong bảng)", !/Dữ liệu mẫu/.test(staffText) && !(await has("staff-mock-note")) && staffRows.length > 0 && (await q(`[...document.querySelectorAll(".ant-table-tbody button")].filter((b) => b.offsetParent !== null).length`)) === 0);
+
+    // ---- 5.3b: báo cáo — banner "BE chưa đếm đơn quầy" đã bỏ; số liệu khớp BE
+    await tab.clickMenu("Tổng quan");
+    await sleep(2500);
+    const repText = await pageText();
+    check("Real · Báo cáo: không còn banner 'chờ backend cập nhật cho đơn tại quầy'", !/chờ backend cập nhật cho đơn tại quầy/.test(repText));
+    const day = (offset) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+    const beRep = await readReport(`/reports/revenue/comparison?from=${day(6)}&to=${day(0)}`);
+    const beRevenue = Math.round(Number(beRep?.totals?.revenue ?? 0));
+    const beOrders = Number(beRep?.totals?.orderCount ?? 0);
+    const pageRevenue = Number(((repText.match(/Doanh thu\s*([\d.]+)/) ?? [])[1] ?? "0").replace(/\./g, ""));
+    if (beOrders > 0) {
+      check("Real · Báo cáo: có đơn đã trả trong 7 ngày → doanh thu khác 0 và khớp BE", pageRevenue > 0 && pageRevenue === beRevenue, `trang ${pageRevenue} · BE ${beRevenue} (${beOrders} đơn)`);
+    } else {
+      console.log("SKIP  Báo cáo: không kiểm được số liệu khác 0 vì BE không có đơn đã trả trong 7 ngày gần nhất");
+    }
+
     // ---- /setup-password khi đang có phiên Owner (SPA, không tải lại trang)
     await spaGo(`/setup-password?token=${LONG_TOKEN}`);
     const brandOnSetup = await brandVar();
@@ -366,6 +414,80 @@ try {
     await spaGo("/owner/accounts");
     await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 8000, "shell owner còn");
     check("Real · Đang có phiên Owner: vào lại được khu Owner (không bị đăng xuất)", (await path()).startsWith("/owner"), await path());
+    // ---- 5.3b: Admin — gói (PA-04): tạo và sửa bấm tới hết hộp xác nhận, request ghi bị chặn ở CDP, so với DTO của BE
+    await q(`(localStorage.clear(), sessionStorage.clear(), true)`);
+    await tab.goto("/login");
+    await tab.login("admin");
+    await tab.waitFor(`location.pathname.startsWith("/admin")`, 20000, "vào admin");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell admin");
+    await sleep(1000);
+    await tab.clickMenu("Gói dịch vụ");
+    await sleep(1500);
+    const bePlans = await beGet("/admin/service-plans", "admin");
+    const planRows = await waitRows((r) => r.length === bePlans.length);
+    check("Real · Gói: số dòng và mã khớp GET /admin/service-plans", planRows.length === bePlans.length && bePlans.every((p) => planRows.some((r) => r.includes(p.code))), bePlans.map((p) => p.code).join(", "));
+    const planHeaders = await q(`[...document.querySelectorAll(".ant-table-thead th")].map((e) => e.textContent.trim())`);
+    check("Real · Gói: bảng có cột Nhận diện / So sánh chi nhánh (đọc từ BE)", planHeaders.includes("Nhận diện") && planHeaders.includes("So sánh chi nhánh"), planHeaders.join(","));
+
+    const beforePlans = J(bePlans);
+    const setDrawerInput = (selector, idx, value) =>
+      q(`(() => { const el = document.querySelectorAll(${J(".ant-drawer-body " + selector)})[${idx}];
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(String(value))}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    const clickIn = (scope, text) => q(`(() => { const b = [...document.querySelectorAll(${J(scope)})].find((x) => x.textContent.includes(${J(text)}) && !x.disabled); if (!b) return false; b.click(); return true })()`);
+
+    tab.blockedWrites.length = 0;
+    await clickIn(".ant-card button", "Thêm gói");
+    await sleep(900);
+    await setDrawerInput('input:not([role="switch"])', 0, "Gói Kiểm Thử");
+    await sleep(300);
+    await setDrawerInput(".ant-input-number-input", 0, 123000);
+    await setDrawerInput(".ant-input-number-input", 1, 2);
+    await setDrawerInput(".ant-input-number-input", 2, 10);
+    await q(`document.querySelector('[data-testid="plan-branding"]').click()`);
+    await sleep(400);
+    check("Real · Gói: form không có ô số bàn (maxTables ẩn)", !/bàn/i.test(await q(`document.querySelector(".ant-drawer-body").innerText`)));
+    await clickIn(".ant-drawer-body button", "Lưu gói");
+    await sleep(800);
+    const planConfirm = await q(`document.querySelector('[data-testid="confirm-plan"]')?.innerText ?? ""`);
+    check("Real · Gói: hộp xác nhận tạo gói nêu hai cờ", /GOI_KIEM_THU/.test(planConfirm) && /Nhận diện thương hiệu: bật/.test(planConfirm), planConfirm.replace(/\s+/g, " "));
+    await clickIn(".ant-modal-confirm button", "Tạo gói");
+    await sleep(1800);
+    const createWrite = tab.blockedWrites.find((w) => w.method === "POST" && /\/admin\/service-plans$/.test(w.path));
+    const createBody = createWrite ? JSON.parse(createWrite.body ?? "null") : null;
+    const expectCreate = { name: "Gói Kiểm Thử", code: "GOI_KIEM_THU", monthlyPrice: 123000, maxBranches: 2, maxAccounts: 10, brandingEnabled: true, multiBranchComparisonEnabled: false, isActive: true, maxTables: 1 };
+    check(
+      "Real · Gói: request định gửi = POST /admin/service-plans khớp CreateServicePlanDto (platform-admin.dto.ts:114-172: hai cờ bắt buộc, maxTables @Min(1) → 1)",
+      !!createBody && J(Object.fromEntries(Object.entries(createBody).sort())) === J(Object.fromEntries(Object.entries(expectCreate).sort())),
+      createWrite ? createWrite.body : "không có request",
+    );
+    check("Real · Gói: tạo gói bị chặn → màn hình báo lỗi gọn, bảng vẫn còn", (await toasts()).length > 0 && (await rows()).length === bePlans.length, await toasts());
+    await sleep(3500);
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+    await sleep(600);
+
+    const target = bePlans[0];
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes(${J(target.code)})); r.click(); })()`);
+    await sleep(900);
+    check("Real · Gói: form sửa nạp đúng hai cờ từ BE", (await q(`document.querySelector('[data-testid="plan-branding"]').getAttribute("aria-checked")`)) === String(!!target.brandingEnabled) && (await q(`document.querySelector('[data-testid="plan-comparison"]').getAttribute("aria-checked")`)) === String(!!target.multiBranchComparisonEnabled));
+    await setDrawerInput(".ant-input-number-input", 0, Math.round(Number(target.monthlyPrice)) + 1000);
+    await q(`document.querySelector('[data-testid="plan-comparison"]').click()`);
+    await sleep(400);
+    await clickIn(".ant-drawer-body button", "Lưu gói");
+    await sleep(800);
+    await clickIn(".ant-modal-confirm button", "Lưu gói");
+    await sleep(1800);
+    const patchWrite = tab.blockedWrites.find((w) => w.method === "PATCH" && /\/admin\/service-plans\/[^/]+$/.test(w.path));
+    const patchBody = patchWrite ? JSON.parse(patchWrite.body ?? "null") : null;
+    check(
+      "Real · Gói: request định gửi = PATCH /admin/service-plans/{id} khớp UpdateServicePlanDto (partial; có hai cờ, KHÔNG gửi maxTables)",
+      !!patchWrite && patchWrite.path.includes(target.id) && !!patchBody && !("maxTables" in patchBody) && patchBody.brandingEnabled === !!target.brandingEnabled && patchBody.multiBranchComparisonEnabled === !target.multiBranchComparisonEnabled && patchBody.monthlyPrice === Math.round(Number(target.monthlyPrice)) + 1000,
+      patchWrite ? patchWrite.body : "không có request",
+    );
+    check("Real · Gói: sửa gói bị chặn → màn hình báo lỗi gọn", (await toasts()).length > 0);
+    const afterPlans = await beGet("/admin/service-plans", "admin");
+    check("Real · Gói: GET lại /admin/service-plans — dữ liệu không đổi", J(afterPlans) === beforePlans);
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
     console.log(`[real] request ghi bị chặn ở CDP: ${tab.blockedWrites.length}`);
     for (const w of tab.blockedWrites) console.log(`   ${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")} ${w.body ?? ""}`);

@@ -214,6 +214,15 @@ export async function newTab(url = "about:blank", authMode) {
   await tab.send("Page.enable");
   await tab.send("Runtime.enable");
   await tab.send("Network.enable");
+  // BLOCK_WRITES=1: chặn mọi request ghi ở tầng CDP (chỉ cho POST /auth/login) cho CẢ script, rồi in số request bị chặn khi thoát.
+  if (process.env.BLOCK_WRITES === "1") {
+    await tab.blockWrites([/\/auth\/login$/]);
+    process.on("exit", () => {
+      const list = tab.blockedWrites ?? [];
+      console.log(`[BLOCK_WRITES] ${list.length} request ghi bị chặn ở CDP`);
+      for (const w of list) console.log(`   ${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")} ${w.body ?? ""}`.slice(0, 220));
+    });
+  }
   return tab;
 }
 

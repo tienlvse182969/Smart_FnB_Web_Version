@@ -334,7 +334,15 @@ try {
     await setInput(`document.querySelectorAll(".ant-drawer-body .ant-input-number")[2]`, "input", 20);
     await sleep(400);
     check("Gói: form có giá, chi nhánh, tài khoản và không có ô số bàn", nums === 3 && !/bàn/i.test(await q(`document.querySelector(".ant-drawer-body").innerText`)));
+    // hai cờ gói (BE lưu) hiện trong form và sửa được; mọi thao tác ghi qua hộp xác nhận
+    check("Gói: form có công tắc Nhận diện và So sánh đa chi nhánh (đọc/ghi thật), cờ AI chỉ suy từ mã", (await q(`!!document.querySelector('[data-testid="plan-branding"]')`)) && (await q(`!!document.querySelector('[data-testid="plan-comparison"]')`)) && /chờ BE lưu cờ AI/.test(await q(`document.querySelector(".ant-drawer-body").innerText`)));
+    await q(`document.querySelector('[data-testid="plan-branding"]').click()`);
+    await sleep(200);
     await click(".ant-drawer-body button", "Lưu gói");
+    await sleep(700);
+    const planConfirm = await q(`document.querySelector('[data-testid="confirm-plan"]')?.innerText ?? ""`);
+    check("Gói: hộp xác nhận nêu mã, giá, hạn mức và hai cờ", /THU_NGHIEM/.test(planConfirm) && /Nhận diện thương hiệu: bật/.test(planConfirm) && /So sánh đa chi nhánh: tắt/.test(planConfirm), planConfirm.replace(/\s+/g, " "));
+    await click(".ant-modal-confirm button", "Tạo gói");
     await sleep(1500);
     check("Gói: thêm gói mới thành công, hiện trong bảng", (await toasts()).includes("Đã tạo gói mới") && (await rows()).some((r) => r.includes("THU_NGHIEM") && r.includes("Chưa xếp cấp")), await toasts());
 
@@ -345,6 +353,8 @@ try {
     await click(".ant-drawer-body .ant-switch");
     await sleep(300);
     await click(".ant-drawer-body button", "Lưu gói");
+    await sleep(700);
+    await click(".ant-modal-confirm button", "Lưu gói");
     await sleep(1500);
     const edited = (await rows()).find((r) => r.includes("THU_NGHIEM")) ?? "";
     check("Gói: sửa giá và tắt 'Đang bán' → bảng hiện giá mới và 'Ngừng bán'", (await toasts()).includes("Đã cập nhật gói") && /500\.000/.test(edited) && /Ngừng bán/.test(edited), edited.slice(0, 100));
