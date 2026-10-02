@@ -22,8 +22,6 @@ export interface OptionsApi {
   reorderGroups(chainId: string, orderedIds: string[]): Promise<void>;
   /** Cờ kinh doanh cấp chuỗi của một tuỳ chọn (OW-04). Tắt tuỳ chọn đang mặc định thì bỏ cờ mặc định. */
   setOptionActive(chainId: string, groupId: string, optionId: string, isActive: boolean): Promise<OptionGroup>;
-  /** Các món đang dùng nhóm (để báo khi xoá). */
-  listGroupUsage(chainId: string, groupId: string): Promise<{ menuItemId: string; name: string }[]>;
   /** Cấu hình tuỳ chọn của mọi món có cấu hình (món không có = chưa gắn nhóm, gom món bình thường). */
   listItemConfigs(chainId: string): Promise<ItemOptionConfig[]>;
   /** Gắn nhóm cho món (thứ tự mảng = `MenuItemOptionGroup.displayOrder`) + cờ không gom món. CHỜ BE: lưu tạm trong mock. */

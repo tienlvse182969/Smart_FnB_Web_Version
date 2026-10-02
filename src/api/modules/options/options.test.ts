@@ -139,16 +139,14 @@ describe("mock options — cùng quy tắc khi gọi vòng qua form", () => {
     expect(after.options.find((o) => o.id === m.id)).toMatchObject({ isActive: false, isDefault: false });
   });
 
-  it("gắn nhóm cho món theo ID thật, cờ không gom món; xoá nhóm gỡ khỏi món và báo món đang dùng", async () => {
+  it("gắn nhóm cho món theo ID thật, cờ không gom món; xoá nhóm gỡ khỏi món", async () => {
     const cat = (await menuMock.listCategories(chainId))[0];
     const item = await menuMock.createItem(chainId, { categoryId: cat.id, sku: "OPT-1", name: "Món có tuỳ chọn", price: 30000, branchIds: [] });
     const size = await optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE5" });
     const top = await optionsMock.createGroup(chainId, { ...toppingInput, code: "TOP5" });
     await optionsMock.setItemConfig(chainId, { menuItemId: item.id, groupIds: [top.id, size.id], noBatch: true });
     expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)).toEqual({ menuItemId: item.id, groupIds: [top.id, size.id], noBatch: true });
-    expect(await optionsMock.listGroupUsage(chainId, size.id)).toEqual([{ menuItemId: item.id, name: "Món có tuỳ chọn" }]);
     await expect(optionsMock.setItemConfig(chainId, { menuItemId: item.id, groupIds: [size.id, size.id], noBatch: false })).rejects.toMatchObject({ status: 400 });
-    await expect(optionsMock.setItemConfig(chainId, { menuItemId: "khong-co", groupIds: [], noBatch: false })).rejects.toMatchObject({ status: 404 });
 
     await optionsMock.deleteGroup(chainId, size.id);
     expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)!.groupIds).toEqual([top.id]);

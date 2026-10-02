@@ -33,6 +33,7 @@ import Reports from "../roles/owner/Reports";
 import Branches from "../roles/owner/Branches";
 import MenuTable from "../roles/owner/MenuTable";
 import CategoriesTable from "../roles/owner/CategoriesTable";
+import OptionGroups from "../roles/owner/OptionGroups";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
 import AiAssistant from "../roles/owner/AiAssistant";
@@ -84,7 +85,7 @@ export const ownerRoutes: RouteDef[] = [
     label: "Tuỳ chọn món",
     icon: <Sliders size={18} />,
     code: "OW-03",
-    element: placeholder("OW-03", "Quản lý tuỳ chọn món"),
+    element: <OptionGroups />,
   },
   { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
   {

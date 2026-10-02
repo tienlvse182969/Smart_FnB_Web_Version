@@ -106,18 +106,6 @@ export const optionsMock: OptionsApi = {
     return sorted([g])[0];
   },
 
-  async listGroupUsage(chainId, groupId) {
-    await mockDelay();
-    const s = getChainState(chainId);
-    groupOf(s, groupId);
-    return [...s.itemOptions.values()]
-      .filter((c) => c.groupIds.includes(groupId))
-      .flatMap((c) => {
-        const item = s.menuItems.find((m) => m.id === c.menuItemId);
-        return item ? [{ menuItemId: item.id, name: item.name }] : [];
-      });
-  },
-
   async listItemConfigs(chainId) {
     await mockDelay();
     return [...getChainState(chainId).itemOptions.values()].map((c) => ({ ...c, groupIds: [...c.groupIds] }));
@@ -127,7 +115,7 @@ export const optionsMock: OptionsApi = {
     await mockDelay();
     assertMockWritable();
     const s = getChainState(chainId);
-    if (!s.menuItems.some((m) => m.id === config.menuItemId)) throw new ApiError(404, "Món không tồn tại");
+    // Không kiểm tra món tồn tại: món là ID THẬT của BE (menu=real), mock không có bảng món đó.
     for (const gid of config.groupIds) groupOf(s, gid);
     if (new Set(config.groupIds).size !== config.groupIds.length) throw new ApiError(400, "Một nhóm không được gắn hai lần cho một món");
     const saved = { menuItemId: config.menuItemId, groupIds: [...config.groupIds], noBatch: config.noBatch };

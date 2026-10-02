@@ -1,9 +1,10 @@
 import { App, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table } from "antd";
-import { ImageOff, Pencil, Plus, Store, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
-import type { MenuCategory, MenuItem, MenuItemInput, MenuItemPatch } from "../../types";
-import { menuApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import type { MenuCategory, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
+import { menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
@@ -308,6 +309,24 @@ function ItemDrawer({
   const [prep, setPrep] = useState<number | null>(null);
   const [branchIds, setBranchIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Tuỳ chọn món (OW-03): CHỜ BE — lưu tạm trong mock theo ID món thật.
+  const [allGroups, setAllGroups] = useState<OptionGroup[]>([]);
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [noBatch, setNoBatch] = useState(false);
+
+  useEffect(() => {
+    if (!item || !chainId) return;
+    const id = item !== "new" ? item.id : null;
+    Promise.all([optionsApi.listGroups(chainId), optionsApi.listItemConfigs(chainId)]).then(
+      ([groups, configs]) => {
+        const cfg = id ? configs.find((c) => c.menuItemId === id) : undefined;
+        setAllGroups(groups);
+        setGroupIds((cfg?.groupIds ?? []).filter((g) => groups.some((x) => x.id === g)));
+        setNoBatch(cfg?.noBatch ?? false);
+      },
+      (err) => showApiError(message.error, err, "Không tải được tuỳ chọn món"),
+    );
+  }, [item, chainId]);
 
   useEffect(() => {
     if (!item) return;
@@ -345,11 +364,13 @@ function ItemDrawer({
       };
       if (isNew) {
         const input: MenuItemInput = { ...common, sku, branchIds };
-        await menuApi.createItem(chainId, input);
+        const created = await menuApi.createItem(chainId, input);
+        await optionsApi.setItemConfig(chainId, { menuItemId: created.id, groupIds, noBatch });
         await onSaved("Đã thêm món vào menu chuỗi");
       } else if (existing) {
         const patch: MenuItemPatch = common;
         await menuApi.updateItem(chainId, existing.id, patch);
+        await optionsApi.setItemConfig(chainId, { menuItemId: existing.id, groupIds, noBatch });
         await onSaved("Đã cập nhật món");
       }
     } catch (err) {
@@ -421,10 +442,68 @@ function ItemDrawer({
           </div>
         </Field>
       )}
-      <ActionButton type="primary" block style={{ marginTop: 8 }} loading={saving} disabled={!valid} onClick={save}>
+      <Field label="Tuỳ chọn món — đang lưu tạm, chờ BE">
+        <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
+      </Field>
+      <Field label="Xem trước tại POS">
+        <OptionPreview itemName={name.trim()} itemPrice={price ?? 0} groups={groupIds.flatMap((id) => allGroups.find((g) => g.id === id) ?? [])} />
+      </Field>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} loading={saving} disabled={!valid} onClick={save} data-testid="item-save">
         {isNew ? "Thêm món" : "Lưu món"}
       </ActionButton>
     </Drawer>
+  );
+}
+
+function ItemOptions({
+  allGroups,
+  groupIds,
+  onGroups,
+  noBatch,
+  onNoBatch,
+}: {
+  allGroups: OptionGroup[];
+  groupIds: string[];
+  onGroups: (ids: string[]) => void;
+  noBatch: boolean;
+  onNoBatch: (v: boolean) => void;
+}) {
+  const chosen = groupIds.flatMap((id) => allGroups.find((g) => g.id === id) ?? []);
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...groupIds];
+    const t = i + d;
+    if (t < 0 || t >= next.length) return;
+    [next[i], next[t]] = [next[t], next[i]];
+    onGroups(next);
+  };
+  return (
+    <div data-testid="item-options">
+      <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+        {chosen.map((g, i) => (
+          <div key={g.id} data-testid={`item-group-${g.code}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <ActionButton size="small" aria-label="Lên" icon={<ArrowUp size={13} />} disabled={i === 0} onClick={() => move(i, -1)} />
+            <ActionButton size="small" aria-label="Xuống" icon={<ArrowDown size={13} />} disabled={i === chosen.length - 1} onClick={() => move(i, 1)} />
+            <span style={{ flex: 1 }}>{g.name}</span>
+            <ActionButton size="small" aria-label="Gỡ nhóm" icon={<X size={13} />} onClick={() => onGroups(groupIds.filter((id) => id !== g.id))} />
+          </div>
+        ))}
+      </div>
+      <Select
+        style={{ width: "100%" }}
+        placeholder={allGroups.length ? "Thêm nhóm tuỳ chọn…" : "Chưa có nhóm — tạo ở màn Tuỳ chọn món"}
+        value={null}
+        onChange={(id: string) => onGroups([...groupIds, id])}
+        options={allGroups.filter((g) => !groupIds.includes(g.id)).map((g) => ({ value: g.id, label: g.name }))}
+        data-testid="item-group-add"
+      />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+        <Switch size="small" checked={noBatch} onChange={onNoBatch} data-testid="item-nobatch" aria-label="Không gom món" />
+        <span style={{ fontSize: 13 }}>Không gom món khi pha</span>
+      </div>
+      <div data-testid="item-options-note" style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>
+        Tuỳ chọn đang lưu tạm trên trình duyệt, chờ BE (api-contract-plan #13, #17). Tải lại trang sẽ mất.
+      </div>
+    </div>
   );
 }
 
