@@ -2,7 +2,7 @@
 
 > Đọc hết file này trước khi làm gì. Đặc tả chuẩn: `docs/Smart-FnB-Dac-ta-v9.md`.
 > Kế hoạch: `docs/Smart-FnB-Ke-hoach-v9.md`. Khi file này, prompt và đặc tả mâu thuẫn: **đặc tả thắng**, và báo lại chỗ lệch.
-> Cập nhật: 2026-10-01, sau khi xong Giai đoạn 2 (nhánh `feat/v9-foundation`, chưa push).
+> Cập nhật: 2026-10-02, sau 4.4, đã push `feat/v9-menu`.
 
 ---
 
@@ -31,18 +31,22 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Stack BE | NestJS + Prisma + PostgreSQL, chạy Docker |
 | BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json` |
 | Tài khoản demo | Đọc từ `.env` của BE. **Không in mật khẩu ra báo cáo hay log** |
-| Nhánh hiện tại | `feat/v9-foundation` (tạo từ `refactor/v9-scope`, tạo từ `feat/real-tables-payments`) |
+| Nhánh hiện tại | `feat/v9-menu`. Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` (mỗi PR lấy nhánh trước làm base) |
+| Chạy web real | Cổng **5173** (CORS của BE chỉ cho `localhost` 5173, 8443, 8081): `npx vite --port 5173` |
 
 ## 4. Quy tắc làm việc (bắt buộc)
 
 1. **Khảo sát trước, sửa sau.** Bước nào có chữ "khảo sát" thì chỉ đọc và báo cáo, chờ duyệt.
-2. **BE chỉ đọc.** Không sửa code BE, không chạy migration, không chạy seed.
-3. **Git:** commit theo từng bước có message rõ ràng. `git add` theo đường dẫn cụ thể, **cấm `git add -A` / `git add .`**. **Không push, không merge.**
+2. **BE chỉ đọc.** Không sửa code BE, không chạy migration, không chạy seed, và **KHÔNG gọi API ghi lên BE thật** (kể cả `curl`, kể cả qua form trên web) trừ khi prompt cho phép rõ ràng. Cần dò lỗi thì báo, không tự tạo/sửa dữ liệu thật.
+3. **Git:** commit theo từng bước có message rõ ràng. `git add` theo đường dẫn cụ thể, **cấm `git add -A` / `git add .`**. Được push nhánh đang làm; **cấm force push, rebase, merge PR**.
 4. **Không đụng:** stash `pre-v9-wip`; 4 file LFS luôn hiện `M` (`HarmonyOS_Sans_Regular.ttf` và 3 file `.docx` trong `src/imports/`) — đây là lỗi LFS có từ trước, chủ repo sẽ xử lý.
 5. **Không thêm thư viện** nếu chưa nêu lý do và được duyệt (đã duyệt và đã thêm ở Giai đoạn 2: eslint, typescript-eslint, vitest, jsdom, @testing-library/react).
 6. **Báo cáo:** tiếng Việt, ngắn, có `file:dòng`. Không tự nhận "xong", "đẹp", "chạy ổn". Chỉ báo sự thật đã kiểm, chỗ không chắc ghi rõ là không chắc.
 7. **Không tự mở rộng phạm vi.** Thấy việc ngoài phạm vi thì ghi vào báo cáo, không tự làm.
 8. **Kiểm tra trên trình duyệt thật** (Chrome headless qua CDP; script nằm ở `scripts/browser/`, xem README ở đó), không chỉ `tsc` và build.
+9. **Mỗi commit tự build được.** Chuỗi kiểm tra nối bằng `&&`, không dùng `;`: `tsc --noEmit && pnpm lint && pnpm build && pnpm test`. Test trượt thì không commit. Không chạy test song song với build.
+10. **Chỉ báo "xong" khi đã kiểm trình duyệt:** chạy mock trước, rồi real chỉ đọc (cổng 5173) có chặn mọi request ghi.
+11. **Trình quản lý gói: pnpm** (`pnpm-lock.yaml`).
 
 ## 5. Quyết định đã chốt
 
@@ -60,7 +64,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Màn bị khoá theo gói | Hiện thẻ khoá kèm tên gói cần nâng, **không ẩn hẳn** |
 | CC-12 (thu phí gói qua hệ thống) | Chưa chốt. Không làm màn thanh toán gia hạn, nhưng thiết kế lớp API gói chừa chỗ |
 
-## 6. Trạng thái sau Giai đoạn 2
+## 6. Trạng thái hiện tại
 
 ### Commit
 
@@ -76,6 +80,14 @@ Giai đoạn 1 trên `refactor/v9-scope` (`8b3008f` … `d768671`, xem `git log`
 | `0deaedf` | 2-D: Vitest + test, sửa mã BR sai, bỏ cờ staff apps |
 
 Giai đoạn 3 trên `feat/v9-admin` (từ `feat/v9-foundation`, base PR là `feat/v9-foundation`): `4a68aa6` + `fc5e523` (3.2 hồ sơ + doanh nghiệp real, mapper bỏ ví), `340aa81` (api-contract-plan mục 7), `663ae92` (kiểm trình duyệt `scripts/browser/phase3.mjs`), `a9f33dc` (3.3 gói + quy ước cấp), `7090b87` (Landing v9), `741ca22` (form đăng ký).
+
+Giai đoạn 4 trên `feat/v9-menu` (từ `feat/v9-admin`, base PR là `feat/v9-admin`):
+
+| Bước | Commit | Nội dung |
+|---|---|---|
+| 4.2 | `11a1e5b`, `6d771e1`, `fa5071b`, `5ea2a35` | danh mục + món real, gỡ kho, màn Danh mục, hợp đồng API, kiểm trình duyệt |
+| 4.3 | `040e2aa`, `4aabd70`, `52ed773` (+ `9e93899` cố định đồng hồ test) | tuỳ chọn món (mock theo Prisma): luật, màn OW-03, xem trước POS, kiểm trình duyệt |
+| 4.4 | `61a4abd`, `fd83667`, `f56aab1`, `(commit docs này)` | test AI mùng 1; tắt tuỳ chọn mặc định phải xác nhận; mock tuỳ chọn lưu qua F5 + nút xoá trong MockPanel; lỗi BE thì không lưu tuỳ chọn; sửa BAN-GIAO |
 
 ### Cấu trúc thư mục mới
 
@@ -125,7 +137,7 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 - **Thương hiệu** (theo tenant, `BrandTokens`): `primary`, `primaryContrast` (tự chọn theo WCAG ≥ 4.5:1, BR-43), `accent` (đặc tả 10.2 CÓ màu nhấn, nên giữ), `displayName`, `logo`. CSS: `--brand-primary`, `--brand-primary-contrast`, `--brand-accent`.
 - **Ngữ nghĩa** (cố định, BR-42): `success`/`warning`/`error`/`info`/`neutral`/`purple` (bg, text, border) + `status.waiting/done/late` (đặc tả 10.5). CSS: `--sem-<tên>-<bg|text|border>`, `--status-*`.
 - **Trung tính** (cố định): `ink`, `surface`, `paper`, `paperSubtle`, `line`, `lineSubtle`, `textStrong`, `textMuted`, `textSubtle`, `codeBg`, `codeText`.
-- Màn hình dùng `palette.*` (chuỗi `var(--…)`), `onBrandAlpha(%)`, `useBrand()`. ESLint cấm hex/rgb/hsl/tên màu ngoài `src/theme/` (`npm run lint`; CSS không được lint — `index.css` không có mã màu).
+- Màn hình dùng `palette.*` (chuỗi `var(--…)`), `onBrandAlpha(%)`, `useBrand()`. ESLint cấm hex/rgb/hsl/tên màu ngoài `src/theme/` (`pnpm lint`; CSS không được lint — `index.css` không có mã màu).
 - Admin, trang đăng nhập, landing: luôn nhận diện nền tảng. Doanh nghiệp gói Cơ bản: nhận diện nền tảng (cấu hình đã lưu được giữ).
 - Trạng thái đơn/dòng món/thanh toán: `ORDER_STATUS_COLOR` … trong `theme/semantic.ts`, khoá tiếng Anh ứng với tên trạng thái đặc tả 5.3–5.6.
 
@@ -174,12 +186,15 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | Quy ước cấp gói theo mã (`plan/tiers.ts`) là tạm; BE chưa có `tier` và cờ tính năng trên gói | chờ BE (mục 7 #10) |
 | `BranchMenu.tsx`: màn tối thiểu, chưa có bật/tắt tuỳ chọn (BE chỉ có endpoint Barista) | Giai đoạn 5 |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
-| `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD`; `pnpm-lock.yaml` không còn đồng bộ với `package.json` | dọn khi chủ repo quyết dùng npm hay pnpm |
+| `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD` | dọn khi tiện |
 | Khu thu ngân trên web (`CashierApp.tsx`, `cashier-api.ts`) của Bảo đã gỡ khi merge main: POS chạy app Android. Code vẫn trong lịch sử (`dc8fcdd`, `32f6cdc`, `6e226af`) | — |
 | `src/api/realtime/operations.ts` (Socket.IO `/operations`, sự kiện `operations.updated`, auth bằng JWT người dùng; dependency `socket.io-client` 4.8.3) chưa dùng ở đâu; để cho màn hình gọi số. Đặc tả dùng token thiết bị chỉ đọc nên gateway BE cần đổi | Giai đoạn 8 |
 | `vitest` ghim 4.1.11 (5.0.3 mới phát hành 30/09 bị pnpm chặn theo tuổi bản phát hành); nâng lên 5.x khi đủ tuổi | khi tiện |
 | File v7 ở gốc (`Smart-FnB-Dac-ta-v7 (1).md`, `PHAN_TICH_NGHIEP_VU.md`) | KHÔNG đụng (dính stash `pre-v9-wip`) |
 | DB local thiếu tài khoản cashier/barista dù seed BE có | Người dùng tự xử lý |
+| Hồ sơ đăng ký "Probe Quán" do agent tạo nhầm trên BE thật. **KHÔNG xoá, KHÔNG tạo thêm**; chờ Khánh quyết | Khánh |
+| Mock tuỳ chọn lưu localStorage (`smartfnb:mock:options:v1:<chainId>`, 4.4); bỏ khi `options` có `real.ts` | khi BE có OW-03 |
+| Định dạng `code` nhóm/tuỳ chọn đang giả định giống SKU (`^[A-Z0-9_-]{1,50}$`); chờ BE công bố (`docs/api-contract-plan.md` mục 7 #12) | chờ BE |
 
 ## 7. Backend: hiện trạng tóm tắt
 
@@ -212,8 +227,8 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 1 | Dọn v7, route con theo v9 | ✅ xong |
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
-| 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅ — dữ liệu mock mất khi tải lại trang; chờ BE: api-contract-plan #12–17 ▶ giai đoạn 5 tiếp theo | |
-| 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại" | |
+| 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
+| 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại". **Bắt đầu bằng một lượt khảo sát** | ▶ tiếp theo |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
