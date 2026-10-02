@@ -316,6 +316,148 @@ try {
     await confirmOk("Tạo quầy");
     stList = await waitRows((r) => r.some((x) => x.includes("Quầy BT")));
     check("Quầy Bluetooth: tạo xong, MAC được viết hoa", stList.some((r) => r.includes("Quầy BT") && r.includes("Bluetooth") && r.includes("AA:BB:CC:DD:EE:FF")), (stList.find((r) => r.includes("Quầy BT")) ?? "").slice(0, 100));
+
+    // ============================================================ MOCK — 5.6 ghép và thu hồi thiết bị (BR-45)
+    /** Tạo mã ghép giả bằng MockPanel (loại màn hình khách hoặc gọi số, hoặc mã đã hết hạn) và trả mã 6 số. */
+    const fakeCode = async (kind, expired = false) => {
+      await tab.openMockPanel();
+      await tab.setSelect("mock-pair-type", kind);
+      await clickTid(expired ? "mock-pair-expired" : "mock-pair-create");
+      await sleep(300);
+      return q(`${tid("mock-pair-code")}.textContent.trim()`);
+    };
+    /** Dán mã vào ô nhập 6 số bằng sự kiện paste thật (chứng minh dán được cả mã). */
+    const pasteCode = (code) =>
+      q(`(() => { const el = document.querySelector('[data-testid="pair-digit-0"]'); const dt = new DataTransfer(); dt.setData("text", ${J(code)});
+        el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); })()`);
+    const clickInRow = (rowText, testId) =>
+      q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes(${J(rowText)}));
+        const b = r && r.querySelector('[data-testid=${J(testId)}]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+    const pairErr = () => q(`${tid("pair-error")}?.innerText ?? ""`);
+    const closeAll = async () => {
+      await q(`document.querySelectorAll(".ant-modal-close").forEach((b) => b.click())`);
+      await sleep(500);
+    };
+    /** Mở hộp ghép màn khách của một quầy, dán mã, bấm Ghép, rồi (nếu `ok`) bấm xác nhận. */
+    const pairCustomer = async (station, code, name) => {
+      await clickInRow(station, "station-pair");
+      await sleep(700);
+      await pasteCode(code);
+      if (name) await setTid("pair-device-name", name);
+      await sleep(300);
+      await clickTid("pair-submit");
+      await sleep(600);
+      await confirmOk("Ghép");
+      await sleep(1200);
+    };
+
+    // 1) ghép màn hình khách vào Quầy 2 (chưa có màn hình)
+    await clickInRow("Quầy 2", "station-pair");
+    await sleep(700);
+    check("Ghép: ô nhập mã có đúng 6 ô số", (await q(`document.querySelectorAll('[data-testid^="pair-digit-"]').length`)) === 6);
+    check("Ghép: chưa nhập mã thì nút Ghép bị khoá", (await q(`${tid("pair-submit")}.disabled`)) === true);
+    await pasteCode("12a 3-4 56");
+    await sleep(300);
+    check("Ghép: dán chuỗi lẫn chữ cái/dấu cách chỉ giữ chữ số (123456) và mở nút Ghép", (await q(`[...document.querySelectorAll('[data-testid^="pair-digit-"]')].map((e) => e.value).join("")`)) === "123456" && (await q(`${tid("pair-submit")}.disabled`)) === false);
+    await closeAll();
+    const code1 = await fakeCode("CUSTOMER_DISPLAY");
+    check("MockPanel: tạo mã ghép giả 6 số kèm giờ hết hạn", /^\d{6}$/.test(code1) && /hết hạn lúc/.test(await q(`${tid("mock-pair-expires")}.textContent`)), `${code1}`);
+    await pairCustomer("Quầy 2", code1, "Tablet khách quầy 2");
+    check("Ghép màn hình khách: thành công, Quầy 2 có 1 màn hình", /Đã ghép màn hình khách/.test(await toasts()) && (await waitRows((r) => r.some((x) => x.includes("Quầy 2") && /1 màn hình/.test(x)))).some((x) => x.includes("Quầy 2") && /1 màn hình/.test(x)), await toasts());
+
+    // 2) mở rộng quầy xem thiết bị: tên, ngày ghép, lần cuối thấy
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Quầy 1")); r.querySelector(".ant-table-row-expand-icon").click(); })()`);
+    await sleep(600);
+    const dev1 = await q(`document.querySelector('[data-testid="station-device-row"]')?.innerText ?? ""`);
+    check("Quầy 1 mở rộng: thấy tên máy, ngày ghép và 'Lần cuối thấy: 5 phút trước'", /Tablet khách quầy 1/.test(dev1) && /Ghép \d{2}\/\d{2}\/\d{4}/.test(dev1) && /Lần cuối thấy: 5 phút trước/.test(dev1), dev1.replace(/\s+/g, " "));
+    check("Không hiện token thiết bị ở bất cứ đâu", !/token|deviceToken|hash/i.test(await pageText()));
+
+    // 3) ghép máy thứ hai vào quầy đã có màn hình → cảnh báo + máy cũ bị thu hồi (BR-45)
+    await clickInRow("Quầy 2", "station-pair");
+    await sleep(700);
+    const warn = await q(`${tid("pair-warning")}?.innerText ?? ""`);
+    check("Quầy đã có màn hình: cảnh báo 'Ghép máy mới sẽ thu hồi Tablet khách quầy 2' trước khi ghép", /Ghép máy mới sẽ thu hồi/.test(warn) && /Tablet khách quầy 2/.test(warn), warn.replace(/\s+/g, " "));
+    await closeAll();
+    const code2 = await fakeCode("CUSTOMER_DISPLAY");
+    await clickInRow("Quầy 2", "station-pair");
+    await sleep(700);
+    await pasteCode(code2);
+    await setTid("pair-device-name", "Máy mới quầy 2");
+    await sleep(300);
+    await clickTid("pair-submit");
+    await sleep(700);
+    const confirmPair = await q(`${tid("confirm-pair")}?.innerText ?? ""`);
+    check("Ghép máy thay thế: hộp xác nhận nêu máy cũ sẽ bị thu hồi", /thu hồi/.test(confirmPair) && /Tablet khách quầy 2/.test(confirmPair) && new RegExp(code2).test(confirmPair), confirmPair.replace(/\s+/g, " "));
+    await confirmOk("Ghép");
+    await sleep(1300);
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Quầy 2")); const i = r.querySelector(".ant-table-row-expand-icon"); if (i && i.getAttribute("aria-label") !== "Collapse row" && !i.classList.contains("ant-table-row-expand-icon-expanded")) i.click(); })()`);
+    await sleep(600);
+    const devs2 = await q(`[...document.querySelectorAll('[data-testid="station-devices-Quầy 2"] [data-testid="station-device-row"]')].map((e) => e.innerText.replace(/\\s+/g, " "))`);
+    check("Ghép máy thứ hai: máy cũ tự bị thu hồi, quầy chỉ còn 'Máy mới quầy 2'", devs2.length === 1 && /Máy mới quầy 2/.test(devs2[0]) && !/Tablet khách quầy 2/.test(devs2[0]), devs2.join(" | "));
+
+    // 4) lỗi mã: sai / hết hạn / đã dùng / sai loại — BE gộp chung nên web nêu đủ nguyên nhân
+    const errCases = [];
+    const tryCode = async (label, code) => {
+      await clickInRow("Quầy 2", "station-pair");
+      await sleep(600);
+      await pasteCode(code);
+      await sleep(250);
+      await clickTid("pair-submit");
+      await sleep(500);
+      await confirmOk("Ghép");
+      await sleep(1000);
+      const err = await pairErr();
+      errCases.push([label, err]);
+      await closeAll();
+      return err;
+    };
+    const rightMsg = (e) => /sai/.test(e) && /hết hạn/.test(e) && /đã được dùng/.test(e) && /màn hình gọi số/.test(e);
+    const eWrong = await tryCode("sai", "000000");
+    check("Mã sai: báo đúng ý (sai / hết hạn / đã dùng / mã loại khác), không chung chung", rightMsg(eWrong), eWrong.slice(0, 90));
+    const eExpired = await tryCode("hết hạn", await fakeCode("CUSTOMER_DISPLAY", true));
+    check("Mã hết hạn (5 phút): báo lỗi ghép đúng ý, không ghép", rightMsg(eExpired), eExpired.slice(0, 60));
+    const usedCode = await fakeCode("CUSTOMER_DISPLAY");
+    await pairCustomer("Quầy 1", usedCode, "Máy dùng mã một lần");
+    const eUsed = await tryCode("đã dùng", usedCode);
+    check("Mã đã dùng: dùng lại bị từ chối với thông báo ghép đúng ý", rightMsg(eUsed), eUsed.slice(0, 60));
+    const eType = await tryCode("sai loại", await fakeCode("CALLING_DISPLAY"));
+    check("Sai loại (mã màn hình gọi số đem ghép màn hình khách): báo đúng ý", rightMsg(eType), eType.slice(0, 60));
+    const devsAfter = await q(`[...document.querySelectorAll('[data-testid="station-devices-Quầy 2"] [data-testid="station-device-row"]')].length`);
+    check("Mọi lần ghép lỗi không làm đổi thiết bị của quầy", devsAfter === 1, `${devsAfter} thiết bị ở Quầy 2`);
+
+    // 5) thu hồi một thiết bị (có hộp xác nhận)
+    await q(`document.querySelector('[data-testid="station-devices-Quầy 2"] [data-testid="device-revoke"]').click()`);
+    await sleep(700);
+    const revokeText = await q(`${tid("confirm-revoke")}?.innerText ?? ""`);
+    check("Thu hồi: hộp xác nhận nêu tên máy, quầy và hậu quả", /Máy mới quầy 2/.test(revokeText) && /Quầy 2/.test(revokeText) && /ghép lại bằng mã mới/.test(revokeText), revokeText.replace(/\s+/g, " "));
+    await confirmOk("Thu hồi");
+    stList = await waitRows((r) => r.some((x) => x.includes("Quầy 2") && /Chưa có/.test(x)));
+    check("Thu hồi: xong thì Quầy 2 không còn màn hình", stList.some((r) => r.includes("Quầy 2") && /Chưa có/.test(r)) && /Đã thu hồi/.test(await toasts()), await toasts());
+
+    // 6) màn hình gọi số của chi nhánh
+    const callCode = await fakeCode("CALLING_DISPLAY");
+    await clickTid("calling-pair");
+    await sleep(700);
+    await pasteCode(callCode);
+    await setTid("pair-device-name", "TV khu nhận món");
+    await sleep(300);
+    await clickTid("pair-submit");
+    await sleep(600);
+    await confirmOk("Ghép");
+    await sleep(1200);
+    check("Ghép màn hình gọi số: thành công", /Đã ghép màn hình gọi số/.test(await toasts()), await toasts());
+    check("Khu Màn hình gọi số: chú thích 'chờ BE #28', web không liệt kê và không tự lưu danh sách ở trình duyệt", /#28/.test(await q(`${tid("calling-display-note")}?.innerText ?? ""`)) && (await q(`Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter((k) => /device|calling|station|display/i.test(k)).length`)) === 0 && !/TV khu nhận món/.test(await pageText()));
+
+    // 7) hết hạn gói: ghép/thu hồi chỉ đọc
+    await tab.openMockPanel();
+    await tab.setCheckbox("mock-expired", true);
+    await sleep(800);
+    const lockedStates = await q(`({ pair: [...document.querySelectorAll('[data-testid="station-pair"]')].every((b) => b.disabled), calling: document.querySelector('[data-testid="calling-pair"]').disabled })`);
+    check("Hết hạn gói: nút 'Ghép màn hình khách' và 'Ghép màn hình gọi số' bị khoá", lockedStates.pair && lockedStates.calling, J(lockedStates));
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Quầy 1")); const i = r.querySelector(".ant-table-row-expand-icon"); if (i && !i.classList.contains("ant-table-row-expand-icon-expanded")) i.click(); })()`);
+    await sleep(500);
+    check("Hết hạn gói: nút 'Thu hồi' bị khoá", await q(`[...document.querySelectorAll('[data-testid="device-revoke"]')].length > 0 && [...document.querySelectorAll('[data-testid="device-revoke"]')].every((b) => b.disabled)`));
+    await tab.setCheckbox("mock-expired", false);
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
     await tab.blockWrites(SESSION_ALLOW);
@@ -579,6 +721,35 @@ try {
     check("Real · Quầy: tạo bị chặn → màn hình báo lỗi gọn, bảng không đổi", (await toasts()).length > 0 && (await stationRows()).length === beStations.length, await toasts());
     check("Real · Quầy: GET lại /stations — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
     await q(`document.querySelectorAll(".ant-modal-close").forEach((b) => b.click())`);
+    await sleep(500);
+
+    // ---- 5.6: thiết bị. Danh sách thiết bị khớp GET /stations; ghép màn hình gọi số bấm tới hết (chặn ở CDP, so DTO).
+    const beDevices = beStations.flatMap((s) => s.displayDevices ?? []);
+    const uiDeviceCount = await q(`[...document.querySelectorAll('[data-testid="station-devices"]')].reduce((n, e) => n + Number(e.textContent.match(/\\d+/)?.[0] ?? 0), 0)`);
+    check("Real · Thiết bị: tổng số màn hình đã ghép trên bảng khớp GET /stations", uiDeviceCount === beDevices.length, `${uiDeviceCount} (BE ${beDevices.length})`);
+    check("Real · Thiết bị: khu Màn hình gọi số có chú thích 'chờ BE #28', không có token trên trang", /#28/.test(await q(`${tid("calling-display-note")}?.innerText ?? ""`)) && !/deviceToken|token thiết bị|tokenHash/i.test(await pageText()));
+    tab.blockedWrites.length = 0;
+    await clickTid("calling-pair");
+    await sleep(800);
+    await q(`(() => { const el = document.querySelector('[data-testid="pair-digit-0"]'); const dt = new DataTransfer(); dt.setData("text", "123456"); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); })()`);
+    await sleep(300);
+    await clickTid("pair-submit");
+    await sleep(700);
+    check("Real · Ghép màn hình gọi số: hộp xác nhận nêu mã ghép", /123456/.test(await q(`${tid("confirm-pair")}?.innerText ?? ""`)));
+    await confirmOk("Ghép");
+    await sleep(1800);
+    const callWrite = tab.blockedWrites.find((w) => w.method === "POST" && /\/stations\/pair-calling-display$/.test(w.path));
+    check(
+      "Real · Ghép màn hình gọi số: request định gửi = POST /stations/pair-calling-display {code} khớp PairCallingDisplayDto (station.dto.ts:46-56)",
+      !!callWrite && J(JSON.parse(callWrite.body ?? "null")) === J({ code: "123456" }),
+      callWrite ? callWrite.body : "không có request",
+    );
+    check("Real · Ghép màn hình gọi số bị chặn: màn hình báo lỗi gọn, hộp ghép vẫn đóng được", (await toasts()).length > 0 || (await has("pair-error")), await toasts());
+    await q(`document.querySelectorAll(".ant-modal-close").forEach((b) => b.click())`);
+    if (beStations.length === 0) {
+      console.log("NOTE  Real chưa có quầy nào nên chưa có dữ liệu để kiểm ghép màn hình khách và thu hồi thiết bị bằng DTO thật; hai thao tác này được kiểm ở mock (phase5 mock) và bằng unit test với fetch giả.");
+    }
+    check("Real · Thiết bị: GET lại /stations — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
     console.log(`[real] request ghi bị chặn ở CDP: ${tab.blockedWrites.length}`);
