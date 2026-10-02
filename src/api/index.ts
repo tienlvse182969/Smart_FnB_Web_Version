@@ -12,6 +12,8 @@ export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
 export { accountApi, type AccountApi } from "./modules/account";
+export { stationsApi, type StationsApi } from "./modules/stations";
+export { isIpv4, isMac, validateStationInput } from "./modules/stations/rules";
 export { orderApi, type OrderApi, type ListOrdersParams } from "./modules/order";
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";

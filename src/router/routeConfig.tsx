@@ -41,6 +41,7 @@ import ManagerDashboard from "../roles/branch/ManagerDashboard";
 import BranchInfo from "../roles/branch/BranchInfo";
 import BranchMenu from "../roles/branch/BranchMenu";
 import StaffTable from "../roles/branch/StaffTable";
+import Stations from "../roles/branch/Stations";
 
 export type WebRole = "admin" | "owner" | "manager";
 
@@ -116,7 +117,7 @@ export const managerRoutes: RouteDef[] = [
     label: "Quầy và máy in",
     icon: <Printer size={18} />,
     code: "BM-01",
-    element: placeholder("BM-01", "Quản lý quầy, máy in và màn hình đã ghép"),
+    element: <Stations />,
   },
   {
     path: "orders",
