@@ -61,7 +61,8 @@ try {
         out[s] = {
           primary: await tab.cssVar("--brand-primary"),
           sider: await tab.siderBg(),
-          primaryBtn: await tab.eval(`(() => { const b = document.querySelector(".ant-btn-primary"); return b ? getComputedStyle(b).backgroundColor : null })()`),
+          // Nút chính ĐANG MỞ: nút bị khoá (ví dụ "Thêm tài khoản" khi tạo Manager chờ BE #23) có màu xám chung, không nói gì về thương hiệu.
+          primaryBtn: await tab.eval(`(() => { const b = document.querySelector(".ant-btn-primary:not([disabled])"); return b ? getComputedStyle(b).backgroundColor : null })()`),
           statusLate: await tab.cssVar("--status-late"),
           success: await tab.cssVar("--sem-success-text"),
         };
@@ -174,20 +175,21 @@ try {
     const msgs = () => tab.eval(`[...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map((e) => e.textContent).join(" | ")`);
 
     await tab.openMockPanel();
+    // Dùng màn còn chạy mock (Tuỳ chọn món): "Menu toàn chuỗi" đã là real từ 4.2 nên lỗi giả lập của panel mock không chạm tới.
     await tab.setSelect("mock-failure", "forbidden");
-    await toMenu(tab, "Menu toàn chuỗi");
+    await toMenu(tab, "Tuỳ chọn món");
     await sleep(1200);
     check("403 → thông báo không đủ quyền", /không đủ quyền/i.test(await msgs()), await msgs());
 
     await tab.setSelect("mock-failure", "quota");
     await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Menu toàn chuỗi");
+    await toMenu(tab, "Tuỳ chọn món");
     await sleep(1200);
     check("lỗi hạn mức → thông báo vượt hạn mức", /vượt hạn mức/i.test(await msgs()), await msgs());
 
     await tab.setSelect("mock-failure", "network");
     await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Menu toàn chuỗi");
+    await toMenu(tab, "Tuỳ chọn món");
     await sleep(1200);
     const net = await tab.eval(`(() => { const n = document.querySelector(".ant-notification-notice"); return n ? { text: n.textContent, retry: !![...n.querySelectorAll("button")].find((b) => /Thử lại/.test(b.textContent)) } : null })()`);
     check("lỗi mạng → thông báo kèm nút Thử lại", !!net && net.retry && /kết nối/i.test(net.text), JSON.stringify(net));
@@ -200,7 +202,7 @@ try {
 
     await tab.setSelect("mock-failure", "unauthorized");
     await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Menu toàn chuỗi");
+    await toMenu(tab, "Tuỳ chọn món");
     await tab.waitFor(`location.pathname === "/login"`, 10000, "về /login sau 401").catch(() => {});
     check("401 → hết phiên, về /login", (await tab.path()) === "/login", await tab.path());
     await tab.eval(`localStorage.removeItem("fnb.mock.failure")`);
@@ -209,7 +211,7 @@ try {
   // ---------------------------------------------------------------- 2 tab cùng hết hạn access token
   if (want("refresh")) {
     await freshOwner(tab);
-    const other = await newTab();
+    const other = await newTab("about:blank", undefined, { warm: false });
     await other.goto("/owner/branches");
     await other.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "tab 2 vào được");
     await toMenu(tab, "Chi nhánh");

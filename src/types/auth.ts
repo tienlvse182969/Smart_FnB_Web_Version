@@ -6,9 +6,6 @@
  */
 export type RoleKey = "admin" | "owner" | "manager" | "cashier" | "barista";
 
-/** Mật khẩu mặc định cấp cho tài khoản mới/reset — demo, plaintext. */
-export const DEFAULT_PASSWORD = "demo1234";
-
 /**
  * Một tài khoản đăng nhập được — seed sẵn (demo ban đầu) hoặc tạo qua
  * onboarding/cấp tài khoản (Admin duyệt hồ sơ, Owner tạo Manager, Manager
@@ -19,10 +16,8 @@ export type DemoAccount = {
   role: RoleKey;
   name: string;
   email: string;
-  /** Mật khẩu — plaintext vì đây là mock demo, không phải hệ thống xác thực thật. */
-  password: string;
-  /** true = bắt đổi mật khẩu ở lần đăng nhập kế tiếp (CM-01). */
-  mustChangePassword: boolean;
+  /** true = đã xếp email đặt mật khẩu, chủ tài khoản chưa đặt (mock; BE: PasswordSetupToken). */
+  awaitingPasswordSetup: boolean;
   /** false = đã bị khoá, không đăng nhập được. */
   active: boolean;
   label: string;
@@ -41,8 +36,6 @@ export type AuthUser = {
   role: RoleKey;
   tenantId: string | null; // null chỉ cho admin nền tảng
   branchId: string | null; // null cho admin + owner
-  /** true = phải đổi mật khẩu trước khi dùng hệ thống (CM-01). */
-  mustChangePassword: boolean;
 };
 
 /** Tên vai trò do backend trả về (còn WAITER/KITCHEN vì JSON BE hiện tại — web chặn không cho vào). */
@@ -78,3 +71,6 @@ export type StaffMember = {
   role: "Manager" | "Cashier" | "Barista";
   active: boolean;
 };
+
+/** Kết quả xếp email đặt mật khẩu một lần (tạo tài khoản, đặt lại) — như Admin: không bao giờ trả mật khẩu hay token về web. */
+export type PasswordSetupNotice = { expiresAt: string };

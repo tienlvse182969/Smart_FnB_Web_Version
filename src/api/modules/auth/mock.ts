@@ -8,7 +8,8 @@ import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { MOCK_PROFILES, type MockProfile } from "../../mock/data/profiles";
 import { setScenario } from "../../mock/scenario";
-import { NO_WEB_ACCESS_MESSAGE, TABLET_ONLY_MESSAGE, type AuthApi } from "./index";
+import { failedPasswordRules } from "./passwordRules";
+import { NO_WEB_ACCESS_MESSAGE, SETUP_TOKEN_INVALID, SETUP_TOKEN_MESSAGE, TABLET_ONLY_MESSAGE, type AuthApi } from "./index";
 
 /** Mật khẩu chung của mọi tài khoản mock — chỉ có ý nghĩa khi cờ auth = mock. */
 export const MOCK_PASSWORD = "mock1234";
@@ -53,7 +54,6 @@ function toUser(acc: MockAccount): AuthUser {
     role: acc.roleKey,
     tenantId: null,
     branchId: null,
-    mustChangePassword: false,
   };
 }
 
@@ -130,4 +130,16 @@ export const authMock: AuthApi = {
     await mockDelay();
     if (newPassword.trim().length < 6) throw new ApiError(400, "Mật khẩu phải từ 6 ký tự trở lên");
   },
+
+  /** Token thử: `mock-valid` đặt được (dùng 1 lần); `mock-expired`, `mock-used` và mọi token khác bị từ chối như BE (không phân biệt lý do). */
+  async setupPassword(token, password) {
+    await mockDelay();
+    const failed = failedPasswordRules(password);
+    if (failed.length) throw new ApiError(400, `password: ${failed.map((r) => r.label).join("; ")}`, failed.map((r) => r.label));
+    if (token !== "mock-valid" || consumedTokens.has(token)) throw new ApiError(401, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
+    consumedTokens.add(token);
+  },
 };
+
+/** Token mock đã dùng (một lần, như `usedAt` của BE). Mất khi tải lại trang. */
+const consumedTokens = new Set<string>();

@@ -1,4 +1,4 @@
-import { DEFAULT_PASSWORD, type DemoAccount, type StaffMember } from "../../../types";
+import type { AccountStatus, DemoAccount, ManagerAccount, PasswordSetupNotice, StaffMember } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockWritable } from "../../mock/guards";
@@ -26,8 +26,7 @@ function account(
     role,
     name,
     email: mailOf(name, branchId),
-    password: DEFAULT_PASSWORD,
-    mustChangePassword: false,
+    awaitingPasswordSetup: false,
     active: true,
     label,
     scope: branchId,
@@ -56,6 +55,9 @@ async function seedChain(chainId: string): Promise<void> {
   for (const b of branches) seedBranch(chainId, b.id);
 }
 
+/** Hiệu lực link đặt mật khẩu: 24 giờ như BE (employees.service.ts, PASSWORD_SETUP_TTL_MS). */
+const setupNotice = (): PasswordSetupNotice => ({ expiresAt: new Date(Date.now() + 24 * 3_600_000).toISOString() });
+
 const ROLE_LABEL: Record<string, StaffMember["role"]> = { manager: "Manager", cashier: "Cashier", barista: "Barista" };
 
 const toStaff = (a: DemoAccount): StaffMember => ({
@@ -83,17 +85,59 @@ const track = (chainId: string) => {
   return chainId;
 };
 
+/** Trạng thái như BE: khoá = SUSPENDED; mới tạo chưa đặt mật khẩu = INACTIVE (đổi mật khẩu thì reset không đổi trạng thái). */
+const statusOf = (a: DemoAccount): AccountStatus => (!a.active ? "SUSPENDED" : a.awaitingPasswordSetup ? "INACTIVE" : "ACTIVE");
+
+async function toManager(chainId: string, a: DemoAccount): Promise<ManagerAccount> {
+  const branches = await branchApi.listBranches(chainId);
+  return {
+    id: a.id,
+    employeeCode: `MGR-${a.id.slice(-4).toUpperCase()}`,
+    name: a.name,
+    email: a.email,
+    status: statusOf(a),
+    lastLoginAt: null,
+    branchId: a.branchId ?? "",
+    branchName: branches.find((b) => b.id === a.branchId)?.name ?? "—",
+  };
+}
+
 export const accountMock: AccountApi = {
-  async listManagers(chainId) {
+  async listManagers(chainId, query = {}) {
     await mockDelay();
     await seedChain(track(chainId));
-    return getChainState(chainId).accounts.filter((a) => a.role === "manager");
+    const all = await Promise.all(getChainState(chainId).accounts.filter((a) => a.role === "manager").map((a) => toManager(chainId, a)));
+    const needle = query.search?.trim().toLowerCase();
+    const filtered = all.filter(
+      (m) =>
+        (!query.status || m.status === query.status) &&
+        (!query.branchId || m.branchId === query.branchId) &&
+        (!needle || [m.name, m.email, m.employeeCode].some((v) => v.toLowerCase().includes(needle))),
+    );
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    return {
+      items: filtered.slice((page - 1) * limit, page * limit),
+      pagination: { page, limit, total: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / limit)) },
+    };
   },
 
   async listStaffAccounts(chainId) {
     await mockDelay();
     await seedChain(track(chainId));
-    return getChainState(chainId).accounts.filter((a) => a.role === "cashier" || a.role === "barista");
+    const branches = await branchApi.listBranches(chainId);
+    return getChainState(chainId)
+      .accounts.filter((a) => a.role === "cashier" || a.role === "barista")
+      .map((a) => ({
+        id: a.id,
+        employeeCode: `${a.role === "cashier" ? "CSH" : "BRS"}-${a.id.slice(-4).toUpperCase()}`,
+        name: a.name,
+        email: a.email,
+        status: statusOf(a),
+        branchId: a.branchId ?? "",
+        branchName: branches.find((b) => b.id === a.branchId)?.name ?? "—",
+        role: a.role === "cashier" ? ("Cashier" as const) : ("Barista" as const),
+      }));
   },
 
   async listStaff(chainId, branchId) {
@@ -108,9 +152,9 @@ export const accountMock: AccountApi = {
     assertMockWritable();
     track(chainId);
     seedBranch(chainId, branchId);
-    const created = { ...account(chainId, branchId, "manager", "Branch Manager", name), email, mustChangePassword: true };
+    const created = { ...account(chainId, branchId, "manager", "Branch Manager", name), email, awaitingPasswordSetup: true };
     getChainState(chainId).accounts.push(created);
-    return created;
+    return { account: await toManager(chainId, created), ...setupNotice() };
   },
 
   async createStaff(chainId, branchId, name, email, role) {
@@ -121,27 +165,32 @@ export const accountMock: AccountApi = {
     const created = {
       ...account(chainId, branchId, role === "Cashier" ? "cashier" : "barista", role, name),
       email,
-      mustChangePassword: true,
+      awaitingPasswordSetup: true,
     };
     getChainState(chainId).accounts.push(created);
-    return toStaff(created);
+    return { staff: toStaff(created), ...setupNotice() };
   },
 
-  async setActive(accountId, active) {
+  async setManagerActive(accountId, active) {
     await mockDelay();
     assertMockWritable();
     findAccount(accountId).active = active;
   },
 
-  async resetPassword(accountId) {
+  async setStaffActive(accountId, active) {
     await mockDelay();
     assertMockWritable();
-    const acc = findAccount(accountId);
-    acc.password = DEFAULT_PASSWORD;
-    acc.mustChangePassword = true;
+    findAccount(accountId).active = active;
   },
 
-  async reassignBranch(accountId, branchId) {
+  async resetManagerPassword(accountId) {
+    await mockDelay();
+    assertMockWritable();
+    findAccount(accountId); // 404 nếu không có; trạng thái không đổi (như BE: chỉ thu hồi phiên và xếp email)
+    return setupNotice();
+  },
+
+  async reassignManager(accountId, branchId) {
     await mockDelay();
     assertMockWritable();
     const acc = findAccount(accountId);

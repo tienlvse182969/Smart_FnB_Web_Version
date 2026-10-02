@@ -5,18 +5,20 @@
  */
 import type {
   AiQueryLog,
-  BranchMenuItem,
   BranchOptionState,
+  ItemOptionConfig,
   Branding,
   DemoAccount,
+  MenuCategory,
   MenuItem,
   Order,
   OptionGroup,
 } from "../../types";
+import { loadPersistedOptions } from "../modules/options/persist";
 import { generateBranchOrders } from "./data/orders";
 import {
-  buildBranchMenu,
   buildBranding,
+  buildCategories,
   buildMenu,
   buildOptionGroups,
   profileOf,
@@ -25,12 +27,30 @@ import {
 import { hashString } from "./prng";
 import { getScenario } from "./scenario";
 
+/** Món lưu trong mock: như `MenuItem` nhưng `branches` được dựng lúc đọc từ `itemBranches`. */
+export type StoredMenuItem = Omit<MenuItem, "branches" | "enabledBranchCount"> & {
+  /** Món có sẵn từ dữ liệu mẫu: lần đầu gặp một chi nhánh thì tự được gán cho chi nhánh đó. */
+  seeded?: boolean;
+  /** Nhóm tuỳ chọn mẫu của món có sẵn — chỉ để khởi tạo `itemOptions`; nguồn thật là `ChainState.itemOptions`. */
+  seedOptionGroupIds?: string[];
+};
+
+export interface BranchItemRow {
+  isEnabled: boolean;
+  isAvailable: boolean;
+}
+
 export interface ChainState {
   chainId: string;
   profile: MockProfile;
-  menuItems: MenuItem[];
+  categories: MenuCategory[];
+  menuItems: StoredMenuItem[];
+  /** itemId → (branchId → trạng thái). Chỉ có hàng cho chi nhánh đã từng được gán — như BE. */
+  itemBranches: Map<string, Map<string, BranchItemRow>>;
+  seededBranches: Set<string>;
   optionGroups: OptionGroup[];
-  branchMenu: Map<string, BranchMenuItem[]>;
+  /** itemId (ID THẬT của BE hoặc ID mẫu) → nhóm gắn vào món + cờ không gom món. CHỜ BE (api-contract-plan #13, #17). */
+  itemOptions: Map<string, ItemOptionConfig>;
   branchOptions: Map<string, BranchOptionState[]>;
   branding: Branding;
   /** Tài khoản đăng nhập được: Owner, Manager (mock). */
@@ -43,6 +63,11 @@ export interface ChainState {
 
 const states = new Map<string, ChainState>();
 
+/** Chỉ cho test: bỏ state trong bộ nhớ để mô phỏng tải lại trang. */
+export function resetMockStates(): void {
+  states.clear();
+}
+
 export function getChainState(chainId: string): ChainState {
   const profile = profileOf(getScenario().profile);
   const key = `${profile.id}:${chainId}`;
@@ -51,9 +76,12 @@ export function getChainState(chainId: string): ChainState {
     state = {
       chainId,
       profile,
-      menuItems: buildMenu(profile, chainId),
+      categories: buildCategories(profile),
+      menuItems: buildMenu(profile),
+      itemBranches: new Map(),
+      seededBranches: new Set(),
       optionGroups: buildOptionGroups(profile, chainId),
-      branchMenu: new Map(),
+      itemOptions: new Map(),
       branchOptions: new Map(),
       branding: buildBranding(profile, chainId),
       accounts: [],
@@ -61,19 +89,31 @@ export function getChainState(chainId: string): ChainState {
       aiLogs: [],
       staffSeeded: new Set(),
     };
+    for (const m of state.menuItems) {
+      if (m.seedOptionGroupIds?.length) state.itemOptions.set(m.id, { menuItemId: m.id, groupIds: [...m.seedOptionGroupIds], noBatch: false });
+    }
+    // Mock tuỳ chọn lưu qua F5: nạp trước khi ai đó dùng state (kể cả bộ sinh đơn).
+    const saved = loadPersistedOptions(chainId);
+    if (saved) {
+      state.optionGroups = saved.groups;
+      state.itemOptions = new Map(saved.itemOptions.map((c) => [c.menuItemId, c]));
+    }
     states.set(key, state);
   }
   return state;
 }
 
-export function getBranchMenu(chainId: string, branchId: string): BranchMenuItem[] {
+/** Lần đầu gặp một chi nhánh: món mẫu được gán cho chi nhánh; vài món tắt "còn bán hôm nay", xác định theo (chi nhánh, món). */
+export function ensureBranchRows(chainId: string, branchId: string): void {
   const s = getChainState(chainId);
-  let list = s.branchMenu.get(branchId);
-  if (!list) {
-    list = buildBranchMenu(branchId, s.menuItems);
-    s.branchMenu.set(branchId, list);
+  if (s.seededBranches.has(branchId)) return;
+  s.seededBranches.add(branchId);
+  for (const item of s.menuItems) {
+    if (!item.seeded) continue;
+    const rows = s.itemBranches.get(item.id) ?? new Map<string, BranchItemRow>();
+    if (!rows.has(branchId)) rows.set(branchId, { isEnabled: true, isAvailable: hashString(`${branchId}:${item.id}`) % 100 >= 12 });
+    s.itemBranches.set(item.id, rows);
   }
-  return list;
 }
 
 export function getBranchOptions(chainId: string, branchId: string): BranchOptionState[] {
@@ -98,7 +138,7 @@ export function getBranchOrders(chainId: string, branchId: string): Order[] {
       chainId,
       branchId,
       traffic: seed?.traffic ?? 0.6 + (hashString(branchId) % 80) / 100,
-      items: s.menuItems,
+      items: s.menuItems.map((m) => ({ ...m, optionGroupIds: s.itemOptions.get(m.id)?.groupIds })),
       groups: s.optionGroups,
       now: new Date(),
     });

@@ -4,23 +4,23 @@ import SectionHeading from "./SectionHeading";
 const problems = [
   {
     icon: FileWarning,
-    title: "Bếp luận chữ viết tay, làm sai món",
-    description: "Order ghi tay khó đọc, bếp đoán sai món, khách phải đổi lại từ đầu.",
+    title: "Ghi tay, pha sai món",
+    description: "Order ghi tay khó đọc, pha chế đoán sai size, đường, đá, topping, khách phải đổi lại từ đầu.",
   },
   {
     icon: HelpCircle,
-    title: "Quên bàn nào gọi gì, món ra thiếu",
-    description: "Nhiều bàn cùng lúc, nhân viên nhớ nhầm hoặc quên báo bếp món gọi thêm.",
+    title: "Giờ cao điểm, đơn dồn lại",
+    description: "Nhiều đơn cùng lúc, ly giống nhau bị pha rời rạc, khách chờ lâu mà không biết đã tới lượt mình chưa.",
   },
   {
     icon: Coins,
-    title: "Tính tiền nhầm, thất thoát tiền mặt",
-    description: "Cộng tay dễ sai, không có ghi nhận rõ ai thu tiền của bàn nào.",
+    title: "Tính tiền nhầm, khó đối soát chuyển khoản",
+    description: "Cộng tay dễ sai, không ghi nhận rõ ai thu tiền của đơn nào, và không kiểm chứng được khách đã chuyển khoản hay chưa.",
   },
   {
     icon: BarChart3,
     title: "Chủ không so sánh được doanh thu giữa các chi nhánh",
-    description: "Mỗi chi nhánh một sổ sách riêng, chủ quán ở nhà không biết chi nhánh nào đang lỗ.",
+    description: "Mỗi chi nhánh một sổ sách riêng, chủ quán ở nhà không biết chi nhánh nào đang bán tốt.",
   },
 ];
 

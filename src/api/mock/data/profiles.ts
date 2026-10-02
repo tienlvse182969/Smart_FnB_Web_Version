@@ -6,14 +6,8 @@
  * áp, giữ cấu hình"). Muốn thấy màu của B thì ghi đè gói lên Tiêu chuẩn bằng panel dev.
  */
 import { BRAND_COLOR_PRESETS } from "../../../theme";
-import type {
-  ApiBranch,
-  BranchMenuItem,
-  Branding,
-  MenuItem,
-  OptionGroup,
-  PlanTier,
-} from "../../../types";
+import type { ApiBranch, Branding, MenuCategory, OptionGroup, OptionItem, PlanTier } from "../../../types";
+import type { StoredMenuItem } from "../store";
 import type { MockProfileId } from "../scenario";
 import { hashString, mulberry32 } from "../prng";
 
@@ -129,42 +123,22 @@ export function buildBranding(profile: MockProfile, chainId: string): Branding {
 // Menu và nhóm tuỳ chọn (đặc tả 12.2)
 // ---------------------------------------------------------------------------
 
-export function buildOptionGroups(profile: MockProfile, chainId: string): OptionGroup[] {
+export function buildOptionGroups(profile: MockProfile, _chainId: string): OptionGroup[] {
   const p = profile.id.toLowerCase();
+  const opt = (key: string, name: string, order: number, priceDelta = 0, isDefault = false): OptionItem => ({
+    id: `${p}-op-${key}`, name, code: key.toUpperCase(), priceDelta, displayOrder: order, isActive: true, isDefault,
+  });
+  const group = (key: string, name: string, order: number, rule: Pick<OptionGroup, "isRequired" | "minSelections" | "maxSelections">, options: OptionItem[]): OptionGroup => ({
+    id: `${p}-og-${key}`, name, code: key.toUpperCase(), ...rule, displayOrder: order, isActive: true, options,
+  });
+  const one = { isRequired: true, minSelections: 1, maxSelections: 1 };
   return [
-    {
-      id: `${p}-og-size`, tenantId: chainId, name: "Size", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-size-m`], sortOrder: 1,
-      options: [
-        { id: `${p}-op-size-m`, name: "M", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-size-l`, name: "L", priceDelta: 6000, activeChain: true },
-      ],
-    },
-    {
-      id: `${p}-og-sugar`, tenantId: chainId, name: "Đường", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-sugar-100`], sortOrder: 2,
-      options: ["0%", "30%", "50%", "70%", "100%"].map((label) => ({
-        id: `${p}-op-sugar-${label.replace("%", "")}`, name: label, priceDelta: 0, activeChain: true,
-      })),
-    },
-    {
-      id: `${p}-og-ice`, tenantId: chainId, name: "Đá", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-ice-normal`], sortOrder: 3,
-      options: [
-        { id: `${p}-op-ice-none`, name: "Không đá", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-ice-less`, name: "Ít đá", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-ice-normal`, name: "Bình thường", priceDelta: 0, activeChain: true },
-      ],
-    },
-    {
-      id: `${p}-og-topping`, tenantId: chainId, name: "Topping", required: false, minSelect: 0, maxSelect: 3,
-      defaultOptionIds: [], sortOrder: 4,
-      options: [
-        { id: `${p}-op-top-pearl`, name: "Trân châu đen", priceDelta: 5000, activeChain: true },
-        { id: `${p}-op-top-coconut`, name: "Thạch dừa", priceDelta: 5000, activeChain: true },
-        { id: `${p}-op-top-pudding`, name: "Pudding", priceDelta: 7000, activeChain: true },
-      ],
-    },
+    group("size", "Size", 1, one, [opt("size-m", "M", 1, 0, true), opt("size-l", "L", 2, 6000)]),
+    group("sugar", "Đường", 2, one, ["0%", "30%", "50%", "70%", "100%"].map((label, i) => opt(`sugar-${label.replace("%", "")}`, label, i + 1, 0, label === "100%"))),
+    group("ice", "Đá", 3, one, [opt("ice-none", "Không đá", 1), opt("ice-less", "Ít đá", 2), opt("ice-normal", "Bình thường", 3, 0, true)]),
+    group("topping", "Topping", 4, { isRequired: false, minSelections: 0, maxSelections: 3 }, [
+      opt("top-pearl", "Trân châu đen", 1, 5000), opt("top-coconut", "Thạch dừa", 2, 5000), opt("top-pudding", "Pudding", 3, 7000),
+    ]),
   ];
 }
 
@@ -202,7 +176,16 @@ const MENU_SEEDS: Record<MockProfileId, ItemSeed[]> = {
   ],
 };
 
-export function buildMenu(profile: MockProfile, chainId: string): MenuItem[] {
+const catSlug = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** Danh mục suy từ các món mẫu, theo thứ tự xuất hiện. */
+export function buildCategories(profile: MockProfile): MenuCategory[] {
+  const p = profile.id.toLowerCase();
+  const names = [...new Set(MENU_SEEDS[profile.id].map((s) => s.category))];
+  return names.map((name, i) => ({ id: `${p}-cat-${catSlug(name)}`, name, description: null, displayOrder: i, isActive: true, itemCount: 0 }));
+}
+
+export function buildMenu(profile: MockProfile): StoredMenuItem[] {
   const p = profile.id.toLowerCase();
   const groups = (kind: ItemSeed["kind"]): string[] =>
     kind === "drink"
@@ -212,25 +195,16 @@ export function buildMenu(profile: MockProfile, chainId: string): MenuItem[] {
         : [];
   return MENU_SEEDS[profile.id].map((seed, i) => ({
     id: `${p}-m${String(i + 1).padStart(2, "0")}`,
-    tenantId: chainId,
+    categoryId: `${p}-cat-${catSlug(seed.category)}`,
+    categoryName: seed.category,
+    sku: `${profile.code}-${String(i + 1).padStart(3, "0")}`,
     name: seed.name,
-    category: seed.category,
+    description: null,
     price: seed.price,
-    activeChain: seed.activeChain ?? true,
-    optionGroupIds: groups(seed.kind),
+    imageUrl: null,
+    preparationMinutes: null,
+    isActive: seed.activeChain ?? true,
+    seedOptionGroupIds: groups(seed.kind),
+    seeded: true,
   }));
-}
-
-/** Món có mặt ở chi nhánh: mọi món; vài món tắt hôm nay, xác định theo (chi nhánh, món). */
-export function buildBranchMenu(branchId: string, items: MenuItem[]): BranchMenuItem[] {
-  return items.map((item) => {
-    const rng = mulberry32(hashString(`${branchId}:${item.id}`));
-    return {
-      branchId,
-      menuItemId: item.id,
-      isAvailable: rng() > 0.12,
-      remainingToday: null,
-      soldToday: 0,
-    };
-  });
 }

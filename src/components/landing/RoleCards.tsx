@@ -1,4 +1,4 @@
-import { LayoutGrid, Store, ConciergeBell, ChefHat } from "lucide-react";
+import { LayoutGrid, Store, ReceiptText, Coffee } from "lucide-react";
 import SectionHeading from "./SectionHeading";
 import { palette } from "../../theme";
 
@@ -7,8 +7,8 @@ const roles = [
     title: "Chủ chuỗi",
     icon: LayoutGrid,
     bullets: [
-      "Tạo chi nhánh, quản lý menu và giá cho toàn chuỗi",
-      "Nhập menu hàng loạt bằng ảnh thay vì gõ tay từng món",
+      "Tạo chi nhánh, quản lý menu, tuỳ chọn món và giá cho toàn chuỗi",
+      "Liên kết PayOS để tiền QR về thẳng tài khoản của chủ chuỗi",
       "So sánh doanh thu giữa các chi nhánh trên cùng biểu đồ",
     ],
   },
@@ -16,27 +16,27 @@ const roles = [
     title: "Quản lý chi nhánh",
     icon: Store,
     bullets: [
-      "Thiết kế sơ đồ bàn, khai báo bàn liền kề",
-      "Xác nhận thanh toán qua QR hoặc tiền mặt, in hoá đơn",
-      "Quản lý tài khoản nhân viên phục vụ và bếp",
+      "Tạo quầy, máy in và ghép màn hình phía khách, màn hình gọi số",
+      "Tra cứu đơn, xác nhận chuyển khoản lệch số tiền, huỷ đơn đã thanh toán kèm lý do",
+      "Tạo tài khoản thu ngân và pha chế, bật tắt món theo chi nhánh",
     ],
   },
   {
-    title: "Nhân viên phục vụ",
-    icon: ConciergeBell,
+    title: "Thu ngân (app Android)",
+    icon: ReceiptText,
     bullets: [
-      "Xem gợi ý xếp bàn, mở phiên bàn ngay tại chỗ",
-      "Ghi món trên tablet, gửi thẳng xuống bếp",
-      "Nhận thông báo món xong để bưng ra bàn",
+      "Chọn món, size, đường, đá, topping ngay trên POS",
+      "Thu tiền mặt hoặc QR; màn hình phía khách hiện món và mã QR",
+      "In bill và phiếu số cho mọi đơn đã thanh toán",
     ],
   },
   {
-    title: "Nhân viên bếp",
-    icon: ChefHat,
+    title: "Pha chế (app Android)",
+    icon: Coffee,
     bullets: [
-      "Xem hàng đợi món cần làm theo thứ tự nhận order",
-      "Cập nhật trạng thái từng món: đang làm, xong, hết món",
-      "Ghi chú của khách hiển thị nổi bật trên mỗi thẻ món",
+      "Xem hàng đợi ly cần pha, ly giống nhau được gom thành mẻ",
+      "Cập nhật từng ly: đang pha, xong; báo hết món hoặc hết tuỳ chọn",
+      "Tuỳ chọn khác mặc định được in đậm để không bị ngợp",
     ],
   },
 ];

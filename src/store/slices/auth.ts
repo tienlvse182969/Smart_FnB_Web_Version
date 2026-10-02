@@ -61,8 +61,7 @@ function emptySession(): Partial<AppState> {
     apiBranches: [],
     branches: [],
     currentBranchId: null,
-    menuItems: [],
-    branchMenuItems: [],
+    branchMenu: [],
     staff: [],
   };
 }
@@ -232,7 +231,6 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     await authApi.changePassword(newPassword);
-    set({ currentUser: { ...currentUser, mustChangePassword: false } });
   },
 
   logout: async () => {

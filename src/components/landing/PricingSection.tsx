@@ -1,29 +1,26 @@
+import { getPublicPlans, type PublicPlan } from "../../api";
+import { formatVnd } from "../../lib/reportFormat";
 import { palette } from "../../theme";
 import CtaButton from "./CtaButton";
 import SectionHeading from "./SectionHeading";
 
-const plans = [
-  {
-    name: "Cơ bản",
-    price: "X.XXX.XXX ₫ / tháng",
-    limits: ["Tối đa 2 chi nhánh", "Tối đa 15 tài khoản", "Tối đa 20 bàn mỗi chi nhánh"],
-    highlighted: false,
-  },
-  {
-    name: "Tiêu chuẩn",
-    price: "X.XXX.XXX ₫ / tháng",
-    limits: ["Tối đa 5 chi nhánh", "Tối đa 40 tài khoản", "Tối đa 40 bàn mỗi chi nhánh"],
-    highlighted: true,
-  },
-  {
-    name: "Mở rộng",
-    price: "X.XXX.XXX ₫ / tháng",
-    limits: ["Tối đa 10 chi nhánh", "Tối đa 80 tài khoản", "Tối đa 60 bàn mỗi chi nhánh"],
-    highlighted: false,
-  },
-];
+// TODO(BE): chưa có endpoint công khai danh sách gói (docs/api-contract-plan.md mục 7, việc #8). Tạm đọc từ cấu hình mock dùng
+// chung với plan mock và admin mock (api/publicPlans.ts) — khi BE có thì chỉ đổi hàm đó.
+const HIGHLIGHTED_TIER = "STANDARD";
+
+function limitLines(plan: PublicPlan): string[] {
+  return [
+    `Tối đa ${plan.maxBranches} chi nhánh`,
+    `Tối đa ${plan.maxAccounts} tài khoản`,
+    "POS, pha chế, màn hình gọi số, báo cáo chi nhánh",
+    ...(plan.features.branding ? ["Nhận diện thương hiệu riêng"] : []),
+    ...(plan.features.multiBranchCompare ? ["So sánh doanh thu đa chi nhánh"] : []),
+    ...(plan.features.aiAssistant ? ["Trợ lý AI hỏi đáp số liệu"] : []),
+  ];
+}
 
 export default function PricingSection() {
+  const plans = getPublicPlans().map((p) => ({ ...p, highlighted: p.tier === HIGHLIGHTED_TIER }));
   return (
     <section className="py-20 md:py-28">
       <div className="mx-auto max-w-6xl px-6">
@@ -31,7 +28,7 @@ export default function PricingSection() {
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
           {plans.map((plan) => (
             <div
-              key={plan.name}
+              key={plan.code}
               className="relative flex flex-col rounded-[14px] bg-white p-6"
               style={{
                 border: plan.highlighted ? "2px solid var(--brand-primary)" : `1px solid ${palette.line}`,
@@ -49,10 +46,10 @@ export default function PricingSection() {
                 {plan.name}
               </h3>
               <p className="mt-2 text-2xl font-bold" style={{ color: "var(--fnb-ink)" }}>
-                {plan.price}
+                {formatVnd(plan.monthlyPrice)} / tháng
               </p>
               <ul className="mt-6 flex-1 space-y-2">
-                {plan.limits.map((limit) => (
+                {limitLines(plan).map((limit) => (
                   <li key={limit} className="text-sm text-zinc-600">
                     {limit}
                   </li>

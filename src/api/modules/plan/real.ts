@@ -1,4 +1,7 @@
 import type { PlanInfo, PlanLimit, QuotaResource } from "../../../types";
+import { PLAN_TIER_LABEL } from "../../../types";
+import { effectiveTier, featuresForTier } from "../../../plan/tiers";
+import { getScenario } from "../../mock/scenario";
 import type { GetPlanOptions, PlanApi } from "./index";
 import { mockPlanBase } from "./source";
 
@@ -13,16 +16,31 @@ export const planReal: PlanApi = {
       .filter((q): q is typeof q & { resource: QuotaResource } => RESOURCES.includes(q.resource as QuotaResource))
       .map((q) => ({ resource: q.resource, used: q.used, limit: q.limit, remaining: q.remaining }));
 
+    // Cấp suy từ MÃ gói thật theo quy ước tạm (plan/tiers.ts); mã lạ → coi như Cơ bản. Panel dev vẫn ghi đè được.
+    const realPlan = chain?.subscription?.plan;
+    const tier = getScenario().tier ?? (realPlan ? effectiveTier(realPlan.code) : base.tier);
+
+    // Cờ tính năng: ưu tiên cờ BE lưu trên gói (nhận diện, so sánh đa chi nhánh); chỉ suy từ cấp khi BE không trả
+    // (BE cũ) hoặc khi panel dev ghi đè cấp. Cờ AI chưa có ở BE → luôn suy từ mã gói (api-contract-plan #30).
+    const features = featuresForTier(tier);
+    const overridden = getScenario().tier !== null && getScenario().tier !== undefined;
+    const hasBackendFlags = !!realPlan && typeof realPlan.brandingEnabled === "boolean" && typeof realPlan.multiBranchComparisonEnabled === "boolean";
+    if (hasBackendFlags && !overridden) {
+      features.branding = { ...features.branding, enabled: realPlan.brandingEnabled === true };
+      features.multiBranchCompare = { ...features.multiBranchCompare, enabled: realPlan.multiBranchComparisonEnabled === true };
+    }
+
     return {
       chainId,
-      tier: base.tier,
-      // Tên gói thật nếu BE có; không thì tên của cấp mock.
-      planName: chain?.subscription?.plan.name ?? base.planName,
+      tier,
+      // Tên gói thật nếu BE có; không thì tên của cấp.
+      planName: realPlan?.name ?? PLAN_TIER_LABEL[tier],
       status: base.status,
       expiresAt: base.expiresAt,
       limits,
-      features: base.features,
-      source: { limits: chain ? "real" : "mock", features: "mock" },
+      features,
+      // Hai cờ là thật khi BE trả; cờ AI vẫn suy từ mã nên cả khối ghi "real" chỉ khi có cờ BE.
+      source: { limits: chain ? "real" : "mock", features: hasBackendFlags && !overridden ? "real" : "mock" },
     };
   },
 };

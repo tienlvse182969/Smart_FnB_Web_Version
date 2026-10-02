@@ -5,7 +5,6 @@ import dayjs from "dayjs";
 import { SectionTitle, StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
 import type { ReportGranularity, TopItemRow } from "../../types";
-import { modeOf } from "../../api";
 import FeatureGate from "../../plan/FeatureGate";
 import {
   RANGE_PRESETS,
@@ -92,18 +91,6 @@ export default function Reports() {
           />
         </div>
       </Card>
-
-      {/* TODO(BE): reports.service.ts:469 chỉ cộng đơn có status COMPLETED; đơn tại quầy kết thúc ở DELIVERED
-          nên chưa vào số liệu. Gỡ banner khi BE sửa. Bản mock tính đúng theo v9 nên không cần banner. */}
-      {modeOf("report") === "real" && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="Số liệu đang chờ backend cập nhật cho đơn tại quầy"
-          description="Các con số dưới đây chưa phản ánh đơn bán tại quầy theo mô hình mới, đừng dùng làm số liệu chính thức."
-        />
-      )}
 
       {error && (
         <Alert

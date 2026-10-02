@@ -13,17 +13,18 @@ import { branchMock } from "./modules/branch/mock";
 import { reportMock } from "./modules/report/mock";
 import { aiMock } from "./modules/ai/mock";
 import { menuMock } from "./modules/menu/mock";
+import { optionsMock } from "./modules/options/mock";
 import type { ApiChain } from "../types";
 
 mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin/menu/account/stations = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["menu", "options", "branding", "account", "order", "ai", "admin", "payos"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "account", "stations"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["options", "branding", "order", "ai", "payos"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });
@@ -209,6 +210,28 @@ describe("gói (plan)", () => {
     expect(plan.source).toEqual({ limits: "real", features: "mock" });
   });
 
+  it("bản real: cờ nhận diện và so sánh lấy từ BE (ưu tiên hơn suy từ mã gói), cờ AI vẫn suy từ mã", async () => {
+    setScenario({ profile: "A", tier: null, expired: false });
+    const chainOf = (code: string, flags: object) =>
+      ({ id: "c", subscription: { plan: { name: "G", code, ...flags }, quotas: [] } }) as unknown as ApiChain;
+    // Mã ADVANCED nhưng BE tắt hai cờ → theo BE; AI vẫn bật theo mã.
+    const off = await planReal.getPlan("c", { chains: [chainOf("ADVANCED", { brandingEnabled: false, multiBranchComparisonEnabled: false })] });
+    expect([off.features.branding.enabled, off.features.multiBranchCompare.enabled, off.features.aiAssistant.enabled]).toEqual([false, false, true]);
+    expect(off.source.features).toBe("real");
+    // Mã BASIC (lạ) nhưng BE bật cờ → theo BE.
+    const on = await planReal.getPlan("c", { chains: [chainOf("DEMO_OPERATIONS", { brandingEnabled: true, multiBranchComparisonEnabled: true })] });
+    expect([on.features.branding.enabled, on.features.multiBranchCompare.enabled, on.features.aiAssistant.enabled]).toEqual([true, true, false]);
+    // BE cũ không trả cờ → suy từ mã.
+    const legacy = await planReal.getPlan("c", { chains: [chainOf("STANDARD", {})] });
+    expect([legacy.features.branding.enabled, legacy.features.multiBranchCompare.enabled]).toEqual([true, true]);
+    expect(legacy.source.features).toBe("mock");
+    // Panel dev ghi đè cấp thì theo cấp ghi đè.
+    setScenario({ tier: "BASIC" });
+    const forced = await planReal.getPlan("c", { chains: [chainOf("ADVANCED", { brandingEnabled: true, multiBranchComparisonEnabled: true })] });
+    expect(forced.features.branding.enabled).toBe(false);
+    setScenario({ tier: null });
+  });
+
   it("bản real không có chuỗi (Manager): hạn mức rỗng, vẫn có cờ để khoá giao diện", async () => {
     const plan = await planReal.getPlan("c");
     expect(plan.limits).toEqual([]);
@@ -221,7 +244,7 @@ describe("dữ liệu mock v9", () => {
   const now = new Date();
   const mk = (id: "A" | "B") => {
     const profile = MOCK_PROFILES[id];
-    const items = buildMenu(profile, profile.chainId);
+    const items = buildMenu(profile).map((m) => ({ ...m, optionGroupIds: m.seedOptionGroupIds }));
     const groups = buildOptionGroups(profile, profile.chainId);
     return { profile, items, groups };
   };
@@ -237,9 +260,9 @@ describe("dữ liệu mock v9", () => {
     const { groups } = mk("A");
     const size = groups.find((g) => g.name === "Size")!;
     const topping = groups.find((g) => g.name === "Topping")!;
-    expect(size).toMatchObject({ required: true, minSelect: 1, maxSelect: 1 });
+    expect(size).toMatchObject({ isRequired: true, minSelections: 1, maxSelections: 1 });
     expect(size.options.some((o) => o.priceDelta > 0)).toBe(true);
-    expect(topping).toMatchObject({ required: false, minSelect: 0, maxSelect: 3 });
+    expect(topping).toMatchObject({ isRequired: false, minSelections: 0, maxSelections: 3 });
     expect(topping.options.every((o) => o.priceDelta > 0)).toBe(true);
   });
 
@@ -310,32 +333,19 @@ describe("dữ liệu mock v9", () => {
 });
 
 describe("mock chạy được với ID thật (không có lớp ánh xạ)", () => {
-  it("menu sinh dữ liệu lần đầu gặp chainId/branchId lạ và giữ trong bộ nhớ", async () => {
-    setScenario({ profile: "A" });
+  it("menu mock sinh dữ liệu lần đầu cho chainId lạ và giữ trong bộ nhớ", async () => {
+    setScenario({ profile: "A", expired: false });
     const chainId = "11111111-2222-3333-4444-555555555555";
-    const branchId = "99999999-8888-7777-6666-555555555555";
-    const items = await menuMock.listMenuItems(chainId, "owner");
+    const items = await menuMock.listItems(chainId);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.some((i) => (i.optionGroupIds?.length ?? 0) > 0)).toBe(true);
-    const branchMenu = await menuMock.listBranchMenu(chainId, branchId);
-    expect(branchMenu).toHaveLength(items.length);
-    const first = branchMenu.find((b) => b.isAvailable)!;
-    await menuMock.toggleBranchItem(chainId, branchId, first.menuItemId, false, "manager");
-    expect((await menuMock.listBranchMenu(chainId, branchId)).find((b) => b.menuItemId === first.menuItemId)!.isAvailable).toBe(false);
-  });
-
-  it("Admin không xem được menu (BR-07); Cashier không tắt món cấp chi nhánh trên web", async () => {
-    await expect(menuMock.listMenuItems("c", "admin")).rejects.toMatchObject({ status: 403 });
-    await expect(menuMock.toggleBranchItem("c", "b", "x", false, "owner")).rejects.toMatchObject({ status: 403 });
+    expect((await optionsMock.listItemConfigs(chainId)).some((c) => c.groupIds.length > 0)).toBe(true);
+    expect((await menuMock.listCategories(chainId)).length).toBeGreaterThan(1);
   });
 
   it("hết hạn thì mock chặn ghi nhưng vẫn cho đọc (BR-09)", async () => {
     setScenario({ profile: "A", expired: true });
-    await expect(menuMock.listMenuItems("c2", "owner")).resolves.toBeDefined();
-    await expect(menuMock.createItem("c2", { name: "x", category: "y", price: 1000, activeChain: true })).rejects.toMatchObject({
-      status: 403,
-      code: "SUBSCRIPTION_READ_ONLY",
-    });
+    await expect(menuMock.listItems("c2")).resolves.toBeDefined();
+    await expect(menuMock.createCategory("c2", { name: "Mới" })).rejects.toMatchObject({ status: 403, code: "SUBSCRIPTION_READ_ONLY" });
     setScenario({ expired: false });
   });
 
@@ -369,6 +379,22 @@ describe("mock chạy được với ID thật (không có lớp ánh xạ)", ()
 
     setScenario({ tier: "STANDARD" });
     await expect(aiMock.ask(chainId, "u", "doanh thu hôm nay")).rejects.toMatchObject({ status: 403, code: "PLAN_FEATURE_UNAVAILABLE" });
+  });
+
+  it("AI vào sáng mùng 1 (01/10 03:00, chưa có đơn trong tháng): 'tháng này' trả câu trả lời hợp lệ, không ném lỗi", async () => {
+    vi.setSystemTime(new Date("2026-10-01T03:00:00+07:00"));
+    try {
+      setScenario({ profile: "A", tier: null, expired: false });
+      // chainId mới để đơn mock sinh lại theo giờ giả (đơn được sinh lần đầu rồi giữ trong bộ nhớ).
+      const chainId = "aaaaaaaa-0000-4000-8000-000000000101";
+      const answer = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
+      expect(typeof answer.narrative).toBe("string");
+      expect(answer.narrative.length).toBeGreaterThan(0);
+      expect(answer.refused).toBeFalsy();
+      expect(answer.table?.rows.length ?? 0).toBeGreaterThanOrEqual(0);
+    } finally {
+      vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
+    }
   });
 
   it("tạo chi nhánh vượt hạn mức → PLAN_LIMIT_REACHED như BE", async () => {

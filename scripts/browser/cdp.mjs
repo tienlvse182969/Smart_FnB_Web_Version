@@ -10,6 +10,8 @@ const REPO = resolve(HERE, "../..");
 export const ORIGIN = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 5173}`;
 export const CDP_PORT = Number(process.env.CDP_PORT ?? 9333);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** POST được phép khi chặn ghi: chỉ phiên đăng nhập. */
+export const SESSION_ALLOW = [/\/auth\/(login|refresh|logout)$/];
 
 function readEnvFile(path) {
   if (!existsSync(path)) return {};
@@ -67,8 +69,38 @@ class Tab {
         this.consoleLog.push(m.params.args.map((a) => a.value ?? a.description ?? "").join(" "));
       } else if (m.method === "Network.requestWillBeSent") {
         this.requests.push({ url: m.params.request.url, method: m.params.request.method });
+      } else if (m.method === "Fetch.requestPaused") {
+        this.onRequestPaused(m.params);
       }
     };
+  }
+  /**
+   * Chặn mọi request GHI (POST/PUT/PATCH/DELETE) ở tầng CDP, TRƯỚC khi rời trình duyệt (Fetch.failRequest), và ghi lại
+   * method + đường dẫn + body đã định gửi vào `this.blockedWrites`. GET/HEAD/OPTIONS đi tiếp. `allow` = danh sách regex
+   * đường dẫn cho phép riêng cho POST (ví dụ đăng nhập lấy token).
+   */
+  async blockWrites(allow = []) {
+    this.blockedWrites = [];
+    this.blockAllow = allow;
+    await this.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
+  }
+  onRequestPaused(p) {
+    const { method, url, postData } = p.request;
+    const path = (() => {
+      try {
+        const u = new URL(url);
+        return u.pathname + u.search;
+      } catch {
+        return url;
+      }
+    })();
+    const safe = ["GET", "HEAD", "OPTIONS"].includes(method) || (method === "POST" && this.blockAllow?.some((re) => re.test(path)));
+    if (safe) {
+      void this.send("Fetch.continueRequest", { requestId: p.requestId });
+    } else {
+      this.blockedWrites.push({ method, path, body: postData ?? null });
+      void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" });
+    }
   }
   send(method, params = {}) {
     const id = ++this.n;
@@ -112,8 +144,16 @@ class Tab {
     return this.eval(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].map(e => e.textContent.trim())`);
   }
   async clickMenu(label) {
+    // Chờ mục menu xuất hiện (tối đa 15 giây) rồi mới bấm — không bấm ngay khi trang còn đang dựng.
+    await this.waitFor(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].some(e => e.textContent.trim() === ${JSON.stringify(label)})`, 15000, `mục menu "${label}"`);
     await this.eval(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].find(e => e.textContent.trim() === ${JSON.stringify(label)}).click()`);
     await sleep(700);
+  }
+  /** Chờ phần tử khớp selector (và chứa `text` nếu có) xuất hiện và chưa bị khoá, rồi bấm. Hết hạn thì ném lỗi rõ ràng. */
+  async clickWhen(selector, text = "", timeout = 10000) {
+    const find = `[...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => (!${JSON.stringify(text)} || e.textContent.includes(${JSON.stringify(text)})) && !e.disabled)`;
+    await this.waitFor(`${find}`, timeout, `phần tử ${selector}${text ? ` chứa "${text}"` : ""}`);
+    await this.eval(`${find}.click()`);
   }
   /** Giá trị CSS variable trên <html>. */
   cssVar(name) {
@@ -172,7 +212,7 @@ class Tab {
   }
 }
 
-export async function newTab(url = "about:blank", authMode) {
+export async function newTab(url = "about:blank", authMode, opts = {}) {
   const r = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
   const info = await r.json();
   const ws = new WebSocket(info.webSocketDebuggerUrl);
@@ -184,6 +224,26 @@ export async function newTab(url = "about:blank", authMode) {
   await tab.send("Page.enable");
   await tab.send("Runtime.enable");
   await tab.send("Network.enable");
+  // Khởi động nguội: mở trang đăng nhập một lần để Vite biên dịch xong trước khi script bắt đầu (tránh lần chạy đầu bị chậm/trượt).
+  // `opts.warm = false` cho tab thứ hai của các kiểm tra đa tab (mở trang đăng nhập khi đang có phiên sẽ gọi /auth/refresh và làm lệch số đếm).
+  try {
+    if (opts.warm !== false) {
+      await tab.send("Page.navigate", { url: ORIGIN + "/login" });
+      await tab.waitFor(`!!document.querySelector('input[placeholder="Email"]')`, 90000, "Vite biên dịch xong (trang đăng nhập)");
+    }
+  } catch {
+    // dev server chưa chạy hoặc trang không có form đăng nhập — để script tự báo lỗi ở bước của nó
+  }
+  // BLOCK_WRITES=1: chặn mọi request ghi ở tầng CDP cho CẢ script, rồi in số request bị chặn khi thoát. Chỉ cho qua đăng nhập,
+  // làm mới và đăng xuất (phiên đăng nhập, không phải dữ liệu nghiệp vụ).
+  if (process.env.BLOCK_WRITES === "1") {
+    await tab.blockWrites(SESSION_ALLOW);
+    process.on("exit", () => {
+      const list = tab.blockedWrites ?? [];
+      console.log(`[BLOCK_WRITES] ${list.length} request ghi bị chặn ở CDP`);
+      for (const w of list) console.log(`   ${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")} ${w.body ?? ""}`.slice(0, 220));
+    });
+  }
   return tab;
 }
 

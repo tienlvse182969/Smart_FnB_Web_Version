@@ -1,61 +1,146 @@
-import { App, Button, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
+import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
 import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { DemoAccount } from "../../types";
-import { DEFAULT_PASSWORD } from "../../types";
-import { accountApi } from "../../api";
+import { useCallback, useEffect, useState } from "react";
+import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
+import { formatDateTime } from "../../lib/reportFormat";
+import { accountApi, modeOf, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
+import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
-/** OW-05/06: Owner tạo/khoá/reset mật khẩu/chuyển chi nhánh cho Branch Manager. */
+const PAGE_SIZE = 20;
+
+const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
+
+/**
+ * OW-05: Owner quản Branch Manager — danh sách phân trang/tìm kiếm/lọc, khoá/mở khoá, gửi lại email đặt mật khẩu,
+ * chuyển chi nhánh (BE `/employees`, real). Mọi thao tác ghi đều qua hộp xác nhận. Tạo Manager chờ BE (#23) ở chế độ real.
+ * Cashier/Barista: Owner chỉ XEM (OW-05), đọc thật `GET /employees?role=CASHIER|BARISTA`.
+ */
 export default function ManagerAccounts() {
   const { message, modal } = App.useApp();
   const currentUser = useAppStore((s) => s.currentUser);
   const branches = useAppStore((s) => s.branches);
+  const writeGuard = useWriteGuard();
   const tenantId = currentUser?.tenantId ?? null;
+  const realManagers = modeOf("account") === "real";
 
-  const [managers, setManagers] = useState<DemoAccount[]>([]);
-  const [staff, setStaff] = useState<DemoAccount[]>([]);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<AccountStatus | undefined>();
+  const [data, setData] = useState<ManagerPage>({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } });
+  const [loading, setLoading] = useState(false);
+  const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
 
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? id ?? "—";
 
-  const load = async () => {
+  const loadManagers = useCallback(async () => {
     if (!tenantId) return;
-    setManagers(await accountApi.listManagers(tenantId));
-    setStaff(await accountApi.listStaffAccounts(tenantId));
-  };
+    setLoading(true);
+    try {
+      setData(await accountApi.listManagers(tenantId, { page, limit: PAGE_SIZE, search, status }));
+    } catch (err) {
+      showApiError(message.error, err, "Không tải được danh sách Manager");
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId, page, search, status, message]);
+
+  const loadStaff = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      setStaff(await accountApi.listStaffAccounts(tenantId));
+    } catch (err) {
+      showApiError(message.error, err, "Không tải được danh sách nhân viên");
+    }
+  }, [tenantId, message]);
 
   useEffect(() => {
-    load();
-  }, [tenantId]);
+    void loadManagers();
+  }, [loadManagers]);
 
-  const toggleActive = async (a: DemoAccount) => {
-    await accountApi.setActive(a.id, !a.active);
-    message.success(!a.active ? `Đã mở khoá tài khoản ${a.name}` : `Đã khoá tài khoản ${a.name}`);
-    await load();
+  useEffect(() => {
+    void loadStaff();
+  }, [loadStaff]);
+
+  /** Chạy một thao tác ghi: lỗi hiện gọn một thông báo (không vỡ màn hình), xong thì nạp lại danh sách. */
+  const run = async (action: () => Promise<void>, failText: string) => {
+    try {
+      await action();
+    } catch (err) {
+      showApiError(message.error, err, failText);
+    } finally {
+      await loadManagers();
+    }
   };
 
-  const doReset = async (a: DemoAccount) => {
-    await accountApi.resetPassword(a.id);
-    modal.success({
-      title: `Đã đặt lại mật khẩu ${a.name}`,
+  const confirmLock = (m: ManagerAccount) => {
+    const locking = m.status === "ACTIVE";
+    modal.confirm({
+      title: locking ? `Khoá tài khoản ${m.name}?` : `Mở khoá tài khoản ${m.name}?`,
       content: (
-        <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-          Email: <b>{a.email}</b>
+        <div data-testid="confirm-lock" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          <b>{m.name}</b> · chi nhánh <b>{m.branchName}</b> ({m.email})
           <br />
-          Mật khẩu tạm mới: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập tới)
+          {locking ? "Các phiên đang đăng nhập của tài khoản này sẽ bị thu hồi và không đăng nhập được nữa." : "Tài khoản đăng nhập được trở lại."}
         </div>
       ),
+      okText: locking ? "Khoá tài khoản" : "Mở khoá",
+      okButtonProps: { danger: locking },
+      cancelText: "Huỷ",
+      onOk: () =>
+        run(async () => {
+          await accountApi.setManagerActive(m.id, !locking);
+          message.success(locking ? `Đã khoá tài khoản ${m.name}` : `Đã mở khoá tài khoản ${m.name}`);
+        }, locking ? "Không khoá được tài khoản" : "Không mở khoá được tài khoản"),
     });
   };
 
-  const changeBranch = async (a: DemoAccount, branchId: string) => {
-    await accountApi.reassignBranch(a.id, branchId);
-    message.success(`Đã chuyển ${a.name} sang ${branchName(branchId)}`);
-    await load();
+  const confirmReset = (m: ManagerAccount) => {
+    modal.confirm({
+      title: `Gửi lại email đặt mật khẩu cho ${m.name}?`,
+      content: (
+        <div data-testid="confirm-reset" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          Email gửi tới <b>{m.email}</b>. Link dùng một lần, hiệu lực 24 giờ; các phiên đang đăng nhập của {m.name} sẽ bị thu hồi.
+        </div>
+      ),
+      okText: "Gửi email",
+      cancelText: "Huỷ",
+      onOk: () =>
+        run(async () => {
+          const { expiresAt } = await accountApi.resetManagerPassword(m.id);
+          modal.success({
+            title: `Đã xếp email đặt lại mật khẩu cho ${m.name}`,
+            content: (
+              <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                Email gửi tới <b>{m.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}. Các phiên đang đăng nhập đã bị thu hồi.
+              </div>
+            ),
+          });
+        }, "Không gửi được email đặt mật khẩu"),
+    });
+  };
+
+  const confirmTransfer = (m: ManagerAccount, branchId: string) => {
+    if (branchId === m.branchId) return;
+    modal.confirm({
+      title: `Chuyển ${m.name} sang ${branchName(branchId)}?`,
+      content: (
+        <div data-testid="confirm-transfer" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          <b>{m.name}</b>: từ <b>{m.branchName}</b> sang <b>{branchName(branchId)}</b>. Phiên đang đăng nhập bị thu hồi, {m.name} phải đăng nhập lại.
+        </div>
+      ),
+      okText: "Chuyển chi nhánh",
+      cancelText: "Huỷ",
+      onOk: () =>
+        run(async () => {
+          await accountApi.reassignManager(m.id, branchId);
+          message.success(`Đã chuyển ${m.name} sang ${branchName(branchId)}`);
+        }, "Không chuyển được chi nhánh"),
+    });
   };
 
   return (
@@ -64,109 +149,162 @@ export default function ManagerAccounts() {
         title="Tài khoản quản lý"
         sub="Một chi nhánh có thể có nhiều Branch Manager để trực ca — không phải một người làm cả ngày"
         extra={
-          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" disabled={realManagers} data-testid="create-manager" onClick={() => setAdding(true)}>
             Thêm tài khoản
           </ActionButton>
         }
       />
+      {realManagers && (
+        <div data-testid="create-manager-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+          Chờ BE gửi email thay vì đặt mật khẩu (api-contract-plan #23) — chưa tạo được Manager ở chế độ này.
+        </div>
+      )}
       <Tabs
         items={[
           {
             key: "managers",
-            label: `Branch Manager (${managers.length})`,
+            label: `Branch Manager (${data.pagination.total})`,
             children: (
-              <Table<DemoAccount>
-                dataSource={managers}
-                rowKey="id"
-                pagination={false}
-                size="middle"
-                columns={[
-                  {
-                    title: "Tài khoản",
-                    dataIndex: "name",
-                    render: (v, r) => (
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
-                      </div>
-                    ),
-                  },
-                  {
-                    title: "Chi nhánh được gán",
-                    dataIndex: "branchId",
-                    render: (id: string, r) => (
-                      <Select
-                        value={id}
-                        size="small"
-                        style={{ width: 190 }}
-                        onChange={(v) => changeBranch(r, v)}
-                        options={branches.map((b) => ({ value: b.id, label: b.name }))}
-                      />
-                    ),
-                  },
-                  {
-                    title: "Trạng thái",
-                    dataIndex: "active",
-                    render: (active: boolean) => (
-                      <span style={{ background: active ? palette.success.bg : palette.error.bg, color: active ? palette.success.text : palette.error.text, padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>
-                        {active ? "Đang hoạt động" : "Đã khoá"}
-                      </span>
-                    ),
-                  },
-                  {
-                    title: "",
-                    key: "act",
-                    align: "right",
-                    render: (_, r) => (
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => doReset(r)}>
-                          Reset mật khẩu
-                        </ActionButton>
-                        {r.active ? (
-                          <ActionButton size="small" icon={<Lock size={14} />} onClick={() => toggleActive(r)}>
-                            Khoá
+              <>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                  <Input.Search
+                    allowClear
+                    placeholder="Tìm theo tên, mã hoặc email"
+                    style={{ maxWidth: 300 }}
+                    onSearch={(v) => {
+                      setPage(1);
+                      setSearch(v);
+                    }}
+                  />
+                  <Select<AccountStatus | "all">
+                    style={{ width: 170 }}
+                    value={status ?? "all"}
+                    onChange={(v) => {
+                      setPage(1);
+                      setStatus(v === "all" ? undefined : v);
+                    }}
+                    options={[{ value: "all", label: "Mọi trạng thái" }, ...(Object.keys(STATUS_LABEL) as AccountStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]}
+                  />
+                </div>
+                <Table<ManagerAccount>
+                  dataSource={data.items}
+                  rowKey="id"
+                  loading={loading}
+                  size="middle"
+                  scroll={{ x: 860 }}
+                  locale={{ emptyText: "Chưa có Manager nào khớp" }}
+                  pagination={{
+                    current: data.pagination.page,
+                    pageSize: PAGE_SIZE,
+                    total: data.pagination.total,
+                    showSizeChanger: false,
+                    hideOnSinglePage: true,
+                    onChange: setPage,
+                  }}
+                  columns={[
+                    {
+                      title: "Tài khoản",
+                      dataIndex: "name",
+                      render: (v: string, r) => (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{v}</div>
+                          <div style={{ fontSize: 12, color: palette.textSubtle }}>
+                            {r.email} · {r.employeeCode}
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: "Chi nhánh được gán",
+                      dataIndex: "branchId",
+                      render: (id: string, r) => (
+                        <Select
+                          value={id}
+                          size="small"
+                          style={{ width: 190 }}
+                          disabled={writeGuard.disabled}
+                          onChange={(v) => confirmTransfer(r, v)}
+                          options={branches.map((b) => ({ value: b.id, label: b.name }))}
+                        />
+                      ),
+                    },
+                    {
+                      title: "Trạng thái",
+                      dataIndex: "status",
+                      render: (s: AccountStatus) => (
+                        <span
+                          style={{
+                            background: s === "ACTIVE" ? palette.success.bg : s === "SUSPENDED" ? palette.error.bg : palette.paperSubtle,
+                            color: s === "ACTIVE" ? palette.success.text : s === "SUSPENDED" ? palette.error.text : palette.textMuted,
+                            padding: "3px 10px",
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 500,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {STATUS_LABEL[s]}
+                        </span>
+                      ),
+                    },
+                    { title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") },
+                    {
+                      title: "",
+                      key: "act",
+                      align: "right",
+                      render: (_, r) => (
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => confirmReset(r)}>
+                            Reset mật khẩu
                           </ActionButton>
-                        ) : (
-                          <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => toggleActive(r)}>
-                            Mở khoá
-                          </ActionButton>
-                        )}
-                      </div>
-                    ),
-                  },
-                ]}
-              />
+                          {r.status === "SUSPENDED" ? (
+                            <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => confirmLock(r)}>
+                              Mở khoá
+                            </ActionButton>
+                          ) : (
+                            <ActionButton size="small" icon={<Lock size={14} />} disabled={r.status !== "ACTIVE"} onClick={() => confirmLock(r)}>
+                              Khoá
+                            </ActionButton>
+                          )}
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
+              </>
             ),
           },
           {
             key: "staff",
             label: `Thu ngân & Pha chế (${staff.length}) · chỉ xem`,
             children: (
-              <Table<DemoAccount>
-                dataSource={staff}
-                rowKey="id"
-                pagination={false}
-                size="middle"
-                columns={[
-                  {
-                    title: "Tài khoản",
-                    dataIndex: "name",
-                    render: (v, r) => (
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{v}</div>
-                        <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
-                      </div>
-                    ),
-                  },
-                  { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r === "cashier" ? "Cashier" : "Barista"}</Tag> },
-                  { title: "Chi nhánh", dataIndex: "branchId", render: (id: string) => branchName(id) },
-                  {
-                    title: "Trạng thái",
-                    dataIndex: "active",
-                    render: (active: boolean) => (active ? <Tag color="green">Đang hoạt động</Tag> : <Tag>Đã khoá</Tag>),
-                  },
-                ]}
-              />
+              <>
+                <Table<StaffAccount>
+                  dataSource={staff}
+                  rowKey="id"
+                  pagination={false}
+                  size="middle"
+                  columns={[
+                    {
+                      title: "Tài khoản",
+                      dataIndex: "name",
+                      render: (v, r) => (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{v}</div>
+                          <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
+                        </div>
+                      ),
+                    },
+                    { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r}</Tag> },
+                    { title: "Chi nhánh", dataIndex: "branchName" },
+                    {
+                      title: "Trạng thái",
+                      dataIndex: "status",
+                      render: (s: AccountStatus) => (s === "ACTIVE" ? <Tag color="green">{STATUS_LABEL[s]}</Tag> : <Tag>{STATUS_LABEL[s]}</Tag>),
+                    },
+                  ]}
+                />
+              </>
             ),
           },
         ]}
@@ -179,21 +317,19 @@ export default function ManagerAccounts() {
         onSave={async (name, email, branchId) => {
           if (!tenantId) return;
           try {
-            const acc = await accountApi.createManager(tenantId, branchId, name, email);
+            const { account: acc, expiresAt } = await accountApi.createManager(tenantId, branchId, name, email);
             setAdding(false);
             modal.success({
               title: "Đã tạo tài khoản Branch Manager",
               content: (
-                <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                  Email: <b>{acc.email}</b>
-                  <br />
-                  Mật khẩu tạm: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập đầu)
+                <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                  Đã xếp email đặt mật khẩu tới <b>{acc.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
                 </div>
               ),
             });
-            await load();
+            await loadManagers();
           } catch (err) {
-            message.error(err instanceof Error ? err.message : "Không tạo được — có thể đã vượt hạn mức gói");
+            showApiError(message.error, err, "Không tạo được — có thể đã vượt hạn mức gói");
           }
         }}
       />

@@ -8,7 +8,7 @@ import {
   request,
   setTokens,
 } from "../../http/client";
-import type { AuthApi } from "./index";
+import { SETUP_TOKEN_INVALID, SETUP_TOKEN_MESSAGE, type AuthApi } from "./index";
 
 interface BackendAuthUser {
   id: string;
@@ -69,9 +69,7 @@ function toAuthUser(user: BackendAuthUser): AuthUser {
     role,
     tenantId: null,
     branchId: null,
-    // Backend đặt mật khẩu qua luồng riêng (/auth/setup-password), không có
-    // cờ "phải đổi mật khẩu" ở lần đăng nhập thường.
-    mustChangePassword: false,
+    // Không có cờ "phải đổi mật khẩu": BE đặt mật khẩu qua /auth/setup-password (token trong email); login và /auth/me không trả cờ nào.
   };
 }
 
@@ -157,5 +155,14 @@ export const authReal: AuthApi = {
   // cho người đã đăng nhập.
   async changePassword() {
     throw new ApiError(501, "Đổi mật khẩu chưa được backend hỗ trợ.");
+  },
+  async setupPassword(token, password) {
+    try {
+      await request<{ message: string }>("/auth/setup-password", { method: "POST", body: { token, password }, anonymous: true });
+    } catch (err) {
+      // BE trả 401 cho token sai/hết hạn/đã dùng. Giữ status 401 (log trung thực), chỉ gắn mã để web biết đây không phải hết phiên.
+      if (err instanceof ApiError && err.status === 401) throw new ApiError(401, SETUP_TOKEN_MESSAGE, err.details, SETUP_TOKEN_INVALID, err.body);
+      throw err;
+    }
   },
 };

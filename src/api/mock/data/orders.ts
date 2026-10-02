@@ -6,7 +6,6 @@
  *   tại đã đổi giá.
  */
 import type {
-  MenuItem,
   Order,
   OrderLine,
   OrderLineOption,
@@ -21,6 +20,9 @@ import { hashString, mulberry32, pick } from "../prng";
 
 export const ORDER_HISTORY_DAYS = 28;
 
+/** Phần của món mà bộ sinh đơn cần. */
+export type OrderableItem = { id: string; name: string; price: number; isActive: boolean; optionGroupIds?: string[] };
+
 const DAY_MS = 86_400_000;
 
 interface GenerateInput {
@@ -28,7 +30,7 @@ interface GenerateInput {
   branchId: string;
   /** Hệ số lưu lượng của chi nhánh. */
   traffic: number;
-  items: MenuItem[];
+  items: OrderableItem[];
   groups: OptionGroup[];
   now: Date;
 }
@@ -41,7 +43,7 @@ function startOfLocalDay(d: Date): Date {
 
 function buildLine(
   rng: () => number,
-  item: MenuItem,
+  item: OrderableItem,
   groups: Map<string, OptionGroup>,
   seq: number,
 ): OrderLine {
@@ -50,14 +52,14 @@ function buildLine(
   for (const groupId of item.optionGroupIds ?? []) {
     const group = groups.get(groupId);
     if (!group) continue;
-    const active = group.options.filter((o) => o.activeChain);
-    if (group.maxSelect > 1) {
+    const active = group.options.filter((o) => o.isActive);
+    if (group.maxSelections > 1) {
       // Nhóm chọn nhiều (topping): 0..maxSelect
-      const count = rng() < 0.5 ? 0 : 1 + Math.floor(rng() * group.maxSelect);
+      const count = rng() < 0.5 ? 0 : 1 + Math.floor(rng() * group.maxSelections);
       const chosen = [...active].sort(() => rng() - 0.5).slice(0, count);
       for (const o of chosen) options.push({ groupName: group.name, optionName: o.name, priceDelta: o.priceDelta });
     } else {
-      const byDefault = active.find((o) => group.defaultOptionIds.includes(o.id));
+      const byDefault = active.find((o) => o.isDefault);
       const chosen = rng() < 0.65 && byDefault ? byDefault : pick(rng, active);
       options.push({ groupName: group.name, optionName: chosen.name, priceDelta: chosen.priceDelta });
     }
@@ -92,7 +94,7 @@ function liveStatus(ageMin: number): OrderStatus {
 export function generateBranchOrders({ chainId, branchId, traffic, items, groups, now }: GenerateInput): Order[] {
   const rng = mulberry32(hashString(`orders:${branchId}`));
   const groupMap = new Map(groups.map((g) => [g.id, g]));
-  const sellable = items.filter((i) => i.activeChain);
+  const sellable = items.filter((i) => i.isActive);
   const today = startOfLocalDay(now);
   const orders: Order[] = [];
   let seq = 0;

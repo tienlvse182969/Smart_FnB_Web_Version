@@ -1,54 +1,36 @@
-import { App, Button, Card, InputNumber, Switch, Table, Tag } from "antd";
-import { Infinity as InfinityIcon, TriangleAlert } from "lucide-react";
+import { App, Card, Switch, Table } from "antd";
 import { money } from "../../data";
 import type { BranchMenuItem } from "../../types";
 import { SectionTitle } from "../../components/bits";
+import { showApiError } from "../../api";
 import { useAppStore } from "../../store";
-import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { palette } from "../../theme";
 
-type Row = BranchMenuItem & {
-  name: string;
-  category: string;
-  price: number;
-  activeChain: boolean;
-};
-
-/** Món tại chi nhánh (đặc tả 4.5, BR-12) — tên/giá/ảnh thuộc Owner, chỉ bật/tắt & đặt số suất ở đây. */
+/**
+ * Món tại chi nhánh (đặc tả 4.5, BR-12) — tên/giá/ảnh thuộc Owner, chi nhánh chỉ bật/tắt "còn bán hôm nay". BE chỉ trả món Owner
+ * đang bật và đã gán cho chi nhánh, nên không có dòng "Owner tắt món". Màn này sẽ làm lại ở giai đoạn 5.
+ */
 export default function BranchMenu() {
   const { message } = App.useApp();
-  const menuItems = useAppStore((s) => s.menuItems);
-  const branchMenuItems = useAppStore((s) => s.branchMenuItems);
+  const branchMenu = useAppStore((s) => s.branchMenu);
   const toggleMenuItemAvailability = useAppStore((s) => s.toggleMenuItemAvailability);
   const writeGuard = useWriteGuard();
-  const updateRemainingToday = useAppStore((s) => s.updateRemainingToday);
 
-  const rows: Row[] = branchMenuItems
-    .map((b) => {
-      const m = menuItems.find((x) => x.id === b.menuItemId);
-      if (!m) return null;
-      return { ...b, name: m.name, category: m.category, price: m.price, activeChain: m.activeChain };
-    })
-    .filter((r): r is Row => r !== null);
-
-  const toggle = async (r: Row, on: boolean) => {
+  const toggle = async (r: BranchMenuItem, on: boolean) => {
     try {
       await toggleMenuItemAvailability(r.menuItemId, on);
       message.success(on ? "Đã bật bán món hôm nay" : "Đã tạm ngừng bán món hôm nay");
     } catch (err) {
-      message.error(err instanceof Error ? err.message : "Không cập nhật được");
+      showApiError(message.error, err, "Không cập nhật được");
     }
   };
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Món tại chi nhánh"
-        sub="Tên, giá, ảnh do Owner quản ở cấp chuỗi — chi nhánh chỉ bật/tắt bán và đặt số suất"
-      />
-      <Table<Row>
-        dataSource={rows}
+      <SectionTitle title="Món tại chi nhánh" sub="Tên, giá, ảnh do Owner quản ở cấp chuỗi — chi nhánh chỉ bật/tắt bán trong ngày" />
+      <Table<BranchMenuItem>
+        dataSource={branchMenu}
         rowKey="menuItemId"
         pagination={false}
         size="middle"
@@ -56,13 +38,10 @@ export default function BranchMenu() {
           {
             title: "Món",
             dataIndex: "name",
-            render: (v, r) => (
-              <div style={{ opacity: r.activeChain ? 1 : 0.45 }}>
-                <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                  {v}
-                  {!r.activeChain && <Tag>Chuỗi đã tắt</Tag>}
-                </div>
-                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.category}</div>
+            render: (v: string, r) => (
+              <div>
+                <div style={{ fontWeight: 600 }}>{v}</div>
+                <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.categoryName}</div>
               </div>
             ),
           },
@@ -70,54 +49,13 @@ export default function BranchMenu() {
             title: "Giá",
             dataIndex: "price",
             align: "right",
-            render: (v) => <span style={{ color: palette.textSubtle }}>{money(v)}</span>,
+            render: (v: number) => <span style={{ color: palette.textSubtle }}>{money(v)}</span>,
           },
           {
             title: "Còn bán hôm nay",
             dataIndex: "isAvailable",
             align: "center",
-            render: (on: boolean, r) =>
-              r.activeChain ? (
-                <Switch checked={on} size="small" disabled={writeGuard.disabled} onChange={(c) => toggle(r, c)} />
-              ) : (
-                <Switch checked={false} size="small" disabled />
-              ),
-          },
-          {
-            title: "Suất còn lại",
-            dataIndex: "remainingToday",
-            align: "right",
-            render: (rem: number | null, r) => {
-              if (!r.activeChain) {
-                return <span style={{ fontSize: 12, color: palette.textSubtle }}>Owner tắt món này</span>;
-              }
-              return (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                  {rem === 0 && (
-                    <Tag color="black" icon={<TriangleAlert size={12} />} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      Hết suất
-                    </Tag>
-                  )}
-                  <InputNumber
-                    value={rem ?? undefined}
-                    placeholder="∞"
-                    min={0}
-                    size="small"
-                    style={{ width: 92 }}
-                    disabled={writeGuard.disabled}
-                    onChange={(v) => updateRemainingToday(r.menuItemId, v ?? 0)}
-                  />
-                  <ActionButton
-                    size="small"
-                    icon={<InfinityIcon size={14} />}
-                    type={rem === null ? "primary" : "default"}
-                    onClick={() => updateRemainingToday(r.menuItemId, null)}
-                  >
-                    Không giới hạn
-                  </ActionButton>
-                </div>
-              );
-            },
+            render: (on: boolean, r) => <Switch checked={on} size="small" disabled={writeGuard.disabled} onChange={(c) => toggle(r, c)} />,
           },
         ]}
       />

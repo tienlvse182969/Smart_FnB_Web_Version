@@ -8,13 +8,15 @@ export { authApi, TABLET_ONLY_MESSAGE, NO_WEB_ACCESS_MESSAGE, type AuthApi } fro
 export { branchApi, describeBranchError, type BranchApi } from "./modules/branch";
 export { reportApi, type ReportApi } from "./modules/report";
 export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
-export { menuApi, type MenuApi } from "./modules/menu";
+export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
 export { accountApi, type AccountApi } from "./modules/account";
+export { stationsApi, type StationsApi } from "./modules/stations";
+export { isIpv4, isMac, validateStationInput } from "./modules/stations/rules";
 export { orderApi, type OrderApi, type ListOrdersParams } from "./modules/order";
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
-export { adminApi, type AdminApi, type RegistrationInput, type TenantUsage } from "./modules/admin";
+export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosLinkStatus } from "./modules/payos";
 
 export {
@@ -22,12 +24,14 @@ export {
   classifyApiError,
   describeApiError,
   isQuotaError,
+  showApiError,
   setApiErrorHandler,
   type ApiErrorEvent,
   type ApiErrorKind,
 } from "./http/errors";
 export { clearTokens, setSessionExpiredHandler } from "./http/client";
 export { API_MODULES, DEFAULT_MODES, MODES, flagTable, modeOf, type ApiMode, type ApiModule } from "./flags";
+export { getPublicPlans, type PublicPlan } from "./publicPlans";
 export { mockControl, setMockFailure, type MockFailureKind } from "./mock/control";
 export { getScenario, setScenario, subscribeScenario, type MockScenario, type MockProfileId } from "./mock/scenario";
 
