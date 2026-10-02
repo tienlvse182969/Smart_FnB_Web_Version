@@ -1,7 +1,9 @@
-import { createBrowserRouter, Navigate, useNavigate, type RouteObject } from "react-router-dom";
+import { useEffect } from "react";
+import { createBrowserRouter, Navigate, useLocation, useNavigate, type RouteObject } from "react-router-dom";
 import { App } from "antd";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
+import SetupPasswordScreen from "../auth/SetupPasswordScreen";
 import DisplayLayout from "../display/DisplayLayout";
 import CallScreen from "../display/CallScreen";
 import RoleLayout from "./RoleLayout";
@@ -16,8 +18,17 @@ function LandingWrapper() {
 
 function LoginWrapper() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { message } = App.useApp();
   const { login } = useAppStore();
+
+  // Từ /setup-password sang: báo kết quả một lần rồi xoá khỏi state của lịch sử.
+  useEffect(() => {
+    const notice = (location.state as { notice?: string } | null)?.notice;
+    if (!notice) return;
+    message.success({ key: "setup-password-done", content: notice });
+    navigate(".", { replace: true, state: null });
+  }, [location.state, message, navigate]);
 
   const handleLogin = async (email: string, password: string) => {
     try {
@@ -60,6 +71,11 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginWrapper />,
+  },
+  {
+    // Công khai: đặt mật khẩu từ link trong email (token một lần).
+    path: "/setup-password",
+    element: <SetupPasswordScreen />,
   },
   roleArea("admin"),
   roleArea("owner"),
