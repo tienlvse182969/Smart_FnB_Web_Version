@@ -16,10 +16,13 @@ export const PRINTER_CONNECTION_LABEL: Record<PrinterConnection, string> = {
 /** Trạng thái quầy (BE `PosStationStatus`): quầy mới tạo là ACTIVE (schema.prisma `PosStation.status @default(ACTIVE)`). */
 export type StationStatus = "ACTIVE" | "INACTIVE";
 
+/** Loại màn hình ghép bằng mã 6 số (BE `DisplayDeviceType`): màn hình khách gắn quầy, màn hình gọi số gắn chi nhánh (BR-45). */
+export type DisplayKind = "CUSTOMER_DISPLAY" | "CALLING_DISPLAY";
+
 /** Màn hình đã ghép vào quầy (không có token). */
 export type StationDevice = {
   id: string;
-  type: "CUSTOMER_DISPLAY" | "CALLING_DISPLAY";
+  type: DisplayKind;
   name: string | null;
   pairedAt: string;
   lastSeenAt: string | null;
