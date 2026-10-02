@@ -266,6 +266,56 @@ try {
     await sleep(1500);
     const staffNotice = await q(`${tid("password-setup-notice")}?.innerText ?? ""`);
     check("Manager tạo nhân viên: hiện 'Đã xếp email đặt mật khẩu … hiệu lực tới …', không có mật khẩu", /Đã xếp email đặt mật khẩu tới nv\.thu@mock\.local, hiệu lực tới/.test(staffNotice) && !SECRET.test(await pageText()), staffNotice);
+    await dismissModals();
+
+    // ============================================================ MOCK — 5.5 quầy và máy in
+    await tab.clickMenu("Quầy và máy in");
+    await sleep(1000);
+    let stList = await waitRows((r) => r.length >= 2);
+    check("Quầy (mock): bảng có 2 quầy mẫu, hiện máy in và số màn hình đã ghép", stList.length >= 2 && stList.some((r) => r.includes("Quầy 1") && r.includes("WiFi") && r.includes("192.168.1.50:9100") && /1 màn hình/.test(r)) && stList.some((r) => r.includes("Quầy 2") && r.includes("Chưa khai báo")), stList.join(" // ").slice(0, 160));
+    check("Quầy: đổi tên / ngừng dùng / sửa máy in bị khoá, có chú thích 'Chờ BE (api-contract-plan #27)'", /#27/.test(await q(`${tid("stations-pending-note")}?.innerText ?? ""`)) && (await q(`[...document.querySelectorAll('[data-testid="station-pending-action"]')].every((b) => b.disabled) && document.querySelectorAll('[data-testid="station-pending-action"]').length >= 3`)));
+    const addStation = async (name, conn, address) => {
+      await clickTid("station-add");
+      await sleep(700);
+      await setTid("station-name", name);
+      if (conn !== "NONE") {
+        await clickTid(`station-conn-${conn}`);
+        await sleep(300);
+        if (address !== undefined) await setTid("station-address", address);
+      }
+      await sleep(300);
+    };
+    const stErrors = () => q(`${tid("station-errors")}?.innerText ?? ""`);
+    const stSaveDisabled = () => q(`${tid("station-save")}.disabled`);
+    // tên trùng
+    await addStation("Quầy 1", "NONE");
+    check("Quầy: tên trùng bị báo sớm và khoá nút Tạo", /Tên quầy đã có trong chi nhánh/.test(await stErrors()) && (await stSaveDisabled()) === true, await stErrors());
+    // WiFi: IP sai rồi đúng
+    await setTid("station-name", "Quầy WiFi");
+    await clickTid("station-conn-WIFI");
+    await sleep(300);
+    await setTid("station-address", "192.168.1.999");
+    await sleep(300);
+    check("Quầy WiFi: IP sai (octet > 255) bị chặn", /IP không hợp lệ/.test(await stErrors()) && (await stSaveDisabled()) === true, await stErrors());
+    await setTid("station-address", "192.168.1.60:9100");
+    await sleep(300);
+    check("Quầy WiFi: IPv4 kèm cổng hợp lệ → mở nút Tạo", (await stErrors()) === "" && (await stSaveDisabled()) === false, await stErrors());
+    await clickTid("station-save");
+    await sleep(800);
+    const confirmText = await q(`${tid("confirm-station")}?.innerText ?? ""`);
+    check("Quầy: hộp xác nhận nêu máy in, địa chỉ và trạng thái", /WiFi/.test(confirmText) && /192\.168\.1\.60:9100/.test(confirmText) && /đang dùng/.test(confirmText), confirmText.replace(/\s+/g, " "));
+    await confirmOk("Tạo quầy");
+    stList = await waitRows((r) => r.some((x) => x.includes("Quầy WiFi")));
+    check("Quầy WiFi: tạo xong hiện trong bảng, trạng thái Đang dùng", stList.some((r) => r.includes("Quầy WiFi") && r.includes("192.168.1.60:9100") && r.includes("Đang dùng")), (stList.find((r) => r.includes("Quầy WiFi")) ?? "").slice(0, 100));
+    // Bluetooth: MAC sai rồi đúng
+    await addStation("Quầy BT", "BLUETOOTH", "AA:BB:CC");
+    check("Quầy Bluetooth: MAC sai bị chặn; có ghi chú đặc tả (chọn trên POS)", /MAC không hợp lệ/.test(await stErrors()) && (await stSaveDisabled()) === true && /tablet POS/.test(await q(`${tid("station-bt-note")}?.innerText ?? ""`)), await stErrors());
+    await setTid("station-address", "aa:bb:cc:dd:ee:ff");
+    await sleep(300);
+    await clickTid("station-save");
+    await confirmOk("Tạo quầy");
+    stList = await waitRows((r) => r.some((x) => x.includes("Quầy BT")));
+    check("Quầy Bluetooth: tạo xong, MAC được viết hoa", stList.some((r) => r.includes("Quầy BT") && r.includes("Bluetooth") && r.includes("AA:BB:CC:DD:EE:FF")), (stList.find((r) => r.includes("Quầy BT")) ?? "").slice(0, 100));
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
     await tab.blockWrites(SESSION_ALLOW);
@@ -487,6 +537,48 @@ try {
     const afterPlans = await beGet("/admin/service-plans", "admin");
     check("Real · Gói: GET lại /admin/service-plans — dữ liệu không đổi", J(afterPlans) === beforePlans);
     await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+
+    // ---- 5.5: Manager — quầy và máy in (đọc thật; tạo bấm tới hết xác nhận, request ghi bị chặn ở CDP)
+    await q(`(localStorage.clear(), sessionStorage.clear(), true)`);
+    await tab.goto("/login");
+    await tab.login("manager");
+    await tab.waitFor(`location.pathname.startsWith("/manager")`, 20000, "vào manager");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell manager");
+    await sleep(1000);
+    await tab.clickMenu("Quầy và máy in");
+    await sleep(1800);
+    const beStations = await beGet("/stations", "manager");
+    const stationRows = async () => q(`[...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].filter((r) => r.offsetParent !== null).map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    const stRows = await stationRows();
+    if (beStations.length === 0) {
+      check("Real · Quầy: BE chưa có quầy nào → bảng trống hiển thị đúng ('Chưa có quầy nào')", stRows.length === 0 && /Chưa có quầy nào/.test(await pageText()), `${stRows.length} dòng`);
+    } else {
+      check("Real · Quầy: số dòng, tên, máy in khớp GET /stations", stRows.length === beStations.length && beStations.every((s) => stRows.some((r) => r.includes(s.name) && (s.printerConnection === "NONE" || r.includes(s.printerAddress)))), `${stRows.length}/${beStations.length}`);
+    }
+    check("Real · Quầy: đổi tên / ngừng dùng / sửa máy in bị khoá kèm chú thích #27", /#27/.test(await q(`${tid("stations-pending-note")}?.innerText ?? ""`)) && (await q(`[...document.querySelectorAll('[data-testid="station-pending-action"]')].every((b) => b.disabled)`)));
+    tab.blockedWrites.length = 0;
+    await clickTid("station-add");
+    await sleep(800);
+    await setTid("station-name", "Quầy Kiểm Thử");
+    await clickTid("station-conn-WIFI");
+    await sleep(300);
+    await setTid("station-address", "192.168.1.50:9100");
+    await sleep(300);
+    await clickTid("station-save");
+    await sleep(800);
+    check("Real · Quầy: hộp xác nhận tạo quầy nêu máy in WiFi và địa chỉ", /WiFi/.test(await q(`${tid("confirm-station")}?.innerText ?? ""`)) && /192\.168\.1\.50:9100/.test(await q(`${tid("confirm-station")}?.innerText ?? ""`)));
+    await confirmOk("Tạo quầy");
+    await sleep(1800);
+    const stWrite = tab.blockedWrites.find((w) => w.method === "POST" && /\/stations$/.test(w.path));
+    const stBody = stWrite ? JSON.parse(stWrite.body ?? "null") : null;
+    check(
+      "Real · Quầy: request định gửi = POST /stations khớp CreateStationDto (station.dto.ts:5-21): name, printerConnection WIFI, printerAddress",
+      !!stBody && J(Object.fromEntries(Object.entries(stBody).sort())) === J({ name: "Quầy Kiểm Thử", printerAddress: "192.168.1.50:9100", printerConnection: "WIFI" }),
+      stWrite ? stWrite.body : "không có request",
+    );
+    check("Real · Quầy: tạo bị chặn → màn hình báo lỗi gọn, bảng không đổi", (await toasts()).length > 0 && (await stationRows()).length === beStations.length, await toasts());
+    check("Real · Quầy: GET lại /stations — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
+    await q(`document.querySelectorAll(".ant-modal-close").forEach((b) => b.click())`);
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
     console.log(`[real] request ghi bị chặn ở CDP: ${tab.blockedWrites.length}`);
