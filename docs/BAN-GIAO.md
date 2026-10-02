@@ -110,7 +110,7 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | report | `VITE_API_REPORT` | real | BE chưa đếm đơn quầy; thẻ khách đã ẩn (TODO BE) |
 | plan | `VITE_API_PLAN` | real | hạn mức THẬT; tier, cờ tính năng, hạn dùng, trạng thái là MOCK (chờ BE) |
 | menu | `VITE_API_MENU` | **real** | danh mục + món + gán chi nhánh + menu chi nhánh (4.2); không gửi/đọc `remainingPortions`; giá số nguyên (BR-19) |
-| options | `VITE_API_OPTIONS` | mock | BE chưa có (OW-03) — giai đoạn 4 |
+| options | `VITE_API_OPTIONS` | mock | BE chưa có controller (OW-03; bảng Prisma có sẵn). Mock theo model Prisma, món tham chiếu bằng ID thật; luật chọn ở `src/api/modules/options/rules.ts` |
 | branding | `VITE_API_BRANDING` | mock | BE có endpoint, chờ giai đoạn 6 (BE mới build lại đã có `/branding` và `/stations`; web chưa nối) |
 | account | `VITE_API_ACCOUNT` | mock | BE có /auth/managers, /auth/staff, thiếu Cashier/Barista cho Manager — giai đoạn 5 |
 | order | `VITE_API_ORDER` | mock | BE chưa có (BM-04..06) — giai đoạn 7 |
@@ -141,7 +141,7 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/owner/branches` | OW-01 | `branchApi` real; nút thêm báo sớm hết hạn mức |
 | `/owner/menu` | OW-02, OW-04 | real: lọc danh mục/trạng thái/tìm kiếm phía server, thêm/sửa món (SKU, ảnh URL), bật/tắt cấp chuỗi, gán chi nhánh, xoá |
 | `/owner/menu/categories` | OW-02 | real: thêm, sửa, ẩn/hiện, đổi thứ tự (displayOrder), xoá (409 còn món) |
-| `/owner/menu/options` | OW-03 | placeholder (đã có `optionsApi` mock + dữ liệu) |
+| `/owner/menu/options` | OW-03 | `OptionGroups.tsx` — nhóm + tuỳ chọn (mock, chờ BE); trạng thái chi nhánh chỉ xem |
 | `/owner/accounts` | OW-05 | mock (`accountApi`) — BE có endpoint, web CHƯA nối |
 | `/owner/payos` | OW-06 | placeholder (`payosApi` mock) |
 | `/owner/branding` | OW-07 | mock (`brandingApi`); khoá từ Cơ bản; Branding.tsx mới chỉ đổi chữ/màu preview |
@@ -191,7 +191,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 
 | Mã | Chức năng |
 |---|---|
-| OW-03 | CRUD nhóm tuỳ chọn, tuỳ chọn, gắn vào món, bật/tắt cấp chuỗi |
+| OW-03 | CRUD nhóm tuỳ chọn, tuỳ chọn, gắn vào món, bật/tắt cấp chuỗi — web đã làm bằng mock (4.3); `isDefault` và cờ không gom món chưa có cột ở BE |
 | OW-06 | Liên kết PayOS |
 | OW-09 | Trợ lý AI |
 | OW-10, PA-04 | Cờ tính năng của gói (hạn mức đọc được thật) |
@@ -212,7 +212,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 1 | Dọn v7, route con theo v9 | ✅ xong |
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
-| 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ▶ tiếp theo | |
+| 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅ — dữ liệu mock mất khi tải lại trang; chờ BE: api-contract-plan #12–17 ▶ giai đoạn 5 tiếp theo | |
 | 5 | Manager: tài khoản Cashier/Barista, quầy, máy in, thiết bị đã ghép, bật/tắt tuỳ chọn; gỡ "suất còn lại" | |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |

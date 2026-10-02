@@ -1,4 +1,4 @@
-// Kiểm tra trình duyệt thật cho Giai đoạn 4.2: danh mục + món của Owner, menu chi nhánh của Manager.
+// Kiểm tra trình duyệt thật cho Giai đoạn 4.2 (danh mục + món của Owner, menu chi nhánh của Manager) và 4.3 (tuỳ chọn món, mock).
 //   node scripts/browser/phase4.mjs mock   # dev server có VITE_API_MENU=mock (+ AUTH/BRANCH/REPORT=mock), AUTH_MODE=mock: CRUD đầy đủ
 //   node scripts/browser/phase4.mjs real   # dev server cổng 5173 với cờ mặc định, BE chạy: CHỈ ĐỌC — không thêm/sửa/xoá/bật tắt gì
 // Chế độ real so sánh với dữ liệu BE đọc bằng GET (đăng nhập demo bằng .env của BE, không in mật khẩu).
@@ -83,6 +83,14 @@ const login = async (role) => {
   await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell");
   await sleep(1200);
 };
+const tid = (id) => `document.querySelector('[data-testid=${J(id)}]')`;
+const clickTid = (id) => q(`(() => { const el = ${tid(id)}; if (!el) return false; el.click(); return true })()`);
+const has = (id) => q(`!!${tid(id)}`);
+const digits = (x) => String(x).replace(/\D/g, "");
+const groupModalErrors = () => q(`${tid("group-errors")}?.innerText ?? ""`);
+const saveDisabled = () => q(`${tid("group-save")}?.disabled`);
+const pv = (code) => q(`${tid(`preview-option-${code}`)}?.getAttribute("data-selected")`);
+const price = () => q(`${tid("preview-price")}?.textContent ?? ""`);
 const NO_STOCK = /Suất còn lại|còn lại|Không giới hạn|Hết suất/i;
 
 /** Đọc dữ liệu BE bằng GET (chỉ đọc) để đối chiếu. */
@@ -278,6 +286,172 @@ try {
     await sleep(1500);
     check("Món: xoá thành công", !(await rows()).some((r) => r.includes("Món Thử Đã Sửa")));
 
+    // ============================================================ MOCK — Owner: tuỳ chọn món (4.3; options luôn là mock)
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1300);
+    list = await rows();
+    check("Tuỳ chọn: màn có 4 nhóm mẫu (Size, Đường, Đá, Topping) và ghi chú 'lưu tạm, chờ BE'", ["Size", "Đường", "Đá", "Topping"].every((n) => list.some((r) => r.includes(n))) && /chờ BE/.test(await q(`${tid("options-pending-note")}?.innerText ?? ""`)), `${list.length} nhóm`);
+
+    // --- Size: bắt buộc, chọn đúng 1, có mặc định. Trước hết thử các vi phạm quy tắc.
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Size thử");
+    await sleep(300);
+    check("Nhóm: mã tự gợi ý từ tên", (await q(`${tid("group-code")}.value`)) === "SIZE-THU");
+    await setInput(modal, '[data-testid="opt-name"]', "M");
+    await clickTid("group-required");
+    await setInput(modal, '[data-testid="group-min"]', "0");
+    await sleep(300);
+    check("Quy tắc: nhóm bắt buộc mà tối thiểu 0 → báo lỗi, khoá nút Lưu", /bắt buộc phải có số chọn tối thiểu/.test(await groupModalErrors()) && (await saveDisabled()) === true, await groupModalErrors());
+    await setInput(modal, '[data-testid="group-min"]', "3");
+    await setInput(modal, '[data-testid="group-max"]', "1");
+    await sleep(300);
+    check("Quy tắc: min > max → báo lỗi, khoá nút Lưu", /tối thiểu không được lớn hơn/.test(await groupModalErrors()) && (await saveDisabled()) === true);
+    await setInput(modal, '[data-testid="group-min"]', "1");
+    await setInput(modal, '[data-testid="group-max"]', "0");
+    await sleep(300);
+    check("Quy tắc: max < 1 → báo lỗi", /tối đa phải từ 1/.test(await groupModalErrors()));
+    await setInput(modal, '[data-testid="group-max"]', "1");
+    await clickIn(modal, "Thêm tuỳ chọn");
+    await sleep(300);
+    await setInput(modal, '[data-testid="opt-name"]', "L", 1);
+    await setInput(modal, '[data-testid="opt-price"]', "6000", 1);
+    await blurAll();
+    await sleep(300);
+    // đánh dấu cả hai là mặc định → vượt max (=1)
+    await q(`document.querySelectorAll('[data-testid="opt-default"]').forEach((el) => (el.matches("input") ? el : el.querySelector("input")).click())`);
+    await sleep(300);
+    check("Quy tắc: số mặc định > max → báo lỗi", /mặc định không được vượt quá/.test(await groupModalErrors()), await groupModalErrors());
+    await q(`(() => { const els = [...document.querySelectorAll('[data-testid="opt-default"]')]; (els[1].matches("input") ? els[1] : els[1].querySelector("input")).click(); })()`);
+    await sleep(400);
+    check("Quy tắc: hợp lệ thì hết lỗi, nút Lưu mở", (await groupModalErrors()) === "" && (await saveDisabled()) === false, await groupModalErrors());
+    await clickTid("group-save");
+    list = await waitRowWith("Size thử");
+    check("Nhóm: thêm Size (bắt buộc, đúng 1, M mặc định, L +6.000)", list.some((r) => r.includes("Size thử") && r.includes("Bắt buộc, chọn đúng 1") && r.includes("M ★") && /L \+6\.000/.test(r)), (list.find((r) => r.includes("Size thử")) ?? "").slice(0, 120));
+
+    // --- Topping: không bắt buộc, tối đa 3, có giá
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Topping thử");
+    await setInput(modal, '[data-testid="group-max"]', "3");
+    const tops = [["Trân châu", 5000], ["Thạch dừa", 5000], ["Pudding", 7000], ["Flan", 8000]];
+    for (const [i, [n, pr]] of tops.entries()) {
+      if (i > 0) await clickIn(modal, "Thêm tuỳ chọn");
+      await sleep(250);
+      await setInput(modal, '[data-testid="opt-name"]', n, i);
+      await setInput(modal, '[data-testid="opt-price"]', String(pr), i);
+    }
+    await sleep(400);
+    check("Quy tắc: topping không bắt buộc, 0–3 hợp lệ (không cần mặc định)", (await groupModalErrors()) === "" && (await saveDisabled()) === false, await groupModalErrors());
+    await clickTid("group-save");
+    list = await waitRowWith("Topping thử");
+    check("Nhóm: thêm Topping (không bắt buộc, chọn 0–3, 4 tuỳ chọn có giá)", list.some((r) => r.includes("Topping thử") && r.includes("Không bắt buộc, chọn 0–3") && r.includes("Pudding +7.000")), (list.find((r) => r.includes("Topping thử")) ?? "").slice(0, 140));
+
+    // trùng mã nhóm: form vẫn cho lưu (form không biết các mã khác), mock trả 409
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Trùng mã");
+    await setInput(modal, '[data-testid="group-code"]', "SIZE-THU");
+    await setInput(modal, '[data-testid="opt-name"]', "X");
+    await sleep(300);
+    await clickTid("group-save");
+    await sleep(1200);
+    check("Nhóm: trùng mã trong chuỗi → 409 từ mock, hiện thông báo", /đã được dùng/.test(await toasts()), await toasts());
+    await q(`document.querySelector(".ant-modal-close")?.click()`);
+    await sleep(600);
+
+    // --- Món: gắn cả hai nhóm, xem trước
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1500);
+    await click(".ant-card button", "Thêm món");
+    await openedDrawer();
+    await pickSelect(drawer, "Cà phê", 0);
+    await setInput(drawer, "input", "Món Tuỳ Chọn", 1);
+    await setInput(drawer, ".ant-input-number input", "30000");
+    await sleep(400);
+    check("Món: form có khu 'Tuỳ chọn món' kèm ghi chú 'lưu tạm, chờ BE' và 'Không gom món'", /chờ BE/.test(await q(`${tid("item-options-note")}?.innerText ?? ""`)) && (await has("item-nobatch")));
+    check("Món: chưa gắn nhóm thì xem trước báo 'chưa gắn nhóm'", /chưa gắn nhóm/.test(await q(`${tid("option-preview")}?.innerText ?? ""`)));
+    await pickSelect(drawer, "Size thử", 1);
+    await pickSelect(drawer, "Topping thử", 1);
+    await sleep(400);
+    check("Món: gắn được hai nhóm", (await has("item-group-SIZE-THU")) && (await has("item-group-TOPPING-THU")));
+    check("Xem trước: mặc định chọn sẵn (Size M), giá = giá món 30.000", (await pv("SIZE-THU:M")) === "true" && digits(await price()) === "30000", `${await pv("SIZE-THU:M")} ${await price()}`);
+    await clickTid("preview-option-SIZE-THU:L");
+    await clickTid("preview-option-TOPPING-THU:TRAN-CHAU");
+    await clickTid("preview-option-TOPPING-THU:PUDDING");
+    await sleep(300);
+    check("Xem trước: Size L + trân châu + pudding = 30.000 + 6.000 + 5.000 + 7.000 = 48.000", digits(await price()) === "48000" && (await pv("SIZE-THU:M")) === "false", await price());
+    await clickTid("preview-option-TOPPING-THU:THACH-DUA");
+    await clickTid("preview-option-TOPPING-THU:FLAN");
+    await sleep(300);
+    check("Xem trước: topping thứ 4 bị chặn (tối đa 3), giá = 53.000", (await pv("TOPPING-THU:FLAN")) === "false" && (await pv("TOPPING-THU:THACH-DUA")) === "true" && digits(await price()) === "53000", await price());
+    await clickTid("item-nobatch");
+    await sleep(200);
+    await clickTid("item-save");
+    list = await waitRowWith("Món Tuỳ Chọn");
+    check("Món: lưu món kèm tuỳ chọn thành công", list.some((r) => r.includes("Món Tuỳ Chọn")));
+
+    // --- Tắt một tuỳ chọn cấp chuỗi → không chọn được trong xem trước
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1300);
+    list = await rows();
+    check("Tuỳ chọn: cột 'Số món' đếm món vừa gắn (1)", list.some((r) => r.includes("Topping thử") && /\s1\s+Sửa\s+Xoá$/.test(r.trim())), (list.find((r) => r.includes("Topping thử")) ?? "").slice(-30));
+    await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Topping thử")); r.querySelector(".ant-table-row-expand-icon").click() })()`);
+    await sleep(600);
+    // trạng thái chi nhánh chỉ xem: chọn một chi nhánh thì hiện thẻ Còn bán/Tạm hết, không có công tắc ghi nào ngoài cờ cấp chuỗi
+    await q(`${tid("group-detail-TOPPING-THU")}.querySelector(".ant-select-content, .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+    await sleep(400);
+    await q(`document.querySelector(".ant-select-item-option")?.click()`);
+    await sleep(900);
+    const detail = await q(`${tid("group-detail-TOPPING-THU")}.innerText`);
+    const switches = await q(`${tid("group-detail-TOPPING-THU")}.querySelectorAll(".ant-switch").length`);
+    check("Tuỳ chọn: xem trạng thái chi nhánh (Còn bán/Tạm hết), chỉ xem — ghi chú giai đoạn 5", /Còn bán|Tạm hết/.test(detail) && /giai đoạn 5/.test(detail) && switches === 4, `${switches} công tắc`);
+    await clickTid("option-active-TOPPING-THU:PUDDING");
+    const offToast = await waitToast("Đã tắt tuỳ chọn");
+    check("Tuỳ chọn: tắt Pudding cấp chuỗi", offToast.includes("Đã tắt tuỳ chọn"), offToast);
+
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1500);
+    await rowButton("Món Tuỳ Chọn", "Sửa");
+    await openedDrawer();
+    await sleep(600);
+    const cfgOk = (await has("item-group-SIZE-THU")) && (await has("item-group-TOPPING-THU"));
+    const nb = await q(`${tid("item-nobatch")}?.getAttribute("aria-checked")`);
+    check("Món: mở lại thấy đủ hai nhóm và cờ 'Không gom món' đã lưu", cfgOk && nb === "true", `nhóm: ${cfgOk}, noBatch: ${nb}`);
+    check("Xem trước: Pudding đã tắt cấp chuỗi → không chọn được", (await q(`${tid("preview-option-TOPPING-THU:PUDDING")}?.disabled`)) === true);
+    await clickTid("preview-option-TOPPING-THU:PUDDING");
+    await sleep(200);
+    check("Xem trước: bấm tuỳ chọn đã tắt không đổi giá (vẫn 30.000)", (await pv("TOPPING-THU:PUDDING")) === "false" && digits(await price()) === "30000", await price());
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(700);
+
+    // --- Xoá nhóm: nêu tên món đang dùng
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1300);
+    await rowButton("Topping thử", "Xoá");
+    await sleep(700);
+    const usageText = await q(`${tid("delete-usage")}?.innerText ?? ""`);
+    check("Xoá nhóm: hộp xác nhận nêu tên món đang dùng", /1 món/.test(usageText) && usageText.includes("Món Tuỳ Chọn"), usageText);
+    await confirmModal("Xoá nhóm");
+    await sleep(1300);
+    list = await rows();
+    check("Xoá nhóm: nhóm biến mất khỏi danh sách", !list.some((r) => r.includes("Topping thử")));
+    await rowButton("Size thử", "Xoá");
+    await confirmModal("Xoá nhóm");
+    await sleep(1000);
+
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1500);
+    await rowButton("Món Tuỳ Chọn", "Sửa");
+    await openedDrawer();
+    await sleep(600);
+    check("Xoá nhóm: món đã được gỡ nhóm", !(await has("item-group-TOPPING-THU")) && !(await has("item-group-SIZE-THU")));
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(700);
+    await rowButton("Món Tuỳ Chọn", "Xoá");
+    await confirmModal("Xoá món");
+    await sleep(1200);
+
     // ============================================================ MOCK — Manager: món chi nhánh
     await login("manager");
     await tab.clickMenu("Món tại chi nhánh");
@@ -341,6 +515,48 @@ try {
     await sleep(1200);
     list = await rows();
     check("Real · Món: lọc 'Đang bán' khớp BE", list.length === be.items.filter((i) => i.isActive).length, `${list.length}`);
+
+    // ============================================================ REAL — tuỳ chọn mock gắn lên món thật, KHÔNG ghi BE
+    // Cài bộ ghi các request không phải GET (fetch + XHR) trong trang; sau bước gắn phải rỗng.
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1500);
+    list = await rows();
+    check("Real · Tuỳ chọn: màn tuỳ chọn (mock) hiện nhóm mẫu và ghi chú 'chờ BE'", list.length >= 4 && /chờ BE/.test(await q(`${tid("options-pending-note")}?.innerText ?? ""`)), `${list.length} nhóm`);
+
+    await tab.clickMenu("Menu toàn chuỗi");
+    await sleep(1800);
+    await q(`(() => {
+      window.__writes = [];
+      const of = window.fetch; window.fetch = (u, init) => { const m = (init?.method ?? (u?.method ?? "GET")).toUpperCase(); if (m !== "GET") window.__writes.push(m + " " + (u?.url ?? u)); return of.call(window, u, init); };
+      const oo = XMLHttpRequest.prototype.open; XMLHttpRequest.prototype.open = function (m, u, ...r) { if (String(m).toUpperCase() !== "GET") window.__writes.push(String(m).toUpperCase() + " " + u); return oo.call(this, m, u, ...r); };
+    })()`);
+    const realItem = be.items[0];
+    const beforeItems = JSON.stringify((await readBe()).items);
+    await rowButton(realItem.name, "Sửa");
+    await openedDrawer();
+    await sleep(700);
+    await pickSelect(drawer, "Size", 1);
+    await sleep(300);
+    check("Real · Món thật: gắn nhóm mock vào món thật (theo ID thật), xem trước hiện", (await has("item-group-SIZE")) && /Thêm vào giỏ/.test(await q(`${tid("option-preview")}?.innerText ?? ""`)));
+    const realPrice = Math.round(Number(realItem.price));
+    check("Real · Xem trước: giá = giá món thật + mặc định (Size M +0)", digits(await price()) === String(realPrice), `${await price()} (BE ${realPrice})`);
+    await clickTid("preview-option-SIZE:SIZE-L");
+    await sleep(300);
+    check("Real · Xem trước: Size L cộng 6.000 vào giá món thật", digits(await price()) === String(realPrice + 6000), await price());
+    await clickTid("item-save");
+    await sleep(1800);
+    const writes = await q(`window.__writes`);
+    check("Real · Lưu tuỳ chọn không gửi request ghi nào lên BE", Array.isArray(writes) && writes.length === 0, J(writes));
+    const afterItems = JSON.stringify((await readBe()).items);
+    check("Real · Dữ liệu món trên BE (đọc lại bằng GET) không đổi", beforeItems === afterItems);
+    await rowButton(realItem.name, "Sửa");
+    await openedDrawer();
+    await sleep(700);
+    check("Real · Mở lại món thật: nhóm mock vẫn gắn (lưu theo ID thật)", (await has("item-group-SIZE")));
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(600);
+    list = await rows();
+    check("Real · Danh sách món thật vẫn hiển thị đúng sau khi gắn nhóm", list.length === be.items.length && be.items.every((i) => list.some((r) => r.includes(i.name) && r.includes(i.sku))), `${list.length}/${be.items.length}`);
 
     // Manager đọc menu chi nhánh
     await login("manager");

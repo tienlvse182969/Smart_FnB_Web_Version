@@ -368,8 +368,18 @@ function ItemDrawer({
         await optionsApi.setItemConfig(chainId, { menuItemId: created.id, groupIds, noBatch });
         await onSaved("Đã thêm món vào menu chuỗi");
       } else if (existing) {
-        const patch: MenuItemPatch = common;
-        await menuApi.updateItem(chainId, existing.id, patch);
+        // Chỉ gọi BE khi trường của món thật sự đổi; đổi mỗi tuỳ chọn thì không đụng tới BE (tuỳ chọn đang lưu tạm ở mock).
+        const changed =
+          categoryId !== existing.categoryId ||
+          common.name !== existing.name ||
+          price !== existing.price ||
+          (common.description ?? "") !== (existing.description ?? "") ||
+          (common.imageUrl ?? "") !== (existing.imageUrl ?? "") ||
+          (common.preparationMinutes ?? null) !== (existing.preparationMinutes ?? null);
+        if (changed) {
+          const patch: MenuItemPatch = common;
+          await menuApi.updateItem(chainId, existing.id, patch);
+        }
         await optionsApi.setItemConfig(chainId, { menuItemId: existing.id, groupIds, noBatch });
         await onSaved("Đã cập nhật món");
       }
