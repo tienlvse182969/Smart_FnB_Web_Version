@@ -67,8 +67,38 @@ class Tab {
         this.consoleLog.push(m.params.args.map((a) => a.value ?? a.description ?? "").join(" "));
       } else if (m.method === "Network.requestWillBeSent") {
         this.requests.push({ url: m.params.request.url, method: m.params.request.method });
+      } else if (m.method === "Fetch.requestPaused") {
+        this.onRequestPaused(m.params);
       }
     };
+  }
+  /**
+   * Chặn mọi request GHI (POST/PUT/PATCH/DELETE) ở tầng CDP, TRƯỚC khi rời trình duyệt (Fetch.failRequest), và ghi lại
+   * method + đường dẫn + body đã định gửi vào `this.blockedWrites`. GET/HEAD/OPTIONS đi tiếp. `allow` = danh sách regex
+   * đường dẫn cho phép riêng cho POST (ví dụ đăng nhập lấy token).
+   */
+  async blockWrites(allow = []) {
+    this.blockedWrites = [];
+    this.blockAllow = allow;
+    await this.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
+  }
+  onRequestPaused(p) {
+    const { method, url, postData } = p.request;
+    const path = (() => {
+      try {
+        const u = new URL(url);
+        return u.pathname + u.search;
+      } catch {
+        return url;
+      }
+    })();
+    const safe = ["GET", "HEAD", "OPTIONS"].includes(method) || (method === "POST" && this.blockAllow?.some((re) => re.test(path)));
+    if (safe) {
+      void this.send("Fetch.continueRequest", { requestId: p.requestId });
+    } else {
+      this.blockedWrites.push({ method, path, body: postData ?? null });
+      void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" });
+    }
   }
   send(method, params = {}) {
     const id = ++this.n;
