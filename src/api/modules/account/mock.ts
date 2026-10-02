@@ -1,4 +1,4 @@
-import { DEFAULT_PASSWORD, type DemoAccount, type StaffMember } from "../../../types";
+import type { DemoAccount, PasswordSetupNotice, StaffMember } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockWritable } from "../../mock/guards";
@@ -26,8 +26,7 @@ function account(
     role,
     name,
     email: mailOf(name, branchId),
-    password: DEFAULT_PASSWORD,
-    mustChangePassword: false,
+    awaitingPasswordSetup: false,
     active: true,
     label,
     scope: branchId,
@@ -55,6 +54,9 @@ async function seedChain(chainId: string): Promise<void> {
   const branches = await branchApi.listBranches(chainId);
   for (const b of branches) seedBranch(chainId, b.id);
 }
+
+/** Hiệu lực link đặt mật khẩu: 24 giờ như BE (employees.service.ts, PASSWORD_SETUP_TTL_MS). */
+const setupNotice = (): PasswordSetupNotice => ({ expiresAt: new Date(Date.now() + 24 * 3_600_000).toISOString() });
 
 const ROLE_LABEL: Record<string, StaffMember["role"]> = { manager: "Manager", cashier: "Cashier", barista: "Barista" };
 
@@ -108,9 +110,9 @@ export const accountMock: AccountApi = {
     assertMockWritable();
     track(chainId);
     seedBranch(chainId, branchId);
-    const created = { ...account(chainId, branchId, "manager", "Branch Manager", name), email, mustChangePassword: true };
+    const created = { ...account(chainId, branchId, "manager", "Branch Manager", name), email, awaitingPasswordSetup: true };
     getChainState(chainId).accounts.push(created);
-    return created;
+    return { account: created, ...setupNotice() };
   },
 
   async createStaff(chainId, branchId, name, email, role) {
@@ -121,10 +123,10 @@ export const accountMock: AccountApi = {
     const created = {
       ...account(chainId, branchId, role === "Cashier" ? "cashier" : "barista", role, name),
       email,
-      mustChangePassword: true,
+      awaitingPasswordSetup: true,
     };
     getChainState(chainId).accounts.push(created);
-    return toStaff(created);
+    return { staff: toStaff(created), ...setupNotice() };
   },
 
   async setActive(accountId, active) {
@@ -136,9 +138,8 @@ export const accountMock: AccountApi = {
   async resetPassword(accountId) {
     await mockDelay();
     assertMockWritable();
-    const acc = findAccount(accountId);
-    acc.password = DEFAULT_PASSWORD;
-    acc.mustChangePassword = true;
+    findAccount(accountId).awaitingPasswordSetup = true;
+    return setupNotice();
   },
 
   async reassignBranch(accountId, branchId) {

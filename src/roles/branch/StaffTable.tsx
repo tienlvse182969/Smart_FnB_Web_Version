@@ -1,7 +1,8 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
 import { Lock, Plus, Unlock } from "lucide-react";
 import { useState } from "react";
-import { DEFAULT_PASSWORD, type StaffMember } from "../../types";
+import type { StaffMember } from "../../types";
+import { formatDateTime } from "../../lib/reportFormat";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import ActionButton from "../../plan/ActionButton";
@@ -96,15 +97,13 @@ export default function StaffTable() {
         branchLabel={branchName}
         onClose={() => setAdding(false)}
         onSave={async (name, email, role) => {
-          await createStaffAccount(name, email, role);
+          const notice = await createStaffAccount(name, email, role);
           setAdding(false);
           modal.success({
             title: "Đã tạo tài khoản nhân viên",
             content: (
-              <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                Email: <b>{email}</b>
-                <br />
-                Mật khẩu tạm: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập đầu)
+              <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                Đã xếp email đặt mật khẩu tới <b>{email}</b>{notice ? `, hiệu lực tới ${formatDateTime(notice.expiresAt)}` : ""}.
               </div>
             ),
           });

@@ -2,7 +2,7 @@ import { App, Button, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd
 import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DemoAccount } from "../../types";
-import { DEFAULT_PASSWORD } from "../../types";
+import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
@@ -39,14 +39,12 @@ export default function ManagerAccounts() {
   };
 
   const doReset = async (a: DemoAccount) => {
-    await accountApi.resetPassword(a.id);
+    const { expiresAt } = await accountApi.resetPassword(a.id);
     modal.success({
-      title: `Đã đặt lại mật khẩu ${a.name}`,
+      title: `Đã xếp email đặt lại mật khẩu cho ${a.name}`,
       content: (
-        <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-          Email: <b>{a.email}</b>
-          <br />
-          Mật khẩu tạm mới: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập tới)
+        <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+          Email gửi tới <b>{a.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}. Các phiên đang đăng nhập đã bị thu hồi.
         </div>
       ),
     });
@@ -179,15 +177,13 @@ export default function ManagerAccounts() {
         onSave={async (name, email, branchId) => {
           if (!tenantId) return;
           try {
-            const acc = await accountApi.createManager(tenantId, branchId, name, email);
+            const { account: acc, expiresAt } = await accountApi.createManager(tenantId, branchId, name, email);
             setAdding(false);
             modal.success({
               title: "Đã tạo tài khoản Branch Manager",
               content: (
-                <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                  Email: <b>{acc.email}</b>
-                  <br />
-                  Mật khẩu tạm: <b>{DEFAULT_PASSWORD}</b> (bắt đổi ở lần đăng nhập đầu)
+                <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                  Đã xếp email đặt mật khẩu tới <b>{acc.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
                 </div>
               ),
             });

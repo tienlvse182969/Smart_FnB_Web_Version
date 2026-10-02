@@ -4,7 +4,6 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 import { BrandContext, applyThemeVars, buildTheme, resolveBrand } from "./theme";
 import { useAppStore } from "./store";
-import ForceChangePasswordModal from "./auth/ForceChangePasswordModal";
 import ApiErrorBridge from "./components/ApiErrorBridge";
 import MockPanel from "./dev/MockPanel";
 import { describePlan } from "./plan/usePlan";
@@ -38,7 +37,6 @@ export default function App() {
       <BrandContext.Provider value={brand}>
         <AntApp>
           <RouterProvider router={router} />
-          <ForceChangePasswordModal />
           <ApiErrorBridge />
           {import.meta.env.DEV && <MockPanel />}
         </AntApp>

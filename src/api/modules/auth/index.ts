@@ -14,7 +14,16 @@ export interface AuthApi {
   logout(): Promise<void>;
   /** CHỜ BE: chưa có endpoint đổi mật khẩu cho người đã đăng nhập. */
   changePassword(newPassword: string): Promise<void>;
+  /**
+   * Đặt mật khẩu bằng token một lần trong email (`POST /auth/setup-password`, công khai). Token sai, hết hạn hoặc đã dùng
+   * đều ra `ApiError` mã `SETUP_TOKEN_INVALID` (BE trả chung 401, không phân biệt).
+   */
+  setupPassword(token: string, password: string): Promise<void>;
 }
+
+/** Mã lỗi phía web cho token đặt mật khẩu không dùng được (BE trả 401 chung; web đổi để không bị coi là hết phiên). */
+export const SETUP_TOKEN_INVALID = "SETUP_TOKEN_INVALID";
+export const SETUP_TOKEN_MESSAGE = "Liên kết đặt mật khẩu không hợp lệ, đã hết hạn hoặc đã được dùng.";
 
 export const TABLET_ONLY_MESSAGE = "Vui lòng sử dụng ứng dụng tablet";
 export const NO_WEB_ACCESS_MESSAGE = "Tài khoản này không có quyền truy cập trang quản trị";
