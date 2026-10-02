@@ -132,4 +132,40 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 | 25 | Trung bình | **Link trong email trỏ tới trang web** `<WEB_BASE_URL>/setup-password?token=…` (payload hiện chỉ có `setupPath: '/auth/setup-password'`, là đường của BE, không phải trang) — cần cấu hình URL web ở BE | Web có trang `/setup-password?token=` gọi `POST /auth/setup-password` |
 | 26 | Trung bình | **Hạn mức số tài khoản không tính tài khoản đã khoá** (đặc tả 13.1; `users.service.ts` `assertOwnerCanCreateAccount` đếm cả tài khoản khoá) | Mock tính theo đặc tả |
 | 27 | Trung bình | **`PATCH /stations/{id}`**: đổi tên, ngừng/bật lại quầy (`status` ACTIVE/INACTIVE), sửa máy in (`printerConnection`, `printerAddress`); kiểm định dạng IP/MAC thay vì chỉ "không rỗng" | Chưa có; web chỉ tạo quầy (giai đoạn 5.5) |
-| 28 | Trung bình | **Ghép màn hình gọi số**: endpoint dùng mã ghép `CALLING_DISPLAY` (token gắn chi nhánh, `stationId` null) và **`GET /display-devices`** liệt kê thiết bị cấp chi nhánh (hiện danh sách chỉ nằm trong `GET /stations`, không có màn hình gọi số) | Mock (giai đoạn 5.6) |
+| 28 | Trung bình | **Ghép màn hình gọi số** (BE `dfe8100` đã có `POST /stations/pair-calling-display`; CÒN THIẾU `GET /display-devices`): endpoint dùng mã ghép `CALLING_DISPLAY` (token gắn chi nhánh, `stationId` null) và **`GET /display-devices`** liệt kê thiết bị cấp chi nhánh (hiện danh sách chỉ nằm trong `GET /stations`, không có màn hình gọi số) | Mock (giai đoạn 5.6) |
+
+### Việc mới sau khi BE cập nhật `dfe8100` (2026-10-02)
+
+| # | Mức | Việc cần BE | Hiện web làm gì |
+|---|---|---|---|
+| 29 | Thấp | **Bỏ `maxTables` (v7) hoặc cho phép 0** ở `CreateServicePlanDto` (`platform-admin.dto.ts:154-158`, `@Min(1)`, bắt buộc). Web ẩn trường này và gửi 1 khi tạo gói, không gửi khi sửa | `admin/real.ts` `MIN_MAX_TABLES` |
+| 30 | Trung bình | **Cờ AI và `tier` trên gói.** BE có `brandingEnabled`, `multiBranchComparisonEnabled` (`schema.prisma:573-574`) nhưng không có cờ Trợ lý AI (chỉ Nâng cao, đặc tả 13.1) và không có cấp; thay cho #10 phần còn lại | Cờ AI và cấp vẫn suy từ mã gói (`plan/tiers.ts`) |
+| 31 | Trung bình | **Lỗi hết hạn trả mã `SUBSCRIPTION_READ_ONLY`** (hiện `ForbiddenException` chỉ có chữ: `branch-access.service.ts:81-83, 118-120`), để web báo "chỉ đọc" thay vì "không đủ quyền" | Web chờ mã này (mục 5) |
+| 32 | Trung bình | **Seed 3 gói BASIC / STANDARD / ADVANCED có giá thật** (seed hiện `DEMO_OPERATIONS` và `STARTER`, giá 0; `GET /public/service-plans` cũng chỉ trả 2 gói giá 0) | Landing vẫn dùng bảng giá mock (`api/publicPlans.ts`) |
+| 33 | **CAO (BR-08)** | **BE thi hành hai cờ gói**: chặn `PUT …/branding` khi `brandingEnabled=false`, chặn `GET /reports/revenue/comparison` khi `multiBranchComparisonEnabled=false`, và chặn Trợ lý AI khi không phải Nâng cao. Hiện hai cờ chỉ được select (`plan-quota.service.ts:23-24`), không nơi nào kiểm | Web khoá giao diện theo cờ (lớp thứ hai) |
+
+### Tình trạng theo BE `dfe8100` (đối chiếu 2026-10-02)
+
+| # | Tình trạng | Ghi chú |
+|---|---|---|
+| 1 | Chưa | không có tiến trình gửi `email_outbox` |
+| 2 | Một phần | từ chối hồ sơ đã xếp email vào outbox, nhưng #1 chưa có người gửi |
+| 3, 5, 6, 7, 9, 11 | Chưa | DTO/service không đổi |
+| 4 | **Đã làm** | bỏ ví, rút tiền, sổ cái (migration `20261002120000`); web đã bỏ từ trước |
+| 8 | **Đã làm** | `GET /public/service-plans`; web chưa chuyển Landing vì chỉ có 2 gói giá 0 (#32) |
+| 10 | Một phần | có 2 cờ; thiếu `tier` và cờ AI (→ #30) |
+| 12–22 | Chưa | không có `option-groups`; `remainingPortions` còn |
+| 23, 24, 25, 26, 27 | Chưa | module `auth`, `employees`, `users` không đổi; không có `PATCH /stations` |
+| 28 | Một phần | có `POST /stations/pair-calling-display`, token thiết bị, `GET /public/calling-display/ready-orders`; thiếu `GET /display-devices` |
+
+### BE lệch đặc tả (đối chiếu `dfe8100`)
+
+| Chỗ lệch | Đặc tả | BE |
+|---|---|---|
+| QR PayOS không hết hạn, không huỷ QR, không "Kiểm tra lại" | BR-26, BR-30 | `payos-payment.service.ts` tạo link không đặt hạn |
+| Webhook lệch tiền không sang "Cần xử lý", không báo Manager | BR-28, BR-31 | webhook ghi `REJECTED` rồi thôi (`payos-payment.service.ts:145-150`) |
+| Xác nhận thủ công cho cả CASHIER (endpoint bàn v7) | BR-29: chỉ Manager, bắt buộc lý do | `payments.controller.ts:90` `@Roles(MANAGER, CASHIER)` |
+| Chưa có huỷ đơn đã thanh toán, hoàn tiền, trừ doanh thu ngày huỷ | BM-06, BR-23, BR-49, BR-50 | chỉ `POST /cashier/orders/:id/cancel` cho đơn chưa trả |
+| Báo hết món/tuỳ chọn không chuyển dòng đã trả sang Hết món, không báo Manager | BR-36 | `counter-operations.service.ts` chỉ đặt cờ |
+| Hạn mức tài khoản tính cả tài khoản đã khoá | 13.1 | `users.service.ts` (→ #26) |
+| Còn dữ liệu và route v7: bàn, phiên bàn, đặt bàn, ca làm, voucher, Waiter, Kitchen, `remainingPortions` | Mục 1: đã bỏ hẳn | `schema.prisma`, `AppRole`, `/waiter/*`, `/kitchen/*` |
