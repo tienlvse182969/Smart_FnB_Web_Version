@@ -10,6 +10,8 @@ const REPO = resolve(HERE, "../..");
 export const ORIGIN = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 5173}`;
 export const CDP_PORT = Number(process.env.CDP_PORT ?? 9333);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** POST được phép khi chặn ghi: chỉ phiên đăng nhập. */
+export const SESSION_ALLOW = [/\/auth\/(login|refresh|logout)$/];
 
 function readEnvFile(path) {
   if (!existsSync(path)) return {};
@@ -142,8 +144,16 @@ class Tab {
     return this.eval(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].map(e => e.textContent.trim())`);
   }
   async clickMenu(label) {
+    // Chờ mục menu xuất hiện (tối đa 15 giây) rồi mới bấm — không bấm ngay khi trang còn đang dựng.
+    await this.waitFor(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].some(e => e.textContent.trim() === ${JSON.stringify(label)})`, 15000, `mục menu "${label}"`);
     await this.eval(`[...document.querySelectorAll(".ant-layout-sider .ant-menu-item")].find(e => e.textContent.trim() === ${JSON.stringify(label)}).click()`);
     await sleep(700);
+  }
+  /** Chờ phần tử khớp selector (và chứa `text` nếu có) xuất hiện và chưa bị khoá, rồi bấm. Hết hạn thì ném lỗi rõ ràng. */
+  async clickWhen(selector, text = "", timeout = 10000) {
+    const find = `[...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => (!${JSON.stringify(text)} || e.textContent.includes(${JSON.stringify(text)})) && !e.disabled)`;
+    await this.waitFor(`${find}`, timeout, `phần tử ${selector}${text ? ` chứa "${text}"` : ""}`);
+    await this.eval(`${find}.click()`);
   }
   /** Giá trị CSS variable trên <html>. */
   cssVar(name) {
@@ -202,7 +212,7 @@ class Tab {
   }
 }
 
-export async function newTab(url = "about:blank", authMode) {
+export async function newTab(url = "about:blank", authMode, opts = {}) {
   const r = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
   const info = await r.json();
   const ws = new WebSocket(info.webSocketDebuggerUrl);
@@ -214,9 +224,20 @@ export async function newTab(url = "about:blank", authMode) {
   await tab.send("Page.enable");
   await tab.send("Runtime.enable");
   await tab.send("Network.enable");
-  // BLOCK_WRITES=1: chặn mọi request ghi ở tầng CDP (chỉ cho POST /auth/login) cho CẢ script, rồi in số request bị chặn khi thoát.
+  // Khởi động nguội: mở trang đăng nhập một lần để Vite biên dịch xong trước khi script bắt đầu (tránh lần chạy đầu bị chậm/trượt).
+  // `opts.warm = false` cho tab thứ hai của các kiểm tra đa tab (mở trang đăng nhập khi đang có phiên sẽ gọi /auth/refresh và làm lệch số đếm).
+  try {
+    if (opts.warm !== false) {
+      await tab.send("Page.navigate", { url: ORIGIN + "/login" });
+      await tab.waitFor(`!!document.querySelector('input[placeholder="Email"]')`, 90000, "Vite biên dịch xong (trang đăng nhập)");
+    }
+  } catch {
+    // dev server chưa chạy hoặc trang không có form đăng nhập — để script tự báo lỗi ở bước của nó
+  }
+  // BLOCK_WRITES=1: chặn mọi request ghi ở tầng CDP cho CẢ script, rồi in số request bị chặn khi thoát. Chỉ cho qua đăng nhập,
+  // làm mới và đăng xuất (phiên đăng nhập, không phải dữ liệu nghiệp vụ).
   if (process.env.BLOCK_WRITES === "1") {
-    await tab.blockWrites([/\/auth\/login$/]);
+    await tab.blockWrites(SESSION_ALLOW);
     process.on("exit", () => {
       const list = tab.blockedWrites ?? [];
       console.log(`[BLOCK_WRITES] ${list.length} request ghi bị chặn ở CDP`);

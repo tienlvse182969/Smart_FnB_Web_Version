@@ -4,7 +4,7 @@
 // Xem README.md để biết biến môi trường (BASE_URL, AUTH_MODE…). Chế độ "real" KHÔNG duyệt, từ chối, tạm ngưng, đổi gói,
 // đặt lại mật khẩu, tạo/sửa gói trên dữ liệu thật; chỉ gửi 1 hồ sơ qua form (tạo hồ sơ PENDING). Gia hạn thật chỉ chạy khi
 // đặt ALLOW_REAL_RENEW=1.
-import { newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 const MODE = process.argv[2] ?? "mock";
 const REAL = MODE === "real";
@@ -20,14 +20,22 @@ const parseDmy = (s) => {
 };
 
 const tab = await newTab("about:blank", REAL ? "real" : "mock");
+// Real: luôn chặn request ghi ở tầng CDP (chỉ cho phiên đăng nhập); form đăng ký được bấm tới hết rồi so với DTO của BE.
+if (REAL && !tab.blockedWrites) await tab.blockWrites(SESSION_ALLOW);
 const q = (expr) => tab.eval(expr);
 const J = JSON.stringify;
 
-/** Bấm phần tử đầu tiên khớp selector (và chứa text nếu có). Trả true nếu bấm được. */
-const click = (sel, text) =>
-  q(`(() => {
+/** Bấm phần tử đầu tiên khớp selector (và chứa text nếu có); CHỜ tới 8 giây cho phần tử xuất hiện. Trả true nếu bấm được. */
+const click = async (sel, text) => {
+  const expr = `(() => {
     const el = [...document.querySelectorAll(${J(sel)})].find((e) => !${J(text ?? "")} || e.textContent.includes(${J(text ?? "")}));
-    if (!el) return false; el.click(); return true; })()`);
+    if (!el) return false; el.click(); return true; })()`;
+  for (let i = 0; i < 32; i++) {
+    if (await q(expr)) return true;
+    await sleep(250);
+  }
+  return false;
+};
 
 const visibleModal = `[...document.querySelectorAll(".ant-modal-wrap")].filter((w) => getComputedStyle(w).display !== "none").pop()`;
 
@@ -106,9 +114,30 @@ try {
   await fill("representativeName", "Người Thử Nghiệm");
   await fill("representativeEmail", `thu.${stamp}@example.com`);
   await fill("representativePhone", "0901234567");
+  if (tab.blockedWrites) tab.blockedWrites.length = 0;
   await click("#signup-form button[type=submit]");
   await sleep(2500);
-  check("Form đăng ký: gửi xong hiện xác nhận 'đang chờ duyệt'", /Hồ sơ của bạn đang chờ duyệt/.test(await tab.text()), await tab.text().then((t) => t.slice(0, 0)));
+  if (REAL) {
+    // Request ghi bị chặn ở CDP trước khi rời trình duyệt: kiểm method/path/body định gửi so với DTO của BE
+    // (SubmitRegistrationApplicationDto, platform-admin.dto.ts:20-61). Đạt nếu khớp; KHÔNG tính là trượt.
+    const write = tab.blockedWrites.find((w) => w.method === "POST" && /\/registration-applications$/.test(w.path));
+    const body = write ? JSON.parse(write.body ?? "null") : null;
+    const expected = {
+      businessName: newBiz,
+      taxCode: "0312345999",
+      headquartersAddress: "99 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh",
+      representativeName: "Người Thử Nghiệm",
+      representativeEmail: `thu.${stamp}@example.com`,
+      representativePhone: "0901234567",
+    };
+    check(
+      "Form đăng ký (real): request định gửi = POST /registration-applications khớp DTO của BE (6 trường, không còn số chi nhánh dự kiến), bị chặn trước khi rời trình duyệt",
+      !!body && J(Object.fromEntries(Object.entries(body).sort())) === J(Object.fromEntries(Object.entries(expected).sort())),
+      write ? `${write.method} ${write.path}` : "không có request",
+    );
+  } else {
+    check("Form đăng ký: gửi xong hiện xác nhận 'đang chờ duyệt'", /Hồ sơ của bạn đang chờ duyệt/.test(await tab.text()), await tab.text().then((t) => t.slice(0, 0)));
+  }
 
   // ------------------------------------------------------------------ đăng nhập admin
   if (REAL) {
@@ -167,7 +196,12 @@ try {
   }
   await search(newBiz);
   list = await rows();
-  check("Hồ sơ vừa nộp qua form hiện ở màn Admin (Chờ duyệt)", list.length === 1 && list[0].includes(newBiz) && list[0].includes("Chờ duyệt"), list.join(" // ").slice(0, 100));
+  if (REAL) {
+    // Hồ sơ không được gửi (request bị chặn) nên KHÔNG kỳ vọng thấy nó ở màn Admin; kiểm là tìm kiếm không ra gì và không vỡ.
+    check("Hồ sơ (real): vì request ghi bị chặn nên hồ sơ thử không có ở màn Admin, tìm kiếm trả rỗng", list.length === 0, `${list.length} hàng`);
+  } else {
+    check("Hồ sơ vừa nộp qua form hiện ở màn Admin (Chờ duyệt)", list.length === 1 && list[0].includes(newBiz) && list[0].includes("Chờ duyệt"), list.join(" // ").slice(0, 100));
+  }
   await search("");
 
   // ------------------------------------------------------------------ hồ sơ đăng ký — ghi (mock)

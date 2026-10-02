@@ -5,7 +5,7 @@
 //     script bấm tới hết hộp xác nhận, ghi lại method + path + body định gửi và so với DTO của BE.
 //     KHÔNG tải lại trang khi đang có phiên (tải lại sẽ gọi POST /auth/refresh): điều hướng trong SPA bằng history.
 import { readFileSync } from "node:fs";
-import { accounts, newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { accounts, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 const MODE = process.argv[2] ?? "mock";
 const REAL = MODE === "real";
@@ -268,7 +268,7 @@ try {
     check("Manager tạo nhân viên: hiện 'Đã xếp email đặt mật khẩu … hiệu lực tới …', không có mật khẩu", /Đã xếp email đặt mật khẩu tới nv\.thu@mock\.local, hiệu lực tới/.test(staffNotice) && !SECRET.test(await pageText()), staffNotice);
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
-    await tab.blockWrites([/\/auth\/login$/]);
+    await tab.blockWrites(SESSION_ALLOW);
     await tab.goto("/login");
     await tab.clearStorage();
     await tab.goto(`/setup-password?token=${LONG_TOKEN}`);
