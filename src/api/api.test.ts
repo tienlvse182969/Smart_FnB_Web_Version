@@ -13,6 +13,7 @@ import { branchMock } from "./modules/branch/mock";
 import { reportMock } from "./modules/report/mock";
 import { aiMock } from "./modules/ai/mock";
 import { menuMock } from "./modules/menu/mock";
+import { optionsMock } from "./modules/options/mock";
 import type { ApiChain } from "../types";
 
 mockControl.latency = [0, 0];
@@ -221,7 +222,7 @@ describe("dữ liệu mock v9", () => {
   const now = new Date();
   const mk = (id: "A" | "B") => {
     const profile = MOCK_PROFILES[id];
-    const items = buildMenu(profile);
+    const items = buildMenu(profile).map((m) => ({ ...m, optionGroupIds: m.seedOptionGroupIds }));
     const groups = buildOptionGroups(profile, profile.chainId);
     return { profile, items, groups };
   };
@@ -237,9 +238,9 @@ describe("dữ liệu mock v9", () => {
     const { groups } = mk("A");
     const size = groups.find((g) => g.name === "Size")!;
     const topping = groups.find((g) => g.name === "Topping")!;
-    expect(size).toMatchObject({ required: true, minSelect: 1, maxSelect: 1 });
+    expect(size).toMatchObject({ isRequired: true, minSelections: 1, maxSelections: 1 });
     expect(size.options.some((o) => o.priceDelta > 0)).toBe(true);
-    expect(topping).toMatchObject({ required: false, minSelect: 0, maxSelect: 3 });
+    expect(topping).toMatchObject({ isRequired: false, minSelections: 0, maxSelections: 3 });
     expect(topping.options.every((o) => o.priceDelta > 0)).toBe(true);
   });
 
@@ -315,7 +316,7 @@ describe("mock chạy được với ID thật (không có lớp ánh xạ)", ()
     const chainId = "11111111-2222-3333-4444-555555555555";
     const items = await menuMock.listItems(chainId);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.some((i) => (i.optionGroupIds?.length ?? 0) > 0)).toBe(true);
+    expect((await optionsMock.listItemConfigs(chainId)).some((c) => c.groupIds.length > 0)).toBe(true);
     expect((await menuMock.listCategories(chainId)).length).toBeGreaterThan(1);
   });
 

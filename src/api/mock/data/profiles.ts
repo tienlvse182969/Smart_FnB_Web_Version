@@ -6,7 +6,7 @@
  * áp, giữ cấu hình"). Muốn thấy màu của B thì ghi đè gói lên Tiêu chuẩn bằng panel dev.
  */
 import { BRAND_COLOR_PRESETS } from "../../../theme";
-import type { ApiBranch, Branding, MenuCategory, OptionGroup, PlanTier } from "../../../types";
+import type { ApiBranch, Branding, MenuCategory, OptionGroup, OptionItem, PlanTier } from "../../../types";
 import type { StoredMenuItem } from "../store";
 import type { MockProfileId } from "../scenario";
 import { hashString, mulberry32 } from "../prng";
@@ -123,42 +123,22 @@ export function buildBranding(profile: MockProfile, chainId: string): Branding {
 // Menu và nhóm tuỳ chọn (đặc tả 12.2)
 // ---------------------------------------------------------------------------
 
-export function buildOptionGroups(profile: MockProfile, chainId: string): OptionGroup[] {
+export function buildOptionGroups(profile: MockProfile, _chainId: string): OptionGroup[] {
   const p = profile.id.toLowerCase();
+  const opt = (key: string, name: string, order: number, priceDelta = 0, isDefault = false): OptionItem => ({
+    id: `${p}-op-${key}`, name, code: key.toUpperCase(), priceDelta, displayOrder: order, isActive: true, isDefault,
+  });
+  const group = (key: string, name: string, order: number, rule: Pick<OptionGroup, "isRequired" | "minSelections" | "maxSelections">, options: OptionItem[]): OptionGroup => ({
+    id: `${p}-og-${key}`, name, code: key.toUpperCase(), ...rule, displayOrder: order, isActive: true, options,
+  });
+  const one = { isRequired: true, minSelections: 1, maxSelections: 1 };
   return [
-    {
-      id: `${p}-og-size`, tenantId: chainId, name: "Size", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-size-m`], sortOrder: 1,
-      options: [
-        { id: `${p}-op-size-m`, name: "M", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-size-l`, name: "L", priceDelta: 6000, activeChain: true },
-      ],
-    },
-    {
-      id: `${p}-og-sugar`, tenantId: chainId, name: "Đường", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-sugar-100`], sortOrder: 2,
-      options: ["0%", "30%", "50%", "70%", "100%"].map((label) => ({
-        id: `${p}-op-sugar-${label.replace("%", "")}`, name: label, priceDelta: 0, activeChain: true,
-      })),
-    },
-    {
-      id: `${p}-og-ice`, tenantId: chainId, name: "Đá", required: true, minSelect: 1, maxSelect: 1,
-      defaultOptionIds: [`${p}-op-ice-normal`], sortOrder: 3,
-      options: [
-        { id: `${p}-op-ice-none`, name: "Không đá", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-ice-less`, name: "Ít đá", priceDelta: 0, activeChain: true },
-        { id: `${p}-op-ice-normal`, name: "Bình thường", priceDelta: 0, activeChain: true },
-      ],
-    },
-    {
-      id: `${p}-og-topping`, tenantId: chainId, name: "Topping", required: false, minSelect: 0, maxSelect: 3,
-      defaultOptionIds: [], sortOrder: 4,
-      options: [
-        { id: `${p}-op-top-pearl`, name: "Trân châu đen", priceDelta: 5000, activeChain: true },
-        { id: `${p}-op-top-coconut`, name: "Thạch dừa", priceDelta: 5000, activeChain: true },
-        { id: `${p}-op-top-pudding`, name: "Pudding", priceDelta: 7000, activeChain: true },
-      ],
-    },
+    group("size", "Size", 1, one, [opt("size-m", "M", 1, 0, true), opt("size-l", "L", 2, 6000)]),
+    group("sugar", "Đường", 2, one, ["0%", "30%", "50%", "70%", "100%"].map((label, i) => opt(`sugar-${label.replace("%", "")}`, label, i + 1, 0, label === "100%"))),
+    group("ice", "Đá", 3, one, [opt("ice-none", "Không đá", 1), opt("ice-less", "Ít đá", 2), opt("ice-normal", "Bình thường", 3, 0, true)]),
+    group("topping", "Topping", 4, { isRequired: false, minSelections: 0, maxSelections: 3 }, [
+      opt("top-pearl", "Trân châu đen", 1, 5000), opt("top-coconut", "Thạch dừa", 2, 5000), opt("top-pudding", "Pudding", 3, 7000),
+    ]),
   ];
 }
 
@@ -224,7 +204,7 @@ export function buildMenu(profile: MockProfile): StoredMenuItem[] {
     imageUrl: null,
     preparationMinutes: null,
     isActive: seed.activeChain ?? true,
-    optionGroupIds: groups(seed.kind),
+    seedOptionGroupIds: groups(seed.kind),
     seeded: true,
   }));
 }

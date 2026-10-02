@@ -50,8 +50,6 @@ export type MenuItem = {
   branches: MenuItemBranch[];
   /** Số chi nhánh đang được gán (isEnabled). */
   enabledBranchCount: number;
-  /** Nhóm tuỳ chọn gắn vào món (OW-03) — chỉ có ở mock tới giai đoạn 4.3; BE chưa trả. */
-  optionGroupIds?: string[];
 };
 
 export type MenuItemFilter = {

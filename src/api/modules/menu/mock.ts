@@ -175,6 +175,7 @@ export const menuMock: MenuApi = {
     itemOf(s, id);
     s.menuItems = s.menuItems.filter((m) => m.id !== id);
     s.itemBranches.delete(id);
+    s.itemOptions.delete(id);
   },
 
   async setItemBranches(chainId, id, branchIds) {

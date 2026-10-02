@@ -6,6 +6,7 @@
 import type {
   AiQueryLog,
   BranchOptionState,
+  ItemOptionConfig,
   Branding,
   DemoAccount,
   MenuCategory,
@@ -29,6 +30,8 @@ import { getScenario } from "./scenario";
 export type StoredMenuItem = Omit<MenuItem, "branches" | "enabledBranchCount"> & {
   /** Món có sẵn từ dữ liệu mẫu: lần đầu gặp một chi nhánh thì tự được gán cho chi nhánh đó. */
   seeded?: boolean;
+  /** Nhóm tuỳ chọn mẫu của món có sẵn — chỉ để khởi tạo `itemOptions`; nguồn thật là `ChainState.itemOptions`. */
+  seedOptionGroupIds?: string[];
 };
 
 export interface BranchItemRow {
@@ -45,6 +48,8 @@ export interface ChainState {
   itemBranches: Map<string, Map<string, BranchItemRow>>;
   seededBranches: Set<string>;
   optionGroups: OptionGroup[];
+  /** itemId (ID THẬT của BE hoặc ID mẫu) → nhóm gắn vào món + cờ không gom món. CHỜ BE (api-contract-plan #13, #17). */
+  itemOptions: Map<string, ItemOptionConfig>;
   branchOptions: Map<string, BranchOptionState[]>;
   branding: Branding;
   /** Tài khoản đăng nhập được: Owner, Manager (mock). */
@@ -70,6 +75,7 @@ export function getChainState(chainId: string): ChainState {
       itemBranches: new Map(),
       seededBranches: new Set(),
       optionGroups: buildOptionGroups(profile, chainId),
+      itemOptions: new Map(),
       branchOptions: new Map(),
       branding: buildBranding(profile, chainId),
       accounts: [],
@@ -77,6 +83,9 @@ export function getChainState(chainId: string): ChainState {
       aiLogs: [],
       staffSeeded: new Set(),
     };
+    for (const m of state.menuItems) {
+      if (m.seedOptionGroupIds?.length) state.itemOptions.set(m.id, { menuItemId: m.id, groupIds: [...m.seedOptionGroupIds], noBatch: false });
+    }
     states.set(key, state);
   }
   return state;
@@ -117,7 +126,7 @@ export function getBranchOrders(chainId: string, branchId: string): Order[] {
       chainId,
       branchId,
       traffic: seed?.traffic ?? 0.6 + (hashString(branchId) % 80) / 100,
-      items: s.menuItems,
+      items: s.menuItems.map((m) => ({ ...m, optionGroupIds: s.itemOptions.get(m.id)?.groupIds })),
       groups: s.optionGroups,
       now: new Date(),
     });
