@@ -45,10 +45,17 @@ export function isQuotaError(err: unknown): boolean {
   return err instanceof ApiError && !!err.code && QUOTA_CODE.test(err.code);
 }
 
+/**
+ * Mã web gắn cho token đặt mật khẩu không dùng được (sai, hết hạn, đã dùng). BE trả 401 chung cho cả ba; status 401 được giữ
+ * nguyên để log trung thực, còn mã này báo cho web biết đây KHÔNG phải hết phiên đăng nhập.
+ */
+export const SETUP_TOKEN_INVALID = "SETUP_TOKEN_INVALID";
+
 export function classifyApiError(err: unknown): ApiErrorKind {
   if (!(err instanceof ApiError)) return "server";
   if (err.status === 0) return "network";
   if (isQuotaError(err)) return "quota";
+  if (err.code === SETUP_TOKEN_INVALID) return "validation";
   if (err.status === 401) return "unauthorized";
   if (err.status === 403) return "forbidden";
   if (err.status === 409) return "conflict";

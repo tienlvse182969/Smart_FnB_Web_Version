@@ -160,8 +160,8 @@ export const authReal: AuthApi = {
     try {
       await request<{ message: string }>("/auth/setup-password", { method: "POST", body: { token, password }, anonymous: true });
     } catch (err) {
-      // BE trả 401 cho token sai/hết hạn/đã dùng; 401 ở web nghĩa là hết phiên nên đổi sang mã riêng.
-      if (err instanceof ApiError && err.status === 401) throw new ApiError(400, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
+      // BE trả 401 cho token sai/hết hạn/đã dùng. Giữ status 401 (log trung thực), chỉ gắn mã để web biết đây không phải hết phiên.
+      if (err instanceof ApiError && err.status === 401) throw new ApiError(401, SETUP_TOKEN_MESSAGE, err.details, SETUP_TOKEN_INVALID, err.body);
       throw err;
     }
   },

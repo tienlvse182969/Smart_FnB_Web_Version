@@ -21,8 +21,8 @@ export interface AuthApi {
   setupPassword(token: string, password: string): Promise<void>;
 }
 
-/** Mã lỗi phía web cho token đặt mật khẩu không dùng được (BE trả 401 chung; web đổi để không bị coi là hết phiên). */
-export const SETUP_TOKEN_INVALID = "SETUP_TOKEN_INVALID";
+/** Mã lỗi phía web cho token đặt mật khẩu không dùng được: status 401 của BE giữ nguyên, chỉ gắn mã (xem `http/errors.ts`). */
+export { SETUP_TOKEN_INVALID } from "../../http/errors";
 export const SETUP_TOKEN_MESSAGE = "Liên kết đặt mật khẩu không hợp lệ, đã hết hạn hoặc đã được dùng.";
 
 export const TABLET_ONLY_MESSAGE = "Vui lòng sử dụng ứng dụng tablet";

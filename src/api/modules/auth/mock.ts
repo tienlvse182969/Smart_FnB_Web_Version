@@ -136,7 +136,7 @@ export const authMock: AuthApi = {
     await mockDelay();
     const failed = failedPasswordRules(password);
     if (failed.length) throw new ApiError(400, `password: ${failed.map((r) => r.label).join("; ")}`, failed.map((r) => r.label));
-    if (token !== "mock-valid" || consumedTokens.has(token)) throw new ApiError(400, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
+    if (token !== "mock-valid" || consumedTokens.has(token)) throw new ApiError(401, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
     consumedTokens.add(token);
   },
 };

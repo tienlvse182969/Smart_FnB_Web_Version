@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { wrapWithErrorHandling } from "../../define";
+import { clearTokens, getAccessToken, getRefreshToken, setSessionExpiredHandler, setTokens } from "../../http/client";
+import { ApiError, classifyApiError, setApiErrorHandler } from "../../http/errors";
 import { mockControl } from "../../mock/control";
 import { SETUP_TOKEN_INVALID } from "./index";
 import { authMock } from "./mock";
@@ -37,7 +40,7 @@ describe("authMock.setupPassword", () => {
 
   it("token mock-expired, mock-used và token lạ: cùng lỗi như BE (không phân biệt lý do)", async () => {
     for (const token of ["mock-expired", "mock-used", "khong-ton-tai"]) {
-      await expect(authMock.setupPassword(token, "StrongPass123")).rejects.toMatchObject({ status: 400, code: SETUP_TOKEN_INVALID });
+      await expect(authMock.setupPassword(token, "StrongPass123")).rejects.toMatchObject({ status: 401, code: SETUP_TOKEN_INVALID });
     }
   });
 
@@ -63,9 +66,39 @@ describe("authReal.setupPassword", () => {
     expect(JSON.stringify(init.headers ?? {})).not.toMatch(/authorization/i);
   });
 
-  it("401 của BE (token sai/hết hạn/đã dùng) → lỗi SETUP_TOKEN_INVALID, không phải 'hết phiên'", async () => {
+  it("401 của BE (token sai/hết hạn/đã dùng) → giữ status 401, gắn mã SETUP_TOKEN_INVALID", async () => {
     vi.stubGlobal("fetch", respond(401, { statusCode: 401, message: "Password setup token is invalid or expired" }));
-    await expect(authReal.setupPassword("t".repeat(40), "StrongPass123")).rejects.toMatchObject({ status: 400, code: SETUP_TOKEN_INVALID });
+    await expect(authReal.setupPassword("t".repeat(40), "StrongPass123")).rejects.toMatchObject({ status: 401, code: SETUP_TOKEN_INVALID });
+  });
+
+  it("đang có phiên: 401 của setupPassword không gọi refresh, không gắn Bearer, không xoá phiên, không báo toàn cục", async () => {
+    setTokens("access-dang-co", "refresh-dang-co");
+    const fetchMock = respond(401, { statusCode: 401, message: "Password setup token is invalid or expired" });
+    vi.stubGlobal("fetch", fetchMock);
+    const onGlobalError = vi.fn();
+    setApiErrorHandler(onGlobalError);
+    const sessionExpired = vi.fn();
+    setSessionExpiredHandler(sessionExpired);
+    try {
+      const api = wrapWithErrorHandling(authReal);
+      await expect(api.setupPassword("t".repeat(40), "StrongPass123")).rejects.toMatchObject({ status: 401, code: SETUP_TOKEN_INVALID });
+      // Chỉ một request, tới /auth/setup-password, không có /auth/refresh.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toMatch(/\/auth\/setup-password$/);
+      expect(new Headers(init.headers).get("Authorization")).toBeNull();
+      // Phiên đang có vẫn còn nguyên, không có thông báo hết phiên/lỗi toàn cục.
+      expect(getAccessToken()).toBe("access-dang-co");
+      expect(getRefreshToken()).toBe("refresh-dang-co");
+      expect(sessionExpired).not.toHaveBeenCalled();
+      expect(onGlobalError).not.toHaveBeenCalled();
+      expect(classifyApiError(new ApiError(401, "x", [], SETUP_TOKEN_INVALID))).toBe("validation");
+      expect(classifyApiError(new ApiError(401, "x"))).toBe("unauthorized");
+    } finally {
+      setSessionExpiredHandler(() => {});
+      setApiErrorHandler(null);
+      clearTokens();
+    }
   });
 
   it("400 validate của BE đi tiếp nguyên trạng", async () => {
