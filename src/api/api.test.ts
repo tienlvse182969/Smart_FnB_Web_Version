@@ -359,6 +359,22 @@ describe("mock chạy được với ID thật (không có lớp ánh xạ)", ()
     await expect(aiMock.ask(chainId, "u", "doanh thu hôm nay")).rejects.toMatchObject({ status: 403, code: "PLAN_FEATURE_UNAVAILABLE" });
   });
 
+  it("AI vào sáng mùng 1 (01/10 03:00, chưa có đơn trong tháng): 'tháng này' trả câu trả lời hợp lệ, không ném lỗi", async () => {
+    vi.setSystemTime(new Date("2026-10-01T03:00:00+07:00"));
+    try {
+      setScenario({ profile: "A", tier: null, expired: false });
+      // chainId mới để đơn mock sinh lại theo giờ giả (đơn được sinh lần đầu rồi giữ trong bộ nhớ).
+      const chainId = "aaaaaaaa-0000-4000-8000-000000000101";
+      const answer = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
+      expect(typeof answer.narrative).toBe("string");
+      expect(answer.narrative.length).toBeGreaterThan(0);
+      expect(answer.refused).toBeFalsy();
+      expect(answer.table?.rows.length ?? 0).toBeGreaterThanOrEqual(0);
+    } finally {
+      vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
+    }
+  });
+
   it("tạo chi nhánh vượt hạn mức → PLAN_LIMIT_REACHED như BE", async () => {
     setScenario({ profile: "B", tier: "BASIC", expired: false });
     const chainId = (await branchMock.listChains())[0].id;
