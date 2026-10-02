@@ -87,7 +87,7 @@ Giai đoạn 4 trên `feat/v9-menu` (từ `feat/v9-admin`, base PR là `feat/v9-
 |---|---|---|
 | 4.2 | `11a1e5b`, `6d771e1`, `fa5071b`, `5ea2a35` | danh mục + món real, gỡ kho, màn Danh mục, hợp đồng API, kiểm trình duyệt |
 | 4.3 | `040e2aa`, `4aabd70`, `52ed773` (+ `9e93899` cố định đồng hồ test) | tuỳ chọn món (mock theo Prisma): luật, màn OW-03, xem trước POS, kiểm trình duyệt |
-| 4.4 | `61a4abd`, `fd83667`, `f56aab1`, `(commit docs này)` | test AI mùng 1; tắt tuỳ chọn mặc định phải xác nhận; mock tuỳ chọn lưu qua F5 + nút xoá trong MockPanel; lỗi BE thì không lưu tuỳ chọn; sửa BAN-GIAO |
+| 4.4 | `61a4abd`, `fd83667`, `f56aab1`, ``284f436`` | test AI mùng 1; tắt tuỳ chọn mặc định phải xác nhận; mock tuỳ chọn lưu qua F5 + nút xoá trong MockPanel; lỗi BE thì không lưu tuỳ chọn; sửa BAN-GIAO |
 
 ### Cấu trúc thư mục mới
 
