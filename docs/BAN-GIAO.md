@@ -29,7 +29,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Repo BE | `Raintostorm/SmartFnBBackend` — local: `BE_FnB/SmartFnBBackend`. **CHỈ ĐỌC** |
 | Stack web | React 19 + Vite + Ant Design 6 + Zustand + React Router 7 |
 | Stack BE | NestJS + Prisma + PostgreSQL, chạy Docker |
-| BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json`. **Đang chạy `dfe8100`** (cập nhật 2026-10-02; container tự `migrate deploy` + `db seed`; bảng ví đã bỏ; sao lưu trước đó ở `~/backup-smartfnb-20261002-222344.sql`). Dùng BE local, không dùng Render |
+| BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json`. **Mã nguồn BE local ở `0083289`** (pull ngày 2026-10-03, **không có backup trước khi pull**; backup gần nhất là 2026-10-02, bản `dfe8100`, `~/backup-smartfnb-20261002-222344.sql`). **Container và DB đang chạy vẫn là bản build `dfe8100`** (kiểm 2026-10-03 bằng `prisma migrate status`, chỉ đọc: 19/20 migration đã áp, còn `20261003000000_branch_manager` chưa áp, không migration nào lỗi hay treo). Migration chờ áp chỉ **thêm** (2 cột `payments`, bảng `branch_audit_logs`, 2 index), không xoá bảng/cột nào. Container tự `migrate deploy` + `db seed` khi build lại; bảng ví đã bỏ từ `dfe8100`. Dùng BE local, không dùng Render |
 | Tài khoản demo | Đọc từ `.env` của BE. **Không in mật khẩu ra báo cáo hay log** |
 | Nhánh hiện tại | `feat/v9-manager` (từ `feat/v9-menu`). Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` ← `feat/v9-manager` (mỗi PR lấy nhánh trước làm base) |
 | Chạy web real | Cổng **5173** (CORS của BE chỉ cho `localhost` 5173, 8443, 8081): `npx vite --port 5173` |
@@ -47,6 +47,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 9. **Mỗi commit tự build được.** Chuỗi kiểm tra nối bằng `&&`, không dùng `;`: `tsc --noEmit && pnpm lint && pnpm build && pnpm test`. Test trượt thì không commit. Không chạy test song song với build.
 10. **Chỉ báo "xong" khi đã kiểm trình duyệt:** chạy mock trước, rồi real chỉ đọc (cổng 5173) có chặn mọi request ghi.
 11. **Trình quản lý gói: pnpm** (`pnpm-lock.yaml`).
+12. **Cập nhật BE local:** sao lưu DB trước, pull xong báo migration mới (tên, thêm hay xoá bảng/cột) rồi **dừng**, chờ Khánh duyệt mới bật/build lại.
 
 ## 5. Quyết định đã chốt
 
