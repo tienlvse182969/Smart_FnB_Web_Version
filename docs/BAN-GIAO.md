@@ -2,7 +2,7 @@
 
 > Đọc hết file này trước khi làm gì. Đặc tả chuẩn: `docs/Smart-FnB-Dac-ta-v9.md`.
 > Kế hoạch: `docs/Smart-FnB-Ke-hoach-v9.md`. Khi file này, prompt và đặc tả mâu thuẫn: **đặc tả thắng**, và báo lại chỗ lệch.
-> Cập nhật: 2026-10-02, sau 5.6, đã push `feat/v9-manager`.
+> Cập nhật: 2026-10-04, sau 5.8e (chốt giai đoạn 5), đã push `feat/v9-manager`.
 
 ---
 
@@ -236,7 +236,10 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | File v7 ở gốc (`Smart-FnB-Dac-ta-v7 (1).md`, `PHAN_TICH_NGHIEP_VU.md`) | KHÔNG đụng (dính stash `pre-v9-wip`) |
 | DB local thiếu tài khoản cashier/barista dù seed BE có | Người dùng tự xử lý |
 | Hồ sơ đăng ký "Probe Quán" do agent tạo nhầm trên BE thật. **KHÔNG xoá, KHÔNG tạo thêm**; chờ Khánh quyết | Khánh |
-| Giả lập lỗi (403, mạng, 401…) bằng MockPanel chỉ chạm module mock. Module real chưa có kiểm giao diện lỗi; làm ở 5.8 bằng CDP `Fetch.fulfillRequest` trả lỗi giả | 5.8 |
+| ~~Giả lập lỗi (403, mạng, 401…) bằng MockPanel chỉ chạm module mock; module real chưa có kiểm giao diện lỗi~~ **Đã xong ở 5.8a–5.8e**: `scripts/browser/phase58-faults.mjs` (CDP `Fetch.fulfillRequest`) kiểm 500/403/mất mạng/401 cho mọi màn real | — |
+| ~~Lỗi hiện 2 lần (toast trùng, câu tiếng Anh thô) và Thử lại chưa nạp lại~~ **Đã xong ở 5.8b–5.8d** (ngoại lệ còn lại ở dòng ngay dưới) | — |
+| **Còn 1 lỗi app (báo ở 5.8e, chưa sửa):** tạo chi nhánh (`roles/owner/Branches.tsx:127-129`) gọi `message.error(describeBranchError(err))` không kiểm `err.reported`, nên với 403, mất mạng, 401 hiện **2 thông báo** (toast + thông báo toàn cục). Đề xuất: dùng `showApiError(message.error, err, …)` (đã bỏ qua lỗi đã báo) thay cho `message.error` trực tiếp, giữ `describeBranchError` cho phần gợi ý gói. Chỉ màn này còn gọi trực tiếp | giai đoạn 6 (đầu) |
+| `DirtyWatcher` (`components/DirtyWatcher.tsx`) nhận form nhập dở dựa vào **class của antd** (`.ant-modal-container`, `.ant-drawer-section`, `.ant-select-item-option`…). **Nâng cấp antd (nhất là bản major) phải chạy lại `phase58-forms.mjs` và test `components/retry.test.tsx`**; cấu trúc đã đổi một lần giữa antd 5 và 6 (`-content` → `-section`/`-container`) | khi nâng antd |
 | Mock tuỳ chọn lưu localStorage (`smartfnb:mock:options:v1:<chainId>`, 4.4); bỏ khi `options` có `real.ts` | khi BE có OW-03 |
 | Định dạng `code` nhóm/tuỳ chọn đang giả định giống SKU (`^[A-Z0-9_-]{1,50}$`); chờ BE công bố (`docs/api-contract-plan.md` mục 7 #12) | chờ BE |
 
@@ -274,8 +277,36 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
-| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · 5.8c ✅ · 5.8d ✅ · ▶ chốt GĐ5 (chạy đủ phase2–5, mock + real) |
+| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · 5.8c ✅ · 5.8d ✅ · 5.8e ✅ (chốt) — **GĐ5 ✅ xong phần web trên `feat/v9-manager`**; kết quả chốt và tóm tắt ở mục 9 |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
 | 9 | Báo cáo đa chi nhánh, trợ lý AI (real), chỉ đọc khi hết hạn khớp BE | |
+
+## 9. Chốt giai đoạn 5 (5.8e, 2026-10-04)
+
+**Tóm tắt GĐ5 (Manager):**
+1. **Real:** trang đặt mật khẩu (`/setup-password`); Owner quản Manager (`/employees`); quầy và máy in (`GET/POST /stations`); ghép/thu hồi màn hình khách và ghép màn hình gọi số; menu món chi nhánh (`GET /branches/{id}/menu`, `PATCH …/items/{id}` chỉ `{isAvailable}`); tuỳ chọn theo chi nhánh (`GET/PATCH /manager/menu-options`, cờ riêng `VITE_API_BRANCH_OPTIONS`); thông tin chi nhánh.
+2. **Mock (chờ BE):** Cashier/Barista của Manager (BE `/manager/staff` bắt buộc mật khẩu, lệch quyết định "tạo → email đặt mật khẩu", #23/#24); danh sách màn hình gọi số (thiếu `GET /display-devices`, #28); dòng "Owner đã tắt" của món (BE ẩn hẳn món Owner tắt, #19); phía Owner của tuỳ chọn món (OW-03, làm real đầu GĐ6); nhận diện, PayOS, đơn, AI (giai đoạn 6–9).
+3. **Chờ BE:** email đặt mật khẩu không có tiến trình gửi (#1, CAO); hạn mức tài khoản đếm cả tài khoản khoá và mở khoá không kiểm hạn mức (#26); endpoint gói cho Manager (#38) nên Manager ở real không tự khoá khi hết hạn; mã lỗi `SUBSCRIPTION_READ_ONLY` (#31); `PATCH /stations` (#27); 3 gói seed giá thật (#32, #35); Manager ghi được `isEnabled` (#37).
+4. **Lớp lỗi dùng chung (5.8):** thông báo lỗi luôn tiếng Việt (5xx, bảng dịch câu BE, 400 theo ô), chống trùng 3 giây, nút Thử lại làm mới thật màn đang mở cho lỗi đọc mất mạng/5xx, hỏi xác nhận khi có form nhập dở, đọc/ghi theo phương thức HTTP.
+5. **Kiểm thử:** vitest 266/266; bộ giả lập lỗi CDP trên BE thật cho mọi màn real (đọc, ghi, nạp khu vực, 401 hết phiên); script kiểm có cờ `--mode`, `--only` (quy tắc 13).
+6. **Còn mở:** 1 lỗi app ở tạo chi nhánh (hiện 2 thông báo, xem "Tồn đọng đã biết"); BE local `0083289` (đã build lại, backup 2026-10-03); Landing vẫn dùng giá mock.
+
+**Bảng kết quả chốt** (BE local `0083289`, Vite 5173 real; 5174 mock; mọi request ghi trên real bị chặn ở CDP):
+
+| Kiểm | Mock | Real | Thời gian (mock / real) |
+|---|---|---|---|
+| `pnpm tsc --noEmit && lint && build && test` | — | vitest **266/266** | — |
+| phase2 | `flip` 1/1 | **40/40** | 15s / 143s |
+| phase3 | **47/47** | **15/15** | 88s / 39s |
+| phase4 | **72/72** | **20/20** | 152s / 37s |
+| phase5 | **111/111** | **75/75** | 237s / 83s |
+| phase58-forms | — | **16/16** | 26s |
+| phase58-faults (chỉ các ca chưa chạy lại, real) | — | admin/signups đọc+ghi, admin/tenants ghi, admin/plans ghi, owner/accounts ghi, manager/stations ghi, manager/branch-info, nạp khu vực Admin: **đạt hết**; owner/branches ghi: 500 đạt, 403/mạng/401 **trùng thông báo** (lỗi app ở trên) | ~8 phút |
+
+**Chập chờn gặp ở lượt chốt** (script chạy lại 1 lần là đạt; không phải lỗi app):
+- phase4 real: 1/4 lần chạy ngắt giữa chừng (`document.querySelector(".ant-card")` còn null lúc thao tác, trang chưa vẽ xong); 2 lần chạy lại liên tiếp đều 20/20.
+- phase5 mock: 1/2 lượt trượt đúng 1 kiểm ("Đủ hạn mức: nút 'Thêm nhân viên' bị khoá", 110/111); chạy lại 111/111. Trước đó 3 lượt liền 111/111.
+- Lần chạy đầu của lượt chốt (phase2, phase3, phase4 real) hỏng vì tôi sửa `.env.example` giữa lúc chạy (Vite theo dõi `.env*`); suy đoán, không chứng minh được; chạy lại sạch đạt hết. **Quy tắc: không sửa file `.env*` khi đang chạy kiểm trình duyệt.**
+- Một kiểm phase3 mock ("Đổi gói (hạ vượt hạn mức)") đòi câu tiếng Anh cũ của BE: lỗi **script** do dịch lỗi ở 5.8b; đã sửa kỳ vọng thành câu tiếng Việt.
