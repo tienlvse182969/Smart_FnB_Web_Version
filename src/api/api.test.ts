@@ -196,8 +196,31 @@ describe("lỗi API thống nhất", () => {
     });
     await expect(api.listThings()).rejects.toBeInstanceOf(ApiError);
     await expect(api.createThing()).rejects.toBeInstanceOf(ApiError);
-    expect(handler.mock.calls[0][0].retry).toBeTypeOf("function");
-    expect(handler.mock.calls[1][0].retry).toBeUndefined();
+    expect(handler.mock.calls[0][0].canRetry).toBe(true);
+    expect(handler.mock.calls[1][0].canRetry).toBe(false);
+    setApiErrorHandler(null);
+  });
+
+  it("Thử lại: chỉ lỗi ĐỌC mất mạng và 5xx; không cho 403, 401, 404, 409, 4xx khác và không cho lỗi ghi", async () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const fail = (status: number, code: string | null = null) => async () => {
+      throw new ApiError(status, "x", [], code);
+    };
+    const api = wrapWithErrorHandling({
+      listA: fail(0), listB: fail(500), listC: fail(503), listD: fail(403), listE: fail(401), listF: fail(404), listG: fail(409), listH: fail(400),
+      saveA: fail(0), saveB: fail(500), saveC: fail(403),
+    });
+    const retryable: Record<string, boolean> = { listA: true, listB: true, listC: true, listD: false, saveA: false, saveC: false };
+    for (const name of Object.keys(retryable) as (keyof typeof api)[]) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    const events = handler.mock.calls.map((c) => c[0]);
+    // listE (401), listF (404), listG (409), listH (400), saveB (500 ghi) không báo toàn cục
+    for (const name of ["listE", "listF", "listG", "listH", "saveB"] as const) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    expect(handler.mock.calls.length).toBe(events.length + 1); // chỉ listE (401, báo toàn cục, không retry) thêm vào
+    expect(events.map((e) => [e.kind, e.canRetry])).toEqual([
+      ["network", true], ["server", true], ["server", true], ["forbidden", false], ["network", false], ["forbidden", false],
+    ]);
+    expect(handler.mock.calls[events.length][0]).toMatchObject({ kind: "unauthorized", canRetry: false });
     setApiErrorHandler(null);
   });
 

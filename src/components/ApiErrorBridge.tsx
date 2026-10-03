@@ -4,6 +4,7 @@ import { describeApiError, isReadOnlyError, READ_ONLY_TEXT, setApiErrorHandler, 
 import { useAppStore } from "../store";
 
 const NETWORK_KEY = "api-network-error";
+const SERVER_KEY = "api-server-error";
 
 /**
  * Nối lỗi API (real lẫn mock) với thông báo trên màn hình, một chỗ duy nhất:
@@ -18,7 +19,7 @@ export default function ApiErrorBridge() {
     setApiErrorHandler((event: ApiErrorEvent) => {
       // Đang nạp phạm vi làm việc: màn lỗi toàn trang (router/guards.tsx) đã nêu lỗi và có nút Thử lại, nên không bắn thêm thông báo nổi trùng.
       const scope = useAppStore.getState().scopeStatus;
-      if ((scope === "loading" || scope === "error") && (event.kind === "network" || event.kind === "forbidden")) return;
+      if ((scope === "loading" || scope === "error") && (event.kind === "network" || event.kind === "forbidden" || event.kind === "server")) return;
       switch (event.kind) {
         case "forbidden":
           message.warning({ key: "api-forbidden", content: describeApiError(event.error) });
@@ -35,32 +36,31 @@ export default function ApiErrorBridge() {
           message.error({ key: "api-unauthorized", content: describeApiError(event.error) });
           break;
         case "network":
+        case "server": {
+          // Chỉ lỗi ĐỌC mới tới đây (xem `reportApiError`). "Thử lại" làm mới màn đang mở (`RefreshBoundary` dựng lại màn), không gọi
+          // lại một request rời; mỗi lần bấm = một lượt nạp của màn đó. Lỗi lại thì thông báo hiện lại, không tự lặp.
+          const key = event.kind === "network" ? NETWORK_KEY : SERVER_KEY;
           notification.error({
-            key: NETWORK_KEY,
-            message: "Mất kết nối máy chủ",
+            key,
+            message: event.kind === "network" ? "Mất kết nối máy chủ" : "Máy chủ gặp sự cố",
             description: describeApiError(event.error),
             duration: 0,
-            btn: (
+            btn: event.canRetry ? (
               <Button
                 size="small"
                 type="primary"
-                onClick={async () => {
-                  notification.destroy(NETWORK_KEY);
-                  try {
-                    await event.retry?.();
-                    // Thao tác đọc đã chạy lại được: làm mới dữ liệu phạm vi để màn hình thoát trạng thái lỗi.
-                    await useAppStore.getState().loadScope({ silent: true });
-                    message.success("Đã kết nối lại");
-                  } catch {
-                    // Lỗi lần này sẽ được báo lại bởi lớp API nếu vẫn là lỗi mạng.
-                  }
+                data-testid="api-error-retry"
+                onClick={() => {
+                  notification.destroy(key);
+                  useAppStore.getState().requestRefresh();
                 }}
               >
                 Thử lại
               </Button>
-            ),
+            ) : undefined,
           });
           break;
+        }
       }
     });
     return () => setApiErrorHandler(null);

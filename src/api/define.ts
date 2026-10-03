@@ -13,7 +13,7 @@ export interface ApiImpls<T> {
   mock: T;
 }
 
-/** Hàm chỉ đọc (an toàn gọi lại) — được gắn nút "Thử lại" khi mất mạng. */
+/** Hàm chỉ đọc (an toàn gọi lại) — lỗi mất mạng/5xx của hàm này có nút "Thử lại" (làm mới màn đang mở). Tên hàm đọc MỚI phải bắt đầu bằng một trong các tiền tố này. */
 const READ_PREFIX = /^(list|get|load|find|count)/;
 
 export function selectImpl<T>(module: ApiModule, mode: ApiMode, impls: ApiImpls<T>): T {
@@ -30,9 +30,8 @@ export function wrapWithErrorHandling<T extends object>(impl: T): T {
       const value = Reflect.get(target, prop, receiver);
       if (typeof value !== "function" || typeof prop !== "string") return value;
       return (...args: unknown[]) => {
-        const call = () => value.apply(target, args) as Promise<unknown>;
-        return call().catch((err: unknown) => {
-          reportApiError(err, READ_PREFIX.test(prop) ? call : undefined);
+        return (value.apply(target, args) as Promise<unknown>).catch((err: unknown) => {
+          reportApiError(err, READ_PREFIX.test(prop));
           throw err;
         });
       };

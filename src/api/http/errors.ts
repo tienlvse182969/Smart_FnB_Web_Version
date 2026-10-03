@@ -172,8 +172,11 @@ export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info"];
 export interface ApiErrorEvent {
   kind: ApiErrorKind;
   error: ApiError;
-  /** Chỉ có với lỗi mạng của thao tác đọc: gọi lại đúng yêu cầu vừa thất bại. */
-  retry?: () => Promise<unknown>;
+  /**
+   * Có nút "Thử lại": chỉ với lỗi ĐỌC (list/get/load/find/count) thuộc loại mất mạng hoặc 5xx. Nút không gọi lại request mà làm mới
+   * màn đang mở (`requestRefresh` trong store → `RefreshBoundary`). Lỗi ghi, 403, 401, 404, 409 và 4xx khác không có nút.
+   */
+  canRetry: boolean;
 }
 
 type ApiErrorHandler = (event: ApiErrorEvent) => void;
@@ -192,11 +195,13 @@ const GLOBAL_KINDS: ApiErrorKind[] = ["network", "forbidden", "quota", "unauthor
  * Báo một lỗi API cho người dùng, tối đa một lần cho mỗi đối tượng lỗi. Gọi từ `withErrorHandling`
  * (bọc mọi hàm của mọi module) — nên real và mock đi chung một đường.
  */
-export function reportApiError(err: unknown, retry?: () => Promise<unknown>): void {
+export function reportApiError(err: unknown, isRead?: unknown): void {
   if (!(err instanceof ApiError) || err.reported) return;
   const kind = classifyApiError(err);
-  if (!GLOBAL_KINDS.includes(kind)) return;
+  const retryable = !!isRead && (kind === "network" || kind === "server");
+  // 5xx của thao tác GHI để màn hình tự hiện (toast tại chỗ); 5xx của thao tác ĐỌC được báo toàn cục kèm nút Thử lại.
+  if (!GLOBAL_KINDS.includes(kind) && !(kind === "server" && retryable)) return;
   err.reported = true;
-  if ((kind === "forbidden" || kind === "network") && INLINE_ERROR_ROUTES.includes(currentRoute())) return;
-  handler?.({ kind, error: err, retry: kind === "network" ? retry : undefined });
+  if ((kind === "forbidden" || kind === "network" || kind === "server") && INLINE_ERROR_ROUTES.includes(currentRoute())) return;
+  handler?.({ kind, error: err, canRetry: retryable });
 }
