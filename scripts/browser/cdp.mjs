@@ -84,6 +84,65 @@ class Tab {
     this.blockAllow = allow;
     await this.send("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
   }
+  /**
+   * Giả lập lỗi cho module real (5.8a), TÁCH khỏi blockWrites nhưng dùng chung hàng đợi Fetch (gọi blockWrites trước).
+   * `fault = { kind: "500"|"403"|"network"|"401", match: RegExp, times?: number, refresh?: "fail" }`:
+   *   - request ĐỌC (GET) có đường dẫn khớp `match` bị trả lỗi giả (Fetch.fulfillRequest) hoặc bị ngắt (network);
+   *   - MỌI request ghi (trừ đăng nhập/làm mới/đăng xuất) cũng nhận lỗi giả và KHÔNG bao giờ tới BE (vẫn ghi vào blockedWrites);
+   *   - `times` = chỉ giả lập N request đọc đầu rồi cho đi tiếp (ca 401: refresh thật chạy rồi request được gọi lại);
+   *   - `refresh: "fail"` = POST /auth/refresh cũng trả 401 giả (ca hết phiên thật sự).
+   * `this.faultLog` ghi lại từng request bị giả lập. `setFault(null)` tắt giả lập.
+   */
+  setFault(fault) {
+    this.fault = fault ? { ...fault, hits: 0 } : null;
+    this.faultLog = [];
+  }
+  fulfillFault(p, kind) {
+    if (kind === "network") {
+      void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "ConnectionRefused" });
+      return;
+    }
+    const code = Number(kind);
+    const bodies = {
+      500: { statusCode: 500, message: "Internal server error" },
+      403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
+      401: { statusCode: 401, message: "Unauthorized" },
+    };
+    void this.send("Fetch.fulfillRequest", {
+      requestId: p.requestId,
+      responseCode: code,
+      responseHeaders: [
+        { name: "Content-Type", value: "application/json" },
+        { name: "Access-Control-Allow-Origin", value: ORIGIN },
+        { name: "Vary", value: "Origin" },
+      ],
+      body: Buffer.from(JSON.stringify(bodies[code])).toString("base64"),
+    });
+  }
+  /** true nếu đã xử lý bằng lỗi giả (request không đi tiếp). */
+  tryFault(p, method, path) {
+    const f = this.fault;
+    if (!f || method === "OPTIONS" || method === "HEAD") return false;
+    // Chỉ giả lập lỗi cho API của BE; file của Vite (module, CSS…) phải đi bình thường nếu không trang sẽ trắng.
+    if (!path.startsWith("/api/v1/")) return false;
+    const isWrite = method !== "GET";
+    if (/\/auth\/(login|refresh|logout)$/.test(path)) {
+      if (method === "POST" && path.endsWith("/auth/refresh") && f.refresh === "fail") {
+        this.faultLog.push({ method, path, kind: "401" });
+        this.fulfillFault(p, "401");
+        return true;
+      }
+      return false;
+    }
+    if (!isWrite && !f.match.test(path)) return false;
+    if (!isWrite && f.times != null && f.hits >= f.times) return false;
+    if (isWrite && f.times != null && f.hits >= f.times) return false; // sau lượt đầu: rơi về chặn như cũ (BlockedByClient)
+    f.hits++;
+    this.faultLog.push({ method, path, kind: f.kind });
+    if (isWrite) this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
+    this.fulfillFault(p, f.kind);
+    return true;
+  }
   onRequestPaused(p) {
     const { method, url, postData } = p.request;
     const path = (() => {
@@ -94,6 +153,7 @@ class Tab {
         return url;
       }
     })();
+    if (this.tryFault(p, method, path)) return;
     const safe = ["GET", "HEAD", "OPTIONS"].includes(method) || (method === "POST" && this.blockAllow?.some((re) => re.test(path)));
     if (safe) {
       void this.send("Fetch.continueRequest", { requestId: p.requestId });
@@ -104,8 +164,16 @@ class Tab {
   }
   send(method, params = {}) {
     const id = ++this.n;
-    return new Promise((res) => {
-      this.pending.set(id, res);
+    return new Promise((res, rej) => {
+      // Quá 45 giây không có phản hồi (trang đang điều hướng/treo) thì báo lỗi thay vì chờ mãi.
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        rej(new Error(`CDP timeout: ${method}`));
+      }, 45000);
+      this.pending.set(id, (m) => {
+        clearTimeout(timer);
+        res(m);
+      });
       this.ws.send(JSON.stringify({ id, method, params }));
     });
   }

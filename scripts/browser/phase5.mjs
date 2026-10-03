@@ -1079,6 +1079,7 @@ try {
 
     // ---- 5.7d: Manager real — tab Tuỳ chọn đọc /manager/menu-options; tắt 1 tuỳ chọn tới hết hộp xác nhận, PATCH bị chặn ở CDP, so DTO
     const beOptsBefore = await beGet("/manager/menu-options", "manager");
+    const optReqMark = tab.requests.length;
     tab.blockedWrites.length = 0;
     await q(`document.querySelectorAll(".ant-notification-notice-close, .ant-message-notice-close").forEach((b) => b.click())`);
     for (let i = 0; i < 40 && (await toasts()) !== ""; i++) await sleep(250);
@@ -1107,6 +1108,10 @@ try {
       check("Real · Tuỳ chọn chi nhánh: ghi thất bại thì công tắc về đúng trạng thái BE", (await realOptRows()).find((r) => r.name === optVictim.name).checked === true);
       const beOptsAfter = await beGet("/manager/menu-options", "manager");
       check("Real · Tuỳ chọn chi nhánh: GET lại /manager/menu-options — dữ liệu không đổi", J(beOptsAfter) === J(beOptsBefore));
+    }
+    {
+      const optReqs = tab.requests.slice(optReqMark).filter((r) => /\/api\/v1\/(manager|barista)\//.test(r.url));
+      check("Real · Tuỳ chọn chi nhánh: 0 request tới /barista/* (cả đọc lẫn ghi bị chặn), chỉ dùng /manager/menu-options", !optReqs.some((r) => /\/barista\//.test(r.url)) && !tab.blockedWrites.some((w) => /\/barista\//.test(w.path)) && optReqs.some((r) => /\/manager\/menu-options/.test(r.url)), [...new Set(optReqs.map((r) => `${r.method} ${new URL(r.url).pathname.replace(/[0-9a-f-]{36}/g, "{id}")}`))].join(" | "));
     }
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
