@@ -1,6 +1,7 @@
-import { Button, Tooltip, type ButtonProps } from "antd";
+import type { ReactNode } from "react";
+import { Button, Switch, Tooltip, type ButtonProps, type SwitchProps } from "antd";
 import type { QuotaResource } from "../types";
-import { useWriteGuard } from "./useReadOnly";
+import { useWriteGuard, type WriteGuard } from "./useReadOnly";
 
 export interface ActionButtonProps extends ButtonProps {
   /**
@@ -17,18 +18,34 @@ export interface ActionButtonProps extends ButtonProps {
 export default function ActionButton({ consumes, disabled, children, ...rest }: ActionButtonProps) {
   const guard = useWriteGuard(consumes);
   const isDisabled = disabled || guard.disabled;
-  const button = (
-    <Button {...rest} disabled={isDisabled}>
-      {children}
-    </Button>
+  return (
+    <GuardTip guard={guard}>
+      <Button {...rest} disabled={isDisabled}>
+        {children}
+      </Button>
+    </GuardTip>
   );
-  if (!guard.disabled || !guard.reason) return button;
-  // Nút bị vô hiệu hoá không bắn sự kiện chuột nên Tooltip phải bọc ngoài bằng một phần tử khác.
+}
+
+/** Bọc điều khiển bị khoá bởi `WriteGuard` bằng tooltip lý do. Dùng chung cho nút và công tắc. */
+export function GuardTip({ guard, children }: { guard: WriteGuard; children: ReactNode }) {
+  if (!guard.disabled || !guard.reason) return <>{children}</>;
+  // Điều khiển bị vô hiệu hoá không bắn sự kiện chuột nên Tooltip phải bọc ngoài bằng một phần tử khác.
   return (
     <Tooltip title={guard.reason}>
       <span style={{ display: "inline-block" }} data-testid="action-guard">
-        {button}
+        {children}
       </span>
     </Tooltip>
+  );
+}
+
+/** Công tắc ghi dùng chung cơ chế khoá của ActionButton (hết hạn gói → khoá kèm tooltip). */
+export function ActionSwitch({ disabled, ...rest }: SwitchProps) {
+  const guard = useWriteGuard();
+  return (
+    <GuardTip guard={guard}>
+      <Switch {...rest} disabled={disabled || guard.disabled} />
+    </GuardTip>
   );
 }

@@ -10,6 +10,7 @@ export { reportApi, type ReportApi } from "./modules/report";
 export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
 export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
+export { branchOptionsApi, groupBranchOptions, type BranchOptionsApi } from "./modules/branchOptions";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
 export { accountApi, type AccountApi } from "./modules/account";
 export { stationsApi, type StationsApi } from "./modules/stations";
@@ -24,6 +25,10 @@ export {
   classifyApiError,
   describeApiError,
   isQuotaError,
+  isReadOnlyError,
+  READ_ONLY_TEXT,
+  SERVER_ERROR_TEXT,
+  translateBackendMessage,
   showApiError,
   setApiErrorHandler,
   type ApiErrorEvent,

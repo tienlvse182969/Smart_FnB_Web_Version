@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Alert, Card, Descriptions, Spin, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, Spin, Tag } from "antd";
 import { useAppStore } from "../../store";
-import { branchApi } from "../../api";
+import { branchApi, describeApiError } from "../../api";
 import type { ApiBranchDetail } from "../../types";
 import { SectionTitle } from "../../components/bits";
 import { palette } from "../../theme";
@@ -19,6 +19,7 @@ export default function BranchInfo() {
   const branchId = useAppStore((s) => s.currentBranchId);
   const [branch, setBranch] = useState<ApiBranchDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     if (!branchId) return;
@@ -27,14 +28,28 @@ export default function BranchInfo() {
     setError(null);
     branchApi.getBranch(branchId)
       .then((data) => !cancelled && setBranch(data))
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : "Không tải được chi nhánh"));
+      .catch((err) => !cancelled && setError(describeApiError(err)));
     return () => {
       cancelled = true;
     };
-  }, [branchId]);
+  }, [branchId, nonce]);
 
   if (!branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;
-  if (error) return <Alert type="error" showIcon message="Không tải được thông tin chi nhánh" description={error} />;
+  if (error) {
+    return (
+      <Alert
+        type="error"
+        showIcon
+        message="Không tải được thông tin chi nhánh"
+        description={error}
+        action={
+          <Button size="small" onClick={() => setNonce((n) => n + 1)}>
+            Thử lại
+          </Button>
+        }
+      />
+    );
+  }
   if (!branch) {
     return (
       <div style={{ display: "grid", placeItems: "center", padding: 60 }}>

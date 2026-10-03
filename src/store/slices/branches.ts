@@ -29,7 +29,7 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
       currentBranchId: branchId,
       currentUser: currentUser ? { ...currentUser, branchId } : null,
     });
-    await Promise.all([get().loadMenu(), get().loadStaff()]);
+    await get().loadMenu();
   },
 
   createBranch: async (data) => {

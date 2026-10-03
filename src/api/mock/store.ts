@@ -14,6 +14,8 @@ import type {
   Order,
   OptionGroup,
 } from "../../types";
+import { loadPersistedAccounts } from "../modules/account/persist";
+import { loadPersistedBranchOptions } from "../modules/branchOptions/persist";
 import { loadPersistedOptions } from "../modules/options/persist";
 import { generateBranchOrders } from "./data/orders";
 import {
@@ -98,6 +100,12 @@ export function getChainState(chainId: string): ChainState {
       state.optionGroups = saved.groups;
       state.itemOptions = new Map(saved.itemOptions.map((c) => [c.menuItemId, c]));
     }
+    // Mock tài khoản (5.4) cũng lưu qua F5; `staffSeeded` đi kèm để không sinh nhân sự trùng.
+    const savedAccounts = loadPersistedAccounts(chainId);
+    if (savedAccounts) {
+      state.accounts = savedAccounts.accounts;
+      state.staffSeeded = new Set(savedAccounts.staffSeeded);
+    }
     states.set(key, state);
   }
   return state;
@@ -123,6 +131,12 @@ export function getBranchOptions(chainId: string, branchId: string): BranchOptio
     list = s.optionGroups.flatMap((g) =>
       g.options.map((o) => ({ branchId, optionId: o.id, isAvailable: hashString(`${branchId}:${o.id}`) % 9 !== 0 })),
     );
+    // Mock tuỳ chọn theo chi nhánh lưu qua F5 (5.7c): phủ cờ đã lưu lên dữ liệu sinh sẵn.
+    const saved = loadPersistedBranchOptions(chainId, branchId);
+    if (saved) {
+      const byId = new Map(saved.map((r) => [r.optionId, r.isAvailable]));
+      list = list.map((r) => (byId.has(r.optionId) ? { ...r, isAvailable: byId.get(r.optionId)! } : r));
+    }
     s.branchOptions.set(branchId, list);
   }
   return list;

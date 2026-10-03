@@ -10,7 +10,6 @@ import type { BrandingSlice } from "./slices/branding";
 import type { PlanSlice } from "./slices/plan";
 import type { BranchSlice } from "./slices/branches";
 import type { MenuSlice } from "./slices/menu";
-import type { StaffSlice } from "./slices/staff";
 
 export type ScopeStatus = "idle" | "loading" | "ready" | "error";
 
@@ -30,8 +29,7 @@ export type AppState = AuthSlice &
   BrandingSlice &
   PlanSlice &
   BranchSlice &
-  MenuSlice &
-  StaffSlice;
+  MenuSlice;
 
 /** Hàm tạo một slice — nhìn thấy toàn bộ `AppState` qua `get()`. */
 export type SliceCreator<T> = StateCreator<AppState, [], [], T>;

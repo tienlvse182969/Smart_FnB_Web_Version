@@ -1,6 +1,6 @@
 /** Nạp ba báo cáo doanh thu song song, kèm trạng thái tải / lỗi / thử lại. */
 import { useCallback, useEffect, useState } from "react";
-import { reportApi } from "../../api";
+import { describeApiError, reportApi } from "../../api";
 import type { DateRange } from "../../lib/reportFormat";
 import type { ReportGranularity, RevenueComparison, RevenueTimeseries, TopItems } from "../../types";
 
@@ -56,7 +56,7 @@ export function useReportData(query: ReportQuery): ReportState {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Không tải được báo cáo");
+        setError(describeApiError(err));
         setLoading(false);
       });
 

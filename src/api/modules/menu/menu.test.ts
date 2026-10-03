@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControl } from "../../mock/control";
 import { setScenario } from "../../mock/scenario";
 import { branchMock } from "../branch/mock";
 import { mapAssignedBranches, mapBranchMenu, mapCategory, mapItem, type RawBranchMenu, type RawItem } from "./mapper";
 import { menuMock } from "./mock";
+import { menuReal } from "./real";
 import { assertWholeVnd, suggestSku } from "./validate";
 
 mockControl.latency = [0, 0];
@@ -72,7 +73,7 @@ describe("mapper menu", () => {
       categories: [{ id: "c1", name: "Món chính", items: [{ id: "i1", sku: "S", name: "Canh", price: "75000.00", isAvailable: true, remainingPortions: 3 }] }],
     };
     const flat = mapBranchMenu(raw);
-    expect(flat).toEqual([{ menuItemId: "i1", sku: "S", name: "Canh", categoryName: "Món chính", price: 75000, imageUrl: null, isAvailable: true }]);
+    expect(flat).toEqual([{ menuItemId: "i1", sku: "S", name: "Canh", categoryName: "Món chính", price: 75000, imageUrl: null, isAvailable: true, ownerDisabled: false }]);
     expect(JSON.stringify(flat)).not.toMatch(/remaining/i);
   });
 
@@ -165,8 +166,39 @@ describe("mock menu — cùng quy tắc BE", () => {
     await menuMock.setBranchItemAvailable(b1, item.id, false);
     expect((await menuMock.listBranchMenu(b1)).find((m) => m.menuItemId === item.id)!.isAvailable).toBe(false);
 
+    // Owner tắt: mock vẫn trả dòng (đã gán chi nhánh) nhưng đánh dấu ownerDisabled, không còn bán.
     await menuMock.setItemActive(chainId, item.id, false);
-    expect((await menuMock.listBranchMenu(b1)).some((m) => m.menuItemId === item.id)).toBe(false);
+    const off = (await menuMock.listBranchMenu(b1)).find((m) => m.menuItemId === item.id)!;
+    expect(off).toMatchObject({ ownerDisabled: true, isAvailable: false });
+    expect((await menuMock.listBranchMenu(b2)).some((m) => m.menuItemId === item.id)).toBe(false);
     expect(JSON.stringify(await menuMock.listBranchMenu(b1))).not.toMatch(/remaining/i);
+  });
+
+  it("món Owner đã tắt: chi nhánh không bật lại được (BR-12), tắt thêm vẫn được", async () => {
+    const cat = (await menuMock.listCategories(chainId))[0];
+    const b1 = branchIds[0];
+    const item = await menuMock.createItem(chainId, { categoryId: cat.id, sku: "TEST-SKU-5", name: "Món Owner tắt", price: 10000, branchIds: [b1] });
+    await menuMock.setItemActive(chainId, item.id, false);
+    await expect(menuMock.setBranchItemAvailable(b1, item.id, true)).rejects.toMatchObject({ status: 403 });
+    await expect(menuMock.setBranchItemAvailable(b1, item.id, false)).resolves.toBeUndefined();
+    expect((await menuMock.listBranchMenu(b1)).find((m) => m.menuItemId === item.id)!.isAvailable).toBe(false);
+  });
+
+  it("dữ liệu mẫu có món Owner đã tắt để thử dòng xám", async () => {
+    expect((await menuMock.listBranchMenu(branchIds[0])).some((m) => m.ownerDisabled)).toBe(true);
+  });
+});
+
+describe("real menu — ghi bật/tắt món chi nhánh", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("PATCH /branches/{b}/menu/items/{id} chỉ gửi { isAvailable }, không isEnabled/remainingPortions", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await menuReal.setBranchItemAvailable("b1", "i1", false);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toMatch(/\/branches\/b1\/menu\/items\/i1$/);
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(String(init.body))).toEqual({ isAvailable: false });
   });
 });

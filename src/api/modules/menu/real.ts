@@ -79,7 +79,8 @@ export const menuReal: MenuApi = {
   },
 
   async setBranchItemAvailable(branchId, itemId, isAvailable) {
-    // Chỉ gửi isAvailable — web không bao giờ gửi remainingPortions.
+    // Body CHỈ có { isAvailable } — web không bao giờ gửi isEnabled (của Owner, BR-12) hay remainingPortions (kho, v7).
+    // Khớp UpdateBranchMenuItemDto (BE menu.dto.ts:194-214); route PATCH branch-menu.controller.ts:47-48, role OWNER, MANAGER.
     await request(`/branches/${branchId}/menu/items/${itemId}`, { method: "PATCH", body: { isAvailable } });
   },
 };

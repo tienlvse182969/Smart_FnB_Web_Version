@@ -2,7 +2,7 @@
 
 > Đọc hết file này trước khi làm gì. Đặc tả chuẩn: `docs/Smart-FnB-Dac-ta-v9.md`.
 > Kế hoạch: `docs/Smart-FnB-Ke-hoach-v9.md`. Khi file này, prompt và đặc tả mâu thuẫn: **đặc tả thắng**, và báo lại chỗ lệch.
-> Cập nhật: 2026-10-02, sau 5.5, đã push `feat/v9-manager`.
+> Cập nhật: 2026-10-02, sau 5.6, đã push `feat/v9-manager`.
 
 ---
 
@@ -29,7 +29,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Repo BE | `Raintostorm/SmartFnBBackend` — local: `BE_FnB/SmartFnBBackend`. **CHỈ ĐỌC** |
 | Stack web | React 19 + Vite + Ant Design 6 + Zustand + React Router 7 |
 | Stack BE | NestJS + Prisma + PostgreSQL, chạy Docker |
-| BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json`. **Đang chạy `dfe8100`** (cập nhật 2026-10-02; container tự `migrate deploy` + `db seed`; bảng ví đã bỏ; sao lưu trước đó ở `~/backup-smartfnb-20261002-222344.sql`). Dùng BE local, không dùng Render |
+| BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json`. **Mã nguồn BE local ở `0083289`** (pull ngày 2026-10-03, **không có backup trước khi pull**; backup gần nhất là 2026-10-02, bản `dfe8100`, `~/backup-smartfnb-20261002-222344.sql`). **Đã build lại và chạy `0083289` ngày 2026-10-03 (~21:01)** sau khi sao lưu bằng `pg_dump` tại `~/backup-smartfnb-20261003-210016.sql` (353 KB, 53 bảng). Container tự `migrate deploy` + `db seed`: đã áp `20261003000000_branch_manager` (chỉ **thêm** 2 cột `payments`, bảng `branch_audit_logs`, 2 index; không xoá gì), `prisma migrate status` báo "Database schema is up to date" (20/20), không migration lỗi. Seed không đổi (vẫn 2 gói giá 0). Trước đó: mã nguồn pull ngày 2026-10-03 **không có backup**; backup trước nữa là 2026-10-02 (bản `dfe8100`, `~/backup-smartfnb-20261002-222344.sql`). Kiểm GET bằng Manager thật: `/manager/menu-options` 200 (4 tuỳ chọn, 2 nhóm, shape khớp `manager-operations.service.ts:182-202`), `/manager/staff`, `/manager/orders`, `/manager/reports`, `/manager/audit-logs` 200, `GET /restaurant-chains` 403. Dùng BE local, không dùng Render |
 | Tài khoản demo | Đọc từ `.env` của BE. **Không in mật khẩu ra báo cáo hay log** |
 | Nhánh hiện tại | `feat/v9-manager` (từ `feat/v9-menu`). Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` ← `feat/v9-manager` (mỗi PR lấy nhánh trước làm base) |
 | Chạy web real | Cổng **5173** (CORS của BE chỉ cho `localhost` 5173, 8443, 8081): `npx vite --port 5173` |
@@ -47,6 +47,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 9. **Mỗi commit tự build được.** Chuỗi kiểm tra nối bằng `&&`, không dùng `;`: `tsc --noEmit && pnpm lint && pnpm build && pnpm test`. Test trượt thì không commit. Không chạy test song song với build.
 10. **Chỉ báo "xong" khi đã kiểm trình duyệt:** chạy mock trước, rồi real chỉ đọc (cổng 5173) có chặn mọi request ghi.
 11. **Trình quản lý gói: pnpm** (`pnpm-lock.yaml`).
+12. **Cập nhật BE local:** sao lưu DB trước, pull xong báo migration mới (tên, thêm hay xoá bảng/cột) rồi **dừng**, chờ Khánh duyệt mới build. (Build lại là lúc container chạy `migrate deploy` và seed.)
 
 ## 5. Quyết định đã chốt
 
@@ -62,6 +63,9 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Tên tỉnh | Ghi tên đầy đủ theo `constants/provinces.ts`; so khớp thì chuẩn hoá (`normalizeProvince`) |
 | Màu | Tách **màu thương hiệu** (theo tenant) và **màu ngữ nghĩa** (cố định, không bao giờ bị thương hiệu đè — BR-42) |
 | Màn bị khoá theo gói | Hiện thẻ khoá kèm tên gói cần nâng, **không ẩn hẳn** |
+| Menu chi nhánh (5.7b, Khánh duyệt) | Món Owner đã tắt: mock hiện dòng xám "Owner đã tắt", công tắc khoá; real không hiện cho tới khi BE làm #19. Tắt món: hộp xác nhận "Món sẽ ẩn khỏi POS của chi nhánh ngay.", không bắt lý do, không nhắc đơn đã thanh toán; bật lại không hộp. Không xử lý xung đột với Barista, chỉ nạp lại sau khi ghi. Web chỉ gửi `isAvailable`, không bao giờ gửi `isEnabled` hay `remainingPortions` |
+| Chia 5.7 | 5.7b menu món real ✅ → 5.7c tầng dữ liệu tuỳ chọn chi nhánh ✅ (real qua `/manager/menu-options`, cờ `VITE_API_BRANCH_OPTIONS`, mock lưu F5 key `smartfnb:mock:options:branch:v1:<chainId>:<branchId>`, unit test) → 5.7d giao diện tuỳ chọn + nhãn quota + phase5 → 5.8 |
+| Tắt tuỳ chọn (5.7c, Khánh duyệt) | Hộp xác nhận thêm câu "Đơn đã thanh toán có tuỳ chọn này sẽ chuyển Hết món."; sau khi tắt báo số đơn bị ảnh hưởng (`affectedOrderIds.length`). Tắt món giữ câu cũ. Staff (5.4) giữ mock tới khi BE sửa #23/#24. OW-03 real làm đầu GĐ6. Options phía Owner vẫn mock |
 | CC-12 (thu phí gói qua hệ thống) | Chưa chốt. Không làm màn thanh toán gia hạn, nhưng thiết kế lớp API gói chừa chỗ |
 
 ## 6. Trạng thái hiện tại
@@ -93,6 +97,9 @@ Giai đoạn 5 trên `feat/v9-manager` (từ `feat/v9-menu`, base PR là `feat/v
 
 | Bước | Commit | Nội dung |
 |---|---|---|
+| 5.7d | `2949d79` | giao diện tuỳ chọn theo chi nhánh (tab Tuỳ chọn), thông báo 403 hết hạn không mã, mock Pudding Owner tắt; vitest 233/233, phase5 mock 111/111, real 74/74 |
+| 5.7c | `0aa02e8` | tầng dữ liệu tuỳ chọn theo chi nhánh: module `branchOptions` (real `/manager/menu-options`, mock lưu F5), cờ `VITE_API_BRANCH_OPTIONS`, chưa có giao diện; vitest 230/230 |
+| 5.7b | `9deded0` | menu món chi nhánh real (BM-02): `BranchMenu`, `ActionSwitch`, mock món Owner tắt, test, phase5 (mock 98/98, real 66/66; đầu lượt real 58/58) |
 | 5.2 | `d1abd74`, `36e8a1f`, `a430a9c` | `authApi.setupPassword`, trang `/setup-password`, gỡ `DEFAULT_PASSWORD` và `ForceChangePasswordModal`, `phase5.mjs`, hợp đồng API #23–28 |
 | 5.3 | `b418d84`, `f6f2d4e`, `bb8f4b0` | sửa 5.2 (nhận diện nền tảng cho `/setup-password`, giữ status 401); Owner `ManagerAccounts` real qua `/employees`; `phase5.mjs` chặn request ghi ở tầng CDP |
 
@@ -129,10 +136,11 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | report | `VITE_API_REPORT` | real | BE `dfe8100` tính đơn đã trả (`PAID`) theo `paidAt` nên đã bỏ banner "chờ BE"; chưa trừ đơn huỷ sau thanh toán (BR-50, BE chưa có huỷ đơn đã trả); thẻ khách đã ẩn (TODO BE) |
 | plan | `VITE_API_PLAN` | real | hạn mức THẬT; **cờ nhận diện và so sánh đa chi nhánh đọc thật** từ `GET /restaurant-chains` → `subscription.plan` (ưu tiên hơn suy từ mã; panel dev vẫn ghi đè được); cờ AI, cấp (tier), hạn dùng, trạng thái vẫn là MOCK/suy từ mã (chờ BE, #30) |
 | menu | `VITE_API_MENU` | **real** | danh mục + món + gán chi nhánh + menu chi nhánh (4.2); không gửi/đọc `remainingPortions`; giá số nguyên (BR-19) |
-| options | `VITE_API_OPTIONS` | mock | BE chưa có controller (OW-03; bảng Prisma có sẵn). Mock theo model Prisma, món tham chiếu bằng ID thật; luật chọn ở `src/api/modules/options/rules.ts` |
+| options | `VITE_API_OPTIONS` | mock | Phía Owner (OW-03). BE `0083289` đã có CRUD nhưng thiếu `isDefault`, `allowBatching`, `optionGroups` trong menu: làm real ở đầu giai đoạn 6. Mock theo model Prisma, món tham chiếu bằng ID thật; luật chọn ở `src/api/modules/options/rules.ts` |
+| branch_options | `VITE_API_BRANCH_OPTIONS` | **real** | 5.7c: Manager bật/tắt tuỳ chọn tại chi nhánh, module `branchOptions`: `GET/PATCH /manager/menu-options` (chi nhánh từ JWT, web không gửi `branchId`). Cờ riêng vì ID thật của BE không trộn với ID mock của `options`. API không trả thứ tự nhóm/tuỳ chọn nên web gom theo `group.id`, sắp theo tên (chưa nhờ BE). `ownerDisabled = !option.isActive \|\| !group.isActive` (không suy từ `effectiveAvailable`, vì nó cũng false khi Manager tự tắt). Mock lưu F5 ở `smartfnb:mock:options:branch:v1:<chainId>:<branchId>`, MockPanel xoá được. Giao diện: 5.7d |
 | branding | `VITE_API_BRANDING` | mock | BE có endpoint, chờ giai đoạn 6 (BE mới build lại đã có `/branding` và `/stations`; web chưa nối) |
 | stations | `VITE_API_STATIONS` | **real** | 5.5: quầy và máy in (`GET/POST /stations`, role MANAGER; CASHIER GET để chọn quầy trên POS). Module riêng vì quầy có vòng đời riêng và 5.6 mở rộng cùng module. BE chưa có PATCH quầy (#27); trùng tên theo code trả 500 (#34) nên web báo trùng trước. Không giới hạn số quầy |
-| account | `VITE_API_ACCOUNT` | **real một phần** | 5.3: Manager (Owner) qua `/employees` real: list phân trang/tìm kiếm/lọc, khoá/mở (`PATCH :id/status`, khoá = `SUSPENDED`), gửi lại email đặt mật khẩu, chuyển chi nhánh; mapper whitelist. Tạo Manager bị khoá ở real (chờ BE #23). Owner **xem** Cashier/Barista bằng real (5.3b, `GET /employees?role=CASHIER|BARISTA`). Manager quản Cashier/Barista là **mock** (chờ BE #24, làm ở 5.4): `real.ts` trỏ thẳng sang `accountMock` |
+| account | `VITE_API_ACCOUNT` | **real một phần** | 5.3: Manager (Owner) qua `/employees` real: list phân trang/tìm kiếm/lọc, khoá/mở (`PATCH :id/status`, khoá = `SUSPENDED`), gửi lại email đặt mật khẩu, chuyển chi nhánh; mapper whitelist. Tạo Manager bị khoá ở real (chờ BE #23). Owner **xem** Cashier/Barista bằng real (5.3b, `GET /employees?role=CASHIER|BARISTA`). Manager quản Cashier/Barista là **mock** (chờ BE #24, 5.4 ✅): `real.ts` trỏ thẳng sang `accountMock`, màn `/manager/staff` không gọi `/employees` (Manager bị 403) và hiện banner "Dữ liệu mẫu, chờ BE (#24)". Mock lưu ở localStorage `smartfnb:mock:accounts:v1:<chainId>`. Hạn mức tài khoản (đặc tả 13.1): tính tài khoản không bị khoá của cả doanh nghiệp (gồm Owner), chặn cả tạo lẫn mở khoá |
 | order | `VITE_API_ORDER` | mock | BE chưa có (BM-04..06) — giai đoạn 7 |
 | ai | `VITE_API_AI` | mock | BE chưa có (OW-09) — giai đoạn 9 |
 | admin | `VITE_API_ADMIN` | **real** | hồ sơ + doanh nghiệp + gói (3.2, 3.3); mapper bỏ ví (BR-07); nộp hồ sơ công khai real. Còn chờ BE: xem `docs/api-contract-plan.md` mục 7 |
@@ -169,9 +177,9 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/owner/plan` | OW-10 | placeholder (đã có `usePlan()`) |
 | `/manager/dashboard` | BM-03 | placeholder |
 | `/manager/branch-info` | — | `branchApi` real |
-| `/manager/menu` | BM-02 | real (`GET /branches/{id}/menu`): chỉ bật/tắt còn bán hôm nay; đã gỡ cột Suất còn lại; làm lại màn ở giai đoạn 5 |
+| `/manager/menu` | BM-02 | real (`GET /branches/{id}/menu`, `PATCH …/menu/items/{id}` chỉ `{isAvailable}`): 5.7b — nhóm theo danh mục, tìm theo tên, banner, công tắc "Còn bán hôm nay" (`ActionSwitch`, khoá kèm tooltip khi hết hạn), tắt món có hộp xác nhận, bật lại không hộp. Dòng "Owner đã tắt" (xám, khoá) chỉ có ở mock; real chờ BE #19. 5.7d ✅ — tab "Tuỳ chọn" (`branchOptionsApi`, real `/manager/menu-options`): gom nhóm, giá "+6.000đ"/"Không cộng thêm", tắt có hộp xác nhận nhắc đơn đã thanh toán chuyển Hết món, toast nêu số đơn bị ảnh hưởng, dòng Owner đã tắt khoá không gọi API; dùng chung ô tìm kiếm |
 | `/manager/staff` | BM-01 | mock (`accountApi`) |
-| `/manager/stations` | BM-01 | real (`stationsApi`, `GET/POST /stations`): bảng quầy (tên, trạng thái, máy in, số màn hình đã ghép), thêm quầy (kiểm IPv4 kèm cổng / MAC ở web, báo trùng tên sớm, hộp xác nhận). Đổi tên, ngừng dùng, sửa máy in khoá chờ BE #27; ghép/thu hồi thiết bị ở 5.6 |
+| `/manager/stations` | BM-01 | real (`stationsApi`, `GET/POST /stations`): bảng quầy (tên, trạng thái, máy in, số màn hình đã ghép), thêm quầy (kiểm IPv4 kèm cổng / MAC ở web, báo trùng tên sớm, hộp xác nhận). Đổi tên, ngừng dùng, sửa máy in khoá chờ BE #27. **5.6:** mỗi quầy mở rộng xem màn hình khách đã ghép (tên, ngày ghép, "lần cuối thấy"), nút Ghép màn hình khách (hộp nhập 6 ô, dán được; cảnh báo thay máy cũ, BR-45) và Thu hồi (có xác nhận); khu Màn hình gọi số của chi nhánh có nút ghép, chưa liệt kê được (chờ BE #28, web không tự lưu danh sách); hết hạn gói thì các nút khoá. Không hiện token thiết bị |
 | `/manager/orders` | BM-04 | placeholder (`orderApi` mock + bộ đơn có sẵn) |
 | `/manager/orders/needs-attention` | BM-05 | placeholder |
 | `/manager/orders/:orderId` | BM-04, BM-06 | placeholder (ẩn khỏi sidebar) |
@@ -193,7 +201,12 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | Landing: nội dung đã sang v9 (3.3); bảng giá VẪN đọc từ cấu hình mock chung (`api/publicPlans.ts`). BE `dfe8100` đã có `GET /public/service-plans` nhưng chỉ có 2 gói giá 0 (`DEMO_OPERATIONS`, `STARTER`), chưa có BASIC/STANDARD/ADVANCED giá thật nên chưa chuyển sang đọc BE | chờ BE seed 3 gói (mục 7 #32) |
 | Form đăng ký (GU-01): đã bỏ ô số chi nhánh dự kiến, chưa có ô chọn gói | chờ BE (mục 7 #8, #9) |
 | Quy ước cấp gói theo mã (`plan/tiers.ts`) còn dùng cho cấp và cờ AI; hai cờ nhận diện/so sánh đã đọc từ BE (`dfe8100`). BE chưa có `tier`, cờ AI, và chưa thi hành các cờ (BR-08) | chờ BE (mục 7 #30, #33) |
-| `BranchMenu.tsx`: màn tối thiểu, chưa có bật/tắt tuỳ chọn (BE chỉ có endpoint Barista) | Giai đoạn 5 |
+| Mobile (FE_mobile, backscreen) đã quét ngày 2026-10-02: màn khách chưa có ghép/socket; POS chưa in thật, QR mô phỏng; POS còn checkIn, remainingPortions. Ô MAC Bluetooth ở web chờ bên mobile trả lời. | chờ mobile |
+| App POS mặc định trỏ localhost:3100: quầy phải tạo trên BE mà máy POS dùng. | ghi nhận |
+| Báo lỗi hết hạn gói: BE thật trả 403 KHÔNG mã (`branch-access.service.ts:81-83`, #31); web nhận diện thêm theo câu "subscription is read-only" (`isReadOnlyError`, `api/http/errors.ts`) và hiện cùng thông báo tiếng Việt như khi có mã `SUBSCRIPTION_READ_ONLY`. Khi BE thêm mã thì giữ nguyên, không đổi web | khi BE làm #31 |
+| Real chưa có dữ liệu để kiểm tay: không tuỳ chọn nào bị Owner tắt hoặc chi nhánh tắt, nên dòng "Owner đã tắt" của tuỳ chọn và toast "N đơn chuyển Hết món" chỉ kiểm ở mock (phase5 mock) | khi có dữ liệu |
+| Manager ở real **không bao giờ tự khoá** khi gói hết hạn: `GET /restaurant-chains` trả 403 cho Manager nên `usePlan()` của Manager lấy trạng thái/hạn dùng từ MOCK (`plan/real.ts:10-40`, `store/slices/auth.ts:198` chỉ truyền `chains` cho Owner; `useWriteGuard` → `usePlan()`, `plan/useReadOnly.ts:41-43`). BE vẫn chặn ghi (403 không mã, #31). Nhãn "Đã dùng X/Y" ở `/manager/staff` cũng là mock (`account/real.ts:65`) | chờ BE #38 |
+| BE `0083289` (pull 2026-10-03) đã khảo sát bằng đọc mã (5.7c-0): bảng đối chiếu và danh sách `/manager/*` ở `docs/api-contract-plan.md` mục "Tình trạng theo BE `0083289`". BE local đã build lại 2026-10-03 và kiểm các GET `/manager/*` bằng request thật (5.7c) | — |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
 | `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD` | dọn khi tiện |
 | Khu thu ngân trên web (`CashierApp.tsx`, `cashier-api.ts`) của Bảo đã gỡ khi merge main: POS chạy app Android. Code vẫn trong lịch sử (`dc8fcdd`, `32f6cdc`, `6e226af`) | — |
@@ -202,6 +215,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | File v7 ở gốc (`Smart-FnB-Dac-ta-v7 (1).md`, `PHAN_TICH_NGHIEP_VU.md`) | KHÔNG đụng (dính stash `pre-v9-wip`) |
 | DB local thiếu tài khoản cashier/barista dù seed BE có | Người dùng tự xử lý |
 | Hồ sơ đăng ký "Probe Quán" do agent tạo nhầm trên BE thật. **KHÔNG xoá, KHÔNG tạo thêm**; chờ Khánh quyết | Khánh |
+| Giả lập lỗi (403, mạng, 401…) bằng MockPanel chỉ chạm module mock. Module real chưa có kiểm giao diện lỗi; làm ở 5.8 bằng CDP `Fetch.fulfillRequest` trả lỗi giả | 5.8 |
 | Mock tuỳ chọn lưu localStorage (`smartfnb:mock:options:v1:<chainId>`, 4.4); bỏ khi `options` có `real.ts` | khi BE có OW-03 |
 | Định dạng `code` nhóm/tuỳ chọn đang giả định giống SKU (`^[A-Z0-9_-]{1,50}$`); chờ BE công bố (`docs/api-contract-plan.md` mục 7 #12) | chờ BE |
 
@@ -211,7 +225,9 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 
 **Có thật, dùng được:** auth (`/auth/login`, refresh, `/auth/me`), PA-01..03, PA-05, `/admin/service-plans`, OW-01, OW-02, OW-04, OW-05, branding GET/PUT/DELETE, `/reports/*` (chỉ OWNER), bật/tắt món chi nhánh qua `PATCH /branches/:id/menu/items/:id`, `GET/POST /stations`, `POST /stations/pair-customer-display`, `DELETE /display-devices/{id}`.
 
-**Chưa có → web phải mock:**
+**Cập nhật theo BE `0083289` (đọc mã, 2026-10-03; chi tiết `docs/api-contract-plan.md`):** (1) Owner đã có CRUD nhóm tuỳ chọn/tuỳ chọn, gắn nhóm vào món, bật/tắt tuỳ chọn (`/restaurant-chains/{id}/menu/option-groups…`, OW-03 real được, còn thiếu `isDefault`, `allowBatching`, `optionGroups` trong menu). (2) Module `/manager/*` (role MANAGER, chi nhánh lấy từ JWT): `staff` (tạo/sửa/khoá/đặt lại mật khẩu), `menu-options` (GET, PATCH availability, có đánh dấu "Hết món" dòng đã trả), `reports`, `orders` (+ chi tiết), `audit-logs`. (3) `staff` bắt buộc **mật khẩu** khi tạo và đặt lại, không email: lệch quyết định đã chốt. (4) Xác nhận thủ công non-cash chỉ Manager + lý do + số tiền thực nhận (BR-29 đã sửa). (5) Chưa có: huỷ đơn đã trả (BM-06), danh sách Cần xử lý, `PATCH /stations`, `GET /display-devices`, email, 3 gói seed, endpoint gói cho Manager.
+
+**Chưa có → web phải mock (bảng dưới đối chiếu theo `dfe8100`, một số dòng đã đổi ở trên):**
 
 | Mã | Chức năng |
 |---|---|
@@ -237,7 +253,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
-| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách, thu hồi, màn hình gọi số mock); **5.4** Cashier/Barista (mock); **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · ▶ 5.6 |
+| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · ▶ 5.8 |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |

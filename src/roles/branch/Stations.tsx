@@ -1,11 +1,14 @@
 import { App, Card, Input, Modal, Radio, Table, Tag, Tooltip } from "antd";
-import { Plus } from "lucide-react";
+import { Link2, Plus, Unlink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PRINTER_CONNECTION_LABEL, type PrinterConnection, type Station, type StationInput } from "../../types";
+import { PRINTER_CONNECTION_LABEL, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput } from "../../types";
 import { showApiError, stationsApi, validateStationInput } from "../../api";
+import { describePairingError, isPairingCode } from "../../api/modules/stations/pairing";
 import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
+import PairingCodeInput from "../../components/PairingCodeInput";
 import { formatDateTime } from "../../lib/reportFormat";
+import { relativeTime } from "../../lib/relativeTime";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
@@ -21,6 +24,33 @@ export default function Stations() {
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  // Hộp ghép: màn hình khách (gắn một quầy) hoặc màn hình gọi số (gắn chi nhánh).
+  const [pairing, setPairing] = useState<{ kind: DisplayKind; station?: Station } | null>(null);
+
+  const revoke = (station: Station, device: StationDevice) => {
+    modal.confirm({
+      title: `Thu hồi ${device.name ?? "màn hình khách"}?`,
+      content: (
+        <div data-testid="confirm-revoke" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          <b>{device.name ?? "Màn hình khách"}</b> ở <b>{station.name}</b> (ghép {formatDateTime(device.pairedAt)}) sẽ không nhận được dữ liệu của quầy nữa; muốn dùng lại phải ghép lại bằng mã mới.
+        </div>
+      ),
+      okText: "Thu hồi",
+      okButtonProps: { danger: true },
+      cancelText: "Huỷ",
+      onOk: async () => {
+        if (!branchId) return;
+        try {
+          await stationsApi.revokeDevice(branchId, device.id);
+          message.success("Đã thu hồi thiết bị");
+        } catch (err) {
+          showApiError(message.error, err, "Không thu hồi được thiết bị");
+        } finally {
+          await load();
+        }
+      },
+    });
+  };
 
   const load = useCallback(async () => {
     if (!branchId) return;
@@ -81,7 +111,7 @@ export default function Stations() {
         }
       />
       <div data-testid="stations-pending-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-        Đổi tên, ngừng dùng quầy và sửa máy in {PENDING_BE.toLowerCase()} — hiện chỉ tạo và xem được. Ghép/thu hồi màn hình khách làm ở bước sau.
+        Đổi tên, ngừng dùng quầy và sửa máy in {PENDING_BE.toLowerCase()} — hiện chỉ tạo và xem được. Ghép và thu hồi màn hình bằng mã 6 số làm được ngay ở dưới.
       </div>
       <Table<Station>
         dataSource={stations}
@@ -89,8 +119,28 @@ export default function Stations() {
         loading={loading}
         pagination={false}
         size="middle"
-        scroll={{ x: 820 }}
+        scroll={{ x: 980 }}
         locale={{ emptyText: <span data-testid="stations-empty">Chưa có quầy nào — thêm quầy để thu ngân chọn khi đăng nhập POS</span> }}
+        expandable={{
+          // Mở rộng để xem màn hình khách đã ghép: tên, ngày ghép, lần cuối thấy, nút thu hồi (không bao giờ có token).
+          rowExpandable: (r) => r.devices.length > 0,
+          expandedRowRender: (station) => (
+            <div data-testid={`station-devices-${station.name}`} style={{ display: "grid", gap: 8 }}>
+              {station.devices.map((d) => (
+                <div key={d.id} data-testid="station-device-row" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, minWidth: 180 }}>{d.name ?? "Màn hình khách"}</span>
+                  <span style={{ color: palette.textMuted, fontSize: 13 }}>Ghép {formatDateTime(d.pairedAt)}</span>
+                  <span data-testid="device-last-seen" style={{ color: palette.textMuted, fontSize: 13 }}>
+                    Lần cuối thấy: {relativeTime(d.lastSeenAt)}
+                  </span>
+                  <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="device-revoke" onClick={() => revoke(station, d)}>
+                    Thu hồi
+                  </ActionButton>
+                </div>
+              ))}
+            </div>
+          ),
+        }}
         columns={[
           { title: "Quầy", dataIndex: "name", render: (v: string) => <span style={{ fontWeight: 600 }}>{v}</span> },
           {
@@ -124,8 +174,11 @@ export default function Stations() {
           {
             title: "",
             align: "right",
-            render: () => (
+            render: (_, station) => (
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <ActionButton size="small" icon={<Link2 size={13} />} disabled={station.status !== "ACTIVE"} data-testid="station-pair" onClick={() => setPairing({ kind: "CUSTOMER_DISPLAY", station })}>
+                  Ghép màn hình khách
+                </ActionButton>
                 {["Đổi tên", "Ngừng dùng", "Sửa máy in"].map((label) => (
                   <Tooltip key={label} title={PENDING_BE}>
                     <span style={{ display: "inline-block" }}>
@@ -140,8 +193,112 @@ export default function Stations() {
           },
         ]}
       />
+
+      <div data-testid="calling-display-section" style={{ marginTop: 22, paddingTop: 16, borderTop: `1px solid ${palette.line}` }}>
+        <SectionTitle
+          title="Màn hình gọi số"
+          sub="Một màn hình ở khu nhận món của chi nhánh (TV hoặc tablet), ghép bằng mã như màn hình khách; ghép máy mới thì máy gọi số cũ bị thu hồi"
+          extra={
+            <ActionButton icon={<Link2 size={14} />} data-testid="calling-pair" onClick={() => setPairing({ kind: "CALLING_DISPLAY" })}>
+              Ghép màn hình gọi số
+            </ActionButton>
+          }
+        />
+        <div data-testid="calling-display-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
+          Chưa xem được danh sách màn hình gọi số đã ghép (chờ BE #28: thiếu <code>GET /display-devices</code>). Web không tự lưu danh sách ở trình duyệt.
+        </div>
+      </div>
+
       <AddStationModal open={adding} existing={stations} onClose={() => setAdding(false)} onSubmit={create} />
+      <PairModal
+        target={pairing}
+        onClose={() => setPairing(null)}
+        onPaired={async () => {
+          setPairing(null);
+          await load();
+        }}
+      />
     </Card>
+  );
+}
+
+/** Hộp ghép màn hình bằng mã 6 số (BR-45). Mã do chính màn hình sinh, hết hạn sau 5 phút, dùng một lần. */
+function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind; station?: Station } | null; onClose: () => void; onPaired: () => Promise<void> }) {
+  const { message, modal } = App.useApp();
+  const branchId = useAppStore((s) => s.currentBranchId);
+  const [code, setCode] = useState("");
+  const [deviceName, setDeviceName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (target) {
+      setCode("");
+      setDeviceName("");
+      setError(null);
+    }
+  }, [target]);
+
+  if (!target) return <Modal open={false} footer={null} />;
+  const { kind, station } = target;
+  const customer = kind === "CUSTOMER_DISPLAY";
+  const replaced = customer ? station?.devices.find((d) => d.type === "CUSTOMER_DISPLAY") : undefined;
+  const label = customer ? "màn hình khách" : "màn hình gọi số";
+
+  const submit = () => {
+    modal.confirm({
+      title: customer ? `Ghép ${label} vào ${station?.name}?` : `Ghép ${label} cho chi nhánh?`,
+      content: (
+        <div data-testid="confirm-pair" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          Mã ghép <b>{code}</b>
+          {deviceName.trim() && <> · tên máy <b>{deviceName.trim()}</b></>}.
+          {customer && replaced && (
+            <div style={{ color: palette.warning.text }}>
+              Quầy đã có màn hình: ghép máy mới sẽ thu hồi <b>{replaced.name ?? "màn hình khách hiện tại"}</b>.
+            </div>
+          )}
+          {!customer && <div style={{ color: palette.textMuted }}>Nếu chi nhánh đã có màn hình gọi số, máy cũ sẽ bị thu hồi.</div>}
+        </div>
+      ),
+      okText: "Ghép",
+      cancelText: "Huỷ",
+      onOk: async () => {
+        if (!branchId) return;
+        setError(null);
+        try {
+          if (customer && station) await stationsApi.pairCustomerDisplay(branchId, station.id, code, deviceName);
+          else await stationsApi.pairCallingDisplay(branchId, code, deviceName);
+          message.success(customer ? `Đã ghép màn hình khách vào ${station?.name}` : "Đã ghép màn hình gọi số");
+          await onPaired();
+        } catch (err) {
+          const text = describePairingError(err, kind);
+          if (text) setError(text);
+          else showApiError(message.error, err, `Không ghép được ${label}`);
+        }
+      },
+    });
+  };
+
+  return (
+    <Modal data-testid="pair-modal" title={customer ? `Ghép màn hình khách · ${station?.name}` : "Ghép màn hình gọi số"} open onCancel={onClose} footer={null} destroyOnHidden>
+      <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 14 }}>
+        Mở app ở chế độ {label} trên thiết bị: màn hình hiện mã 6 số (hết hạn sau 5 phút). Nhập hoặc dán mã vào đây.
+      </div>
+      <PairingCodeInput value={code} onChange={(c) => { setCode(c); setError(null); }} />
+      <Input data-testid="pair-device-name" style={{ marginTop: 14 }} value={deviceName} maxLength={150} onChange={(e) => setDeviceName(e.target.value)} placeholder="Tên máy (tuỳ chọn), VD: Tablet khách quầy 1" />
+      {customer && replaced && (
+        <div data-testid="pair-warning" style={{ marginTop: 12, fontSize: 13, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
+          Ghép máy mới sẽ thu hồi <b>{replaced.name ?? "màn hình khách hiện tại"}</b> (mỗi quầy tối đa một màn hình khách).
+        </div>
+      )}
+      {error && (
+        <div data-testid="pair-error" style={{ marginTop: 12, fontSize: 13, color: palette.error.text }}>
+          {error}
+        </div>
+      )}
+      <ActionButton type="primary" block style={{ marginTop: 16 }} disabled={!isPairingCode(code)} data-testid="pair-submit" onClick={submit}>
+        Ghép {label}
+      </ActionButton>
+    </Modal>
   );
 }
 

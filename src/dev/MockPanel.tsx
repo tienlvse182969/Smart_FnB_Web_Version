@@ -13,7 +13,10 @@ import {
   type MockFailureKind,
   type MockProfileId,
 } from "../api";
+import { clearPersistedAccounts } from "../api/modules/account/persist";
+import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
 import { clearPersistedOptions } from "../api/modules/options/persist";
+import { createMockPairingCode } from "../api/modules/stations/pairingMock";
 import { useAppStore } from "../store";
 import { palette } from "../theme";
 
@@ -30,6 +33,9 @@ export default function MockPanel() {
   const scenario = useSyncExternalStore(subscribeScenario, getScenario);
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<MockFailureKind | "none">(mockControl.failure?.kind ?? "none");
+  // Mã ghép giả: mô phỏng màn hình tự sinh mã 6 số (hết hạn sau 5 phút) để thử màn Quầy khi chưa có thiết bị thật.
+  const [pairKind, setPairKind] = useState<"CUSTOMER_DISPLAY" | "CALLING_DISPLAY">("CUSTOMER_DISPLAY");
+  const [pairCode, setPairCode] = useState<{ code: string; expiresAt: string; expired: boolean } | null>(null);
 
   const apply = (patch: Parameters<typeof setScenario>[0]) => {
     setScenario(patch);
@@ -122,6 +128,41 @@ export default function MockPanel() {
               ))}
             </select>
           </label>
+          <div style={field}>
+            Tạo mã ghép giả (màn hình tự sinh)
+            <select data-testid="mock-pair-type" style={select} value={pairKind} onChange={(e) => setPairKind(e.target.value as typeof pairKind)}>
+              <option value="CUSTOMER_DISPLAY">Màn hình khách</option>
+              <option value="CALLING_DISPLAY">Màn hình gọi số</option>
+            </select>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                type="button"
+                data-testid="mock-pair-create"
+                style={select}
+                onClick={() => setPairCode({ ...createMockPairingCode(pairKind), expired: false })}
+              >
+                Tạo mã
+              </button>
+              <button
+                type="button"
+                data-testid="mock-pair-expired"
+                style={select}
+                onClick={() => setPairCode({ ...createMockPairingCode(pairKind, { expired: true }), expired: true })}
+              >
+                Mã hết hạn
+              </button>
+            </div>
+            {pairCode && (
+              <div data-testid="mock-pair-result" style={{ fontSize: 12 }}>
+                <b data-testid="mock-pair-code" style={{ fontSize: 16, letterSpacing: 2 }}>
+                  {pairCode.code}
+                </b>
+                <span data-testid="mock-pair-expires" style={{ marginLeft: 6 }}>
+                  {pairCode.expired ? "đã hết hạn" : `hết hạn lúc ${new Date(pairCode.expiresAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}
+                </span>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             data-testid="mock-clear"
@@ -129,6 +170,8 @@ export default function MockPanel() {
             onClick={() => {
               // Xoá dữ liệu mock đã lưu qua F5 (hiện có: tuỳ chọn món) rồi tải lại để bộ nhớ phiên cũng sinh lại.
               clearPersistedOptions();
+              clearPersistedBranchOptions();
+              clearPersistedAccounts();
               window.location.reload();
             }}
           >

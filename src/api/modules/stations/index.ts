@@ -17,6 +17,16 @@ export interface StationsApi {
   listStations(branchId: string): Promise<Station[]>;
   /** Tạo quầy (mặc định ACTIVE). Lỗi: 400 máy in thiếu địa chỉ, trùng tên, 403 hết hạn gói. */
   createStation(branchId: string, input: StationInput): Promise<Station>;
+  /**
+   * Ghép màn hình khách vào quầy bằng mã 6 số (`POST /stations/pair-customer-display`, MANAGER hoặc CASHIER). Quầy đã có màn hình
+   * thì máy cũ tự bị thu hồi (BR-45). Mã sai/hết hạn/đã dùng/sai loại đều 400 cùng một thông báo (BE không phân biệt).
+   * KHÔNG trả token thiết bị về web.
+   */
+  pairCustomerDisplay(branchId: string, stationId: string, code: string, deviceName?: string): Promise<{ deviceId: string }>;
+  /** Ghép màn hình gọi số của chi nhánh (`POST /stations/pair-calling-display`, MANAGER); máy gọi số cũ của chi nhánh bị thu hồi. */
+  pairCallingDisplay(branchId: string, code: string, deviceName?: string): Promise<{ deviceId: string }>;
+  /** Thu hồi một thiết bị (`DELETE /display-devices/{id}`, MANAGER); id không thuộc chi nhánh hoặc đã thu hồi → 404. */
+  revokeDevice(branchId: string, deviceId: string): Promise<void>;
 }
 
 export const stationsApi = defineApi<StationsApi>("stations", { real: stationsReal, mock: stationsMock });

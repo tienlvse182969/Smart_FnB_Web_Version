@@ -137,7 +137,7 @@ export function buildOptionGroups(profile: MockProfile, _chainId: string): Optio
     group("sugar", "Đường", 2, one, ["0%", "30%", "50%", "70%", "100%"].map((label, i) => opt(`sugar-${label.replace("%", "")}`, label, i + 1, 0, label === "100%"))),
     group("ice", "Đá", 3, one, [opt("ice-none", "Không đá", 1), opt("ice-less", "Ít đá", 2), opt("ice-normal", "Bình thường", 3, 0, true)]),
     group("topping", "Topping", 4, { isRequired: false, minSelections: 0, maxSelections: 3 }, [
-      opt("top-pearl", "Trân châu đen", 1, 5000), opt("top-coconut", "Thạch dừa", 2, 5000), opt("top-pudding", "Pudding", 3, 7000),
+      opt("top-pearl", "Trân châu đen", 1, 5000), opt("top-coconut", "Thạch dừa", 2, 5000), { ...opt("top-pudding", "Pudding", 3, 7000), isActive: false }, // Owner đã tắt: để thử dòng xám ở menu chi nhánh
     ]),
   ];
 }

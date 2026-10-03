@@ -2,9 +2,9 @@
 // Cần: dev server đang chạy (PORT), Chrome CDP (scripts/browser/chrome.mjs), BE chạy cho nhóm dùng API thật.
 //   node scripts/browser/phase2.mjs [brand|plan|errors|ai|refresh|flip|login]   (bỏ trống = tất cả trừ flip)
 // "flip" chạy trên dev server khởi động với VITE_API_AUTH=mock VITE_API_BRANCH=mock VITE_API_REPORT=mock + AUTH_MODE=mock.
-import { newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { cli, newTab, closeTab, check, results, sleep } from "./cdp.mjs";
 
-const only = process.argv[2];
+const only = cli().only?.[0] ?? cli().positional; // --only=<nhóm> (brand|plan|errors|ai|refresh|flip|login) hoặc đối số trần như cũ
 const want = (g) => (only ? only === g : g !== "flip");
 const text = (t) => t.text();
 

@@ -100,6 +100,7 @@ export function mapBranchMenu(raw: RawBranchMenu): BranchMenuItem[] {
       price: parseAmount(item.price),
       imageUrl: item.imageUrl ?? null,
       isAvailable: item.isAvailable,
+      ownerDisabled: false, // BE ẩn hẳn món Owner đã tắt (#19)
     })),
   );
 }
