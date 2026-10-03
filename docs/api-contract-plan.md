@@ -117,7 +117,7 @@ Web đã nối real cho danh mục + món + gán chi nhánh (giai đoạn 4.2). 
 | 17 | Thấp | **Trường "không gom món"** trên `menu_items` (đặc tả 8.3, OW-02 "cờ cho phép gom món khi pha"), ví dụ `allowBatching boolean default true`; có trong `create/update/list` | Chưa có; mock lưu theo ID món thật ở 4.3 (`ChainState.itemOptions`, mất khi tải lại trang) |
 | 18 | Thấp | **Endpoint tải ảnh món lên** (`multipart` hoặc URL ký trước) trả `imageUrl`; hiện chỉ có `imageUrl` chuỗi ≤ 500 ký tự | Ô nhập URL kèm xem trước, ảnh lỗi hiện ảnh thay thế |
 | 19 | Trung bình | **`GET /branches/{id}/menu` cho Manager thấy cả món Owner đã tắt** (kèm cờ `isActive`/`isEnabled`) để BM-02 hiện "Owner tắt món này" như đặc tả; hiện BE ẩn hẳn món Owner đã tắt | Web chỉ hiện món đang bán |
-| 20 | Trung bình | **Manager bật/tắt tuỳ chọn tại chi nhánh** (BM-02): hiện chỉ có `PATCH /barista/menu-options/{id}/availability` (role BARISTA); thêm `PATCH /branches/{b}/menu/options/{optionId}` cho OWNER, MANAGER | Chưa làm (giai đoạn 5) |
+| 20 | Trung bình | **Manager bật/tắt tuỳ chọn tại chi nhánh** (BM-02): hiện chỉ có `PATCH /barista/menu-options/{id}/availability` (role BARISTA); thêm `PATCH /branches/{b}/menu/options/{optionId}` cho OWNER, MANAGER | **Đã làm qua BE `0083289`**: `GET/PATCH /manager/menu-options` (role MANAGER), web nối real ở 5.7c (module `branchOptions`). Ghi chú còn lại: API **không trả thứ tự nhóm/tuỳ chọn** (không `displayOrder`, `code`, luật chọn), nên web gom theo `group.id` và sắp theo tên; chưa nhờ BE (đủ cho bật/tắt, cần nếu sau này muốn khớp thứ tự Owner đặt) |
 | 21 | Thấp | `price` là `Decimal(14,2)` và DTO cho phép 2 chữ số thập phân; BR-19 là số nguyên đồng → ép `@IsInt` hoặc bỏ phần thập phân | Web chỉ gửi số nguyên; đọc qua `parseAmount` |
 | 22 | Thấp | `remainingPortions` (kho, v7) còn trong `PATCH /branches/{b}/menu/items/{id}` và response, **và trong từng món của `GET /branches/{b}/menu`** (Manager gọi thật vẫn thấy) → bỏ khỏi v9 | Web không bao giờ gửi, mapper bỏ qua khi đọc |
 
@@ -167,7 +167,7 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 
 ### Tình trạng theo BE `0083289` (đối chiếu 2026-10-03, chỉ đọc mã)
 
-> BE `0083289` = `dfe8100` + 3 commit: `3a222e4` quản lý tuỳ chọn cho Owner, `93cc88e` tải logo nhận diện, `0083289` module Branch Manager. Migration mới duy nhất: `20261003000000_branch_manager` (thêm `payments.confirmation_reason`, `payments.received_amount`; bảng `branch_audit_logs`). **Seed không đổi** (vẫn `DEMO_OPERATIONS`, `STARTER`). **BE local đang chạy là bản build cũ (container tạo 2026-10-02 22:28 = `dfe8100`)**: `GET /manager/*` và `…/menu/option-groups` trả 404, Swagger không có chúng; chưa kiểm được bằng request thật.
+> BE `0083289` = `dfe8100` + 3 commit: `3a222e4` quản lý tuỳ chọn cho Owner, `93cc88e` tải logo nhận diện, `0083289` module Branch Manager. Migration mới duy nhất: `20261003000000_branch_manager` (thêm `payments.confirmation_reason`, `payments.received_amount`; bảng `branch_audit_logs`). **Seed không đổi** (vẫn `DEMO_OPERATIONS`, `STARTER`). *(Cập nhật 2026-10-03 sau khi build lại BE local: migration đã áp, `GET /manager/menu-options|staff|orders|reports|audit-logs` bằng Manager thật đều 200, shape khớp mã; trước đó bản build cũ trả 404.)*
 
 | # | `dfe8100` | `0083289` | Ghi chú (file:dòng, BE) |
 |---|---|---|---|
