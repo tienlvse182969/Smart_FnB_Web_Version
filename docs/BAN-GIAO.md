@@ -48,6 +48,15 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 10. **Chỉ báo "xong" khi đã kiểm trình duyệt:** chạy mock trước, rồi real chỉ đọc (cổng 5173) có chặn mọi request ghi.
 11. **Trình quản lý gói: pnpm** (`pnpm-lock.yaml`).
 12. **Cập nhật BE local:** sao lưu DB trước, pull xong báo migration mới (tên, thêm hay xoá bảng/cột) rồi **dừng**, chờ Khánh duyệt mới build. (Build lại là lúc container chạy `migrate deploy` và seed.)
+13. **Chạy kiểm trình duyệt theo khối:** lượt thường chỉ chạy khối liên quan; chạy đủ phase2–5 (mock + real) ở lượt chốt giai đoạn. Cờ chung (`scripts/browser/cdp.mjs` `cli()`): `--mode=mock|real` (đối số trần như cũ vẫn dùng được), `--only=<khối>[,<khối>…]`; không cờ = chạy hết. Tên khối:
+
+| Script | `--mode` | `--only` (tên khối) | Thời gian tham khảo |
+|---|---|---|---|
+| `phase2.mjs` | — (có `flip`) | `brand`, `plan`, `errors`, `ai`, `refresh`, `flip`, `login` | khối `ai` 17s |
+| `phase3.mjs` | `mock`, `real` | chưa có (chạy hết) | — |
+| `phase4.mjs` | `mock`, `real` | `owner`, `manager` | đủ mock 159s, real 41s; `manager` 10s |
+| `phase5.mjs` | `mock`, `real` | `menu` (menu món + tuỳ chọn chi nhánh, 5.7b/5.7d) | `menu`: mock 46s, real 15s; đủ mock ~4 phút |
+| `phase58-faults.mjs` (chỉ real, BE thật) | `real` | vai (`admin`, `owner`, `manager`), nhóm (`read`, `write`, `scope`, `expired`), hoặc một phần id màn (`owner/reports`, `manager/menu`…) | 4 màn đọc+ghi 244s; `scope` 1 vai 32s; đủ 3 vai ~25 phút |
 
 ## 5. Quyết định đã chốt
 
@@ -65,6 +74,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Màn bị khoá theo gói | Hiện thẻ khoá kèm tên gói cần nâng, **không ẩn hẳn** |
 | Menu chi nhánh (5.7b, Khánh duyệt) | Món Owner đã tắt: mock hiện dòng xám "Owner đã tắt", công tắc khoá; real không hiện cho tới khi BE làm #19. Tắt món: hộp xác nhận "Món sẽ ẩn khỏi POS của chi nhánh ngay.", không bắt lý do, không nhắc đơn đã thanh toán; bật lại không hộp. Không xử lý xung đột với Barista, chỉ nạp lại sau khi ghi. Web chỉ gửi `isAvailable`, không bao giờ gửi `isEnabled` hay `remainingPortions` |
 | Chia 5.7 | 5.7b menu món real ✅ → 5.7c tầng dữ liệu tuỳ chọn chi nhánh ✅ (real qua `/manager/menu-options`, cờ `VITE_API_BRANCH_OPTIONS`, mock lưu F5 key `smartfnb:mock:options:branch:v1:<chainId>:<branchId>`, unit test) → 5.7d giao diện tuỳ chọn + nhãn quota + phase5 → 5.8 |
+| Thông báo lỗi (5.8b, Khánh duyệt) | Lỗi 5xx: "Máy chủ đang gặp sự cố, thử lại sau ít phút." Câu BE chưa dịch được → câu chung tiếng Việt (bảng dịch ở `api/http/errors.ts`, `BACKEND_TEXT`); không bao giờ hiện tiếng Anh thô. Nút Thử lại: có cho lỗi đọc 500 và mất mạng, không có cho 403 (làm ở 5.8c). Chống trùng: cùng loại lỗi + màn + nội dung trong 3 giây chỉ hiện 1 thông báo. Màn lỗi nạp khu vực và các khối lỗi trong trang (Reports, BranchInfo) dùng cùng hàm dịch; Reports và BranchInfo không bắn thêm thông báo nổi cho 403/mất mạng (`INLINE_ERROR_ROUTES`) |
 | Tắt tuỳ chọn (5.7c, Khánh duyệt) | Hộp xác nhận thêm câu "Đơn đã thanh toán có tuỳ chọn này sẽ chuyển Hết món."; sau khi tắt báo số đơn bị ảnh hưởng (`affectedOrderIds.length`). Tắt món giữ câu cũ. Staff (5.4) giữ mock tới khi BE sửa #23/#24. OW-03 real làm đầu GĐ6. Options phía Owner vẫn mock |
 | CC-12 (thu phí gói qua hệ thống) | Chưa chốt. Không làm màn thanh toán gia hạn, nhưng thiết kế lớp API gói chừa chỗ |
 
@@ -97,6 +107,8 @@ Giai đoạn 5 trên `feat/v9-manager` (từ `feat/v9-menu`, base PR là `feat/v
 
 | Bước | Commit | Nội dung |
 |---|---|---|
+| 5.8b | `58badd1`, `f6e865f`, `637772e`, `d18e247` | cờ `--mode`/`--only` cho script kiểm; thông báo lỗi tiếng Việt thống nhất, chống trùng, màn lỗi khu vực, Reports/BranchInfo; sửa mock đơn trước 07:30 (AI số đơn không phụ thuộc giờ); vitest 239/239 |
+| 5.8a | `62f3664` | bộ giả lập lỗi `phase58-faults.mjs` (500, 403 không mã, mất mạng, 401) và `setFault` ở `cdp.mjs` |
 | 5.7d | `2949d79` | giao diện tuỳ chọn theo chi nhánh (tab Tuỳ chọn), thông báo 403 hết hạn không mã, mock Pudding Owner tắt; vitest 233/233, phase5 mock 111/111, real 74/74 |
 | 5.7c | `0aa02e8` | tầng dữ liệu tuỳ chọn theo chi nhánh: module `branchOptions` (real `/manager/menu-options`, mock lưu F5), cờ `VITE_API_BRANCH_OPTIONS`, chưa có giao diện; vitest 230/230 |
 | 5.7b | `9deded0` | menu món chi nhánh real (BM-02): `BranchMenu`, `ActionSwitch`, mock món Owner tắt, test, phase5 (mock 98/98, real 66/66; đầu lượt real 58/58) |
@@ -203,6 +215,8 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | Quy ước cấp gói theo mã (`plan/tiers.ts`) còn dùng cho cấp và cờ AI; hai cờ nhận diện/so sánh đã đọc từ BE (`dfe8100`). BE chưa có `tier`, cờ AI, và chưa thi hành các cờ (BR-08) | chờ BE (mục 7 #30, #33) |
 | Mobile (FE_mobile, backscreen) đã quét ngày 2026-10-02: màn khách chưa có ghép/socket; POS chưa in thật, QR mô phỏng; POS còn checkIn, remainingPortions. Ô MAC Bluetooth ở web chờ bên mobile trả lời. | chờ mobile |
 | App POS mặc định trỏ localhost:3100: quầy phải tạo trên BE mà máy POS dùng. | ghi nhận |
+| **Còn lại cho 5.8c** (kết quả `phase58-faults` sau 5.8b; RAW và DUP đã hết): **RN** — bấm "Thử lại" sau mất mạng không nạp lại màn, 7 màn: admin/overview, admin/tenants, admin/plans, owner/menu, owner/menu/categories, owner/accounts, manager/menu (tuỳ chọn) (BranchInfo đã có nút Thử lại riêng ở 5.8b, đạt); nguyên nhân: `components/ApiErrorBridge.tsx` gọi lại request rồi bỏ kết quả, màn không nạp lại → cần cơ chế làm mới (epoch trong store). **NR** — lỗi đọc 500 chưa có nút Thử lại (đã duyệt phải có); 403 không có theo quyết định | 5.8c |
+| Mock đơn hôm nay (5.8b): trước 07:30 đơn hôm nay được dồn vào 90 phút vừa qua để "hôm nay" và "tháng này" (sáng mùng 1) không rỗng; từ 07:30 trở đi giữ như cũ. Nguyên nhân phase2 "AI số đơn" trượt lúc 00:56: `api/mock/data/orders.ts` đặt đơn trong khung 07:00–21:30 rồi bỏ đơn ở tương lai | — |
 | Báo lỗi hết hạn gói: BE thật trả 403 KHÔNG mã (`branch-access.service.ts:81-83`, #31); web nhận diện thêm theo câu "subscription is read-only" (`isReadOnlyError`, `api/http/errors.ts`) và hiện cùng thông báo tiếng Việt như khi có mã `SUBSCRIPTION_READ_ONLY`. Khi BE thêm mã thì giữ nguyên, không đổi web | khi BE làm #31 |
 | Real chưa có dữ liệu để kiểm tay: không tuỳ chọn nào bị Owner tắt hoặc chi nhánh tắt, nên dòng "Owner đã tắt" của tuỳ chọn và toast "N đơn chuyển Hết món" chỉ kiểm ở mock (phase5 mock) | khi có dữ liệu |
 | Manager ở real **không bao giờ tự khoá** khi gói hết hạn: `GET /restaurant-chains` trả 403 cho Manager nên `usePlan()` của Manager lấy trạng thái/hạn dùng từ MOCK (`plan/real.ts:10-40`, `store/slices/auth.ts:198` chỉ truyền `chains` cho Owner; `useWriteGuard` → `usePlan()`, `plan/useReadOnly.ts:41-43`). BE vẫn chặn ghi (403 không mã, #31). Nhãn "Đã dùng X/Y" ở `/manager/staff` cũng là mock (`account/real.ts:65`) | chờ BE #38 |
@@ -253,7 +267,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 2 | Nền móng: token màu, lớp API mock/thật, gói và quyền tính năng, test | ✅ xong (`feat/v9-foundation`) |
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
-| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · ▶ 5.8 |
+| 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · ▶ 5.8c |
 | 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
