@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, classifyApiError, isQuotaError, reportApiError, setApiErrorHandler } from "./http/errors";
+import { ApiError, classifyApiError, describeApiError, isQuotaError, isReadOnlyError, READ_ONLY_TEXT, reportApiError, setApiErrorHandler, showApiError } from "./http/errors";
 import { clearTokens, getAccessToken, refreshSession, setTokens } from "./http/client";
 import { defineApi, wrapWithErrorHandling } from "./define";
 import { API_MODULES, DEFAULT_MODES, flagTable, resolveModes } from "./flags";
@@ -77,6 +77,34 @@ describe("lỗi API thống nhất", () => {
     expect(classifyApiError(new ApiError(400, "x"))).toBe("validation");
     expect(isQuotaError(new ApiError(409, "x", [], "PLAN_LIMIT_REACHED"))).toBe(true);
     expect(isQuotaError(new ApiError(409, "x"))).toBe(false);
+  });
+
+  it("hết hạn gói: 403 CÓ mã (mock) và KHÔNG mã (BE thật) cùng một thông báo tiếng Việt, không lộ câu tiếng Anh thô", () => {
+    const real = new ApiError(403, "The business subscription is read-only; renew it before making this change");
+    const mock = new ApiError(403, "Doanh nghiệp đang ở chế độ chỉ đọc.", [], "SUBSCRIPTION_READ_ONLY");
+    for (const err of [real, mock]) {
+      expect(isReadOnlyError(err)).toBe(true);
+      expect(classifyApiError(err)).toBe("quota");
+      expect(describeApiError(err)).toBe(READ_ONLY_TEXT);
+    }
+    expect(READ_ONLY_TEXT).not.toMatch(/subscription|SUBSCRIPTION|[{}]/);
+    // 403 thiếu quyền thật vẫn là "không đủ quyền", không bị nhầm sang chỉ đọc.
+    const denied = new ApiError(403, "You do not have permission to access this resource");
+    expect(isReadOnlyError(denied)).toBe(false);
+    expect(classifyApiError(denied)).toBe("forbidden");
+  });
+
+  it("hết hạn gói không mã: báo toàn cục đúng một lần, màn hình không báo lại", () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const show = vi.fn();
+    const err = new ApiError(403, "The business subscription is read-only; renew it before making this change");
+    reportApiError(err);
+    reportApiError(err);
+    showApiError(show, err, "Không cập nhật được");
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(show).not.toHaveBeenCalled();
+    setApiErrorHandler(null);
   });
 
   it("chỉ báo lỗi toàn cục một lần cho mỗi đối tượng lỗi; lỗi validate để màn hình tự hiện", () => {

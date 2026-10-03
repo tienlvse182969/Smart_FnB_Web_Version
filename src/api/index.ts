@@ -25,6 +25,8 @@ export {
   classifyApiError,
   describeApiError,
   isQuotaError,
+  isReadOnlyError,
+  READ_ONLY_TEXT,
   showApiError,
   setApiErrorHandler,
   type ApiErrorEvent,

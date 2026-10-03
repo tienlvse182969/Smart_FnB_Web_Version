@@ -5,7 +5,7 @@ import { resetMockStates } from "../../mock/store";
 import { branchMock } from "../branch/mock";
 import { optionsMock } from "../options/mock";
 import { groupBranchOptions, mapBranchOption, mapWriteResult, type RawBranchOption } from "./mapper";
-import { branchOptionsMock } from "./mock";
+import { branchOptionsMock, MOCK_AFFECTED_TOPPING_ORDERS } from "./mock";
 import { BRANCH_OPTIONS_STORAGE_PREFIX, clearPersistedBranchOptions } from "./persist";
 import { branchOptionsReal } from "./real";
 
@@ -145,6 +145,16 @@ describe("mock tuỳ chọn chi nhánh — lưu qua F5", () => {
     expect(row).toMatchObject({ ownerDisabled: true, effectiveAvailable: false });
     await expect(branchOptionsMock.setBranchOptionAvailable(branchId, opt.o.id, true)).rejects.toMatchObject({ status: 403 });
     await expect(branchOptionsMock.setBranchOptionAvailable(branchId, opt.o.id, false)).resolves.toMatchObject({ isAvailable: false });
+  });
+
+  it("dữ liệu mẫu có tuỳ chọn Owner đã tắt (Pudding) và tắt Topping trả số đơn bị ảnh hưởng > 0", async () => {
+    const rows = await branchOptionsMock.listBranchStates(branchId);
+    expect(rows.filter((r) => r.ownerDisabled).map((r) => r.name)).toContain("Pudding");
+    const pearl = rows.find((r) => r.name === "Trân châu đen")!;
+    expect((await branchOptionsMock.setBranchOptionAvailable(branchId, pearl.optionId, false)).affectedOrderCount).toBe(MOCK_AFFECTED_TOPPING_ORDERS);
+    const size = rows.find((r) => r.groupName === "Size" && !r.ownerDisabled)!;
+    expect((await branchOptionsMock.setBranchOptionAvailable(branchId, size.optionId, false)).affectedOrderCount).toBe(0);
+    expect((await branchOptionsMock.setBranchOptionAvailable(branchId, pearl.optionId, true)).affectedOrderCount).toBe(0);
   });
 
   it("hết hạn gói: ghi bị chặn như BE", async () => {

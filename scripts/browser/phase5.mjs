@@ -666,6 +666,70 @@ try {
     await sleep(700);
     check("Menu chi nhánh (mock): hết hạn gói → tooltip lý do 'chỉ đọc' trên công tắc", /chế độ chỉ đọc/.test(await q(`[...document.querySelectorAll(".ant-tooltip")].map((e) => e.innerText).join(" ")`)));
     await tab.setCheckbox("mock-expired", false);
+
+    // ---- 5.7d tuỳ chọn theo chi nhánh (mock)
+    const clickTab = (label) => q(`(() => { const t = [...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === ${J(label)}); if (!t) return false; t.click(); return true })()`);
+    const optRows = () =>
+      q(`[...document.querySelectorAll('[data-testid="branch-option-row"]')].map((r) => { const sw = r.querySelector("button.ant-switch");
+        return { name: r.querySelector("span").innerText.trim(), text: r.innerText.replace(/\\s+/g, " ").trim(), off: r.dataset.ownerDisabled === "true", checked: sw?.classList.contains("ant-switch-checked"), disabled: !!sw?.disabled }; })`);
+    const clickOptSwitch = (name) =>
+      q(`(() => { const r = [...document.querySelectorAll('[data-testid="branch-option-row"]')].find((x) => x.querySelector("span").innerText.trim() === ${J(name)}); const sw = r?.querySelector("button.ant-switch"); if (!sw || sw.disabled) return false; sw.click(); return true })()`);
+    const optionOf = async (name) => (await optRows()).find((r) => r.name === name);
+    await q(`document.querySelectorAll(".ant-message-notice-close").forEach((b) => b.click())`);
+    await clickTab("Tuỳ chọn");
+    await sleep(900);
+    let oRows = await optRows();
+    check("Tuỳ chọn chi nhánh (mock): gom theo nhóm (Size, Đường, Đá, Topping), có tuỳ chọn", (await q(`document.querySelectorAll('[data-testid="branch-option-group"]').length`)) === 4 && oRows.length >= 12, `${oRows.length} tuỳ chọn`);
+    check("Tuỳ chọn chi nhánh (mock): giá cộng thêm '+6.000đ', 0 → 'Không cộng thêm'", /\+6\.000đ/.test((await optionOf("L")).text) && /Không cộng thêm/.test((await optionOf("M")).text), (await optionOf("L")).text);
+    const pudding = await optionOf("Pudding");
+    check("Tuỳ chọn chi nhánh (mock): dòng 'Owner đã tắt' xám, công tắc khoá, bấm không mở hộp", pudding.off && pudding.disabled && /Owner đã tắt/.test(pudding.text) && !pudding.checked && !(await clickOptSwitch("Pudding")) && !(await confirmOpen()), pudding.text);
+    await q(`document.querySelector('[data-owner-disabled="true"][data-testid="branch-option-row"] [data-testid="branch-option-switch"]').parentElement.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))`);
+    await sleep(700);
+    check("Tuỳ chọn chi nhánh (mock): tooltip 'Owner đã tắt, chi nhánh không bật lại được' trên công tắc khoá", /Owner đã tắt, chi nhánh không bật lại được/.test(await q(`[...document.querySelectorAll(".ant-tooltip")].map((e) => e.innerText).join(" ")`)));
+    await setTid("branch-menu-search", "thạch");
+    await sleep(500);
+    check("Tuỳ chọn chi nhánh (mock): ô tìm kiếm dùng chung lọc tuỳ chọn", (await optRows()).length === 1 && (await optRows())[0].name === "Thạch dừa");
+    await setTid("branch-menu-search", "");
+    await sleep(400);
+    // tắt Topping: hộp xác nhận đúng câu; huỷ thì giữ; xác nhận → toast có số đơn
+    await clickOptSwitch("Thạch dừa");
+    await sleep(600);
+    check("Tuỳ chọn chi nhánh (mock): tắt mở hộp 'Tuỳ chọn sẽ ẩn khỏi POS… chuyển Hết món.'", (await q(`${tid("confirm-option-off")}?.innerText ?? ""`)) === "Tuỳ chọn sẽ ẩn khỏi POS của chi nhánh ngay. Đơn đã thanh toán có tuỳ chọn này sẽ chuyển Hết món.");
+    await confirmCancel();
+    await sleep(600);
+    check("Tuỳ chọn chi nhánh (mock): huỷ hộp thì tuỳ chọn vẫn bật", (await optionOf("Thạch dừa")).checked === true);
+    await q(`document.querySelectorAll(".ant-message-notice-close").forEach((b) => b.click())`);
+    await clickOptSwitch("Thạch dừa");
+    await confirmOk("Tắt bán");
+    await sleep(1200);
+    check("Tuỳ chọn chi nhánh (mock): xác nhận tắt Topping → 'Đã tắt. 2 đơn đã thanh toán chuyển Hết món.', công tắc tắt", (await toasts()) === "Đã tắt. 2 đơn đã thanh toán chuyển Hết món." && (await optionOf("Thạch dừa")).checked === false, await toasts());
+    await sleep(3500);
+    await clickOptSwitch("Ít đá");
+    await confirmOk("Tắt bán");
+    await sleep(1200);
+    check("Tuỳ chọn chi nhánh (mock): tắt tuỳ chọn không có đơn bị ảnh hưởng → 'Đã tắt.'", (await toasts()) === "Đã tắt." && (await optionOf("Ít đá")).checked === false, await toasts());
+    await sleep(3500);
+    await clickOptSwitch("Ít đá");
+    await sleep(900);
+    check("Tuỳ chọn chi nhánh (mock): bật lại KHÔNG có hộp xác nhận", !(await confirmOpen()) && (await optionOf("Ít đá")).checked === true && /Đã bật bán tuỳ chọn hôm nay/.test(await toasts()), await toasts());
+    // F5: Thạch dừa vẫn tắt (localStorage smartfnb:mock:options:branch:v1:<chainId>:<branchId>)
+    const optKeys = await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:options:branch:v1:")).length`);
+    await tab.goto("/manager/menu");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell sau F5");
+    await sleep(1500);
+    await clickTab("Tuỳ chọn");
+    await sleep(900);
+    check("Tuỳ chọn chi nhánh (mock): F5 giữ trạng thái (Thạch dừa tắt, Ít đá bật), khoá 'smartfnb:mock:options:branch:v1:…' có mặt", optKeys >= 1 && (await optionOf("Thạch dừa")).checked === false && (await optionOf("Ít đá")).checked === true, `${optKeys} khoá`);
+    // hết hạn gói
+    await tab.openMockPanel();
+    await tab.setCheckbox("mock-expired", true);
+    await sleep(900);
+    const expOpt = await optRows();
+    check("Tuỳ chọn chi nhánh (mock): hết hạn gói → mọi công tắc bị khoá", expOpt.length > 0 && expOpt.every((r) => r.disabled), `${expOpt.filter((r) => !r.disabled).length} công tắc còn mở`);
+    await q(`document.querySelector('[data-testid="branch-option-row"][data-owner-disabled="false"] [data-testid="action-guard"]')?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))`);
+    await sleep(700);
+    check("Tuỳ chọn chi nhánh (mock): hết hạn gói → tooltip lý do 'chỉ đọc'", /chế độ chỉ đọc/.test(await q(`[...document.querySelectorAll(".ant-tooltip")].map((e) => e.innerText).join(" ")`)));
+    await tab.setCheckbox("mock-expired", false);
     }
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
@@ -1011,6 +1075,38 @@ try {
       check("Real · Menu chi nhánh: ghi thất bại thì công tắc về đúng trạng thái BE", (await realMenuRows()).find((r) => r.name === victim.name).checked === victim.isAvailable);
       const beMenuAfter = await beGet(`/branches/${mgrBranch.id}/menu`, "manager");
       check("Real · Menu chi nhánh: GET lại /branches/{id}/menu — dữ liệu không đổi", J(beMenuAfter) === J(beMenuBefore));
+    }
+
+    // ---- 5.7d: Manager real — tab Tuỳ chọn đọc /manager/menu-options; tắt 1 tuỳ chọn tới hết hộp xác nhận, PATCH bị chặn ở CDP, so DTO
+    const beOptsBefore = await beGet("/manager/menu-options", "manager");
+    tab.blockedWrites.length = 0;
+    await q(`document.querySelectorAll(".ant-notification-notice-close, .ant-message-notice-close").forEach((b) => b.click())`);
+    for (let i = 0; i < 40 && (await toasts()) !== ""; i++) await sleep(250);
+    await q(`(() => { const t = [...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn"); t.click(); })()`);
+    await sleep(1500);
+    const realOptRows = () =>
+      q(`[...document.querySelectorAll('[data-testid="branch-option-row"]')].map((r) => { const sw = r.querySelector("button.ant-switch");
+        return { name: r.querySelector("span").innerText.trim(), off: r.dataset.ownerDisabled === "true", checked: sw?.classList.contains("ant-switch-checked") }; })`);
+    const ro = await realOptRows();
+    check("Real · Manager · Tuỳ chọn chi nhánh: số tuỳ chọn và tên khớp GET /manager/menu-options, nhóm gom đúng", ro.length === beOptsBefore.length && beOptsBefore.every((o) => ro.some((r) => r.name === o.name)) && (await q(`document.querySelectorAll('[data-testid="branch-option-group"]').length`)) === new Set(beOptsBefore.map((o) => o.group.id)).size, `${ro.length}/${beOptsBefore.length}`);
+    check("Real · Manager · Tuỳ chọn chi nhánh: công tắc khớp isAvailable, dòng 'Owner đã tắt' khớp !isActive || !group.isActive", beOptsBefore.every((o) => { const r = ro.find((x) => x.name === o.name); return r && r.off === (!o.isActive || !o.group.isActive) && (r.off ? r.checked === false : r.checked === o.isAvailable); }));
+    check("Real · Manager · Tuỳ chọn chi nhánh: 0 toast lỗi khi tải", (await toasts()) === "", await toasts());
+    const optVictim = beOptsBefore.find((o) => o.isActive && o.group.isActive && o.isAvailable);
+    if (!optVictim) {
+      console.log("NOTE  Real: không có tuỳ chọn nào đang bật và không bị Owner tắt, không kiểm được thao tác tắt bằng DTO thật.");
+    } else {
+      await q(`(() => { const r = [...document.querySelectorAll('[data-testid="branch-option-row"]')].find((x) => x.querySelector("span").innerText.trim() === ${J(optVictim.name)}); r.querySelector("button.ant-switch").click(); })()`);
+      await sleep(600);
+      check("Real · Tuỳ chọn chi nhánh: tắt mở hộp xác nhận đúng nội dung (nhắc đơn đã thanh toán chuyển Hết món)", (await q(`${tid("confirm-option-off")}?.innerText ?? ""`)) === "Tuỳ chọn sẽ ẩn khỏi POS của chi nhánh ngay. Đơn đã thanh toán có tuỳ chọn này sẽ chuyển Hết món.");
+      await confirmOk("Tắt bán");
+      await sleep(1500);
+      const ow = tab.blockedWrites.filter((x) => /\/manager\/menu-options\//.test(x.path));
+      const obody = ow[0]?.body ? JSON.parse(ow[0].body) : null;
+      check("Real · Tuỳ chọn chi nhánh: đúng 1 request ghi bị chặn: PATCH /manager/menu-options/{id}/availability, body CHỈ { isAvailable } (ManagerAvailabilityDto, manager.dto.ts:92-96)", ow.length === 1 && ow[0].method === "PATCH" && /^\/api\/v1\/manager\/menu-options\/[0-9a-f-]{36}\/availability$/.test(ow[0].path) && ow[0].path.includes(optVictim.id) && obody && J(Object.keys(obody)) === J(["isAvailable"]) && obody.isAvailable === false, J(ow));
+      check("Real · Tuỳ chọn chi nhánh: đúng 1 toast lỗi (do request ghi bị chặn), không thêm toast nào khác", (await q(`document.querySelectorAll(".ant-message-notice, .ant-notification-notice").length`)) === 1, await toasts());
+      check("Real · Tuỳ chọn chi nhánh: ghi thất bại thì công tắc về đúng trạng thái BE", (await realOptRows()).find((r) => r.name === optVictim.name).checked === true);
+      const beOptsAfter = await beGet("/manager/menu-options", "manager");
+      check("Real · Tuỳ chọn chi nhánh: GET lại /manager/menu-options — dữ liệu không đổi", J(beOptsAfter) === J(beOptsBefore));
     }
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);

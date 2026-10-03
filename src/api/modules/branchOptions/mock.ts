@@ -7,6 +7,8 @@ import { chainOfBranch } from "../menu/mock";
 import type { BranchOptionsApi } from "./index";
 import { savePersistedBranchOptions } from "./persist";
 
+export const MOCK_AFFECTED_TOPPING_ORDERS = 2;
+
 /** Dựng dòng như `GET /manager/menu-options`: Owner tắt = tuỳ chọn hoặc nhóm bị tắt ở cấp chuỗi (BR-12). */
 function rowsOf(chainId: string, branchId: string): BranchOptionRow[] {
   const state = getChainState(chainId);
@@ -52,7 +54,8 @@ export const branchOptionsMock: BranchOptionsApi = {
       branchId,
       list.map((r) => ({ optionId: r.optionId, isAvailable: r.isAvailable })),
     );
-    // Mock không có đơn đã thanh toán gắn tuỳ chọn nên không đơn nào bị chuyển "Hết món".
-    return { optionId, isAvailable, effectiveAvailable: isAvailable && !row.ownerDisabled, affectedOrderCount: 0 };
+    // Mô phỏng BR-36 (mock không lưu đơn gắn tuỳ chọn): tắt tuỳ chọn thuộc nhóm Topping thì có 2 đơn đã thanh toán bị chuyển "Hết món", để thử thông báo.
+    const affectedOrderCount = !isAvailable && row.groupId.endsWith("-og-topping") ? MOCK_AFFECTED_TOPPING_ORDERS : 0;
+    return { optionId, isAvailable, effectiveAvailable: isAvailable && !row.ownerDisabled, affectedOrderCount };
   },
 };

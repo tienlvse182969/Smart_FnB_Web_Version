@@ -42,7 +42,18 @@ export type ApiErrorKind = "network" | "unauthorized" | "forbidden" | "quota" | 
 const QUOTA_CODE = /PLAN|QUOTA|LIMIT|FEATURE|SUBSCRIPTION/;
 
 export function isQuotaError(err: unknown): boolean {
-  return err instanceof ApiError && !!err.code && QUOTA_CODE.test(err.code);
+  return (err instanceof ApiError && !!err.code && QUOTA_CODE.test(err.code)) || isReadOnlyError(err);
+}
+
+/** Câu hiển thị cho mọi lỗi "chế độ chỉ đọc" (BR-09), dù BE có kèm mã hay không. Không lộ câu tiếng Anh thô của BE. */
+export const READ_ONLY_TEXT = "Doanh nghiệp đang ở chế độ chỉ đọc (gói hết hạn hoặc tạm ngưng) nên không thể thay đổi. Liên hệ quản trị nền tảng để gia hạn.";
+
+/**
+ * Thao tác ghi bị chặn vì gói hết hạn/tạm ngưng. Mock trả mã `SUBSCRIPTION_READ_ONLY`; BE thật hiện trả 403 KHÔNG mã với câu
+ * "The business subscription is read-only…" (`branch-access.service.ts:81-83`, api-contract-plan #31) nên nhận diện thêm theo câu đó.
+ */
+export function isReadOnlyError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 403 && (err.code === "SUBSCRIPTION_READ_ONLY" || /subscription is read-only/i.test(err.message));
 }
 
 /**
@@ -74,6 +85,7 @@ export function describeApiError(err: unknown): string {
     case "forbidden":
       return "Bạn không đủ quyền thực hiện thao tác này.";
     case "quota":
+      if (isReadOnlyError(err)) return READ_ONLY_TEXT;
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? err.message : ""}`.trim();
     default:
       return err instanceof Error ? err.message : "Có lỗi xảy ra";
