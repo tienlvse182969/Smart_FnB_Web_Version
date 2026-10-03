@@ -7,6 +7,7 @@
  *   lỗi hạn mức/gói của BE → thông báo vượt hạn mức
  *   lỗi mạng → thông báo kèm nút thử lại
  */
+import { summarizeValidation } from "./validationText";
 
 /** Lỗi đã chuẩn hoá từ backend — `message` luôn là chuỗi hiển thị được cho người dùng. */
 export class ApiError extends Error {
@@ -19,6 +20,12 @@ export class ApiError extends Error {
   readonly body: unknown;
   /** true sau khi `reportApiError` đã báo cho người dùng — màn hình không báo lại lần nữa. */
   reported = false;
+  /**
+   * Phương thức HTTP của request gây lỗi, gắn ở lớp http (`client.ts` `request`): GET = đọc; POST/PUT/PATCH/DELETE = ghi. Quyết định
+   * lỗi có nút Thử lại hay không. Không có (undefined) = không phải lỗi của một request qua `request()` (ví dụ làm mới phiên
+   * `POST /auth/refresh`) → không bao giờ có Thử lại. Mock không đi qua HTTP nên `define.ts` gắn tạm theo tên hàm (chỉ mock).
+   */
+  method?: string;
 
   constructor(
     status: number,
@@ -83,10 +90,26 @@ const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹ�
 
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
+  [/invalid email or password/i, "Email hoặc mật khẩu không đúng."],
+  [/branch code already exists/i, "Mã chi nhánh đã tồn tại."],
+  [/branch cannot be archived/i, "Chi nhánh còn phiên đang mở nên chưa lưu trữ được."],
+  [/no active service plan is configured/i, "Chưa có gói dịch vụ đang bán. Liên hệ quản trị nền tảng."],
+  [/owner role is not configured/i, "Hệ thống chưa cấu hình vai trò Owner. Liên hệ quản trị nền tảng."],
+  [/cannot change (their|your) own account status/i, "Không tự đổi trạng thái tài khoản của chính mình."],
+  [/a logo file is required/i, "Chưa chọn tệp logo."],
+  [/logo must be a valid/i, "Logo phải là ảnh JPEG, PNG hoặc WebP."],
+  [/logo must not exceed/i, "Logo tối đa 5 MB."],
+  [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],
+  [/invalid report date|use valid yyyy-mm-dd|report range must contain|reporting range cannot exceed|from must be earlier/i, "Khoảng ngày báo cáo không hợp lệ (từ 1 đến 366 ngày, từ ngày phải trước đến ngày)."],
+  [/unknown chain timezone/i, "Múi giờ của chuỗi không hợp lệ."],
+  [/provide at least one field/i, "Chưa có thay đổi nào để lưu."],
+  [/date (is invalid|must use)|dayofweek must be/i, "Ngày hoặc thứ trong tuần không hợp lệ."],
+  [/opentime and closetime/i, "Giờ mở cửa và giờ đóng cửa phải nhập đủ cả hai và khác nhau."],
+  [/minselections cannot exceed|isrequired must be true/i, "Luật chọn của nhóm không hợp lệ: tối thiểu không vượt tối đa; bắt buộc khi tối thiểu lớn hơn 0."],
   [/category with this name already exists/i, "Tên danh mục đã tồn tại trong chuỗi."],
   [/menu item with this sku already exists|sku already exists/i, "Mã SKU đã tồn tại trong chuỗi."],
   [/category.*item\(s\)|item\(s\)|still has (menu )?items?/i, "Danh mục còn món nên không xoá được. Chuyển hoặc xoá món trước."],
-  [/email, phone,? (or|and) employee code already exists/i, "Email, số điện thoại hoặc mã nhân viên đã tồn tại."],
+  [/email, phone,? (or|and) (employee|account) code already exists/i, "Email, số điện thoại hoặc mã nhân viên đã tồn tại."],
   [/representative email already belongs/i, "Email người đại diện đã thuộc một tài khoản khác."],
   [/only a pending application/i, "Chỉ hồ sơ đang chờ duyệt mới xử lý được."],
   [/current usage exceeds/i, "Mức đang dùng vượt hạn mức của gói mới."],
@@ -108,6 +131,10 @@ const BACKEND_TEXT: [RegExp, string][] = [
 /** Câu tiếng Việt cho lỗi BE không thuộc loại dùng chung (400, 404, 409…). Không bao giờ trả câu tiếng Anh thô. */
 export function translateBackendMessage(err: ApiError): string {
   const message = err.message ?? "";
+  // 400 validate (mảng message của class-validator): dịch từng ô, liệt kê ô sai — xem `validationText.ts`.
+  if (err.status === 400 && err.details.length > 0) {
+    return err.details.every((d) => HAS_VIETNAMESE.test(d)) ? err.details.join("; ") : summarizeValidation(err.details);
+  }
   if (HAS_VIETNAMESE.test(message)) return message;
   const hit = BACKEND_TEXT.find(([re]) => re.test(message));
   if (hit) return hit[1];
@@ -122,8 +149,11 @@ export function describeApiError(err: unknown): string {
   switch (kind) {
     case "network":
       return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
-    case "unauthorized":
-      return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    case "unauthorized": {
+      // Đăng nhập sai (BE: 401 "Invalid email or password") có câu riêng; các 401 khác là hết phiên.
+      const specific = err instanceof ApiError ? translateBackendMessage(err) : "";
+      return specific && specific !== GENERIC_ERROR_TEXT ? specific : "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    }
     case "forbidden":
       return "Bạn không đủ quyền thực hiện thao tác này.";
     case "quota":
@@ -195,10 +225,11 @@ const GLOBAL_KINDS: ApiErrorKind[] = ["network", "forbidden", "quota", "unauthor
  * Báo một lỗi API cho người dùng, tối đa một lần cho mỗi đối tượng lỗi. Gọi từ `withErrorHandling`
  * (bọc mọi hàm của mọi module) — nên real và mock đi chung một đường.
  */
-export function reportApiError(err: unknown, isRead?: unknown): void {
+export function reportApiError(err: unknown): void {
   if (!(err instanceof ApiError) || err.reported) return;
   const kind = classifyApiError(err);
-  const retryable = !!isRead && (kind === "network" || kind === "server");
+  // Đọc/ghi theo phương thức HTTP của request (GET = đọc), không theo tên hàm.
+  const retryable = err.method === "GET" && (kind === "network" || kind === "server");
   // 5xx của thao tác GHI để màn hình tự hiện (toast tại chỗ); 5xx của thao tác ĐỌC được báo toàn cục kèm nút Thử lại.
   if (!GLOBAL_KINDS.includes(kind) && !(kind === "server" && retryable)) return;
   err.reported = true;

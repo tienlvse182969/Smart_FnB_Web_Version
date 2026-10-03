@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createBrowserRouter, Navigate, useLocation, useNavigate, type RouteObject } from "react-router-dom";
 import { App } from "antd";
+import { showApiError } from "../api";
 import LandingPage from "../components/landing/LandingPage";
 import LoginScreen from "../auth/LoginScreen";
 import SetupPasswordScreen from "../auth/SetupPasswordScreen";
@@ -35,7 +36,7 @@ function LoginWrapper() {
       const user = await login(email, password);
       navigate(homeRouteFor(user.role));
     } catch (err) {
-      message.error(err instanceof Error ? err.message : "Đăng nhập thất bại");
+      showApiError(message.error, err, "Đăng nhập thất bại"); // luôn tiếng Việt; sai mật khẩu = "Email hoặc mật khẩu không đúng."
     }
   };
 

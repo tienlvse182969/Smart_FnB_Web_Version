@@ -108,13 +108,15 @@ class Tab {
     this.fault = fault ? { ...fault, hits: 0 } : null;
     this.faultLog = [];
   }
-  fulfillFault(p, kind) {
+  fulfillFault(p, kind, fault) {
     if (kind === "network") {
       void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "ConnectionRefused" });
       return;
     }
     const code = Number(kind);
     const bodies = {
+      // 400: body do script truyền (`fault.body`), ví dụ body validate thật của BE: { statusCode: 400, message: ["name should not be empty"], error: "Bad Request" }
+      400: fault?.body ?? { statusCode: 400, message: ["name should not be empty"], error: "Bad Request" },
       500: { statusCode: 500, message: "Internal server error" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
       401: { statusCode: 401, message: "Unauthorized" },
@@ -151,7 +153,7 @@ class Tab {
     f.hits++;
     this.faultLog.push({ method, path, kind: f.kind });
     if (isWrite) this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
-    this.fulfillFault(p, f.kind);
+    this.fulfillFault(p, f.kind, f);
     return true;
   }
   onRequestPaused(p) {

@@ -4,7 +4,7 @@
  * Một nguồn cho form và mock.
  */
 import type { ApiPlan, StaffEmployee, StaffInput, StaffPatch } from "../../../types";
-import { ApiError } from "../../http/errors";
+import { ApiError, translateBackendMessage } from "../../http/errors";
 
 interface AccountLimitBody {
   suggestedPlans?: (ApiPlan & { priceDifference: string })[];
@@ -19,8 +19,8 @@ export function describeAccountError(err: unknown): string | null {
   if (err.code === "PLAN_LIMIT_REACHED") {
     const suggestion = (err.body as AccountLimitBody | null)?.suggestedPlans?.[0];
     return suggestion
-      ? `${err.message} Hãy nâng lên gói "${suggestion.name}" (tối đa ${suggestion.maxAccounts} tài khoản) hoặc khoá bớt tài khoản không dùng.`
-      : `${err.message} Đây đã là gói cao nhất: hãy khoá bớt tài khoản không dùng.`;
+      ? `${translateBackendMessage(err)} Hãy nâng lên gói "${suggestion.name}" (tối đa ${suggestion.maxAccounts} tài khoản) hoặc khoá bớt tài khoản không dùng.`
+      : `${translateBackendMessage(err)} Đây đã là gói cao nhất: hãy khoá bớt tài khoản không dùng.`;
   }
   if (err.status === 409) return "Email này đã được dùng cho một tài khoản khác. Dùng email khác.";
   return null;

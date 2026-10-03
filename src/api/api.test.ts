@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, classifyApiError, describeApiError, ERROR_DEDUPE_MS, GENERIC_ERROR_TEXT, isQuotaError, isReadOnlyError, READ_ONLY_TEXT, reportApiError, resetErrorDedupe, SERVER_ERROR_TEXT, setApiErrorHandler, showApiError } from "./http/errors";
-import { clearTokens, getAccessToken, refreshSession, setTokens } from "./http/client";
+import { clearTokens, getAccessToken, refreshSession, request, setTokens } from "./http/client";
 import { defineApi, wrapWithErrorHandling } from "./define";
 import { API_MODULES, DEFAULT_MODES, flagTable, resolveModes } from "./flags";
 import { mockControl } from "./mock/control";
@@ -106,6 +106,47 @@ describe("lỗi API thống nhất", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(show).not.toHaveBeenCalled();
     setApiErrorHandler(null);
+  });
+
+  it("đọc/ghi theo phương thức HTTP của request, không theo tên hàm: GET có Thử lại; POST, PUT, PATCH, DELETE lỗi 500/mạng không có", async () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const failing = (status: number, method: string) => async () => {
+      throw Object.assign(new ApiError(status, "x"), { method });
+    };
+    const api = wrapWithErrorHandling({
+      saveViaGet: failing(500, "GET"), // tên kiểu ghi nhưng request là GET → có nút
+      listViaPost: failing(500, "POST"), // tên kiểu đọc nhưng request là POST → không có nút
+      patchIt: failing(500, "PATCH"),
+      putIt: failing(0, "PUT"),
+      deleteIt: failing(500, "DELETE"),
+      getNet: failing(0, "GET"),
+    });
+    for (const name of Object.keys(api) as (keyof typeof api)[]) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    const byCall = handler.mock.calls.map((c) => [c[0].kind, c[0].canRetry]);
+    // listViaPost, patchIt, deleteIt (500, ghi) không báo toàn cục; putIt mạng báo nhưng không có nút
+    expect(byCall).toEqual([["server", true], ["network", false], ["network", true]]);
+    setApiErrorHandler(null);
+  });
+
+  it("lớp http gắn phương thức vào lỗi; làm mới phiên (POST /auth/refresh) không phải request() nên không bao giờ có Thử lại", async () => {
+    const reject = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", reject);
+    try {
+      await expect(request("/x")).rejects.toMatchObject({ status: 0, method: "GET" });
+      await expect(request("/x", { method: "PATCH", body: {} })).rejects.toMatchObject({ status: 0, method: "PATCH" });
+      vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response(JSON.stringify({ message: "Internal server error" }), { status: 500 })));
+      await expect(request("/y", { method: "POST", body: {} })).rejects.toMatchObject({ status: 500, method: "POST" });
+      await expect(request("/y")).rejects.toMatchObject({ status: 500, method: "GET" });
+      // refresh hỏng: lỗi không có method → không có Thử lại dù là mạng
+      const handler = vi.fn();
+      setApiErrorHandler(handler);
+      reportApiError(new ApiError(0, "mạng"));
+      expect(handler.mock.calls[0][0].canRetry).toBe(false);
+      setApiErrorHandler(null);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("lỗi 5xx (500, 502, 503) → một câu tiếng Việt, không lộ câu của BE", () => {

@@ -9,7 +9,7 @@ import type {
   CreateBranchInput,
   UpdateBranchInput,
 } from "../../../types";
-import { ApiError } from "../../http/errors";
+import { ApiError, describeApiError, translateBackendMessage } from "../../http/errors";
 import { defineApi } from "../../define";
 import { branchMock } from "./mock";
 import { branchReal } from "./real";
@@ -38,17 +38,14 @@ interface PlanLimitBody {
  * của backend đã là tiếng Việt và nêu rõ hạn mức, nên chỉ bổ sung gợi ý nâng gói phía sau.
  */
 export function describeBranchError(err: unknown): string {
-  if (!(err instanceof ApiError)) {
-    return err instanceof Error ? err.message : "Không lưu được chi nhánh";
-  }
+  if (!(err instanceof ApiError)) return describeApiError(err);
 
   if (err.code === "PLAN_LIMIT_REACHED") {
     const body = err.body as PlanLimitBody | null;
     const suggestion = body?.suggestedPlans?.[0];
-    return suggestion
-      ? `${err.message} Gói "${suggestion.name}" cho phép ${suggestion.maxBranches} chi nhánh.`
-      : err.message;
+    const text = translateBackendMessage(err);
+    return suggestion ? `${text} Gói "${suggestion.name}" cho phép ${suggestion.maxBranches} chi nhánh.` : text;
   }
 
-  return err.message;
+  return describeApiError(err); // luôn tiếng Việt: 5xx → câu chung, 400/404/409 → bảng dịch (errors.ts)
 }
