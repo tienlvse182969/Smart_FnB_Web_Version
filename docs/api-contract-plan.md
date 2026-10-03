@@ -149,7 +149,7 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 | 37 | Thấp | **Manager ghi được `isEnabled` qua `PATCH /branches/{b}/menu/items/{id}`** (`UpdateBranchMenuItemDto`, `menu.dto.ts:194-214`; route `branch-menu.controller.ts:47-48`, role OWNER, MANAGER). `isEnabled` là việc gán món cho chi nhánh (OW-04, BR-12: cờ kinh doanh và gán món thuộc Owner); BM-02 chỉ cho Manager "hết hàng trong ngày" (`isAvailable`). Đề nghị: Manager chỉ được gửi `isAvailable`, gửi `isEnabled` thì 403 | Web chỉ gửi `{ isAvailable }`, không bao giờ gửi `isEnabled` (`menu/real.ts`, có test) |
 | 38 | Trung bình | **Endpoint gói/hạn mức mà Manager đọc được** (chi tiết ở mục 1: `GET /restaurant-chains/{chainId}/subscription`). Hiện `GET /restaurant-chains` trả 403 cho Manager nên web không biết gói đã hết hạn chưa (`plan/real.ts` nhận `chains` chỉ khi là Owner, `store/slices/auth.ts:198`; trạng thái và hạn dùng của Manager là giá trị mock, luôn "active"), và không biết số tài khoản đã dùng/hạn mức thật (nhãn "Đã dùng X/Y" ở màn Nhân viên đang là mock, `account/real.ts:65`). Hệ quả: ở real, nút ghi của Manager **không bao giờ tự khoá** khi hết hạn; BE vẫn chặn ghi bằng 403 không có mã (#31) | Công tắc/nút khoá theo `usePlan()` nên chỉ khoá được ở mock |
 
-**Câu hỏi cho BE (5.7b):** khi Manager tắt món ở chi nhánh bằng `PATCH …/menu/items/{id}` (`isAvailable=false`), dòng đã thanh toán chứa món đó có chuyển sang "Hết món" và báo Manager như BR-36 không? Theo `counter-operations.service.ts` chỉ đường Barista (`PATCH /barista/menu-items/{id}/availability`) gọi `markPaidItemsOutOfStock`; đường Manager chỉ upsert cờ.
+**Câu hỏi cho BE (5.7b):** khi Manager tắt món ở chi nhánh bằng `PATCH …/menu/items/{id}` (`isAvailable=false`), dòng đã thanh toán chứa món đó có chuyển sang "Hết món" và báo Manager như BR-36 không? Theo `counter-operations.service.ts` chỉ đường Barista (`PATCH /barista/menu-items/{id}/availability`) gọi `markPaidItemsOutOfStock`; đường Manager chỉ upsert cờ. **Đã trả lời khi đọc `0083289`:** với *tuỳ chọn* thì `PATCH /manager/menu-options/:id/availability` có làm (`manager-operations.service.ts:221-247`); với *món* thì Manager vẫn không (xem bảng "BE lệch quyết định/đặc tả (`0083289`)").
 
 ### Tình trạng theo BE `dfe8100` (đối chiếu 2026-10-02)
 
@@ -164,6 +164,66 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 | 12–22 | Chưa | không có `option-groups`; `remainingPortions` còn |
 | 23, 24, 25, 26, 27 | Chưa | module `auth`, `employees`, `users` không đổi; không có `PATCH /stations` |
 | 28 | Một phần | có `POST /stations/pair-calling-display`, token thiết bị, `GET /public/calling-display/ready-orders`; thiếu `GET /display-devices` |
+
+### Tình trạng theo BE `0083289` (đối chiếu 2026-10-03, chỉ đọc mã)
+
+> BE `0083289` = `dfe8100` + 3 commit: `3a222e4` quản lý tuỳ chọn cho Owner, `93cc88e` tải logo nhận diện, `0083289` module Branch Manager. Migration mới duy nhất: `20261003000000_branch_manager` (thêm `payments.confirmation_reason`, `payments.received_amount`; bảng `branch_audit_logs`). **Seed không đổi** (vẫn `DEMO_OPERATIONS`, `STARTER`). **BE local đang chạy là bản build cũ (container tạo 2026-10-02 22:28 = `dfe8100`)**: `GET /manager/*` và `…/menu/option-groups` trả 404, Swagger không có chúng; chưa kiểm được bằng request thật.
+
+| # | `dfe8100` | `0083289` | Ghi chú (file:dòng, BE) |
+|---|---|---|---|
+| 1 | Chưa | **Chưa** | không có chỗ đọc `email_outbox` để gửi (tìm trong `src/`) |
+| 12 | Chưa | **Đã làm** | `chain-menu.controller.ts:114-205` (`option-groups`, `…/options`), role OWNER (`:49`). DTO `menu.dto.ts` `CreateMenuOptionGroupDto`, `CreateMenuOptionDto`: `code` `^[A-Z0-9_-]+$` ≤ 50 (khớp giả định web), `isRequired`, `min/maxSelections`, `displayOrder`, `isActive` (khi sửa) |
+| 13 | Chưa | **Đã làm** | `PUT/GET items/:itemId/option-groups` (`chain-menu.controller.ts:329-345`), body `{optionGroupIds[]}` (thứ tự mảng) |
+| 14 | Chưa | **Đã làm** | `UpdateMenuOptionGroupDto/UpdateMenuOptionDto.isActive` |
+| 15 | Chưa | Chưa | không có `isDefault` trong schema/DTO |
+| 16 | Chưa | Chưa | `getBranchMenu`/`listItems` không trả `optionGroups` |
+| 17 | Chưa | Chưa | không có `allowBatching` |
+| 19 | Chưa | **Chưa** | `getBranchMenu` (`menu.service.ts`) vẫn lọc ẩn món Owner tắt |
+| 20 | Chưa | **Đã làm, khác đề xuất** | `PATCH /manager/menu-options/:id/availability` (role MANAGER) thay cho `PATCH /branches/{b}/menu/options/{id}`; chi tiết ở bảng dưới |
+| 21 | Chưa | Chưa | `priceDelta` `@IsNumber({maxDecimalPlaces: 2})` (không bắt số nguyên) |
+| 22 | Chưa | Chưa | `remainingPortions` còn ở `getBranchMenu`, `UpdateBranchMenuItemDto` |
+| 23 | Chưa | **Chưa** | `POST /auth/managers` không đổi (`create-staff.dto.ts`, `password` bắt buộc) |
+| 24 | Chưa | **Một phần, lệch** | có `/manager/staff*` nhưng bắt buộc mật khẩu, không gửi email (xem bảng dưới) |
+| 25 | Chưa | Chưa | payload vẫn `setupPath: '/auth/setup-password'` (`employees.service.ts:179`, `platform-admin.service.ts:259,592`) |
+| 26 | Chưa | **Chưa** | `users.service.ts` `assertOwnerCanCreateAccount` và `manager-staff.service.ts:127-133` đều đếm cả tài khoản đã khoá |
+| 27 | Chưa | Chưa | `stations.controller.ts` chỉ có GET/POST `stations`, POST ghép, DELETE `display-devices/:id` |
+| 28 | Một phần | Một phần | vẫn thiếu `GET /display-devices` |
+| 31 | Chưa | **Chưa** | `branch-access.service.ts:81-83, 118-120` vẫn 403 không mã. Ghi chú: `assertCanAccessBranch` (`:87-92`) không kiểm gói nên theo mã **GET của nhân viên không bị chặn khi hết hạn** (chưa kiểm real); chỉ thao tác ghi bị chặn |
+| 34 | Chưa | Chưa | tạo quầy không bắt `P2002` (`stations.service.ts:78` chỉ cho mã ghép) |
+| 36 | Chưa | Chưa | thông báo ghép không đổi (`stations.service.ts:124,161`; `:144,185` "already consumed" chỉ khi đua) |
+| 38 | (mới) | **Chưa** | không có endpoint gói cho Manager |
+| QR PayOS hết hạn | Chưa | Chưa | `payos/*` không đổi |
+| Xác nhận thủ công (BR-29) | Lệch | **Đã sửa** | `POST /payments/:id/confirm`: CASHIER chỉ tiền mặt; ngoài tiền mặt cần MANAGER + `reason` + `receivedAmount` (`docs/branch-manager-api.md`, `payments.controller.ts`) |
+| Huỷ hoá đơn | — | Mới | `POST /invoices/:id/cancel` cần MANAGER + lý do; **không** phải huỷ đơn đã trả (BM-06 vẫn chưa) |
+| Logo nhận diện | — | Mới | `93cc88e` `branding-upload.ts`, `branding.controller.ts`; liên quan #18 và giai đoạn 6 |
+
+**Module `/manager/*`** (`branch-manager.controller.ts`, `@Roles(MANAGER)` `:35`; chi nhánh lấy từ JWT, `managerActor` `manager-scope.ts:6-11`, không nhận `branchId`):
+
+| Endpoint | Gửi → nhận (DTO) | Hạn mức / hết hạn |
+|---|---|---|
+| `GET /manager/staff` (`:48`) | query `search, role∈CASHIER\|BARISTA, status, page, limit` (`manager.dto.ts:74`) → `{items[{id, branchId, employeeCode, firstName, lastName, jobTitle, dateOfBirth, hireDate, status, user{id, email, phone, status, role{code}}}], total, page, limit}` (`manager-staff.service.ts:23-36, 93`) | không chặn khi hết hạn |
+| `POST /manager/staff` (`:54`) | `ManagerCreateStaffDto` (`manager.dto.ts:27`, thừa kế `CreateStaffDto`): `email, password (8–128, hoa/thường/số), role, employeeCode (bắt buộc), firstName, lastName, phone?, jobTitle?, hireDate?, dateOfBirth?` → hồ sơ nhân viên | **tính hạn mức** `employees + owners ≥ maxAccounts` → 409 `PLAN_LIMIT_REACHED` **không kèm** `quota/currentPlan/suggestedPlans` (`manager-staff.service.ts:127-139`), đếm cả tài khoản khoá; hết hạn → 409 "Subscription is not active" (`:126`) và 403 ở `scope(user, true)` (`:49`) |
+| `GET/PATCH /manager/staff/:id` (`:64, :73`) | PATCH `ManagerUpdateStaffDto` (mọi trường của create trừ `password`, kể cả **`role`, `email`, `employeeCode`**; không nhận `null` nên không xoá được số điện thoại) | PATCH: 403 khi hết hạn; đổi role/email thì thu hồi phiên (`:205`) |
+| `PATCH /manager/staff/:id/status` (`:85`) | `{status ∈ ACTIVE\|INACTIVE\|SUSPENDED, reason (3–500, bắt buộc)}` (`manager.dto.ts:46`) | 403 khi hết hạn; **mở khoá không kiểm hạn mức** (`manager-staff.service.ts:217-233`); khoá thu hồi phiên |
+| `POST /manager/staff/:id/reset-password` (`:97`) | `{password, reason}` (`manager.dto.ts:37`) → `{message, employeeId}`; **đặt thẳng mật khẩu, không gửi email**; thu hồi phiên, vô hiệu token đặt mật khẩu (`:235-254`) | 403 khi hết hạn |
+| `GET /manager/menu-options` (`:108`) | không tham số → mảng phẳng `[{id, name, priceDelta, isActive, group{id, name, isActive}, isAvailable, effectiveAvailable}]` (`manager-operations.service.ts:182-202`). **Không** có luật nhóm, thứ tự, mã, `isDefault`; `effectiveAvailable = option.isActive && group.isActive && isAvailable` | không chặn khi hết hạn |
+| `PATCH /manager/menu-options/:id/availability` (`:114`) | `{isAvailable}` (`manager.dto.ts:92`) → `{optionId, isAvailable, effectiveAvailable, affectedOrderIds}` (`manager-operations.service.ts:204-264`). Lưu cờ chi nhánh kể cả khi Owner đã tắt (không từ chối; `effectiveAvailable` vẫn false). Khi tắt: dòng đã trả (`COUNTER_PICKUP`, `PAID`, `QUEUED/PREPARING`) chuyển `OUT_OF_STOCK` cùng giao dịch, bắn `menu.availability.changed` và `manager.order.attention-required` (`branch-manager.controller.ts:126-133`) → **trả lời BR-36 cho tuỳ chọn: có**. Đường món (`PATCH /branches/{b}/menu/items/{id}`) **không** làm việc này (`menu.service.ts` `updateBranchMenuItem`); chỉ đường Barista có | 403 khi hết hạn |
+| `GET /manager/reports` (`:136`) | query `from, to (YYYY-MM-DD, ≤ 366 ngày), granularity day\|week\|month, limit` → `{branch, range, summary, revenue, payments, topItems, topOptions, topToppings, ordersByHour, preparation, cancellations{…items}}` (`manager-reports.service.ts:96-117`) | đọc |
+| `GET /manager/orders` (`:147`), `GET /manager/orders/:id` (`:157`) | query `search, orderCode, callNumber, from, to (placedAt, ISO có múi giờ), status, paymentStatus, paymentMethod, type, page, limit` → `{items, total, page, limit}`; chi tiết có `items[].selectedOptions` (ảnh chụp giá lúc bán), `payments`, `audit` | đọc. **Chưa có**: danh sách Cần xử lý riêng (chỉ có sự kiện socket), huỷ đơn đã trả (BM-06), hoàn tiền |
+| `GET /manager/audit-logs` (`:167`) | `entityId?, page, limit` → `{items[BranchAuditLog], total…}` | đọc |
+
+### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
+
+| Chỗ lệch | Đặc tả / quyết định | BE |
+|---|---|---|
+| Tạo và đặt lại mật khẩu Cashier/Barista bằng **mật khẩu Manager gõ** | Đã chốt: tạo → email đặt mật khẩu (BM-01, #23, #24); web đã bỏ mọi mật khẩu cứng | `manager.dto.ts:27, 37`; `manager-staff.service.ts:114, 235-254`. Chưa có email (#1) |
+| Mở khoá không kiểm hạn mức; hạn mức đếm cả tài khoản khoá | 13.1 dòng 1227: khoá không tính; mở khoá chiếm chỗ nên phải kiểm | `manager-staff.service.ts:127-133, 217-233` |
+| Manager **đổi được vai trò** Cashier↔Barista, email, mã nhân viên | BM-01 chỉ nêu tạo, sửa, đặt lại, khoá; shape web (#24) không cho đổi vai trò/email | `ManagerUpdateStaffDto` (`manager.dto.ts:33`) |
+| 409 `PLAN_LIMIT_REACHED` thiếu `quota/currentPlan/suggestedPlans` | như `POST /branches` (web dựa vào để gợi ý gói) | `manager-staff.service.ts:134-138` |
+| Hết hạn: tạo nhân viên trả 409, các thao tác ghi khác trả 403 | một mã `SUBSCRIPTION_READ_ONLY` (#31) | `manager-staff.service.ts:126` và `branch-access.service.ts:81-83` |
+| `GET /manager/audit-logs` | **AuditLog đã chốt xoá** (đặc tả 14.2, BAN-GIAO mục 5); web không làm màn này, BE giữ ghi log theo BR-06 | `branch-manager.controller.ts:167` |
+| Bật tuỳ chọn mà Owner đã tắt vẫn lưu được cờ chi nhánh | BR-12: Owner tắt thì chi nhánh không bật lại được | `manager-operations.service.ts:216-220` (kết quả hiệu lực vẫn false; web khoá công tắc) |
+| Manager tắt món không đánh dấu dòng đã trả "Hết món"; tắt tuỳ chọn thì có | BR-36 cho cả món và tuỳ chọn | `menu.service.ts` `updateBranchMenuItem` so với `manager-operations.service.ts:221-247` |
 
 ### BE lệch đặc tả (đối chiếu `dfe8100`)
 

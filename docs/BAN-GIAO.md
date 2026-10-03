@@ -200,7 +200,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | App POS mặc định trỏ localhost:3100: quầy phải tạo trên BE mà máy POS dùng. | ghi nhận |
 | `BranchMenu.tsx` (5.7b ✅): chưa có bật/tắt tuỳ chọn (BE `dfe8100` chỉ có endpoint Barista) | 5.7c–5.7d |
 | Manager ở real **không bao giờ tự khoá** khi gói hết hạn: `GET /restaurant-chains` trả 403 cho Manager nên `usePlan()` của Manager lấy trạng thái/hạn dùng từ MOCK (`plan/real.ts:10-40`, `store/slices/auth.ts:198` chỉ truyền `chains` cho Owner; `useWriteGuard` → `usePlan()`, `plan/useReadOnly.ts:41-43`). BE vẫn chặn ghi (403 không mã, #31). Nhãn "Đã dùng X/Y" ở `/manager/staff` cũng là mock (`account/real.ts:65`) | chờ BE #38 |
-| BE `0083289` (pull 2026-10-03) có module `/manager/*` mới: `staff` (CRUD, status, reset-password), `menu-options` (GET, PATCH availability), `reports`, `orders`, `audit-logs` (`branch-manager.controller.ts`, role MANAGER). **Chưa khảo sát**; các mục "chưa có" #20, #24, BM-03..05 ở trên đối chiếu theo `dfe8100` nên có thể đã lỗi thời. phase5 real vẫn 58/58 trước khi sửa | khảo sát lại trước 5.7c |
+| BE `0083289` (pull 2026-10-03) đã khảo sát bằng đọc mã (5.7c-0): bảng đối chiếu và danh sách `/manager/*` ở `docs/api-contract-plan.md` mục "Tình trạng theo BE `0083289`". **BE local đang chạy vẫn là bản build cũ (`dfe8100`)** nên chưa kiểm được các GET mới bằng request thật | build lại BE (Khánh) |
 | `branchApi`: `maxTables`; `authApi`: `WAITER`, `KITCHEN` trong `BackendRole` | Giữ: phản ánh đúng JSON BE hiện tại |
 | `README.md` còn mô tả Waiter/Kitchen và `VITE_DEMO_PASSWORD` | dọn khi tiện |
 | Khu thu ngân trên web (`CashierApp.tsx`, `cashier-api.ts`) của Bảo đã gỡ khi merge main: POS chạy app Android. Code vẫn trong lịch sử (`dc8fcdd`, `32f6cdc`, `6e226af`) | — |
@@ -219,7 +219,9 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 
 **Có thật, dùng được:** auth (`/auth/login`, refresh, `/auth/me`), PA-01..03, PA-05, `/admin/service-plans`, OW-01, OW-02, OW-04, OW-05, branding GET/PUT/DELETE, `/reports/*` (chỉ OWNER), bật/tắt món chi nhánh qua `PATCH /branches/:id/menu/items/:id`, `GET/POST /stations`, `POST /stations/pair-customer-display`, `DELETE /display-devices/{id}`.
 
-**Chưa có → web phải mock:**
+**Cập nhật theo BE `0083289` (đọc mã, 2026-10-03; chi tiết `docs/api-contract-plan.md`):** (1) Owner đã có CRUD nhóm tuỳ chọn/tuỳ chọn, gắn nhóm vào món, bật/tắt tuỳ chọn (`/restaurant-chains/{id}/menu/option-groups…`, OW-03 real được, còn thiếu `isDefault`, `allowBatching`, `optionGroups` trong menu). (2) Module `/manager/*` (role MANAGER, chi nhánh lấy từ JWT): `staff` (tạo/sửa/khoá/đặt lại mật khẩu), `menu-options` (GET, PATCH availability, có đánh dấu "Hết món" dòng đã trả), `reports`, `orders` (+ chi tiết), `audit-logs`. (3) `staff` bắt buộc **mật khẩu** khi tạo và đặt lại, không email: lệch quyết định đã chốt. (4) Xác nhận thủ công non-cash chỉ Manager + lý do + số tiền thực nhận (BR-29 đã sửa). (5) Chưa có: huỷ đơn đã trả (BM-06), danh sách Cần xử lý, `PATCH /stations`, `GET /display-devices`, email, 3 gói seed, endpoint gói cho Manager.
+
+**Chưa có → web phải mock (bảng dưới đối chiếu theo `dfe8100`, một số dòng đã đổi ở trên):**
 
 | Mã | Chức năng |
 |---|---|
