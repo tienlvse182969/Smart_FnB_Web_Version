@@ -9,6 +9,7 @@ import {
   branchApi,
   brandingApi,
   clearTokens,
+  describeApiError,
   planApi,
   setSessionExpiredHandler,
 } from "../../api";
@@ -220,7 +221,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     } catch (err) {
       set({
         scopeStatus: "error",
-        scopeError: err instanceof Error ? err.message : "Không tải được phạm vi làm việc",
+        scopeError: describeApiError(err),
       });
     }
   },

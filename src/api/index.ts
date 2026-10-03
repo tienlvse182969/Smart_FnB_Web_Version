@@ -27,6 +27,8 @@ export {
   isQuotaError,
   isReadOnlyError,
   READ_ONLY_TEXT,
+  SERVER_ERROR_TEXT,
+  translateBackendMessage,
   showApiError,
   setApiErrorHandler,
   type ApiErrorEvent,

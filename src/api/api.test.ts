@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, classifyApiError, describeApiError, isQuotaError, isReadOnlyError, READ_ONLY_TEXT, reportApiError, setApiErrorHandler, showApiError } from "./http/errors";
+import { ApiError, classifyApiError, describeApiError, ERROR_DEDUPE_MS, GENERIC_ERROR_TEXT, isQuotaError, isReadOnlyError, READ_ONLY_TEXT, reportApiError, resetErrorDedupe, SERVER_ERROR_TEXT, setApiErrorHandler, showApiError } from "./http/errors";
 import { clearTokens, getAccessToken, refreshSession, setTokens } from "./http/client";
 import { defineApi, wrapWithErrorHandling } from "./define";
 import { API_MODULES, DEFAULT_MODES, flagTable, resolveModes } from "./flags";
@@ -104,6 +104,69 @@ describe("lỗi API thống nhất", () => {
     showApiError(show, err, "Không cập nhật được");
     expect(handler).toHaveBeenCalledTimes(1);
     expect(show).not.toHaveBeenCalled();
+    setApiErrorHandler(null);
+  });
+
+  it("lỗi 5xx (500, 502, 503) → một câu tiếng Việt, không lộ câu của BE", () => {
+    for (const [status, message] of [[500, "Internal server error"], [502, "Bad Gateway"], [503, "Service Unavailable"]] as const) {
+      const err = new ApiError(status, message);
+      expect(describeApiError(err)).toBe(SERVER_ERROR_TEXT);
+      const show = vi.fn();
+      resetErrorDedupe();
+      showApiError(show, err, "x");
+      expect(show).toHaveBeenCalledExactlyOnceWith(SERVER_ERROR_TEXT);
+    }
+    expect(SERVER_ERROR_TEXT).toBe("Máy chủ đang gặp sự cố, thử lại sau ít phút.");
+  });
+
+  it("câu tiếng Anh của BE không có trong bảng dịch → câu chung tiếng Việt; câu đã Việt thì giữ nguyên", () => {
+    expect(describeApiError(new ApiError(400, "Something odd happened"))).toBe(GENERIC_ERROR_TEXT);
+    expect(describeApiError(new ApiError(404, "Thing was not located anywhere"))).toMatch(/Không tìm thấy/);
+    expect(describeApiError(new ApiError(409, "Weird collision"))).toMatch(/xung đột/);
+    expect(describeApiError(new ApiError(404, "Menu item not found in this chain"))).toMatch(/Không tìm thấy/); // có trong bảng
+    expect(describeApiError(new ApiError(400, "Giá phải là số nguyên đồng, từ 0 trở lên"))).toBe("Giá phải là số nguyên đồng, từ 0 trở lên");
+    expect(describeApiError(new Error("TypeError: x is not a function"))).toBe("Có lỗi xảy ra. Thử lại sau.");
+    for (const text of [describeApiError(new ApiError(400, "Something odd happened")), describeApiError(new ApiError(409, "Weird collision"))]) {
+      expect(text).not.toMatch(/odd|collision|happened/i);
+    }
+    // thông báo hạn mức cũng không lộ câu tiếng Anh của BE
+    expect(describeApiError(new ApiError(409, "Service plan account limit has been reached", [], "PLAN_LIMIT_REACHED"))).not.toMatch(/Service plan/);
+  });
+
+  it("chống trùng: cùng loại lỗi, cùng màn, cùng nội dung trong 3 giây chỉ hiện một thông báo; sau đó hiện lại", () => {
+    resetErrorDedupe();
+    const show = vi.fn();
+    for (let i = 0; i < 4; i++) showApiError(show, new ApiError(500, "Internal server error"), "x");
+    expect(show).toHaveBeenCalledTimes(1);
+    // nội dung khác vẫn hiện
+    showApiError(show, new ApiError(400, "Giá phải là số nguyên đồng"), "x");
+    expect(show).toHaveBeenCalledTimes(2);
+    // hết cửa sổ chống trùng
+    vi.setSystemTime(Date.now() + ERROR_DEDUPE_MS + 100);
+    showApiError(show, new ApiError(500, "Internal server error"), "x");
+    expect(show).toHaveBeenCalledTimes(3);
+    vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
+  });
+
+  it("403: hết hạn không mã → chỉ đọc (tiếng Việt); thiếu quyền → câu tiếng Việt, không lộ tiếng Anh", () => {
+    expect(describeApiError(new ApiError(403, "The business subscription is read-only; renew it before making this change"))).toBe(READ_ONLY_TEXT);
+    const denied = describeApiError(new ApiError(403, "You do not have permission to access this resource"));
+    expect(denied).toBe("Bạn không đủ quyền thực hiện thao tác này.");
+    expect(denied).not.toMatch(/permission|resource/i);
+  });
+
+  it("lỗi 403/mất mạng ở màn tự hiện khối lỗi trong trang (Reports, BranchInfo) không bắn thêm thông báo nổi", () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const route = vi.spyOn(window, "location", "get");
+    route.mockReturnValue({ ...window.location, pathname: "/owner/reports" } as Location);
+    reportApiError(new ApiError(403, "no"));
+    reportApiError(new ApiError(0, "mạng"));
+    expect(handler).not.toHaveBeenCalled();
+    // hạn mức vẫn báo toàn cục ở mọi màn
+    reportApiError(new ApiError(409, "x", [], "PLAN_LIMIT_REACHED"));
+    expect(handler).toHaveBeenCalledTimes(1);
+    route.mockRestore();
     setApiErrorHandler(null);
   });
 

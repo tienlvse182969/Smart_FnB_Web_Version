@@ -30,9 +30,14 @@ const snap = () =>
   q(`(() => {
     const vis = (e) => e.offsetParent !== null || getComputedStyle(e).position === "fixed";
     const txt = (e) => e.innerText.replace(/\\s+/g, " ").trim();
+    // Màn lỗi nạp khu vực (router/guards.tsx) là một khối toàn trang, không phải Alert: nhận diện theo tiêu đề của nó.
+    const scopeBox = document.body.innerText.match(/Không tải được phạm vi làm việc\\n([^\\n]+)/);
+    const alerts = [...document.querySelectorAll(".ant-alert-error, .ant-result")].filter(vis).map(txt);
+    if (scopeBox) alerts.push("Không tải được phạm vi làm việc " + scopeBox[1]);
     return {
       notices: [...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map(txt),
-      alerts: [...document.querySelectorAll(".ant-alert-error, .ant-result")].filter(vis).map(txt),
+      alerts,
+      scopeScreen: !!scopeBox,
       retry: [...document.querySelectorAll("button")].some((b) => /thử lại/i.test(b.textContent) && !b.disabled),
       bodyLen: document.body.innerText.length,
       sider: !!document.querySelector(".ant-layout-sider"),
@@ -72,7 +77,7 @@ function judgeError(s, extra = []) {
   if (texts.length === 0) problems.push("NO_MSG");
   if (texts.some((t) => RAW.test(t))) problems.push("RAW_TEXT");
   if (texts.length > 1) problems.push("DUP");
-  if (!(s.sider && s.bodyLen > 150)) problems.push("BLANK");
+  if (!((s.sider || s.scopeScreen) && s.bodyLen > 60)) problems.push("BLANK");
   if (s.spinner || s.loadingCtl) problems.push("HANG");
   return { problems, texts };
 }
