@@ -15,6 +15,7 @@ import type {
   OptionGroup,
 } from "../../types";
 import { loadPersistedAccounts } from "../modules/account/persist";
+import { loadPersistedBranchOptions } from "../modules/branchOptions/persist";
 import { loadPersistedOptions } from "../modules/options/persist";
 import { generateBranchOrders } from "./data/orders";
 import {
@@ -130,6 +131,12 @@ export function getBranchOptions(chainId: string, branchId: string): BranchOptio
     list = s.optionGroups.flatMap((g) =>
       g.options.map((o) => ({ branchId, optionId: o.id, isAvailable: hashString(`${branchId}:${o.id}`) % 9 !== 0 })),
     );
+    // Mock tuỳ chọn theo chi nhánh lưu qua F5 (5.7c): phủ cờ đã lưu lên dữ liệu sinh sẵn.
+    const saved = loadPersistedBranchOptions(chainId, branchId);
+    if (saved) {
+      const byId = new Map(saved.map((r) => [r.optionId, r.isAvailable]));
+      list = list.map((r) => (byId.has(r.optionId) ? { ...r, isAvailable: byId.get(r.optionId)! } : r));
+    }
     s.branchOptions.set(branchId, list);
   }
   return list;

@@ -60,6 +60,36 @@ export type BranchOptionState = {
   isAvailable: boolean;
 };
 
+/** Một tuỳ chọn tại chi nhánh như Manager thấy (`GET /manager/menu-options`, 5.7c). */
+export type BranchOptionRow = {
+  optionId: string;
+  name: string;
+  priceDelta: number;
+  groupId: string;
+  groupName: string;
+  /** Owner đã tắt tuỳ chọn hoặc cả nhóm (cấp chuỗi): chi nhánh không bật lại được (BR-12). KHÔNG suy từ `effectiveAvailable`. */
+  ownerDisabled: boolean;
+  /** Cờ riêng của chi nhánh (Manager/Barista bật tắt). */
+  isAvailable: boolean;
+  /** Bán được thật = Owner bật và chi nhánh bật. Chỉ để hiển thị. */
+  effectiveAvailable: boolean;
+};
+
+/** Nhóm tuỳ chọn tại chi nhánh do web gom từ `BranchOptionRow` (API không trả thứ tự nhóm/tuỳ chọn). */
+export type BranchOptionGroupView = {
+  groupId: string;
+  groupName: string;
+  options: BranchOptionRow[];
+};
+
+/** Kết quả bật/tắt tuỳ chọn tại chi nhánh. `affectedOrderCount` = số đơn đã thanh toán bị chuyển "Hết món" (khi tắt). */
+export type BranchOptionWriteResult = {
+  optionId: string;
+  isAvailable: boolean;
+  effectiveAvailable: boolean;
+  affectedOrderCount: number;
+};
+
 /**
  * Cấu hình tuỳ chọn của một MÓN THẬT (theo ID món từ BE): các nhóm gắn vào món theo thứ tự
  * (`MenuItemOptionGroup.displayOrder`) và cờ "không gom món" (đặc tả 8.3). CHỜ BE cho cả hai.

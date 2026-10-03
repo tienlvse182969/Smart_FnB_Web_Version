@@ -14,6 +14,7 @@ import {
   type MockProfileId,
 } from "../api";
 import { clearPersistedAccounts } from "../api/modules/account/persist";
+import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
 import { clearPersistedOptions } from "../api/modules/options/persist";
 import { createMockPairingCode } from "../api/modules/stations/pairingMock";
 import { useAppStore } from "../store";
@@ -169,6 +170,7 @@ export default function MockPanel() {
             onClick={() => {
               // Xoá dữ liệu mock đã lưu qua F5 (hiện có: tuỳ chọn món) rồi tải lại để bộ nhớ phiên cũng sinh lại.
               clearPersistedOptions();
+              clearPersistedBranchOptions();
               clearPersistedAccounts();
               window.location.reload();
             }}

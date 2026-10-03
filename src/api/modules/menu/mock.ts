@@ -240,7 +240,7 @@ export const menuMock: MenuApi = {
 };
 
 /** Mock chỉ nhận branchId (như BE) nên phải tra chuỗi của chi nhánh qua module branch. */
-async function chainOfBranch(branchId: string): Promise<string> {
+export async function chainOfBranch(branchId: string): Promise<string> {
   const branch = (await branchApi.listBranches()).find((b) => b.id === branchId);
   if (!branch) throw new ApiError(404, "Branch not found");
   return branch.chainId;

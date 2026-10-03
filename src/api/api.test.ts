@@ -23,10 +23,17 @@ describe("cờ module", () => {
   it("mặc định: auth/branch/report/plan/admin/menu/account/stations = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "account", "stations"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "account", "stations", "branch_options"] as const) expect(modes[m]).toBe("real");
     for (const m of ["options", "branding", "order", "ai", "payos"] as const) {
       expect(modes[m]).toBe("mock");
     }
+  });
+
+  it("VITE_API_BRANCH_OPTIONS ghi đè riêng, không đụng cờ options của Owner", () => {
+    const modes = resolveModes({ VITE_API_BRANCH_OPTIONS: "mock" });
+    expect(modes.branch_options).toBe("mock");
+    expect(modes.options).toBe("mock");
+    expect(resolveModes({ VITE_API_OPTIONS: "mock" }).branch_options).toBe("real");
   });
 
   it("VITE_API_<MODULE> ghi đè từng module riêng lẻ", () => {
