@@ -89,4 +89,6 @@ export type BranchMenuItem = {
   imageUrl: string | null;
   /** Còn bán hôm nay — Manager/Barista bật tắt. */
   isAvailable: boolean;
+  /** Owner đã tắt món (cấp chuỗi): chi nhánh không bật lại được (BR-12). BE chưa trả món này (api-contract-plan #19) nên real luôn false. */
+  ownerDisabled: boolean;
 };

@@ -203,21 +203,24 @@ export const menuMock: MenuApi = {
     const chainId = await chainOfBranch(branchId);
     ensureBranchRows(chainId, branchId);
     const s = getChainState(chainId);
+    // Khác BE hiện tại (#19): mock trả cả món Owner đã tắt (đã gán cho chi nhánh) kèm `ownerDisabled` để thử dòng xám.
     return s.menuItems
-      .filter((m) => {
+      .filter((m) => s.itemBranches.get(m.id)?.get(branchId)?.isEnabled)
+      .map((m) => {
         const cat = s.categories.find((c) => c.id === m.categoryId);
-        // BR-12: món bán được khi bật cấp chuỗi (và danh mục bật) VÀ đã gán cho chi nhánh.
-        return m.isActive && cat?.isActive && s.itemBranches.get(m.id)?.get(branchId)?.isEnabled;
-      })
-      .map((m) => ({
-        menuItemId: m.id,
-        sku: m.sku,
-        name: m.name,
-        categoryName: m.categoryName,
-        price: m.price,
-        imageUrl: m.imageUrl,
-        isAvailable: s.itemBranches.get(m.id)!.get(branchId)!.isAvailable,
-      }));
+        const ownerDisabled = !(m.isActive && cat?.isActive);
+        return {
+          menuItemId: m.id,
+          sku: m.sku,
+          name: m.name,
+          categoryName: m.categoryName,
+          price: m.price,
+          imageUrl: m.imageUrl,
+          // BR-12: món bán được khi Owner bật (và danh mục bật), đã gán chi nhánh, và còn bán hôm nay.
+          isAvailable: !ownerDisabled && s.itemBranches.get(m.id)!.get(branchId)!.isAvailable,
+          ownerDisabled,
+        };
+      });
   },
 
   async setBranchItemAvailable(branchId, itemId, isAvailable) {
@@ -227,6 +230,11 @@ export const menuMock: MenuApi = {
     ensureBranchRows(chainId, branchId);
     const row = getChainState(chainId).itemBranches.get(itemId)?.get(branchId);
     if (!row?.isEnabled) throw new ApiError(404, "Menu item not found in this branch");
+    const s = getChainState(chainId);
+    const item = s.menuItems.find((m) => m.id === itemId);
+    const cat = s.categories.find((c) => c.id === item?.categoryId);
+    // BR-12: Owner tắt thì chi nhánh không bật lại được.
+    if (isAvailable && !(item?.isActive && cat?.isActive)) throw new ApiError(403, "Owner đã tắt món này, chi nhánh không bật lại được");
     row.isAvailable = isAvailable;
   },
 };

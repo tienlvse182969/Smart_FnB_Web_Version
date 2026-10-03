@@ -612,6 +612,61 @@ try {
     await sleep(500);
     check("Hết hạn gói: nút 'Thu hồi' bị khoá", await q(`[...document.querySelectorAll('[data-testid="device-revoke"]')].length > 0 && [...document.querySelectorAll('[data-testid="device-revoke"]')].every((b) => b.disabled)`));
     await tab.setCheckbox("mock-expired", false);
+
+    // ============================================================ MOCK — 5.7b menu món chi nhánh (BM-02)
+    {
+    await tab.clickMenu("Món tại chi nhánh");
+    await sleep(1200);
+    const menuRows = () =>
+      q(`[...document.querySelectorAll('[data-testid="branch-menu-row"]')].map((r) => { const sw = r.querySelector("button.ant-switch");
+        return { name: r.querySelector("span").innerText.trim(), text: r.innerText.replace(/\\s+/g, " ").trim(), off: r.dataset.ownerDisabled === "true", checked: sw?.classList.contains("ant-switch-checked"), disabled: !!sw?.disabled }; })`);
+    const clickSwitchOf = (name) =>
+      q(`(() => { const r = [...document.querySelectorAll('[data-testid="branch-menu-row"]')].find((x) => x.querySelector("span").innerText.trim() === ${J(name)}); const sw = r?.querySelector("button.ant-switch"); if (!sw || sw.disabled) return false; sw.click(); return true })()`);
+    const confirmOpen = () => q(`!!document.querySelector(".ant-modal-confirm")`);
+    let mRows = await menuRows();
+    check("Menu chi nhánh (mock): banner 'chỉ áp dụng cho chi nhánh này trong ngày…', nhóm theo danh mục, có món", /Bật\/tắt chỉ áp dụng cho chi nhánh này trong ngày\. Tên, giá, ảnh do Owner quản lý\./.test(await q(`${tid("branch-menu-banner")}?.innerText ?? ""`)) && (await q(`document.querySelectorAll('[data-testid="branch-menu-group"]').length`)) >= 2 && mRows.length >= 5, `${mRows.length} món`);
+    const ownerOff = mRows.filter((r) => r.off);
+    check("Menu chi nhánh (mock): có dòng 'Owner đã tắt', công tắc khoá, bấm không mở hộp", ownerOff.length >= 1 && ownerOff.every((r) => r.disabled && /Owner đã tắt/.test(r.text) && !r.checked) && !(await clickSwitchOf(ownerOff[0].name)) && !(await confirmOpen()), ownerOff.map((r) => r.name).join(", "));
+    // tìm kiếm (không phân biệt hoa/thường, dấu)
+    const sample = mRows.find((r) => !r.off);
+    const needle = sample.name.slice(0, 4).toUpperCase();
+    await setTid("branch-menu-search", needle);
+    await sleep(500);
+    const found = await menuRows();
+    check("Menu chi nhánh (mock): tìm theo tên lọc đúng (hoa/thường), xoá ô thì đủ món", found.length >= 1 && found.length <= mRows.length && found.some((r) => r.name === sample.name) && found.every((r) => r.name.toLowerCase().includes(needle.toLowerCase())), `${found.length}/${mRows.length}`);
+    await setTid("branch-menu-search", "zzzkhongco");
+    await sleep(400);
+    check("Menu chi nhánh (mock): tìm không ra → 'Không có món khớp'", (await menuRows()).length === 0 && /Không có món khớp/.test(await pageText()));
+    await setTid("branch-menu-search", "");
+    await sleep(400);
+    check("Menu chi nhánh (mock): xoá ô tìm → đủ món", (await menuRows()).length === mRows.length);
+    // tắt: có hộp xác nhận, huỷ thì giữ nguyên
+    const target = sample.checked ? sample : mRows.find((r) => !r.off && r.checked);
+    await clickSwitchOf(target.name);
+    await sleep(600);
+    check("Menu chi nhánh (mock): tắt món mở hộp 'Món sẽ ẩn khỏi POS của chi nhánh ngay.' (không nhắc đơn đã thanh toán, không bắt lý do)", (await q(`${tid("confirm-menu-off")}?.innerText ?? ""`)) === "Món sẽ ẩn khỏi POS của chi nhánh ngay." && !(await q(`!!document.querySelector(".ant-modal-confirm textarea, .ant-modal-confirm input")`)));
+    await confirmCancel();
+    await sleep(600);
+    check("Menu chi nhánh (mock): huỷ hộp thì món vẫn bật", (await menuRows()).find((r) => r.name === target.name).checked === true);
+    await clickSwitchOf(target.name);
+    await confirmOk("Tắt bán");
+    await sleep(1200);
+    check("Menu chi nhánh (mock): xác nhận tắt → món tắt, thông báo thành công đúng 1 lần", (await menuRows()).find((r) => r.name === target.name).checked === false && (await toasts()) === "Đã tạm ngừng bán món hôm nay", await toasts());
+    // bật lại: không hộp
+    await clickSwitchOf(target.name);
+    await sleep(900);
+    check("Menu chi nhánh (mock): bật lại KHÔNG có hộp xác nhận, món bật trở lại", !(await confirmOpen()) && (await menuRows()).find((r) => r.name === target.name).checked === true);
+    // hết hạn gói
+    await tab.openMockPanel();
+    await tab.setCheckbox("mock-expired", true);
+    await sleep(900);
+    const expMenu = await menuRows();
+    check("Menu chi nhánh (mock): hết hạn gói → mọi công tắc bị khoá", expMenu.length > 0 && expMenu.every((r) => r.disabled), `${expMenu.filter((r) => !r.disabled).length} công tắc còn mở`);
+    await q(`document.querySelector('[data-testid="branch-menu-row"] [data-testid="action-guard"]')?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))`);
+    await sleep(700);
+    check("Menu chi nhánh (mock): hết hạn gói → tooltip lý do 'chỉ đọc' trên công tắc", /chế độ chỉ đọc/.test(await q(`[...document.querySelectorAll(".ant-tooltip")].map((e) => e.innerText).join(" ")`)));
+    await tab.setCheckbox("mock-expired", false);
+    }
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
     await tab.blockWrites(SESSION_ALLOW);
@@ -918,6 +973,45 @@ try {
       console.log("NOTE  Real chưa có quầy nào nên chưa có dữ liệu để kiểm ghép màn hình khách và thu hồi thiết bị bằng DTO thật; hai thao tác này được kiểm ở mock (phase5 mock) và bằng unit test với fetch giả.");
     }
     check("Real · Thiết bị: GET lại /stations — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
+
+    // ---- 5.7b: Manager real — menu món chi nhánh thật; tắt 1 món tới hết hộp xác nhận, PATCH bị chặn ở CDP, so DTO
+    const rawBranches = await beGet("/branches", "manager");
+    const mgrBranch = (Array.isArray(rawBranches) ? rawBranches : rawBranches.data)[0];
+    const beMenuBefore = await beGet(`/branches/${mgrBranch.id}/menu`, "manager");
+    const beItems = beMenuBefore.categories.flatMap((c) => c.items.map((i) => ({ ...i, category: c.name })));
+    tab.blockedWrites.length = 0;
+    // Thông báo của khối trước (ghép bị chặn) còn trên màn hình: đóng và chờ hết rồi mới đếm toast của màn Món.
+    await q(`document.querySelectorAll(".ant-notification-notice-close, .ant-message-notice-close").forEach((b) => b.click())`);
+    for (let i = 0; i < 40 && (await toasts()) !== ""; i++) await sleep(250);
+    await tab.clickMenu("Món tại chi nhánh");
+    await sleep(1800);
+    const realMenuRows = () =>
+      q(`[...document.querySelectorAll('[data-testid="branch-menu-row"]')].map((r) => { const sw = r.querySelector("button.ant-switch");
+        return { name: r.querySelector("span").innerText.trim(), off: r.dataset.ownerDisabled === "true", checked: sw?.classList.contains("ant-switch-checked") }; })`);
+    let rm = await realMenuRows();
+    check("Real · Manager · Menu chi nhánh: số món và tên khớp GET /branches/{id}/menu, không dòng 'Owner đã tắt' (BE chưa trả, #19)", rm.length === beItems.length && beItems.every((i) => rm.some((r) => r.name === i.name)) && rm.every((r) => !r.off), `${rm.length}/${beItems.length}`);
+    check("Real · Manager · Menu chi nhánh: trạng thái công tắc khớp isAvailable của BE", beItems.every((i) => rm.find((r) => r.name === i.name)?.checked === i.isAvailable));
+    check("Real · Manager · Menu chi nhánh: 0 toast lỗi khi tải", (await toasts()) === "", await toasts());
+    if (beItems.length === 0) {
+      console.log("NOTE  Real: chi nhánh của Manager chưa có món nào, không kiểm được thao tác tắt bằng DTO thật.");
+    } else {
+      const victim = beItems.find((i) => i.isAvailable) ?? beItems[0];
+      const turningOff = victim.isAvailable;
+      await q(`(() => { const r = [...document.querySelectorAll('[data-testid="branch-menu-row"]')].find((x) => x.querySelector("span").innerText.trim() === ${J(victim.name)}); r.querySelector("button.ant-switch").click(); })()`);
+      if (turningOff) {
+        await sleep(600);
+        check("Real · Menu chi nhánh: tắt món mở hộp xác nhận đúng nội dung", (await q(`${tid("confirm-menu-off")}?.innerText ?? ""`)) === "Món sẽ ẩn khỏi POS của chi nhánh ngay.");
+        await confirmOk("Tắt bán");
+      }
+      await sleep(1500);
+      const w = tab.blockedWrites.filter((x) => /\/menu\/items\//.test(x.path));
+      const body = w[0]?.body ? JSON.parse(w[0].body) : null;
+      check("Real · Menu chi nhánh: đúng 1 request ghi bị chặn: PATCH /branches/{id}/menu/items/{id}, body CHỈ { isAvailable } (khớp UpdateBranchMenuItemDto, menu.dto.ts:194-214)", w.length === 1 && w[0].method === "PATCH" && /^\/api\/v1\/branches\/[0-9a-f-]{36}\/menu\/items\/[0-9a-f-]{36}$/.test(w[0].path) && body && J(Object.keys(body)) === J(["isAvailable"]) && body.isAvailable === !victim.isAvailable, J(w));
+      check("Real · Menu chi nhánh: đúng 1 toast lỗi (do request ghi bị chặn), không thêm toast nào khác", (await q(`document.querySelectorAll(".ant-message-notice, .ant-notification-notice").length`)) === 1, await toasts());
+      check("Real · Menu chi nhánh: ghi thất bại thì công tắc về đúng trạng thái BE", (await realMenuRows()).find((r) => r.name === victim.name).checked === victim.isAvailable);
+      const beMenuAfter = await beGet(`/branches/${mgrBranch.id}/menu`, "manager");
+      check("Real · Menu chi nhánh: GET lại /branches/{id}/menu — dữ liệu không đổi", J(beMenuAfter) === J(beMenuBefore));
+    }
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
     console.log(`[real] request ghi bị chặn ở CDP: ${tab.blockedWrites.length}`);
