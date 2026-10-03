@@ -4,6 +4,7 @@ import { clearTokens, getAccessToken, refreshSession, setTokens } from "./http/c
 import { defineApi, wrapWithErrorHandling } from "./define";
 import { API_MODULES, DEFAULT_MODES, flagTable, resolveModes } from "./flags";
 import { mockControl } from "./mock/control";
+import { resetMockStates } from "./mock/store";
 import { setScenario } from "./mock/scenario";
 import { generateBranchOrders, ORDER_HISTORY_DAYS, revenueEvents } from "./mock/data/orders";
 import { buildMenu, buildOptionGroups, MOCK_PROFILES } from "./mock/data/profiles";
@@ -490,6 +491,25 @@ describe("mock chạy được với ID thật (không có lớp ánh xạ)", ()
       expect(answer.narrative.length).toBeGreaterThan(0);
       expect(answer.refused).toBeFalsy();
       expect(answer.table?.rows.length ?? 0).toBeGreaterThanOrEqual(0);
+    } finally {
+      vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
+    }
+  });
+
+  it("AI không phụ thuộc giờ chạy: 00:30 'hôm nay' có đơn; sáng mùng 1 'tháng này' có món bán chạy", async () => {
+    const cases = ["2026-10-15T00:30:00+07:00", "2026-11-01T00:30:00+07:00", "2026-11-01T07:10:00+07:00", "2026-10-15T03:00:00+07:00"];
+    try {
+      for (const at of cases) {
+        vi.setSystemTime(new Date(at));
+        setScenario({ profile: "A", tier: null, expired: false });
+        resetMockStates(); // đơn mock được sinh lần đầu rồi giữ trong bộ nhớ: sinh lại theo giờ giả
+        const chainId = (await branchMock.listChains())[0].id;
+        const orders = await aiMock.ask(chainId, "u", "Hôm nay mỗi chi nhánh có bao nhiêu đơn?");
+        expect(orders.narrative, at).toMatch(/đơn \(huỷ/);
+        expect(orders.table?.rows.some((r) => Number(r[1]) > 0), at).toBe(true);
+        const top = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
+        expect(top.table?.rows.length, at).toBeGreaterThan(0);
+      }
     } finally {
       vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
     }

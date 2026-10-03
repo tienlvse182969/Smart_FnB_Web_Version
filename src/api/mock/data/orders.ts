@@ -96,6 +96,7 @@ export function generateBranchOrders({ chainId, branchId, traffic, items, groups
   const groupMap = new Map(groups.map((g) => [g.id, g]));
   const sellable = items.filter((i) => i.isActive);
   const today = startOfLocalDay(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
   const orders: Order[] = [];
   let seq = 0;
 
@@ -107,7 +108,12 @@ export function generateBranchOrders({ chainId, branchId, traffic, items, groups
 
     const dayOrders: Order[] = [];
     for (let k = 0; k < count; k++) {
-      const minute = 7 * 60 + Math.floor(rng() * (14.5 * 60));
+      // Hôm nay, trước hoặc ngay sau giờ mở cửa (< 07:30): đơn mẫu mà rơi vào khung 07:00–21:30 đều nằm ở tương lai và bị bỏ,
+      // làm "hôm nay" và "tháng này" (sáng mùng 1) rỗng tuỳ giờ chạy. Dồn đơn hôm nay vào 90 phút vừa qua; mỗi đơn vẫn một lần gọi rng().
+      const minute =
+        d === 0 && nowMin < 7 * 60 + 30
+          ? Math.max(0, nowMin - 90) + Math.floor(rng() * Math.min(90, nowMin + 1))
+          : 7 * 60 + Math.floor(rng() * (14.5 * 60));
       const createdAt = new Date(day.getTime() + minute * 60_000);
       if (createdAt.getTime() > now.getTime()) continue;
 
