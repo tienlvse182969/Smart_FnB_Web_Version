@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { App as AntApp, Button } from "antd";
 import { describeApiError, isReadOnlyError, READ_ONLY_TEXT, setApiErrorHandler, translateBackendMessage, type ApiErrorEvent } from "../api";
+import { hasDirtyForm } from "../lib/dirtyGuard";
 import { useAppStore } from "../store";
 
 const NETWORK_KEY = "api-network-error";
@@ -13,7 +14,7 @@ const SERVER_KEY = "api-server-error";
  * Phải đặt bên trong <AntApp> để dùng được message/notification theo theme.
  */
 export default function ApiErrorBridge() {
-  const { message, notification } = AntApp.useApp();
+  const { message, notification, modal } = AntApp.useApp();
 
   useEffect(() => {
     setApiErrorHandler((event: ApiErrorEvent) => {
@@ -51,8 +52,19 @@ export default function ApiErrorBridge() {
                 type="primary"
                 data-testid="api-error-retry"
                 onClick={() => {
-                  notification.destroy(key);
-                  useAppStore.getState().requestRefresh();
+                  const refresh = () => {
+                    notification.destroy(key);
+                    useAppStore.getState().requestRefresh();
+                  };
+                  if (!hasDirtyForm()) return refresh();
+                  // Nạp lại dựng lại màn nên form đang nhập dở sẽ mất: hỏi trước. Huỷ → không làm gì, form giữ nguyên, thông báo lỗi còn đó.
+                  modal.confirm({
+                    title: "Nội dung đang nhập sẽ mất. Vẫn tải lại?",
+                    okText: "Tải lại",
+                    cancelText: "Huỷ",
+                    okButtonProps: { danger: true },
+                    onOk: refresh,
+                  });
                 }}
               >
                 Thử lại
@@ -64,7 +76,7 @@ export default function ApiErrorBridge() {
       }
     });
     return () => setApiErrorHandler(null);
-  }, [message, notification]);
+  }, [message, notification, modal]);
 
   return null;
 }
