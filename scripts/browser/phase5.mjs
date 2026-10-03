@@ -254,19 +254,173 @@ try {
     await tab.clickMenu("Nhân viên");
     await sleep(1200);
     check("Manager: màn Nhân viên không hiện mật khẩu nào", !SECRET.test(await pageText()));
-    await q(`[...document.querySelectorAll(".ant-card button")].find((b) => b.textContent.includes("Thêm nhân viên")).click()`);
-    await sleep(900);
-    await q(`(() => {
-      const set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); };
-      const inputs = [...document.querySelectorAll(".ant-drawer input:not([disabled]):not([role=combobox])")];
-      set(inputs[0], "Nhân Viên Thử"); set(inputs[1], "nv.thu@mock.local");
-    })()`);
-    await sleep(300);
-    await q(`[...document.querySelectorAll(".ant-drawer button")].find((b) => b.textContent.includes("Tạo tài khoản")).click()`);
-    await sleep(1500);
+    check("Nhân viên (mock): không có banner 'dữ liệu mẫu' và có dòng hạn mức 'Đã dùng X/Y tài khoản'", !(await has("staff-mock-banner")) && /Đã dùng \d+\/\d+ tài khoản/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
+    const staffRowsNow = await waitRows((r) => r.length >= 4);
+    check("Nhân viên: bảng chỉ có Cashier/Barista của chi nhánh mình, hiện trạng thái và đăng nhập gần nhất", staffRowsNow.length >= 4 && staffRowsNow.every((r) => /Cashier|Barista/.test(r) && /Đang hoạt động|Đã khoá|Chờ đặt mật khẩu/.test(r) && /Chưa từng|\d{2}\/\d{2}\/\d{4}/.test(r)), `${staffRowsNow.length} dòng; ${staffRowsNow[0]?.slice(0, 100)}`);
+    const staffQuotaText = () => q(`${tid("staff-quota")}?.innerText ?? ""`);
+    const quotaUsed = async () => Number(((await staffQuotaText()).match(/Đã dùng (\d+)\//) ?? [])[1] ?? NaN);
+    const quotaLimit = async () => Number(((await staffQuotaText()).match(/Đã dùng \d+\/(\d+)/) ?? [])[1] ?? NaN);
+    const usedBefore = await quotaUsed();
+    /** Tạo một nhân viên qua form; trả về chữ trong toast/hộp thông báo sau khi bấm xác nhận. */
+    const createStaffUI = async (fullName, email, phone, roleText) => {
+      await clickTid("staff-add");
+      await sleep(700);
+      await setTid("staff-name", fullName);
+      await setTid("staff-email", email);
+      if (phone) await setTid("staff-phone", phone);
+      if (roleText) {
+        await q(`document.querySelector(".ant-drawer .ant-select-content, .ant-drawer .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+        await sleep(400);
+        await q(`[...document.querySelectorAll(".ant-select-item-option")].find((o) => o.textContent.includes(${J(roleText)}))?.click()`);
+        await sleep(300);
+      }
+      await sleep(300);
+      await clickTid("staff-save");
+      await sleep(600);
+      await confirmOk("Tạo tài khoản");
+      await sleep(1200);
+    };
+    await createStaffUI("Nhân Viên Thử", "nv.thu@mock.local", "", "");
     const staffNotice = await q(`${tid("password-setup-notice")}?.innerText ?? ""`);
     check("Manager tạo nhân viên: hiện 'Đã xếp email đặt mật khẩu … hiệu lực tới …', không có mật khẩu", /Đã xếp email đặt mật khẩu tới nv\.thu@mock\.local, hiệu lực tới/.test(staffNotice) && !SECRET.test(await pageText()), staffNotice);
     await dismissModals();
+    let sRows = await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử")));
+    check("Nhân viên mới: hiện 'Chờ đặt mật khẩu', vai trò Cashier, chưa đăng nhập, quota +1", sRows.some((r) => r.includes("Nhân Viên Thử") && r.includes("Chờ đặt mật khẩu") && r.includes("Cashier") && r.includes("Chưa từng")) && (await quotaUsed()) === usedBefore + 1, `${usedBefore} → ${await quotaUsed()}`);
+
+    // ============================================================ MOCK — 5.4 Manager quản Cashier/Barista
+    // tạo Barista (chọn vai trò) + điện thoại
+    await createStaffUI("Pha Chế Thử", "pc.thu@mock.local", "0901234567", "Barista");
+    await dismissModals();
+    sRows = await waitRows((r) => r.some((x) => x.includes("Pha Chế Thử")));
+    check("Tạo Barista (kèm điện thoại): hiện đúng vai trò và số điện thoại", sRows.some((r) => r.includes("Pha Chế Thử") && r.includes("Barista") && r.includes("0901234567")), (sRows.find((r) => r.includes("Pha Chế Thử")) ?? "").slice(0, 120));
+    // email trùng
+    await createStaffUI("Người Trùng", "NV.THU@mock.local", "", "");
+    check("Email trùng (không phân biệt hoa thường) → báo 'Email này đã được dùng'", /Email này đã được dùng/.test(await toasts()), await toasts());
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+    await sleep(500);
+    // dữ liệu sai bị chặn ở form
+    await clickTid("staff-add");
+    await sleep(700);
+    await setTid("staff-name", "Một");
+    await setTid("staff-email", "khong-hop-le");
+    await setTid("staff-phone", "12");
+    await sleep(300);
+    const formErr = await q(`${tid("staff-errors")}?.innerText ?? ""`);
+    check("Form: họ tên một chữ, email sai, điện thoại sai → báo lỗi và khoá nút Tạo", /họ và tên/.test(formErr) && /Email không hợp lệ/.test(formErr) && /Điện thoại/.test(formErr) && (await q(`${tid("staff-save")}.disabled`)) === true, formErr.replace(/\s+/g, " "));
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+    await sleep(500);
+
+    // lọc vai trò + tìm kiếm
+    await q(`${tid("staff-role-filter")}.querySelector(".ant-select-content, .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+    await sleep(400);
+    await q(`[...document.querySelectorAll(".ant-select-item-option")].find((o) => o.textContent.trim() === "Barista")?.click()`);
+    sRows = await waitRows((r) => r.length > 0 && r.every((x) => x.includes("Barista")));
+    check("Lọc vai trò Barista: chỉ còn Barista", sRows.length >= 1 && sRows.every((r) => r.includes("Barista")), `${sRows.length} dòng`);
+    await q(`${tid("staff-role-filter")}.querySelector(".ant-select-content, .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+    await sleep(400);
+    await q(`[...document.querySelectorAll(".ant-select-item-option")].find((o) => o.textContent.trim() === "Mọi vai trò")?.click()`);
+    await sleep(900);
+    await q(`(() => { const el = document.querySelector(".ant-input-search input"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "pc.thu@"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await q(`document.querySelector(".ant-input-search .ant-btn, .ant-input-search-button").click()`);
+    sRows = await waitRows((r) => r.length === 1);
+    check("Tìm kiếm theo email: còn đúng một dòng", sRows.length === 1 && sRows[0].includes("Pha Chế Thử"), `${sRows.length} dòng`);
+    await q(`(() => { const el = document.querySelector(".ant-input-search input"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ""); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await q(`document.querySelector(".ant-input-search .ant-btn, .ant-input-search-button").click()`);
+    await waitRows((r) => r.length >= 6);
+
+    // sửa (họ tên, điện thoại) — có xác nhận
+    await clickRowBtn("Pha Chế Thử", "Sửa");
+    await sleep(700);
+    await setTid("staff-edit-phone", "abc");
+    await sleep(300);
+    check("Sửa: điện thoại sai bị báo lỗi và khoá nút Lưu", /Điện thoại/.test(await q(`${tid("staff-edit-errors")}?.innerText ?? ""`)) && (await q(`${tid("staff-edit-save")}.disabled`)) === true);
+    await setTid("staff-edit-name", "Pha Chế Đã Sửa");
+    await setTid("staff-edit-phone", "0912345678");
+    await sleep(300);
+    await clickTid("staff-edit-save");
+    await sleep(600);
+    check("Sửa: hộp xác nhận nêu họ tên mới và điện thoại", /Pha Chế Đã Sửa/.test(await q(`${tid("confirm-staff")}?.innerText ?? ""`)) && /0912345678/.test(await q(`${tid("confirm-staff")}?.innerText ?? ""`)));
+    await confirmOk("Lưu");
+    sRows = await waitRows((r) => r.some((x) => x.includes("Pha Chế Đã Sửa")));
+    check("Sửa: bảng hiện họ tên và điện thoại mới, email/vai trò giữ nguyên", sRows.some((r) => r.includes("Pha Chế Đã Sửa") && r.includes("0912345678") && r.includes("pc.thu@mock.local") && r.includes("Barista")));
+
+    // gửi lại email đặt mật khẩu
+    await clickRowBtn("Pha Chế Đã Sửa", "Gửi lại email");
+    await tab.waitFor(`/24 giờ/.test(${tid("confirm-staff")}?.innerText ?? "")`, 6000, "hộp xác nhận gửi lại email").catch(() => {});
+    check("Gửi lại email: hộp xác nhận nêu email và hiệu lực 24 giờ", /pc\.thu@mock\.local/.test(await q(`${tid("confirm-staff")}?.innerText ?? ""`)) && /24 giờ/.test(await q(`${tid("confirm-staff")}?.innerText ?? ""`)));
+    await confirmOk("Gửi email");
+    await sleep(1200);
+    const staffReset = await q(`${tid("password-setup-notice")}?.innerText ?? ""`);
+    check("Gửi lại email: hiện 'Đã xếp email đặt mật khẩu tới …, hiệu lực tới …', không có mật khẩu", /Đã xếp email đặt mật khẩu tới pc\.thu@mock\.local, hiệu lực tới/.test(staffReset) && !SECRET.test(await pageText()), staffReset);
+    await dismissModals();
+
+    // khoá / mở khoá
+    await clickRowBtn("Nhân Viên Thử", "Khoá");
+    await sleep(600);
+    const lockTxt = await q(`${tid("confirm-staff")}?.innerText ?? ""`);
+    check("Khoá: hộp xác nhận nêu tên, vai trò, chi nhánh và 'không tính vào hạn mức'", /Nhân Viên Thử/.test(lockTxt) && /Cashier/.test(lockTxt) && /chi nhánh/.test(lockTxt) && /không tính vào hạn mức/.test(lockTxt), lockTxt.replace(/\s+/g, " "));
+    const usedWithTwo = await quotaUsed();
+    await confirmOk("Khoá tài khoản");
+    sRows = await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử") && x.includes("Đã khoá")));
+    check("Khoá: trạng thái 'Đã khoá' và quota giảm 1 (khoá không tính)", sRows.some((r) => r.includes("Nhân Viên Thử") && r.includes("Đã khoá")) && (await quotaUsed()) === usedWithTwo - 1, `${usedWithTwo} → ${await quotaUsed()}`);
+    await clickRowBtn("Nhân Viên Thử", "Mở khoá");
+    await confirmOk("Mở khoá");
+    sRows = await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử") && !x.includes("Đã khoá")));
+    check("Mở khoá: có xác nhận, tài khoản trở lại và quota tăng 1", sRows.some((r) => r.includes("Nhân Viên Thử") && !r.includes("Đã khoá")) && (await quotaUsed()) === usedWithTwo);
+
+    // hạn mức: dùng gói Tiêu chuẩn (tối đa 30) rồi tạo cho tới khi đủ
+    await tab.openMockPanel();
+    await tab.scenario({ profile: "A", tier: "STANDARD" });
+    await tab.clickMenu("Quầy và máy in");
+    await tab.clickMenu("Nhân viên");
+    await sleep(1500);
+    const cap = await quotaLimit();
+    let guard = 0;
+    while ((await quotaUsed()) < cap && guard++ < 40) {
+      await createStaffUI(`Đủ Mức ${guard}`, `dumuc${guard}@mock.local`, "", "");
+      await dismissModals();
+    }
+    check("Hạn mức: tạo cho tới khi đủ — 'Đã dùng N/N', dòng báo đỏ 'đã đủ hạn mức'", (await quotaUsed()) === cap && /đã đủ hạn mức/.test(await staffQuotaText()), await staffQuotaText().then((t) => t.replace(/\s+/g, " ").slice(0, 90)));
+    check("Đủ hạn mức: nút 'Thêm nhân viên' bị khoá", (await q(`${tid("staff-add")}.disabled`)) === true);
+    // khoá một người → tạo tiếp được
+    await clickRowBtn("Nhân Viên Thử", "Khoá");
+    await confirmOk("Khoá tài khoản");
+    await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử") && x.includes("Đã khoá")));
+    await tab.waitFor(`${tid("staff-add")}.disabled === false`, 6000, "nút Thêm mở lại").catch(() => {});
+    check("Khoá một người khi đủ hạn mức: quota giảm 1 và nút Thêm mở lại", (await quotaUsed()) === cap - 1 && (await q(`${tid("staff-add")}.disabled`)) === false, `${await quotaUsed()}/${cap}`);
+    await createStaffUI("Chỗ Cuối", "chocuoi@mock.local", "", "");
+    await dismissModals();
+    check("Tạo thêm được 1 người sau khi khoá → lại đủ hạn mức", (await quotaUsed()) === cap && (await q(`${tid("staff-add")}.disabled`)) === true);
+    // đủ hạn mức → mở khoá bị chặn
+    const unlockDisabled = await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Nhân Viên Thử")); const b = [...r.querySelectorAll("button")].find((x) => x.textContent.includes("Mở khoá")); return b ? b.disabled : null })()`);
+    check("Đủ hạn mức: nút 'Mở khoá' cũng bị khoá (khoá không tính, mở khoá chiếm chỗ)", unlockDisabled === true, String(unlockDisabled));
+    // khoá thêm người khác thì mở khoá được
+    await clickRowBtn("Chỗ Cuối", "Khoá");
+    await confirmOk("Khoá tài khoản");
+    await waitRows((r) => r.some((x) => x.includes("Chỗ Cuối") && x.includes("Đã khoá")));
+    await tab.waitFor(`${tid("staff-add")}.disabled === false`, 6000, "quota giảm sau khi khoá").catch(() => {});
+    await clickRowBtn("Nhân Viên Thử", "Mở khoá");
+    await confirmOk("Mở khoá");
+    await sleep(1200);
+    check("Khoá thêm một người rồi mở khoá được: quota về đủ hạn mức", (await quotaUsed()) === cap && (await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử") && !x.includes("Đã khoá")))).length > 0);
+
+    // F5: dữ liệu còn (localStorage smartfnb:mock:accounts:v1)
+    const keyCount = await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:accounts:v1:")).length`);
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell sau F5");
+    await sleep(1800);
+    sRows = await waitRows((r) => r.length >= 6);
+    check("F5: nhân viên đã tạo vẫn còn (lưu localStorage), khoá 'smartfnb:mock:accounts:v1:<chainId>' có mặt", keyCount >= 1 && sRows.some((r) => r.includes("Pha Chế Đã Sửa") && r.includes("0912345678")) && sRows.some((r) => r.includes("Chỗ Cuối") && r.includes("Đã khoá")), `${keyCount} khoá, ${sRows.length} dòng`);
+
+    // hết hạn gói: mọi nút ghi khoá
+    await tab.openMockPanel();
+    await tab.setCheckbox("mock-expired", true);
+    await sleep(900);
+    const expiredState = await q(`({ add: ${tid("staff-add")}.disabled, rowButtons: [...document.querySelectorAll(".ant-table-tbody button")].every((b) => b.disabled) && document.querySelectorAll(".ant-table-tbody button").length > 0 })`);
+    check("Hết hạn gói: nút Thêm và mọi nút Sửa/Gửi lại email/Khoá/Mở khoá bị khoá (chỉ đọc)", expiredState.add && expiredState.rowButtons, J(expiredState));
+    await tab.setCheckbox("mock-expired", false);
+    check("Không chỗ nào ở màn Nhân viên hiện mật khẩu", !SECRET.test(await pageText()));
+    await tab.scenario({ profile: "A", tier: "ADVANCED" });
 
     // ============================================================ MOCK — 5.5 quầy và máy in
     await tab.clickMenu("Quầy và máy in");
@@ -687,6 +841,20 @@ try {
     await tab.waitFor(`location.pathname.startsWith("/manager")`, 20000, "vào manager");
     await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell manager");
     await sleep(1000);
+
+    // ---- 5.4: Manager real — màn Nhân viên là dữ liệu mẫu: banner, KHÔNG gọi /employees (Manager bị 403), không toast lỗi, không request ghi
+    const reqMark = tab.requests.length;
+    tab.blockedWrites.length = 0;
+    await tab.clickMenu("Nhân viên");
+    await sleep(2800);
+    const staffReqs = tab.requests.slice(reqMark);
+    const staffBanner = await q(`${tid("staff-mock-banner")}?.innerText ?? ""`);
+    check("Real · Manager · Nhân viên: banner 'Dữ liệu mẫu, chờ BE (#24)… chưa đăng nhập được app POS'", /Dữ liệu mẫu, chờ BE \(#24\)/.test(staffBanner) && /chưa đăng nhập được app POS/.test(staffBanner), staffBanner);
+    check("Real · Manager · Nhân viên: 0 request tới /employees", staffReqs.filter((r) => /\/employees/.test(r.url)).length === 0, `${staffReqs.length} request: ${[...new Set(staffReqs.map((r) => new URL(r.url).pathname.replace(/[0-9a-f-]{36}/g, "{id}")))].join(", ")}`);
+    check("Real · Manager · Nhân viên: 0 toast lỗi", (await toasts()) === "", await toasts());
+    check("Real · Manager · Nhân viên: 0 request ghi bị chặn ở CDP", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
+    check("Real · Manager · Nhân viên: bảng có dữ liệu mẫu và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
+
     await tab.clickMenu("Quầy và máy in");
     await sleep(1800);
     const beStations = await beGet("/stations", "manager");
