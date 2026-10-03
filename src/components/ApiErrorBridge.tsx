@@ -16,6 +16,9 @@ export default function ApiErrorBridge() {
 
   useEffect(() => {
     setApiErrorHandler((event: ApiErrorEvent) => {
+      // Đang nạp phạm vi làm việc: màn lỗi toàn trang (router/guards.tsx) đã nêu lỗi và có nút Thử lại, nên không bắn thêm thông báo nổi trùng.
+      const scope = useAppStore.getState().scopeStatus;
+      if ((scope === "loading" || scope === "error") && (event.kind === "network" || event.kind === "forbidden")) return;
       switch (event.kind) {
         case "forbidden":
           message.warning({ key: "api-forbidden", content: describeApiError(event.error) });

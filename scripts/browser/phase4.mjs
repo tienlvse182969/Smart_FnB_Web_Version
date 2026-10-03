@@ -144,7 +144,7 @@ try {
     await setInput(modal, "input", "danh mục THỬ");
     await clickIn(modal, "Lưu danh mục");
     await sleep(1300);
-    check("Danh mục: trùng tên → 409, hiện thông báo BE", /already exists/.test(await toasts()), await toasts());
+    check("Danh mục: trùng tên → 409, hiện thông báo tiếng Việt (đã dịch từ câu BE)", /Tên danh mục đã tồn tại/.test(await toasts()), await toasts());
     await q(`document.querySelector(".ant-modal-close")?.click()`);
     await sleep(600);
 
@@ -171,7 +171,7 @@ try {
     await rowButton("Cà phê", "Xoá");
     await confirmModal("Xoá danh mục");
     await sleep(1500);
-    check("Danh mục: xoá danh mục còn món → 409, hiện thông báo BE, danh mục còn nguyên", /item\(s\)/.test(await toasts()) && (await rows()).some((r) => r.includes("Cà phê")), await toasts());
+    check("Danh mục: xoá danh mục còn món → 409, hiện thông báo tiếng Việt, danh mục còn nguyên", /Danh mục còn món nên không xoá được/.test(await toasts()) && (await rows()).some((r) => r.includes("Cà phê")), await toasts());
 
     await rowButton("Danh mục đã đổi tên", "Xoá");
     await confirmModal("Xoá danh mục");
@@ -244,7 +244,7 @@ try {
     await sleep(400);
     await clickIn(drawer, "Thêm món");
     await sleep(1500);
-    check("Món: trùng SKU → 409, hiện thông báo BE", /SKU already exists/.test(await toasts()), await toasts());
+    check("Món: trùng SKU → 409, hiện thông báo tiếng Việt", /Mã SKU đã tồn tại/.test(await toasts()), await toasts());
     await q(`document.querySelector(".ant-drawer-close")?.click()`);
     await sleep(700);
 
@@ -494,7 +494,7 @@ try {
     await tab.setSelect("mock-failure", "server");
     await clickTid("item-save");
     await sleep(1500);
-    check("Lỗi BE: lưu món báo lỗi, drawer còn mở", /lỗi|Không lưu được/i.test(await toasts()) && (await has("item-save")), await toasts());
+    check("Lỗi BE: lưu món báo lỗi, drawer còn mở", /Máy chủ đang gặp sự cố/.test(await toasts()) && (await has("item-save")), await toasts());
     await tab.setSelect("mock-failure", "none");
     await q(`document.querySelector(".ant-drawer-close")?.click()`);
     await sleep(800);

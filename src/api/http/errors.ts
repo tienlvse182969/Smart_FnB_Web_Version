@@ -83,6 +83,17 @@ const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹ�
 
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
+  [/category with this name already exists/i, "Tên danh mục đã tồn tại trong chuỗi."],
+  [/menu item with this sku already exists|sku already exists/i, "Mã SKU đã tồn tại trong chuỗi."],
+  [/category.*item\(s\)|item\(s\)|still has (menu )?items?/i, "Danh mục còn món nên không xoá được. Chuyển hoặc xoá món trước."],
+  [/email, phone,? (or|and) employee code already exists/i, "Email, số điện thoại hoặc mã nhân viên đã tồn tại."],
+  [/representative email already belongs/i, "Email người đại diện đã thuộc một tài khoản khác."],
+  [/only a pending application/i, "Chỉ hồ sơ đang chờ duyệt mới xử lý được."],
+  [/current usage exceeds/i, "Mức đang dùng vượt hạn mức của gói mới."],
+  [/already suspended/i, "Doanh nghiệp đã ở trạng thái tạm ngưng."],
+  [/not suspended/i, "Doanh nghiệp không ở trạng thái tạm ngưng."],
+  [/renew the expired subscription/i, "Gia hạn gói đã hết hạn trước khi kích hoạt lại."],
+  [/service plan code already exists/i, "Mã gói đã tồn tại."],
   [/subscription is not active/i, "Gói dịch vụ của doanh nghiệp không còn hiệu lực."],
   [/account limit|plan limit|limit has been reached|exceed/i, "Đã đạt hạn mức của gói dịch vụ."],
   [/printer address is required/i, "Cần nhập địa chỉ máy in."],
