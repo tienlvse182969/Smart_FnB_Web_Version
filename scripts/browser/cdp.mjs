@@ -13,6 +13,17 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** POST được phép khi chặn ghi: chỉ phiên đăng nhập. */
 export const SESSION_ALLOW = [/\/auth\/(login|refresh|logout)$/];
 
+/**
+ * Cờ dòng lệnh dùng chung cho các phaseN.mjs: `--mode=mock|real`, `--only=<khối>[,<khối>…]`; đối số trần đầu tiên vẫn được nhận
+ * như cũ (`node phase5.mjs real`). Không cờ → chạy hết như trước. Tên khối nằm ở docs/BAN-GIAO.md (mục "Chạy kiểm trình duyệt").
+ */
+export function cli(argv = process.argv.slice(2)) {
+  const flag = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  const positional = argv.find((a) => !a.startsWith("--"));
+  const only = flag("only");
+  return { mode: flag("mode") ?? positional, only: only ? only.split(",").map((s) => s.trim()).filter(Boolean) : null, positional };
+}
+
 function readEnvFile(path) {
   if (!existsSync(path)) return {};
   return Object.fromEntries(

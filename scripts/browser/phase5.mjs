@@ -5,9 +5,16 @@
 //     script bấm tới hết hộp xác nhận, ghi lại method + path + body định gửi và so với DTO của BE.
 //     KHÔNG tải lại trang khi đang có phiên (tải lại sẽ gọi POST /auth/refresh): điều hướng trong SPA bằng history.
 import { readFileSync } from "node:fs";
-import { accounts, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
+import { accounts, cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
-const MODE = process.argv[2] ?? "mock";
+// --mode=mock|real (hoặc đối số trần như cũ); --only=menu = chỉ khối menu món + tuỳ chọn chi nhánh (5.7b, 5.7d); không cờ = chạy hết
+const CLI = cli();
+const MODE = CLI.mode ?? "mock";
+if (CLI.only && !CLI.only.every((n) => n === "menu")) {
+  console.log(`--only hỗ trợ: menu (nhận được: ${CLI.only.join(",")})`);
+  process.exit(2);
+}
+const FULL = !CLI.only;
 const REAL = MODE === "real";
 const J = JSON.stringify;
 const tab = await newTab("about:blank", REAL ? "real" : "mock");
@@ -85,6 +92,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 try {
   if (!REAL) {
+    if (FULL) { // các khối trước 5.7b (bỏ qua khi --only=menu); đóng ngay trước khối menu
     // ============================================================ MOCK — trang đặt mật khẩu
     await tab.goto("/login");
     await tab.clearStorage();
@@ -613,7 +621,18 @@ try {
     check("Hết hạn gói: nút 'Thu hồi' bị khoá", await q(`[...document.querySelectorAll('[data-testid="device-revoke"]')].length > 0 && [...document.querySelectorAll('[data-testid="device-revoke"]')].every((b) => b.disabled)`));
     await tab.setCheckbox("mock-expired", false);
 
-    // ============================================================ MOCK — 5.7b menu món chi nhánh (BM-02)
+    } // hết các khối trước 5.7b
+
+    // ============================================================ MOCK — 5.7b menu món chi nhánh (BM-02) + 5.7d tuỳ chọn (--only=menu)
+    if (!FULL) {
+      await tab.goto("/login");
+      await tab.clearStorage();
+      await tab.login("manager");
+      await tab.waitFor(`location.pathname.startsWith("/manager")`, 20000, "vào manager");
+      await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell manager");
+      await sleep(1000);
+      await tab.scenario({ profile: "A", tier: "ADVANCED" });
+    }
     {
     await tab.clickMenu("Món tại chi nhánh");
     await sleep(1200);
@@ -734,6 +753,7 @@ try {
   } else {
     // ============================================================ REAL — CHỈ ĐỌC; mọi request ghi bị chặn ở CDP
     await tab.blockWrites(SESSION_ALLOW);
+    if (FULL) { // các khối trước 5.7b (bỏ qua khi --only=menu); đóng ngay trước khối menu
     await tab.goto("/login");
     await tab.clearStorage();
     await tab.goto(`/setup-password?token=${LONG_TOKEN}`);
@@ -1038,6 +1058,16 @@ try {
     }
     check("Real · Thiết bị: GET lại /stations — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
 
+    } // hết các khối trước 5.7b
+
+    if (!FULL) {
+      await tab.goto("/login");
+      await tab.clearStorage();
+      await tab.login("manager");
+      await tab.waitFor(`location.pathname.startsWith("/manager")`, 20000, "vào manager");
+      await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell manager");
+      await sleep(1000);
+    }
     // ---- 5.7b: Manager real — menu món chi nhánh thật; tắt 1 món tới hết hộp xác nhận, PATCH bị chặn ở CDP, so DTO
     const rawBranches = await beGet("/branches", "manager");
     const mgrBranch = (Array.isArray(rawBranches) ? rawBranches : rawBranches.data)[0];

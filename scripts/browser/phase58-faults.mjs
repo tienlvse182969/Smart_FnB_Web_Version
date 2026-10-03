@@ -1,11 +1,18 @@
 // 5.8a — Giả lập lỗi (500, 403 không mã, mất mạng, 401) cho các màn dùng module REAL, trên BE thật, cổng 5173.
-//   node scripts/browser/phase58-faults.mjs [admin|owner|manager|all]
+//   node scripts/browser/phase58-faults.mjs [--only=admin|owner|manager|read|write|scope|expired|<id màn>] [--mode=real]
 // Chỉ ĐỌC: mọi request ghi bị chặn ở CDP (cdp.mjs: blockWrites + setFault); request ghi chỉ nhận lỗi giả, không bao giờ tới BE.
 // Chỉ POST /auth/login, /auth/refresh, /auth/logout đi thật. KHÔNG sửa mã ứng dụng: script chỉ quan sát và chấm.
 // Mỗi ca in một dòng `CASE màn | thao tác | loại lỗi | Đạt/Lỗi | mã lỗi` và cuối cùng một bảng JSON `FAULTS-RESULT`.
-import { newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
+import { cli, newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
-const ONLY = process.argv[2] ?? "all";
+// --only=<mục>[,<mục>…]: vai (admin|owner|manager), nhóm (read|write|scope|expired) hoặc một phần id màn (ví dụ owner/reports,
+// manager/menu). Không cờ (hoặc `all`) = chạy hết. --mode=real là mặc định và duy nhất (giả lập lỗi chỉ có ý nghĩa với module real).
+const CLI = cli();
+if (CLI.mode && CLI.mode !== "real" && CLI.mode !== "all") {
+  console.log("phase58-faults chỉ chạy --mode=real");
+  process.exit(2);
+}
+const TOKENS = (CLI.only ?? (CLI.positional && CLI.positional !== "all" && CLI.positional !== "real" ? [CLI.positional] : [])).filter(Boolean);
 const J = JSON.stringify;
 const tab = await newTab("about:blank", "real");
 const q = (expr) => tab.eval(expr);
@@ -358,18 +365,28 @@ async function expiredSession(role, spec) {
 
 // --- chạy --------------------------------------------------------------------------------------------------------
 const KINDS = ["500", "403", "network", "401"];
+const ROLES = ["admin", "owner", "manager"];
+const GROUPS = ["read", "write", "scope", "expired"];
+const screenTokens = TOKENS.filter((t) => !ROLES.includes(t) && !GROUPS.includes(t));
+const roleTokens = TOKENS.filter((t) => ROLES.includes(t));
+const groupTokens = TOKENS.filter((t) => GROUPS.includes(t));
+const inGroup = (g) => groupTokens.length === 0 || groupTokens.includes(g);
+const matchesScreen = (s) => screenTokens.length === 0 || screenTokens.some((t) => s.id.includes(t));
 try {
-  for (const role of ["admin", "owner", "manager"]) {
-    if (ONLY !== "all" && ONLY !== role) continue;
+  for (const role of ROLES) {
+    const mine = screens.filter((s) => s.role === role && matchesScreen(s));
+    if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0) continue;
     await login(role);
-    const mine = screens.filter((s) => s.role === role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
-    for (const spec of mine) for (const kind of KINDS) await readCase(spec, kind);
-    for (const spec of mine.filter((s) => s.write)) for (const kind of KINDS) await writeCase(spec, kind);
-    for (const kind of KINDS) await scopeCase(role, landing, kind);
-    // hết phiên: đăng nhập mới cho sạch trạng thái, và sau ca này phải đăng nhập lại
-    await login(role);
-    await expiredSession(role, mine.find((s) => !s.storeBased));
+    if (inGroup("read")) for (const spec of mine) for (const kind of KINDS) await readCase(spec, kind);
+    if (inGroup("write")) for (const spec of mine.filter((s) => s.write)) for (const kind of KINDS) await writeCase(spec, kind);
+    // ca "scope" và "expired" là của cả khu vực, không theo màn: chỉ chạy khi không lọc theo màn (hoặc khi chọn nhóm đó rõ ràng)
+    if (inGroup("scope") && (screenTokens.length === 0 || groupTokens.includes("scope"))) for (const kind of KINDS) await scopeCase(role, landing, kind);
+    if (inGroup("expired") && (screenTokens.length === 0 || groupTokens.includes("expired"))) {
+      // hết phiên: đăng nhập mới cho sạch trạng thái, và sau ca này phải đăng nhập lại
+      await login(role);
+      await expiredSession(role, mine.find((s) => !s.storeBased) ?? screens.find((s) => s.role === role && !s.storeBased));
+    }
   }
 } catch (e) {
   console.log("ERROR", e.stack ?? e.message);

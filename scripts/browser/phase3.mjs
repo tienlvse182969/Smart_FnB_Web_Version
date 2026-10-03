@@ -4,9 +4,9 @@
 // Xem README.md để biết biến môi trường (BASE_URL, AUTH_MODE…). Chế độ "real" KHÔNG duyệt, từ chối, tạm ngưng, đổi gói,
 // đặt lại mật khẩu, tạo/sửa gói trên dữ liệu thật; chỉ gửi 1 hồ sơ qua form (tạo hồ sơ PENDING). Gia hạn thật chỉ chạy khi
 // đặt ALLOW_REAL_RENEW=1.
-import { newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
+import { cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
-const MODE = process.argv[2] ?? "mock";
+const MODE = cli().mode ?? "mock"; // --mode=mock|real (hoặc đối số trần như cũ); phase3 chưa có --only
 const REAL = MODE === "real";
 const fmt = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 const addMonths = (d, n) => {

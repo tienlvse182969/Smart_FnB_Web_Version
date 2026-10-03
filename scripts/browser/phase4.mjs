@@ -3,9 +3,12 @@
 //   node scripts/browser/phase4.mjs real   # dev server cổng 5173 với cờ mặc định, BE chạy: CHỈ ĐỌC — không thêm/sửa/xoá/bật tắt gì
 // Chế độ real so sánh với dữ liệu BE đọc bằng GET (đăng nhập demo bằng .env của BE, không in mật khẩu).
 import { readFileSync } from "node:fs";
-import { newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { cli, newTab, closeTab, check, results, sleep } from "./cdp.mjs";
 
-const MODE = process.argv[2] ?? "mock";
+// --mode=mock|real (hoặc đối số trần như cũ); --only=owner|manager (không cờ = chạy hết)
+const CLI = cli();
+const MODE = CLI.mode ?? "mock";
+const want = (name) => !CLI.only || CLI.only.includes(name);
 const REAL = MODE === "real";
 const J = JSON.stringify;
 const tab = await newTab("about:blank", REAL ? "real" : "mock");
@@ -118,6 +121,7 @@ async function readBe() {
 
 try {
   if (!REAL) {
+    if (want("owner")) { // khối owner (bỏ qua khi --only=manager); đóng ở "hết khối owner"
     // ============================================================ MOCK — Owner: danh mục
     await login("owner");
     await tab.clickMenu("Danh mục món");
@@ -547,21 +551,31 @@ try {
     check("F5: xoá dữ liệu mock → nhóm tự tạo mất, dữ liệu sinh sẵn trở lại (Đường lại có 100% ★)", !afterClear.some((r) => r.includes("Nhóm F5")) && /100% ★/.test(afterClear.find((r) => r.includes("Đường")) ?? ""));
     check("F5: khoá localStorage đã bị xoá sạch", (await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:options:v1:")).length`)) === 0);
 
-    // ============================================================ MOCK — Manager: món chi nhánh
+    } // hết khối owner (bỏ qua khi --only=manager)
+
+    // ============================================================ MOCK — Manager: món chi nhánh (--only=manager chạy riêng khối này)
+    if (want("manager")) {
     await login("manager");
     await tab.clickMenu("Món tại chi nhánh");
     await sleep(1500);
-    list = await rows();
+    // Từ 5.7b màn này là hàng `branch-menu-row` (không còn bảng) và công tắc "tắt" có hộp xác nhận.
+    const mgrRows = () => q(`[...document.querySelectorAll('[data-testid="branch-menu-row"]')].map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    const list = await mgrRows();
     const mgrText = await tab.text();
     check("Manager: Món tại chi nhánh có dữ liệu, không còn 'Suất còn lại'/'còn lại'", list.length > 0 && !NO_STOCK.test(mgrText.replace(/Còn bán hôm nay/gi, "")), `${list.length} món`);
-    const before = await q(`document.querySelector(".ant-switch").classList.contains("ant-switch-checked")`);
-    await q(`document.querySelector(".ant-switch").click()`);
+    await q(`document.querySelector('[data-testid="branch-menu-row"][data-owner-disabled="false"] button.ant-switch:not(.ant-switch-disabled)').setAttribute("data-target", "1")`);
+    const before = await q(`document.querySelector('[data-target="1"]').classList.contains("ant-switch-checked")`);
+    await q(`document.querySelector('[data-target="1"]').click()`);
+    await sleep(600);
+    await q(`document.querySelector(".ant-modal-confirm .ant-btn-primary")?.click()`);
     await sleep(1300);
-    const after = await q(`document.querySelector(".ant-switch").classList.contains("ant-switch-checked")`);
+    const after = await q(`document.querySelector('[data-target="1"]').classList.contains("ant-switch-checked")`);
     const mt = await waitToast("bán món hôm nay");
     check("Manager: bật/tắt 'Còn bán hôm nay' chạy", before !== after && /bán món hôm nay|ngừng bán món hôm nay/.test(mt), mt);
+    }
   } else {
     // ============================================================ REAL — CHỈ ĐỌC
+    if (want("owner")) { // khối owner (bỏ qua khi --only=manager); đóng ở "hết khối owner"
     const be = await readBe();
     const nameOf = (r) => r.split("\n")[0];
     await login("owner");
@@ -653,14 +667,18 @@ try {
     list = await rows();
     check("Real · Danh sách món thật vẫn hiển thị đúng sau khi gắn nhóm", list.length === be.items.length && be.items.every((i) => list.some((r) => r.includes(i.name) && r.includes(i.sku))), `${list.length}/${be.items.length}`);
 
-    // Manager đọc menu chi nhánh
+    } // hết khối owner (bỏ qua khi --only=manager)
+
+    // Manager đọc menu chi nhánh (--only=manager chạy riêng khối này)
+    if (want("manager")) {
     await login("manager");
     await tab.clickMenu("Món tại chi nhánh");
     await sleep(1800);
-    list = await rows();
-    const beBranchItems = be.branchMenu.categories.flatMap((c) => c.items);
+    const list = await q(`[...document.querySelectorAll('[data-testid="branch-menu-row"]')].map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    const beBranchItems = (await readBe()).branchMenu.categories.flatMap((c) => c.items);
     check("Real · Manager: món chi nhánh khớp BE (chỉ món đang bật và đã gán)", list.length === beBranchItems.length && beBranchItems.every((i) => list.some((r) => r.includes(i.name))), `${list.length} (BE ${beBranchItems.length})`);
     check("Real · Manager: không còn 'Suất còn lại'/'còn lại'", !NO_STOCK.test((await tab.text()).replace(/Còn bán hôm nay/gi, "")));
+    }
   }
 } catch (e) {
   console.log("ERROR", e.stack ?? e.message);
