@@ -300,7 +300,7 @@ try {
     await clickModalButton("Đổi gói");
     await sleep(1500);
     const downgrade = await toasts();
-    check("Đổi gói (hạ vượt hạn mức): hiện đúng thông báo 409 của BE", /exceeds one or more limits/.test(downgrade), downgrade);
+    check("Đổi gói (hạ vượt hạn mức): hiện thông báo 409 của BE đã dịch sang tiếng Việt (5.8b), không lộ tiếng Anh", /Mức đang dùng vượt hạn mức của gói mới/.test(downgrade) && !/exceeds/i.test(downgrade), downgrade);
     await click(".ant-modal-close");
     await closeDrawer();
 
