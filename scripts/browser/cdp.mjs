@@ -176,6 +176,20 @@ class Tab {
     } else {
       this.blockedWrites.push({ method, path, body: postData ?? null });
       this.logWrite(method, path);
+      if (this.fulfillWrites) {
+        // Chế độ "trả lời giả": request ghi VẪN KHÔNG rời trình duyệt (không tới BE); trình duyệt nhận 200 `{}` để luồng nhiều lệnh
+        // (ví dụ đổi chỗ = 2 lệnh patch) chạy hết. Chỉ bật tạm cho đúng bước cần quan sát, rồi tắt.
+        void this.send("Fetch.fulfillRequest", {
+          requestId: p.requestId,
+          responseCode: 200,
+          responseHeaders: [
+            { name: "Content-Type", value: "application/json" },
+            { name: "Access-Control-Allow-Origin", value: "*" },
+          ],
+          body: Buffer.from("{}").toString("base64"),
+        });
+        return;
+      }
       void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" });
     }
   }

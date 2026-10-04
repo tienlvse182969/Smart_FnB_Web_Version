@@ -151,7 +151,10 @@ async function readBe() {
   const mgr = await asRole("manager.demo@smartfnb.local");
   const mgrMe = await call("/auth/me", mgr);
   const branchMenu = await call(`/branches/${mgrMe.branchId}/menu`, mgr);
-  return { categories, items, branches, branchMenu };
+  // Tuỳ chọn (6.3): nhóm kèm tuỳ chọn lồng và `_count.menuItems`; nhóm gắn vào từng món (`GET items/:id/option-groups`).
+  const optionGroups = await call(`/restaurant-chains/${chainId}/menu/option-groups`, owner);
+  const itemGroups = Object.fromEntries(await Promise.all(items.map(async (i) => [i.id, (await call(`/restaurant-chains/${chainId}/menu/items/${i.id}/option-groups`, owner)).map((g) => g.id)])));
+  return { chainId, categories, items, branches, branchMenu, optionGroups, itemGroups };
 }
 
 try {
@@ -800,47 +803,180 @@ try {
     list = await rows();
     check("Real · Món: lọc 'Đang bán' khớp BE", list.length === be.items.filter((i) => i.isActive).length, `${list.length}`);
 
-    // ============================================================ REAL — tuỳ chọn mock gắn lên món thật, KHÔNG ghi BE
-    // Cài bộ ghi các request không phải GET (fetch + XHR) trong trang; sau bước gắn phải rỗng.
-    await tab.clickMenu("Tuỳ chọn món");
-    await sleep(1500);
-    list = await rows();
-    check("Real · Tuỳ chọn: màn tuỳ chọn (mock) hiện nhóm mẫu và ghi chú 'chờ BE'", list.length >= 4 && /chờ BE/.test(await q(`${tid("options-pending-note")}?.innerText ?? ""`)), `${list.length} nhóm`);
+    // ============================================================ REAL — tuỳ chọn món (6.3, options = real): đọc khớp BE; mỗi thao tác ghi bấm tới hết xác nhận,
+    // request bị chặn ở CDP, so method/đường dẫn/body với DTO của BE (menu.dto.ts), rồi GET lại: dữ liệu không đổi.
+    const optionsBase = `/api/v1/restaurant-chains/${be.chainId}/menu`;
+    const groupsBefore = JSON.stringify(be.optionGroups);
+    const idRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+    /** Chạy một thao tác UI, trả các request ghi bị chặn (method, đường dẫn với id → {id}, đường dẫn thật, body đã parse). */
+    const writesOf = async (action, settle = 1300) => {
+      tab.blockedWrites.length = 0;
+      await action();
+      await sleep(settle);
+      return tab.blockedWrites.map((w) => ({ method: w.method, path: w.path.replace(idRe, "{id}"), rawPath: w.path, body: w.body ? JSON.parse(w.body) : undefined }));
+    };
+    const dismissAll = async () => {
+      await q(`document.querySelectorAll(".ant-notification-notice-close").forEach((b) => b.click()); document.querySelectorAll(".ant-modal-close").forEach((b) => b.click())`);
+      await sleep(600);
+    };
+    const keysOf = (b) => J(Object.keys(b ?? {}).sort());
+    const ruleOf = (g) => (g.isRequired ? (g.minSelections === g.maxSelections ? `Bắt buộc, chọn đúng ${g.maxSelections}` : `Bắt buộc, chọn ${g.minSelections}–${g.maxSelections}`) : `Không bắt buộc, chọn ${g.minSelections}–${g.maxSelections}`);
 
+    await tab.clickMenu("Tuỳ chọn món");
+    await sleep(1800);
+    list = await rows();
+    const gs = [...be.optionGroups].sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+    check("Real · Tuỳ chọn: số nhóm và tên khớp BE", list.length === gs.length && gs.every((g) => list.some((r) => r.includes(g.name) && r.includes(g.code))), `${list.length} (BE ${gs.length})`);
+    check("Real · Tuỳ chọn: quy tắc chọn và số tuỳ chọn từng nhóm khớp BE", gs.every((g) => list.some((r) => r.includes(g.name) && r.includes(ruleOf(g)) && g.options.every((o) => r.includes(o.name)))), gs.map((g) => `${g.code}:${ruleOf(g)}`).join(" · "));
+    check("Real · Tuỳ chọn: cột 'Số món' = _count.menuItems của BE (quyết định 18)", gs.every((g) => list.some((r) => r.includes(g.name) && new RegExp(`\\s${g._count.menuItems}\\s+Sửa\\s+Xoá$`).test(r.trim()))), gs.map((g) => `${g.code}:${g._count.menuItems}`).join(", "));
+    check("Real · Tuỳ chọn: không còn ghi chú 'lưu tạm' của mock, không có dấu ★ mặc định", !(await has("options-pending-note")) && !list.some((r) => r.includes("★")));
+    const g0 = gs[0];
+    await expandGroup(g0.name);
+    check("Real · Tuỳ chọn: panel trạng thái theo chi nhánh bị ẩn (có ghi chú), không có ô chọn chi nhánh", (await has("branch-states-note")) && !(await q(`!!(${detailOf(g0.code)})?.querySelector(".ant-select")`)));
+    const defaultBoxes = await q(`[...(${detailOf(g0.code)}).querySelectorAll('[data-testid="opt-default"]')].map((el) => { const i = el.matches("input") ? el : el.querySelector("input"); return { disabled: i.disabled, checked: i.checked, text: el.closest("label")?.innerText ?? el.innerText } })`);
+    check("Real · Tuỳ chọn: ô 'Mặc định' bị khoá, ghi 'chờ BE #15'", defaultBoxes.length === g0.options.length && defaultBoxes.every((b) => b.disabled && !b.checked && /chờ BE #15/.test(b.text)), J(defaultBoxes));
+    const o0 = g0.options.slice().sort((a, b) => a.displayOrder - b.displayOrder)[0];
+    const o1 = g0.options.slice().sort((a, b) => a.displayOrder - b.displayOrder)[1];
+    const optRowsNow = await optRows(g0.code);
+    check("Real · Tuỳ chọn: tên, mã, giá từng tuỳ chọn của nhóm đầu khớp BE (giá Decimal chuỗi → số)", optRowsNow.length === g0.options.length && g0.options.every((o) => optRowsNow.some((r) => r.code === o.code && r.name === o.name && Number(r.price.replace(/\D/g, "")) === Math.round(Number(o.priceDelta)))), J(optRowsNow.map((r) => `${r.code}:${r.price}`)));
+
+    // --- tạo nhóm: POST option-groups, CreateMenuOptionGroupDto (BE menu.dto.ts:236-284)
+    let w = await writesOf(async () => {
+      await click(".ant-card button", "Thêm nhóm");
+      await sleep(800);
+      await setInput(modal, '[data-testid="group-name"]', "Nhóm kiểm thử");
+      await setInput(modal, '[data-testid="group-max"]', "3");
+      await sleep(300);
+      await clickTid("group-save");
+    });
+    const nextOrder = Math.max(0, ...be.optionGroups.map((g) => g.displayOrder)) + 1;
+    check("Real · Ghi: tạo nhóm → POST option-groups, body {code, name, isRequired, minSelections, maxSelections, displayOrder} (không isActive/options)",
+      w.length === 1 && w[0].method === "POST" && w[0].rawPath === `${optionsBase}/option-groups` && keysOf(w[0].body) === keysOf({ code: 1, name: 1, isRequired: 1, minSelections: 1, maxSelections: 1, displayOrder: 1 }) &&
+        w[0].body.code === "NHOM-KIEM-THU" && w[0].body.name === "Nhóm kiểm thử" && w[0].body.isRequired === false && w[0].body.minSelections === 0 && w[0].body.maxSelections === 3 && w[0].body.displayOrder === nextOrder,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- sửa nhóm: PATCH option-groups/:id, bộ ba isRequired/min/max đi cùng nhau (UpdateMenuOptionGroupDto, menu.dto.ts:287-293)
+    w = await writesOf(async () => {
+      await rowButton(g0.name, "Sửa");
+      await sleep(800);
+      await setInput(modal, '[data-testid="group-name"]', `${g0.name} đổi`);
+      await setInput(modal, '[data-testid="group-max"]', String(g0.maxSelections + 1));
+      await sleep(300);
+      await clickTid("group-save");
+    });
+    check("Real · Ghi: sửa nhóm → PATCH option-groups/{id}, body {name, isRequired, minSelections, maxSelections} (đủ bộ ba, không code khi không đổi)",
+      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}` && keysOf(w[0].body) === keysOf({ name: 1, isRequired: 1, minSelections: 1, maxSelections: 1 }) &&
+        w[0].body.name === `${g0.name} đổi` && w[0].body.isRequired === g0.isRequired && w[0].body.minSelections === g0.minSelections && w[0].body.maxSelections === g0.maxSelections + 1,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- thêm tuỳ chọn: POST option-groups/:id/options, CreateMenuOptionDto (menu.dto.ts:295-335): code, name, priceDelta, displayOrder
+    w = await writesOf(async () => {
+      await clickDetail(g0.code, '[data-testid="opt-add"]');
+      await sleep(300);
+      await setInput(detailOf(g0.code), '[data-testid="option-row-new"] [data-testid="opt-name"]', "Thử");
+      await setInput(detailOf(g0.code), '[data-testid="option-row-new"] [data-testid="opt-price"]', "1000");
+      await sleep(300);
+      await clickDetail(g0.code, '[data-testid="option-row-new"] [data-testid="opt-save"]');
+    });
+    const nextOptOrder = Math.max(0, ...g0.options.map((o) => o.displayOrder)) + 1;
+    check("Real · Ghi: thêm tuỳ chọn → POST …/options, body {code, name, priceDelta, displayOrder} (không isActive/isDefault)",
+      w.length === 1 && w[0].method === "POST" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options` && keysOf(w[0].body) === keysOf({ code: 1, name: 1, priceDelta: 1, displayOrder: 1 }) &&
+        w[0].body.code === "THU" && w[0].body.name === "Thử" && w[0].body.priceDelta === 1000 && w[0].body.displayOrder === nextOptOrder,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await clickDetail(g0.code, '[data-testid="option-row-new"] [data-testid="opt-cancel"]');
+    await dismissAll();
+
+    // --- sửa tuỳ chọn: PATCH …/options/:id (UpdateMenuOptionDto = Partial(Create) + isActive, menu.dto.ts:336-343); gửi đúng chuỗi người dùng nhập
+    const newPrice = Math.round(Number(o0.priceDelta)) + 1000;
+    w = await writesOf(async () => {
+      await rowField(g0.code, o0.code, "opt-price", String(newPrice));
+      await sleep(300);
+      await clickDetail(g0.code, `[data-testid="option-row"][data-code="${o0.code}"] [data-testid="opt-save"]`);
+    });
+    check("Real · Ghi: sửa tuỳ chọn → PATCH …/options/{id}, body {code, name, priceDelta} (không isDefault, không displayOrder)",
+      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options/${o0.id}` && keysOf(w[0].body) === keysOf({ code: 1, name: 1, priceDelta: 1 }) &&
+        w[0].body.code === o0.code && w[0].body.name === o0.name && w[0].body.priceDelta === newPrice,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- bật/tắt tuỳ chọn: PATCH {isActive}
+    w = await writesOf(async () => {
+      await clickTid(`option-active-${g0.code}:${o0.code}`);
+    });
+    check("Real · Ghi: tắt tuỳ chọn → PATCH …/options/{id}, body CHỈ {isActive:false} (tuỳ chọn không mặc định nên không hỏi xác nhận)",
+      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options/${o0.id}` && keysOf(w[0].body) === keysOf({ isActive: 1 }) && w[0].body.isActive === false,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- xoá tuỳ chọn: hộp xác nhận rồi DELETE …/options/:id (không body)
+    w = await writesOf(async () => {
+      await clickDetail(g0.code, `[data-testid="option-row"][data-code="${o1.code}"] [data-testid="opt-delete"]`);
+      await sleep(700);
+      await confirmModal("Xoá tuỳ chọn");
+    });
+    check("Real · Ghi: xoá tuỳ chọn (có hộp xác nhận) → DELETE …/options/{id}, không body",
+      w.length === 1 && w[0].method === "DELETE" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options/${o1.id}` && w[0].body === undefined,
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- đổi chỗ hai tuỳ chọn (displayOrder không trùng → 2 lệnh PATCH, quyết định 15/17). Bật chế độ "trả lời giả" tạm thời: request vẫn KHÔNG tới BE.
+    const orders = g0.options.slice().sort((a, b) => a.displayOrder - b.displayOrder);
+    const hasTie = new Set(orders.map((o) => o.displayOrder)).size !== orders.length;
+    tab.fulfillWrites = true;
+    w = await writesOf(async () => {
+      await clickDetail(g0.code, `[data-testid="option-row"][data-code="${orders[0].code}"] [data-testid="opt-down"]`);
+    }, 2200);
+    tab.fulfillWrites = false;
+    const byId = Object.fromEntries(w.map((x) => [x.rawPath.split("/").pop(), x.body]));
+    check(`Real · Ghi: đổi chỗ (${hasTie ? "dữ liệu thật CÓ trùng" : "không trùng"}) → ${hasTie ? "đánh số lại" : "đúng 2 lệnh PATCH displayOrder"}`,
+      !hasTie && w.length === 2 && w.every((x) => x.method === "PATCH" && keysOf(x.body) === keysOf({ displayOrder: 1 })) && byId[orders[0].id].displayOrder === orders[1].displayOrder && byId[orders[1].id].displayOrder === orders[0].displayOrder || (hasTie && w.length >= 1),
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+
+    // --- xoá nhóm: hộp xác nhận nêu số món (từ _count.menuItems) rồi DELETE option-groups/:id
+    const gDel = gs[gs.length - 1];
+    let delText = "";
+    w = await writesOf(async () => {
+      await rowButton(gDel.name, "Xoá");
+      await sleep(700);
+      delText = await q(`${tid("delete-usage")}?.innerText ?? ""`);
+      await confirmModal("Xoá nhóm");
+    });
+    check("Real · Ghi: xoá nhóm → hộp xác nhận nêu đúng số món từ _count.menuItems, rồi DELETE option-groups/{id}",
+      (gDel._count.menuItems === 0 ? /chưa gắn cho món nào/.test(delText) : new RegExp(`đang gắn cho ${gDel._count.menuItems} món`).test(delText)) && w.length === 1 && w[0].method === "DELETE" && w[0].rawPath === `${optionsBase}/option-groups/${gDel.id}` && w[0].body === undefined,
+      `${delText.slice(0, 80)} | ${J(w.map((x) => ({ m: x.method, p: x.path })))}`);
+    await dismissAll();
+
+    // --- gắn nhóm cho món (MenuTable): PUT items/:id/option-groups { optionGroupIds }; món không đổi nên KHÔNG có PATCH món
     await tab.clickMenu("Menu toàn chuỗi");
     await sleep(1800);
-    await q(`(() => {
-      window.__writes = [];
-      const of = window.fetch; window.fetch = (u, init) => { const m = (init?.method ?? (u?.method ?? "GET")).toUpperCase(); if (m !== "GET") window.__writes.push(m + " " + (u?.url ?? u)); return of.call(window, u, init); };
-      const oo = XMLHttpRequest.prototype.open; XMLHttpRequest.prototype.open = function (m, u, ...r) { if (String(m).toUpperCase() !== "GET") window.__writes.push(String(m).toUpperCase() + " " + u); return oo.call(this, m, u, ...r); };
-    })()`);
-    const realItem = be.items[0];
-    const beforeItems = JSON.stringify((await readBe()).items);
-    await rowButton(realItem.name, "Sửa");
-    await openedDrawer();
-    await sleep(700);
-    await pickSelect(drawer, "Size", 1);
-    await sleep(300);
-    check("Real · Món thật: gắn nhóm mock vào món thật (theo ID thật), xem trước hiện", (await has("item-group-SIZE")) && /Thêm vào giỏ/.test(await q(`${tid("option-preview")}?.innerText ?? ""`)));
-    const realPrice = Math.round(Number(realItem.price));
-    check("Real · Xem trước: giá = giá món thật + mặc định (Size M +0)", digits(await price()) === String(realPrice), `${await price()} (BE ${realPrice})`);
-    await clickTid("preview-option-SIZE:SIZE-L");
-    await sleep(300);
-    check("Real · Xem trước: Size L cộng 6.000 vào giá món thật", digits(await price()) === String(realPrice + 6000), await price());
-    await clickTid("item-save");
-    await sleep(1800);
-    const writes = await q(`window.__writes`);
-    check("Real · Lưu tuỳ chọn không gửi request ghi nào lên BE", Array.isArray(writes) && writes.length === 0, J(writes));
-    const afterItems = JSON.stringify((await readBe()).items);
-    check("Real · Dữ liệu món trên BE (đọc lại bằng GET) không đổi", beforeItems === afterItems);
-    await rowButton(realItem.name, "Sửa");
-    await openedDrawer();
-    await sleep(700);
-    check("Real · Mở lại món thật: nhóm mock vẫn gắn (lưu theo ID thật)", (await has("item-group-SIZE")));
+    const attachItem = be.items.find((i) => be.itemGroups[i.id].length < be.optionGroups.length) ?? be.items[0];
+    const attachGroup = gs.find((g) => !be.itemGroups[attachItem.id].includes(g.id) && g.options.length > 0) ?? gs[0];
+    let itemUi = {};
+    w = await writesOf(async () => {
+      await rowButton(attachItem.name, "Sửa");
+      await openedDrawer();
+      await sleep(900);
+      await pickSelect(drawer, attachGroup.name, 1);
+      await sleep(400);
+      itemUi = await q(`({ noBatchDisabled: ${tid("item-nobatch")}.disabled, label: ${drawer}.innerText, note: ${tid("item-options-note")}?.innerText ?? "" })`);
+      await clickTid("item-save");
+    });
+    check("Real · Món: ô 'Không gom món' bị khoá, ghi 'chờ BE #17'; ghi chú tuỳ chọn không còn nói 'lưu tạm'", itemUi.noBatchDisabled === true && /chờ BE #17/.test(itemUi.label) && !/lưu tạm/.test(itemUi.note), J({ d: itemUi.noBatchDisabled, n: itemUi.note }));
+    check("Real · Ghi: gắn nhóm cho món → PUT items/{id}/option-groups, body CHỈ {optionGroupIds:[…]} theo thứ tự đã chọn, không PATCH món",
+      w.length === 1 && w[0].method === "PUT" && w[0].rawPath === `${optionsBase}/items/${attachItem.id}/option-groups` && keysOf(w[0].body) === keysOf({ optionGroupIds: 1 }) &&
+        J(w[0].body.optionGroupIds) === J([...be.itemGroups[attachItem.id], attachGroup.id]),
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
     await q(`document.querySelector(".ant-drawer-close")?.click()`);
     await sleep(600);
+
+    const after = await readBe();
+    check("Real · Dữ liệu BE (đọc lại bằng GET): nhóm, tuỳ chọn, _count và nhóm của món KHÔNG đổi sau mọi thao tác ghi", JSON.stringify(after.optionGroups) === groupsBefore && J(after.itemGroups) === J(be.itemGroups) && JSON.stringify(after.items) === JSON.stringify(be.items));
     list = await rows();
-    check("Real · Danh sách món thật vẫn hiển thị đúng sau khi gắn nhóm", list.length === be.items.length && be.items.every((i) => list.some((r) => r.includes(i.name) && r.includes(i.sku))), `${list.length}/${be.items.length}`);
+    check("Real · Danh sách món thật vẫn hiển thị đúng sau các thao tác", list.length === be.items.length && be.items.every((i) => list.some((r) => r.includes(i.name) && r.includes(i.sku))), `${list.length}/${be.items.length}`);
 
     } // hết khối owner (bỏ qua khi --only=manager)
 
