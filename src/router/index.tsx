@@ -6,6 +6,7 @@ import LoginScreen from "../auth/LoginScreen";
 import SetupPasswordScreen from "../auth/SetupPasswordScreen";
 import DisplayLayout from "../display/DisplayLayout";
 import CallScreen from "../display/CallScreen";
+import CustomerDisplayScreen from "../display/CustomerDisplayScreen";
 import RoleLayout from "./RoleLayout";
 import { roleHomePath, roleRoutes, type WebRole } from "./routeConfig";
 import { RoleGuard, homeRouteFor } from "./guards";
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="call" replace /> },
       { path: "call", element: <CallScreen /> },
+      { path: "customer", element: <CustomerDisplayScreen /> },
       { path: "*", element: <Navigate to="/display/call" replace /> },
     ],
   },

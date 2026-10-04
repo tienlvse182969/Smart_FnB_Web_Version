@@ -28,7 +28,11 @@ export default function App() {
     () =>
       resolveBrand({
         branding: tenantBranding,
-        platformOnly: !currentUser || currentUser.role === "admin" || PLATFORM_BRAND_PATHS.includes(pathname),
+        platformOnly:
+          !currentUser ||
+          currentUser.role === "admin" ||
+          PLATFORM_BRAND_PATHS.includes(pathname) ||
+          pathname.startsWith("/display/"),
         // Nhận diện chỉ áp từ gói Tiêu chuẩn (BR-41); gói thấp hơn dùng nhận diện nền tảng, cấu hình vẫn được giữ.
         brandingEnabled: describePlan(plan).hasFeature("branding"),
       }),
@@ -45,7 +49,7 @@ export default function App() {
         <AntApp>
           <RouterProvider router={router} />
           <ApiErrorBridge />
-          {import.meta.env.DEV && <MockPanel />}
+          {import.meta.env.DEV && !pathname.startsWith("/display/") && <MockPanel />}
         </AntApp>
       </BrandContext.Provider>
     </ConfigProvider>
