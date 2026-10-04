@@ -92,6 +92,30 @@ const has = (id) => q(`!!${tid(id)}`);
 const digits = (x) => String(x).replace(/\D/g, "");
 const groupModalErrors = () => q(`${tid("group-errors")}?.innerText ?? ""`);
 const saveDisabled = () => q(`${tid("group-save")}?.disabled`);
+// --- màn tuỳ chọn (6.2b): mỗi dòng tuỳ chọn nằm trong chi tiết nhóm và lưu ngay ---
+const detailOf = (code) => `document.querySelector('[data-testid="group-detail-${code}"]')`;
+const expandGroup = async (name) => {
+  await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes(${J(name)})); const i = r?.querySelector(".ant-table-row-expand-icon-collapsed"); if (i) i.click(); })()`);
+  await sleep(500);
+};
+const optRows = (code) =>
+  q(`[...(${detailOf(code)})?.querySelectorAll('[data-testid="option-row"]') ?? []].map((r) => ({ code: r.dataset.code, name: r.querySelector('[data-testid="opt-name"]').value, price: r.querySelector('[data-testid="opt-price"]').value, active: r.querySelector(".ant-switch")?.getAttribute("aria-checked") === "true", saveDisabled: r.querySelector('[data-testid="opt-save"]').disabled, text: r.innerText.replace(/\\s+/g, " ").trim() }))`);
+const clickDetail = (code, sel) => q(`(() => { const el = (${detailOf(code)})?.querySelector(${J(sel)}); if (!el) return false; el.click(); return true })()`);
+const rowField = (code, optCode, field, value) => setInput(detailOf(code), `[data-testid="option-row"][data-code="${optCode}"] [data-testid="${field}"]`, value);
+const clickDefault = (code, optCode) =>
+  q(`(() => { const el = (${detailOf(code)}).querySelector('[data-testid="option-row"][data-code="${optCode}"] [data-testid="opt-default"]'); (el.matches("input") ? el : el.querySelector("input")).click(); })()`);
+/** Thêm một tuỳ chọn bằng dòng thêm mới của chi tiết nhóm (mở dòng nếu chưa mở), bấm Lưu: MỘT lệnh. */
+const addOptionUI = async (groupCode, name, priceNum) => {
+  if (!(await q(`!!(${detailOf(groupCode)})?.querySelector('[data-testid="option-row-new"]')`))) {
+    await clickDetail(groupCode, '[data-testid="opt-add"]');
+    await sleep(300);
+  }
+  await setInput(detailOf(groupCode), '[data-testid="option-row-new"] [data-testid="opt-name"]', name);
+  if (priceNum) await setInput(detailOf(groupCode), '[data-testid="option-row-new"] [data-testid="opt-price"]', String(priceNum));
+  await sleep(250);
+  await clickDetail(groupCode, '[data-testid="option-row-new"] [data-testid="opt-save"]');
+  await sleep(900);
+};
 const pv = (code) => q(`${tid(`preview-option-${code}`)}?.getAttribute("data-selected")`);
 const price = () => q(`${tid("preview-price")}?.textContent ?? ""`);
 const NO_STOCK = /Suất còn lại|còn lại|Không giới hạn|Hết suất/i;
@@ -296,58 +320,109 @@ try {
     list = await rows();
     check("Tuỳ chọn: màn có 4 nhóm mẫu (Size, Đường, Đá, Topping) và ghi chú 'lưu tạm, chờ BE'", ["Size", "Đường", "Đá", "Topping"].every((n) => list.some((r) => r.includes(n))) && /chờ BE/.test(await q(`${tid("options-pending-note")}?.innerText ?? ""`)), `${list.length} nhóm`);
 
-    // --- Size: bắt buộc, chọn đúng 1, có mặc định. Trước hết thử các vi phạm quy tắc.
+    // --- Size: bắt buộc, chọn đúng 1, có mặc định. Form nhóm lưu riêng; luật chọn tự đồng bộ (quyết định 2): không còn lỗi luật chọn.
     await click(".ant-card button", "Thêm nhóm");
     await sleep(800);
     await setInput(modal, '[data-testid="group-name"]', "Size thử");
     await sleep(300);
     check("Nhóm: mã tự gợi ý từ tên", (await q(`${tid("group-code")}.value`)) === "SIZE-THU");
-    await setInput(modal, '[data-testid="opt-name"]', "M");
+    check("Form nhóm không còn ô tuỳ chọn (tuỳ chọn lưu riêng từng dòng)", !(await q(`!!(${modal}).querySelector('[data-testid="opt-name"]')`)));
+    const ruleState = () => q(`({ required: ${tid("group-required")}.getAttribute("aria-checked"), min: ${tid("group-min")}.value, max: ${tid("group-max")}.value })`);
     await clickTid("group-required");
+    await sleep(300);
+    let st = await ruleState();
+    check("Tự đồng bộ: bật bắt buộc khi tối thiểu 0 → tối thiểu thành 1", st.required === "true" && st.min === "1", J(st));
     await setInput(modal, '[data-testid="group-min"]', "0");
     await sleep(300);
-    check("Quy tắc: nhóm bắt buộc mà tối thiểu 0 → báo lỗi, khoá nút Lưu", /bắt buộc phải có số chọn tối thiểu/.test(await groupModalErrors()) && (await saveDisabled()) === true, await groupModalErrors());
+    st = await ruleState();
+    check("Tự đồng bộ: đặt tối thiểu 0 → bỏ bắt buộc", st.required === "false" && st.min === "0", J(st));
     await setInput(modal, '[data-testid="group-min"]', "3");
-    await setInput(modal, '[data-testid="group-max"]', "1");
     await sleep(300);
-    check("Quy tắc: min > max → báo lỗi, khoá nút Lưu", /tối thiểu không được lớn hơn/.test(await groupModalErrors()) && (await saveDisabled()) === true);
+    st = await ruleState();
+    check("Tự đồng bộ: tối thiểu 3 → bắt buộc, tối đa nâng lên 3 (không nhỏ hơn tối thiểu)", st.required === "true" && st.min === "3" && Number(st.max) >= 3, J(st));
+    check("Tự đồng bộ: luật chọn không còn báo lỗi, nút Lưu mở", !/tối thiểu|bắt buộc|tối đa/.test(await groupModalErrors()) && (await saveDisabled()) === false, await groupModalErrors());
     await setInput(modal, '[data-testid="group-min"]', "1");
-    await setInput(modal, '[data-testid="group-max"]', "0");
-    await sleep(300);
-    check("Quy tắc: max < 1 → báo lỗi", /tối đa phải từ 1/.test(await groupModalErrors()));
     await setInput(modal, '[data-testid="group-max"]', "1");
-    await clickIn(modal, "Thêm tuỳ chọn");
     await sleep(300);
-    await setInput(modal, '[data-testid="opt-name"]', "L", 1);
-    await setInput(modal, '[data-testid="opt-price"]', "6000", 1);
-    await blurAll();
-    await sleep(300);
-    // đánh dấu cả hai là mặc định → vượt max (=1)
-    await q(`document.querySelectorAll('[data-testid="opt-default"]').forEach((el) => (el.matches("input") ? el : el.querySelector("input")).click())`);
-    await sleep(300);
-    check("Quy tắc: số mặc định > max → báo lỗi", /mặc định không được vượt quá/.test(await groupModalErrors()), await groupModalErrors());
-    await q(`(() => { const els = [...document.querySelectorAll('[data-testid="opt-default"]')]; (els[1].matches("input") ? els[1] : els[1].querySelector("input")).click(); })()`);
-    await sleep(400);
-    check("Quy tắc: hợp lệ thì hết lỗi, nút Lưu mở", (await groupModalErrors()) === "" && (await saveDisabled()) === false, await groupModalErrors());
+    st = await ruleState();
+    check("Tự đồng bộ: về bắt buộc, chọn đúng 1", st.required === "true" && st.min === "1" && st.max === "1", J(st));
     await clickTid("group-save");
     list = await waitRowWith("Size thử");
-    check("Nhóm: thêm Size (bắt buộc, đúng 1, M mặc định, L +6.000)", list.some((r) => r.includes("Size thử") && r.includes("Bắt buộc, chọn đúng 1") && r.includes("M ★") && /L \+6\.000/.test(r)), (list.find((r) => r.includes("Size thử")) ?? "").slice(0, 120));
+    check("Nhóm: thêm Size (bắt buộc, đúng 1) bằng một lệnh; chưa có tuỳ chọn → nhãn 'Chưa có tuỳ chọn' và 'Không đủ tuỳ chọn để chọn tối thiểu 1' (quyết định 12, 14)", list.some((r) => r.includes("Size thử") && r.includes("Bắt buộc, chọn đúng 1") && r.includes("Chưa có tuỳ chọn") && r.includes("Không đủ tuỳ chọn để chọn tối thiểu 1")), (list.find((r) => r.includes("Size thử")) ?? "").slice(0, 160));
+    check("Tạo nhóm xong tự mở ô thêm tuỳ chọn đầu tiên (quyết định 12)", await q(`!!(${detailOf("SIZE-THU")})?.querySelector('[data-testid="option-row-new"]')`));
+    await addOptionUI("SIZE-THU", "M", 0);
+    await addOptionUI("SIZE-THU", "L", 6000);
+    list = await waitRowWith("Size thử");
+    check("Tuỳ chọn: thêm M và L (+6.000) từng dòng, lưu ngay → hết nhãn 'Chưa có tuỳ chọn' và 'Không đủ…'", list.some((r) => r.includes("Size thử") && /L \+6\.000/.test(r) && !r.includes("Chưa có tuỳ chọn") && !r.includes("Không đủ tuỳ chọn")), (list.find((r) => r.includes("Size thử")) ?? "").slice(0, 160));
+    // mặc định: M được; L thì vượt tối đa (=1) → BE/mock từ chối
+    await clickDefault("SIZE-THU", "M");
+    await sleep(900);
+    check("Tuỳ chọn: đặt M làm mặc định → 'M ★'", /M ★/.test((await rows()).find((r) => r.includes("Size thử")) ?? ""));
+    await clickDefault("SIZE-THU", "L");
+    check("Quy tắc: số mặc định > tối đa → bị từ chối, báo lỗi", /mặc định không được vượt quá/.test(await waitToast("mặc định không được vượt quá")), await toasts());
+    await sleep(600);
+    check("Quy tắc: L vẫn không mặc định sau khi bị từ chối (nạp lại từ nguồn)", !/L ★/.test((await rows()).find((r) => r.includes("Size thử")) ?? ""));
+    // sửa từng dòng: nút Lưu chỉ mở khi có thay đổi hợp lệ; mã trùng bị chặn ngay trên dòng
+    await addOptionUI("SIZE-THU", "Tạm", 1000);
+    let tamRows = await optRows("SIZE-THU");
+    const tamRow = tamRows.find((r) => r.name === "Tạm");
+    check("Sửa tuỳ chọn: dòng mới thêm có mã tự gợi ý và nút Lưu đóng khi chưa sửa", tamRow?.code === "TAM" && tamRow.saveDisabled === true, J(tamRow));
+    await rowField("SIZE-THU", "TAM", "opt-price", "2000");
+    await sleep(300);
+    check("Sửa tuỳ chọn: sửa giá → nút Lưu mở", (await optRows("SIZE-THU")).find((r) => r.code === "TAM")?.saveDisabled === false);
+    await rowField("SIZE-THU", "TAM", "opt-code", "M");
+    await sleep(300);
+    check("Sửa tuỳ chọn: mã trùng trong nhóm → báo trùng và khoá nút Lưu", /bị trùng trong nhóm/.test(await q(`${detailOf("SIZE-THU")}.querySelector('[data-testid="option-row"][data-code="TAM"] [data-testid="opt-errors"]')?.innerText ?? ""`)) && (await optRows("SIZE-THU")).find((r) => r.code === "TAM")?.saveDisabled === true);
+    await rowField("SIZE-THU", "TAM", "opt-code", "TAM");
+    await sleep(300);
+    await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="TAM"] [data-testid="opt-save"]');
+    check("Sửa tuỳ chọn: lưu bằng MỘT lệnh, báo 'Đã lưu tuỳ chọn'", /Đã lưu tuỳ chọn/.test(await waitToast("Đã lưu tuỳ chọn")), await toasts());
+    await sleep(700);
+    check("Sửa tuỳ chọn: giá mới 2.000 hiện ở danh sách nhóm", /Tạm \+2\.000/.test((await rows()).find((r) => r.includes("Size thử")) ?? ""));
+    // đổi thứ tự bằng nút lên/xuống (2 lệnh patch displayOrder); lỗi thì nạp lại
+    await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="M"] [data-testid="opt-down"]');
+    await sleep(1200);
+    check("Đổi thứ tự: M xuống một bậc → L, M, Tạm", J((await optRows("SIZE-THU")).map((r) => r.code)) === J(["L", "M", "TAM"]), J((await optRows("SIZE-THU")).map((r) => r.code)));
+    await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="M"] [data-testid="opt-up"]');
+    await sleep(1200);
+    check("Đổi thứ tự: M lên lại → M, L, Tạm", J((await optRows("SIZE-THU")).map((r) => r.code)) === J(["M", "L", "TAM"]), J((await optRows("SIZE-THU")).map((r) => r.code)));
+    // xoá tuỳ chọn có hộp xác nhận (quyết định 16): Huỷ thì còn, đồng ý mới xoá
+    await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="TAM"] [data-testid="opt-delete"]');
+    await sleep(700);
+    check("Xoá tuỳ chọn: hiện hộp xác nhận (không xoá ngay), nhóm còn 3 tuỳ chọn không có dòng 'N món đang dùng'", /Xoá tuỳ chọn "Tạm"/.test(await q(`document.body.innerText`)) && (await optRows("SIZE-THU")).length === 3 && !(await has("delete-option-usage")));
+    await q(`(() => { const b = [...document.querySelectorAll(".ant-modal-confirm button")].find((x) => x.textContent.includes("Huỷ")); b?.click() })()`);
+    await sleep(600);
+    check("Xoá tuỳ chọn: bấm Huỷ thì tuỳ chọn vẫn còn", (await optRows("SIZE-THU")).length === 3);
+    await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="TAM"] [data-testid="opt-delete"]');
+    await confirmModal("Xoá tuỳ chọn");
+    await waitToast("Đã xoá tuỳ chọn");
+    await sleep(800);
+    check("Xoá tuỳ chọn: đồng ý → tuỳ chọn biến mất", J((await optRows("SIZE-THU")).map((r) => r.code)) === J(["M", "L"]), J((await optRows("SIZE-THU")).map((r) => r.code)));
+    // lỗi BE khi lưu một dòng: báo lỗi, dòng thêm mới còn đó, không thêm vào nhóm
+    await tab.openMockPanel();
+    await tab.setSelect("mock-failure", "server");
+    await clickDetail("SIZE-THU", '[data-testid="opt-add"]');
+    await sleep(300);
+    await setInput(detailOf("SIZE-THU"), '[data-testid="option-row-new"] [data-testid="opt-name"]', "Lỗi");
+    await sleep(250);
+    await clickDetail("SIZE-THU", '[data-testid="option-row-new"] [data-testid="opt-save"]');
+    await sleep(1300);
+    check("Lỗi BE: lưu một dòng báo lỗi tiếng Việt, dòng chưa lưu còn nguyên, nhóm không có thêm tuỳ chọn", /Máy chủ đang gặp sự cố/.test(await toasts()) && (await q(`!!(${detailOf("SIZE-THU")}).querySelector('[data-testid="option-row-new"]')`)) && (await optRows("SIZE-THU")).length === 2, await toasts());
+    await tab.setSelect("mock-failure", "none");
+    await clickDetail("SIZE-THU", '[data-testid="option-row-new"] [data-testid="opt-cancel"]');
+    await sleep(400);
 
     // --- Topping: không bắt buộc, tối đa 3, có giá
     await click(".ant-card button", "Thêm nhóm");
     await sleep(800);
     await setInput(modal, '[data-testid="group-name"]', "Topping thử");
     await setInput(modal, '[data-testid="group-max"]', "3");
-    const tops = [["Trân châu", 5000], ["Thạch dừa", 5000], ["Pudding", 7000], ["Flan", 8000]];
-    for (const [i, [n, pr]] of tops.entries()) {
-      if (i > 0) await clickIn(modal, "Thêm tuỳ chọn");
-      await sleep(250);
-      await setInput(modal, '[data-testid="opt-name"]', n, i);
-      await setInput(modal, '[data-testid="opt-price"]', String(pr), i);
-    }
     await sleep(400);
     check("Quy tắc: topping không bắt buộc, 0–3 hợp lệ (không cần mặc định)", (await groupModalErrors()) === "" && (await saveDisabled()) === false, await groupModalErrors());
     await clickTid("group-save");
+    await waitRowWith("Topping thử");
+    const tops = [["Trân châu", 5000], ["Thạch dừa", 5000], ["Pudding", 7000], ["Flan", 8000]];
+    for (const [n, pr] of tops) await addOptionUI("TOPPING-THU", n, pr);
     list = await waitRowWith("Topping thử");
     check("Nhóm: thêm Topping (không bắt buộc, chọn 0–3, 4 tuỳ chọn có giá)", list.some((r) => r.includes("Topping thử") && r.includes("Không bắt buộc, chọn 0–3") && r.includes("Pudding +7.000")), (list.find((r) => r.includes("Topping thử")) ?? "").slice(0, 140));
 
@@ -356,13 +431,66 @@ try {
     await sleep(800);
     await setInput(modal, '[data-testid="group-name"]', "Trùng mã");
     await setInput(modal, '[data-testid="group-code"]', "SIZE-THU");
-    await setInput(modal, '[data-testid="opt-name"]', "X");
     await sleep(300);
     await clickTid("group-save");
     await sleep(1200);
     check("Nhóm: trùng mã trong chuỗi → 409 từ mock, hiện thông báo", /đã được dùng/.test(await toasts()), await toasts());
     await q(`document.querySelector(".ant-modal-close")?.click()`);
     await sleep(600);
+
+    // --- Nhóm tạm: thiếu tuỳ chọn so với tối thiểu (quyết định 14), sửa nhóm (patchGroup), xoá nhóm
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Tạm min");
+    await setInput(modal, '[data-testid="group-min"]', "2");
+    await sleep(300);
+    await clickTid("group-save");
+    list = await waitRowWith("Tạm min");
+    check("Nhóm tạm: tối thiểu 2 mà chưa có tuỳ chọn → cả 'Chưa có tuỳ chọn' lẫn 'Không đủ tuỳ chọn để chọn tối thiểu 2'", list.some((r) => r.includes("Tạm min") && r.includes("Chưa có tuỳ chọn") && r.includes("Không đủ tuỳ chọn để chọn tối thiểu 2")), (list.find((r) => r.includes("Tạm min")) ?? "").slice(0, 160));
+    await addOptionUI("TAM-MIN", "Một", 0);
+    check("Nhóm tạm: có 1 tuỳ chọn đang bật < tối thiểu 2 → còn nhãn đỏ 'Không đủ…', hết 'Chưa có tuỳ chọn'; không chặn lưu (đã lưu được dòng)", await (async () => {
+      const t = (await rows()).find((r) => r.includes("Tạm min")) ?? "";
+      return t.includes("Không đủ tuỳ chọn để chọn tối thiểu 2") && !t.includes("Chưa có tuỳ chọn");
+    })());
+    await addOptionUI("TAM-MIN", "Hai", 0);
+    check("Nhóm tạm: đủ 2 tuỳ chọn đang bật → hết nhãn 'Không đủ…'", !((await rows()).find((r) => r.includes("Tạm min")) ?? "").includes("Không đủ tuỳ chọn"));
+    await rowButton("Tạm min", "Sửa");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Tạm min đổi");
+    await clickTid("group-save");
+    list = await waitRowWith("Tạm min đổi");
+    check("Sửa nhóm: đổi tên bằng một lệnh, mã giữ nguyên", list.some((r) => r.includes("Tạm min đổi") && r.includes("TAM-MIN")), (list.find((r) => r.includes("Tạm min")) ?? "").slice(0, 100));
+    await rowButton("Tạm min đổi", "Xoá");
+    await sleep(700);
+    check("Xoá nhóm: nhóm chưa gắn món → hộp xác nhận nêu 'chưa gắn cho món nào'", /chưa gắn cho món nào/.test(await q(`${tid("delete-usage")}?.innerText ?? ""`)));
+    await confirmModal("Xoá nhóm");
+    await sleep(1200);
+    check("Xoá nhóm: nhóm tạm biến mất", !(await rows()).some((r) => r.includes("Tạm min")));
+
+    // --- Nhóm rỗng giữ lại (không gắn được cho món, kiểm ở màn món) và nhóm một tuỳ chọn (kiểm xoá tuỳ chọn cuối khi đã gắn món)
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Rỗng thử");
+    await clickTid("group-save");
+    await waitRowWith("Rỗng thử");
+    await click(".ant-card button", "Thêm nhóm");
+    await sleep(800);
+    await setInput(modal, '[data-testid="group-name"]', "Một mình");
+    await clickTid("group-save");
+    await waitRowWith("Một mình");
+    await addOptionUI("MOT-MINH", "Duy nhất", 0);
+    check("Nhóm rỗng: 'Rỗng thử' hiện với nhãn 'Chưa có tuỳ chọn' (quyết định 12)", /Chưa có tuỳ chọn/.test((await rows()).find((r) => r.includes("Rỗng thử")) ?? ""));
+
+    // --- Đổi thứ tự nhóm (quyết định 15): Topping thử lên một bậc rồi xuống lại
+    const order = async () => (await rows()).map((r) => (r.match(/Size thử|Topping thử/) ?? [""])[0]).filter(Boolean);
+    const before = await order();
+    await rowButton("Topping thử", "Lên");
+    await sleep(1400);
+    const after = await order();
+    check("Đổi thứ tự nhóm: Topping thử lên trước Size thử bằng 2 lệnh patch", J(before) === J(["Size thử", "Topping thử"]) && J(after) === J(["Topping thử", "Size thử"]), `${J(before)} → ${J(after)}`);
+    await rowButton("Topping thử", "Xuống");
+    await sleep(1400);
+    check("Đổi thứ tự nhóm: xuống lại → Size thử rồi Topping thử", J(await order()) === J(["Size thử", "Topping thử"]), J(await order()));
 
     // --- Món: gắn cả hai nhóm, xem trước
     await tab.clickMenu("Menu toàn chuỗi");
@@ -377,8 +505,9 @@ try {
     check("Món: chưa gắn nhóm thì xem trước báo 'chưa gắn nhóm'", /chưa gắn nhóm/.test(await q(`${tid("option-preview")}?.innerText ?? ""`)));
     await pickSelect(drawer, "Size thử", 1);
     await pickSelect(drawer, "Topping thử", 1);
+    await pickSelect(drawer, "Một mình", 1);
     await sleep(400);
-    check("Món: gắn được hai nhóm", (await has("item-group-SIZE-THU")) && (await has("item-group-TOPPING-THU")));
+    check("Món: gắn được ba nhóm (kèm 'Một mình')", (await has("item-group-SIZE-THU")) && (await has("item-group-TOPPING-THU")) && (await has("item-group-MOT-MINH")));
     check("Xem trước: mặc định chọn sẵn (Size M), giá = giá món 30.000", (await pv("SIZE-THU:M")) === "true" && digits(await price()) === "30000", `${await pv("SIZE-THU:M")} ${await price()}`);
     await clickTid("preview-option-SIZE-THU:L");
     await clickTid("preview-option-TOPPING-THU:TRAN-CHAU");
@@ -400,6 +529,16 @@ try {
     await sleep(1300);
     list = await rows();
     check("Tuỳ chọn: cột 'Số món' đếm món vừa gắn (1)", list.some((r) => r.includes("Topping thử") && /\s1\s+Sửa\s+Xoá$/.test(r.trim())), (list.find((r) => r.includes("Topping thử")) ?? "").slice(-30));
+    // Xoá tuỳ chọn cuối cùng của nhóm đang gắn món (quyết định 13): hộp xác nhận nêu số món đang dùng
+    await expandGroup("Một mình");
+    await clickDetail("MOT-MINH", '[data-testid="option-row"] [data-testid="opt-delete"]');
+    await sleep(700);
+    const lastText = await q(`${tid("delete-option-usage")}?.innerText ?? ""`);
+    check("Xoá tuỳ chọn cuối của nhóm đang gắn món: hộp xác nhận ghi '1 món đang dùng nhóm này'", /1 món đang dùng nhóm này/.test(lastText), lastText);
+    await confirmModal("Xoá tuỳ chọn");
+    await waitToast("Đã xoá tuỳ chọn");
+    await sleep(900);
+    check("Xoá tuỳ chọn cuối: nhóm 'Một mình' còn nhưng có nhãn 'Chưa có tuỳ chọn'", /Chưa có tuỳ chọn/.test((await rows()).find((r) => r.includes("Một mình")) ?? ""));
     await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Topping thử")); r.querySelector(".ant-table-row-expand-icon").click() })()`);
     await sleep(600);
     // trạng thái chi nhánh chỉ xem: chọn một chi nhánh thì hiện thẻ Còn bán/Tạm hết, không có công tắc ghi nào ngoài cờ cấp chuỗi
@@ -443,13 +582,19 @@ try {
     await rowButton("Size thử", "Xoá");
     await confirmModal("Xoá nhóm");
     await sleep(1000);
+    await rowButton("Một mình", "Xoá");
+    await confirmModal("Xoá nhóm");
+    await sleep(1000);
+    await rowButton("Rỗng thử", "Xoá");
+    await confirmModal("Xoá nhóm");
+    await sleep(1000);
 
     await tab.clickMenu("Menu toàn chuỗi");
     await sleep(1500);
     await rowButton("Món Tuỳ Chọn", "Sửa");
     await openedDrawer();
     await sleep(600);
-    check("Xoá nhóm: món đã được gỡ nhóm", !(await has("item-group-TOPPING-THU")) && !(await has("item-group-SIZE-THU")));
+    check("Xoá nhóm: món đã được gỡ nhóm", !(await has("item-group-TOPPING-THU")) && !(await has("item-group-SIZE-THU")) && !(await has("item-group-MOT-MINH")));
     await q(`document.querySelector(".ant-drawer-close")?.click()`);
     await sleep(700);
     await rowButton("Món Tuỳ Chọn", "Xoá");
@@ -532,10 +677,10 @@ try {
     await click(".ant-card button", "Thêm nhóm");
     await sleep(800);
     await setInput(modal, '[data-testid="group-name"]', "Nhóm F5");
-    await setInput(modal, '[data-testid="opt-name"]', "Một");
     await sleep(300);
     await clickTid("group-save");
     await waitRowWith("Nhóm F5");
+    await addOptionUI("NHOM-F5", "Một", 0);
     const stored = await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:options:v1:")).length`);
     check("F5: tạo nhóm ghi vào localStorage 'smartfnb:mock:options:v1:<chainId>'", stored >= 1, `${stored} khoá`);
     await tab.goto("/owner/menu/options");
