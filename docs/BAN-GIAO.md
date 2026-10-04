@@ -38,7 +38,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 
 1. **Khảo sát trước, sửa sau.** Bước nào có chữ "khảo sát" thì chỉ đọc và báo cáo, chờ duyệt.
 2. **BE chỉ đọc.** Không sửa code BE, không chạy migration, không chạy seed, và **KHÔNG gọi API ghi lên BE thật** (kể cả `curl`, kể cả qua form trên web) trừ khi prompt cho phép rõ ràng. Cần dò lỗi thì báo, không tự tạo/sửa dữ liệu thật.
-3. **Git:** commit theo từng bước có message rõ ràng. `git add` theo đường dẫn cụ thể, **cấm `git add -A` / `git add .`**. Được push nhánh đang làm; **cấm force push, rebase, merge PR**.
+3. **Git:** commit theo từng bước có message rõ ràng. `git add` theo đường dẫn cụ thể, **cấm `git add -A` / `git add .`**. Được push nhánh đang làm; **cấm force push, rebase, merge PR**. File `docs/PR-*.md` nằm trong `.gitignore` (từ `f701bb8`): Khánh dùng làm mô tả PR, không commit.
 4. **Không đụng:** stash `pre-v9-wip`; 4 file LFS luôn hiện `M` (`HarmonyOS_Sans_Regular.ttf` và 3 file `.docx` trong `src/imports/`) — đây là lỗi LFS có từ trước, chủ repo sẽ xử lý.
 5. **Không thêm thư viện** nếu chưa nêu lý do và được duyệt (đã duyệt và đã thêm ở Giai đoạn 2: eslint, typescript-eslint, vitest, jsdom, @testing-library/react).
 6. **Báo cáo:** tiếng Việt, ngắn, có `file:dòng`. Không tự nhận "xong", "đẹp", "chạy ổn". Chỉ báo sự thật đã kiểm, chỗ không chắc ghi rõ là không chắc.
@@ -55,7 +55,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | `phase2.mjs` | — (có `flip`) | `brand`, `plan`, `errors`, `ai`, `refresh`, `flip`, `login` | khối `ai` 17s |
 | `phase3.mjs` | `mock`, `real` | chưa có (chạy hết) | — |
 | `phase4.mjs` | `mock`, `real` | `owner`, `manager` | đủ mock 159s, real 41s; `manager` 10s |
-| `phase5.mjs` | `mock`, `real` | `menu` (menu món + tuỳ chọn chi nhánh, 5.7b/5.7d) | `menu`: mock 46s, real 15s; đủ mock ~4 phút |
+| `phase5.mjs` | `mock`, `real` | `menu` (menu món + tuỳ chọn chi nhánh, 5.7b/5.7d), `staff` (màn Nhân viên của Manager, 5.4: mock 28 ca, real 7 ca gồm nhãn "(số liệu mẫu)") | `menu`: mock 46s, real 15s; đủ mock ~4 phút |
 | `phase58-forms.mjs` (chỉ real, BE thật) | `real` | `retry` (Thử lại khi form dở), `validation` (400 theo ô) | cả hai 27s |
 | `phase58-faults.mjs` (chỉ real, BE thật) | `real` | vai (`admin`, `owner`, `manager`), nhóm (`read`, `write`, `scope`, `expired`), hoặc một phần id màn (`owner/reports`, `manager/menu`…) | 4 màn đọc+ghi 244s; `scope` 1 vai 32s; đủ 3 vai ~25 phút |
 
@@ -238,7 +238,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 | Hồ sơ đăng ký "Probe Quán" do agent tạo nhầm trên BE thật. **KHÔNG xoá, KHÔNG tạo thêm**; chờ Khánh quyết | Khánh |
 | ~~Giả lập lỗi (403, mạng, 401…) bằng MockPanel chỉ chạm module mock; module real chưa có kiểm giao diện lỗi~~ **Đã xong ở 5.8a–5.8e**: `scripts/browser/phase58-faults.mjs` (CDP `Fetch.fulfillRequest`) kiểm 500/403/mất mạng/401 cho mọi màn real | — |
 | ~~Lỗi hiện 2 lần (toast trùng, câu tiếng Anh thô) và Thử lại chưa nạp lại~~ **Đã xong ở 5.8b–5.8d** (ngoại lệ còn lại ở dòng ngay dưới) | — |
-| **Còn 1 lỗi app (báo ở 5.8e, chưa sửa):** tạo chi nhánh (`roles/owner/Branches.tsx:127-129`) gọi `message.error(describeBranchError(err))` không kiểm `err.reported`, nên với 403, mất mạng, 401 hiện **2 thông báo** (toast + thông báo toàn cục). Đề xuất: dùng `showApiError(message.error, err, …)` (đã bỏ qua lỗi đã báo) thay cho `message.error` trực tiếp, giữ `describeBranchError` cho phần gợi ý gói. Chỉ màn này còn gọi trực tiếp | giai đoạn 6 (đầu) |
+| ~~**Lỗi app (báo ở 5.8e):** tạo chi nhánh (`roles/owner/Branches.tsx:127-129`) gọi `message.error(describeBranchError(err))` nên 403, mất mạng, 401 hiện 2 thông báo.~~ **Đã sửa ở `e2fcdf1` (6.1):** màn gọi `showApiError(message.error, err)`; gợi ý nâng gói (`planUpgradeHint`, `api/modules/branch/index.ts`) chuyển vào thông báo hạn mức toàn cục (`ApiErrorBridge`) nên chỉ còn một thông báo. Quy tắc: không gọi `message.error` trực tiếp với lỗi API | xong |
 | `DirtyWatcher` (`components/DirtyWatcher.tsx`) nhận form nhập dở dựa vào **class của antd** (`.ant-modal-container`, `.ant-drawer-section`, `.ant-select-item-option`…). **Nâng cấp antd (nhất là bản major) phải chạy lại `phase58-forms.mjs` và test `components/retry.test.tsx`**; cấu trúc đã đổi một lần giữa antd 5 và 6 (`-content` → `-section`/`-container`) | khi nâng antd |
 | Mock tuỳ chọn lưu localStorage (`smartfnb:mock:options:v1:<chainId>`, 4.4); bỏ khi `options` có `real.ts` | khi BE có OW-03 |
 | Định dạng `code` nhóm/tuỳ chọn đang giả định giống SKU (`^[A-Z0-9_-]{1,50}$`); chờ BE công bố (`docs/api-contract-plan.md` mục 7 #12) | chờ BE |
@@ -278,10 +278,40 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
 | 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · 5.8c ✅ · 5.8d ✅ · 5.8e ✅ (chốt) — **GĐ5 ✅ xong phần web trên `feat/v9-manager`**; kết quả chốt và tóm tắt ở mục 9 |
-| 6 | Owner: liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10) | |
+| 6 | Owner: OW-03 tuỳ chọn real, liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10). Nhánh `feat/v9-owner`, bắt đầu từ `f701bb8`. Chia 6.1–6.7 và quyết định ở mục 8b | 6.1 ✅ (`e2fcdf1`, `2fe85c7`, commit docs) |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
 | 9 | Báo cáo đa chi nhánh, trợ lý AI (real), chỉ đọc khi hết hạn khớp BE | |
+
+## 8b. Giai đoạn 6 (Owner) — kế hoạch và quyết định
+
+Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (khảo sát 6.0: không có commit mới, không migration mới). Origin/main của web chỉ là các lần merge PR #3–#5, cây giống `637772e`, `git merge-tree` với nhánh này sạch: không cần merge main.
+
+| Lượt | Nội dung | Real / mock, cờ | phase6 kiểm | Nhờ BE |
+|---|---|---|---|---|
+| 6.1 ✅ | Sửa trùng thông báo ở `Branches.tsx`; nhãn "(số liệu mẫu)" ở `StaffTable.tsx`; khối `phase5 --only=staff`; ghi tài liệu quyết định | không đổi cờ | `phase58-faults --only=owner/branches`; `phase5 --only=staff` | không |
+| 6.2 | OW-03 tầng dữ liệu: `options/real.ts` (từng thao tác như BE, mapper, giá Decimal là chuỗi), `optionsApi` đổi giao diện, mock theo cùng giao diện, test đơn vị | `options=real` | vitest | #15, #17 (cũ) |
+| 6.3 | OW-03 giao diện: `OptionGroups.tsx`, `MenuTable.tsx` chạy real; ô `isDefault`/`allowBatching` khoá; ẩn panel trạng thái theo chi nhánh ở real | `options=real` | `phase4 --only=owner` mock; real chỉ đọc; `phase5 --only=menu` | #16 (cũ) |
+| 6.4 | Nhận diện real: GET/PUT/DELETE + tải logo multipart; `useDirtyGuard` | `branding=real` | `phase2 --only=brand` mock; real chỉ đọc, chặn `PUT`, `POST logo`, `DELETE` | #39 (mới); #33 (cũ). Dài hơn mức thường vì đổi cách tải logo từ data URL sang multipart |
+| 6.5 | PayOS: nhập ba khoá (che sau khi lưu), gỡ liên kết, hộp xác nhận | `payos=real` | mock: máy trạng thái; real chỉ GET | #40 (mới) |
+| 6.6 | "Gói của tôi" (OW-10) | `plan` real một phần | `phase2 --only=plan`; phase6 | #38 (cũ) |
+| 6.7 | Chốt GĐ6: phase2–6 đủ mock + real, bộ giả lập lỗi, README, BAN-GIAO, `docs/PR-v9-owner.md` (bị ignore). Dài hơn mức thường, như 5.8e | cả hai | đủ phase2–6 | không |
+
+**Quyết định GĐ6 (Khánh đã duyệt):**
+
+| # | Quyết định |
+|---|---|
+| 1 | `isDefault`/`allowBatching`: ở real khoá ô, ghi "chờ BE #15/#17"; KHÔNG lưu localStorage ở real; mock giữ nguyên |
+| 2 | Luật `isRequired` ⇔ `min > 0`: web tự đồng bộ (tick bắt buộc → `min ≥ 1`; `min = 0` → bỏ tick), không báo lỗi |
+| 3 | `optionsApi` đổi sang từng thao tác giống BE (tạo/sửa/xoá nhóm, thêm/sửa/xoá tuỳ chọn, gắn nhóm vào món); mock theo cùng giao diện; KHÔNG so khác biệt rồi gửi cả nhóm; lỗi giữa chừng → nạp lại từ server |
+| 4 | Logo PNG/JPG ≤ 1 MB, tên hiển thị ≤ 50 theo đặc tả; BE lệch ghi vào #39 |
+| 5 | Không làm "bỏ logo giữ màu"; chỉ có "Khôi phục mặc định" (DELETE) |
+| 6 | PayOS hiện 2 trạng thái thật (Chưa liên kết / Đã liên kết); "Đang kiểm tra" chỉ là trạng thái tạm lúc lưu; "Lỗi" chờ #40. Không đặt `PAYOS_MASTER_KEY` ở GĐ6 |
+| 7 | "Gói của tôi": ngày hết hạn và trạng thái hiện nhãn "chờ BE #38" |
+| 8 | Panel trạng thái tuỳ chọn theo chi nhánh ở màn Owner: ẩn khi real; 6.3 phải trích dòng đặc tả trước khi mở #41 |
+| 9 | Đọc cấu hình tuỳ chọn từng món (N+1): chấp nhận, tối đa 4 request song song |
+| 10 | Logo chỉ tải lên khi bấm Lưu, không tải lúc chọn file |
+| 11 | Tắt tuỳ chọn đang mặc định: giữ hộp xác nhận ở mock; real chưa áp dụng vì chưa có `isDefault` |
 
 ## 9. Chốt giai đoạn 5 (5.8e, 2026-10-04)
 
@@ -291,7 +321,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 3. **Chờ BE:** email đặt mật khẩu không có tiến trình gửi (#1, CAO); hạn mức tài khoản đếm cả tài khoản khoá và mở khoá không kiểm hạn mức (#26); endpoint gói cho Manager (#38) nên Manager ở real không tự khoá khi hết hạn; mã lỗi `SUBSCRIPTION_READ_ONLY` (#31); `PATCH /stations` (#27); 3 gói seed giá thật (#32, #35); Manager ghi được `isEnabled` (#37).
 4. **Lớp lỗi dùng chung (5.8):** thông báo lỗi luôn tiếng Việt (5xx, bảng dịch câu BE, 400 theo ô), chống trùng 3 giây, nút Thử lại làm mới thật màn đang mở cho lỗi đọc mất mạng/5xx, hỏi xác nhận khi có form nhập dở, đọc/ghi theo phương thức HTTP.
 5. **Kiểm thử:** vitest 266/266; bộ giả lập lỗi CDP trên BE thật cho mọi màn real (đọc, ghi, nạp khu vực, 401 hết phiên); script kiểm có cờ `--mode`, `--only` (quy tắc 13).
-6. **Còn mở:** 1 lỗi app ở tạo chi nhánh (hiện 2 thông báo, xem "Tồn đọng đã biết"); BE local `0083289` (đã build lại, backup 2026-10-03); Landing vẫn dùng giá mock.
+6. **Còn mở:** ~~1 lỗi app ở tạo chi nhánh (hiện 2 thông báo)~~ đã sửa ở `e2fcdf1`; BE local `0083289` (đã build lại, backup 2026-10-03); Landing vẫn dùng giá mock.
 
 **Bảng kết quả chốt** (BE local `0083289`, Vite 5173 real; 5174 mock; mọi request ghi trên real bị chặn ở CDP):
 
