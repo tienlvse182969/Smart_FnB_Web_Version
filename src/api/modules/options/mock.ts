@@ -41,7 +41,11 @@ export const optionsMock: OptionsApi = {
 
   async listGroups(chainId) {
     await mockDelay();
-    return sorted(getChainState(chainId).optionGroups);
+    const s = getChainState(chainId);
+    // Như BE (`_count.menuItems`): số món đang dùng nhóm, tính từ cấu hình món hiện có (không lưu vào bản chụp localStorage).
+    const counts = new Map<string, number>();
+    for (const cfg of s.itemOptions.values()) for (const gid of cfg.groupIds) counts.set(gid, (counts.get(gid) ?? 0) + 1);
+    return sorted(s.optionGroups).map((g) => ({ ...g, menuItemCount: counts.get(g.id) ?? 0 }));
   },
 
   // --- giao diện theo từng thao tác (giống BE): mỗi hàm một thay đổi, cùng luật với real ---

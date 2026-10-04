@@ -2,7 +2,8 @@ import { App, Card, Checkbox, Input, InputNumber, Modal, Select, Switch, Table, 
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BranchOptionState, OptionGroup, OptionItem } from "../../types";
-import { menuApi, optionsApi, showApiError, suggestSku } from "../../api";
+import { optionsApi, showApiError, suggestSku } from "../../api";
+import { applyReorder, planReorder } from "../../api/modules/options/ordering";
 import { modeOf } from "../../api/flags";
 import { syncSelectionRule, validateGroupFields, validateOptionFields, type SelectionRuleField } from "../../api/modules/options/rules";
 import ActionButton from "../../plan/ActionButton";
@@ -22,20 +23,6 @@ const ruleText = (g: OptionGroup): string =>
 
 const activeCount = (g: OptionGroup) => g.options.filter((o) => o.isActive).length;
 
-/** Hai dòng đổi chỗ: dòng `index` đổi với dòng kề (`delta`). Trả `displayOrder` mới của hai dòng (đúng 2 lệnh patch, quyết định 15). */
-function swapOrders(list: { id: string; displayOrder: number }[], index: number, delta: -1 | 1): { id: string; displayOrder: number }[] | null {
-  const target = index + delta;
-  if (target < 0 || target >= list.length) return null;
-  const a = list[index];
-  const b = list[target];
-  // Hai dòng trùng thứ tự thì đổi chỗ bằng vị trí (đánh số lại từ 1) để chắc chắn đổi được.
-  const [orderA, orderB] = a.displayOrder === b.displayOrder ? [target + 1, index + 1] : [b.displayOrder, a.displayOrder];
-  return [
-    { id: a.id, displayOrder: orderA },
-    { id: b.id, displayOrder: orderB },
-  ];
-}
-
 /**
  * OW-03: nhóm tuỳ chọn của chuỗi (đặc tả 12.2) — mỗi thao tác là MỘT lệnh lưu ngay (giống BE): form nhóm lưu riêng; mỗi dòng tuỳ chọn
  * thêm/sửa/xoá/bật tắt/đổi thứ tự lưu ngay. Lỗi giữa chừng → báo qua `showApiError` rồi nạp lại từ nguồn.
@@ -46,7 +33,6 @@ export default function OptionGroups() {
   const branches = useAppStore((s) => s.branches);
   const writeGuard = useWriteGuard();
   const [groups, setGroups] = useState<OptionGroup[]>([]);
-  const [usage, setUsage] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<OptionGroup | "new" | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -57,17 +43,8 @@ export default function OptionGroups() {
     if (!chainId) return;
     setLoading(true);
     try {
-      const items = await menuApi.listItems(chainId);
-      const [list, configs] = await Promise.all([optionsApi.listGroups(chainId), optionsApi.listItemConfigs(chainId, items.map((i) => i.id))]);
-      setGroups(list);
-      // Tên món lấy từ menuApi (món thật); cấu hình của món không còn trên menu thì bỏ qua.
-      const names = new Map(items.map((i) => [i.id, i.name]));
-      const used: Record<string, string[]> = {};
-      for (const c of configs) {
-        const itemName = names.get(c.menuItemId);
-        if (itemName) for (const gid of c.groupIds) (used[gid] ??= []).push(itemName);
-      }
-      setUsage(used);
+      // Số món dùng từng nhóm lấy từ `menuItemCount` (BE `_count.menuItems`, quyết định 18): không đọc cấu hình từng món chỉ để đếm.
+      setGroups(await optionsApi.listGroups(chainId));
     } catch (err) {
       showApiError(message.error, err, "Không tải được nhóm tuỳ chọn");
     } finally {
@@ -96,29 +73,24 @@ export default function OptionGroups() {
     [load, message],
   );
 
-  const moveGroup = (index: number, delta: -1 | 1) => {
+  const moveGroup = async (index: number, delta: -1 | 1) => {
     if (!chainId) return;
-    const orders = swapOrders(groups, index, delta);
-    if (!orders) return;
-    void run(async () => {
-      for (const o of orders) await optionsApi.patchGroup(chainId, o.id, { displayOrder: o.displayOrder });
-    }, null, "Không đổi được thứ tự");
+    const changes = planReorder(groups, index, delta);
+    if (!changes?.length) return;
+    try {
+      await applyReorder(changes, (c) => optionsApi.patchGroup(chainId, c.id, { displayOrder: c.displayOrder }), load);
+    } catch (err) {
+      showApiError(message.error, err, "Không đổi được thứ tự");
+    }
   };
 
   const confirmDelete = (g: OptionGroup) => {
-    const used = usage[g.id] ?? [];
+    const used = g.menuItemCount ?? 0;
     modal.confirm({
       title: `Xoá nhóm "${g.name}"?`,
       content: (
         <div data-testid="delete-usage">
-          {used.length === 0 ? (
-            "Nhóm chưa gắn cho món nào."
-          ) : (
-            <>
-              Nhóm đang gắn cho {used.length} món và sẽ bị gỡ khỏi: <b>{used.slice(0, 8).join(", ")}</b>
-              {used.length > 8 ? ` và ${used.length - 8} món khác` : ""}.
-            </>
-          )}{" "}
+          {used === 0 ? "Nhóm chưa gắn cho món nào." : <>Nhóm đang gắn cho {used} món và sẽ bị gỡ khỏi các món đó.</>}{" "}
           Đơn cũ vẫn giữ nguyên tuỳ chọn đã bán (BR-15).
         </div>
       ),
@@ -167,7 +139,7 @@ export default function OptionGroups() {
           expandedRowRender: (g) => (
             <GroupDetail
               group={g}
-              usageCount={usage[g.id]?.length ?? 0}
+              usageCount={g.menuItemCount ?? 0}
               branches={branches}
               disabled={writeGuard.disabled}
               startAdding={startAdding === g.id}
@@ -227,7 +199,7 @@ export default function OptionGroups() {
                 </div>
               ),
           },
-          { title: "Số món", align: "right", render: (_, g) => usage[g.id]?.length ?? 0 },
+          { title: "Số món", align: "right", render: (_, g) => g.menuItemCount ?? 0 },
           {
             title: "",
             align: "right",
@@ -290,15 +262,14 @@ function GroupDetail({
     void optionsApi.listBranchStates(chainId, branchId).then(setStates, () => setStates([]));
   }, [chainId, branchId, caps.branchStates]);
 
-  const options = [...group.options].sort((a, b) => a.displayOrder - b.displayOrder);
+  const options = [...group.options].sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
 
   const moveOption = (index: number, delta: -1 | 1) => {
     if (!chainId) return;
-    const orders = swapOrders(options, index, delta);
-    if (!orders) return;
-    void run(async () => {
-      for (const o of orders) await optionsApi.patchOption(chainId, group.id, o.id, { displayOrder: o.displayOrder });
-    }, null, "Không đổi được thứ tự");
+    const changes = planReorder(options, index, delta);
+    if (!changes?.length) return;
+    // `run` đã nạp lại từ nguồn (dù lỗi giữa chừng) và báo lỗi qua `showApiError`.
+    void run(() => applyReorder(changes, (c) => optionsApi.patchOption(chainId, group.id, c.id, { displayOrder: c.displayOrder }), async () => {}), null, "Không đổi được thứ tự");
   };
 
   const setActive = (o: OptionItem, isActive: boolean) => {

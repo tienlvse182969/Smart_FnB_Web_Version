@@ -30,6 +30,8 @@ export type OptionGroup = {
   displayOrder: number;
   isActive: boolean;
   options: OptionItem[];
+  /** Số món đang dùng nhóm này: real = `_count.menuItems` của BE; mock = số món có cấu hình gắn nhóm. Dùng cho cột "Số món" và hộp xoá. */
+  menuItemCount?: number;
 };
 
 /** Tuỳ chọn khi tạo/sửa. Có `id` = sửa tuỳ chọn đó; không có = tạo mới. */

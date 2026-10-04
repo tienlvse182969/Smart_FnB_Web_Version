@@ -26,6 +26,8 @@ export interface RawOptionGroup {
   isActive: boolean;
   /** Có ở mọi response nhóm (`optionGroupSelect`); thiếu thì coi như rỗng. */
   options?: RawOption[];
+  /** Chỉ có ở `GET option-groups` (`menu.service.ts:158-168`); các response tạo/sửa không có. */
+  _count?: { menuItems: number };
 }
 
 export function mapOption(raw: RawOption): OptionItem {
@@ -50,5 +52,6 @@ export function mapGroup(raw: RawOptionGroup): OptionGroup {
     displayOrder: raw.displayOrder,
     isActive: raw.isActive,
     options: (raw.options ?? []).map(mapOption),
+    menuItemCount: raw._count?.menuItems,
   };
 }

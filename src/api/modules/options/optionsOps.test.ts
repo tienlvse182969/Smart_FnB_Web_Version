@@ -24,8 +24,12 @@ describe("mapper nhóm tuỳ chọn (menu.service.ts:66-82)", () => {
     expect(mapOption(rawOption)).toEqual({ id: "o1", name: "Size L", code: "L", priceDelta: 5000, displayOrder: 2, isActive: true });
     expect(mapOption(rawOption).isDefault).toBeUndefined();
     const g = mapGroup(rawGroup);
-    expect(Object.keys(g).sort()).toEqual(["code", "displayOrder", "id", "isActive", "isRequired", "maxSelections", "minSelections", "name", "options"]);
+    expect(Object.keys(g).sort()).toEqual(["code", "displayOrder", "id", "isActive", "isRequired", "maxSelections", "menuItemCount", "minSelections", "name", "options"]);
     expect(g.options[0].priceDelta).toBe(5000);
+  });
+  it("_count.menuItems → menuItemCount (quyết định 18); response tạo/sửa không có _count → undefined", () => {
+    expect(mapGroup(rawGroup).menuItemCount).toBe(3);
+    expect(mapGroup({ ...rawGroup, _count: undefined }).menuItemCount).toBeUndefined();
   });
   it("nhóm không có options → mảng rỗng", () => {
     expect(mapGroup({ ...rawGroup, options: undefined }).options).toEqual([]);
@@ -228,6 +232,19 @@ describe("mock options — thao tác từng dòng (cùng luật với real)", ()
     await expect(optionsMock.patchOption(chainId, g.id, o.id, { isActive: false })).rejects.toMatchObject({ status: 400 });
     await optionsMock.patchOption(chainId, g.id, o.id, { isDefault: false });
     expect(await optionsMock.patchOption(chainId, g.id, o.id, { isActive: false })).toMatchObject({ isActive: false });
+  });
+
+  it("listGroups có menuItemCount = số món đang dùng nhóm (nguồn tương đương _count.menuItems), đổi theo setItemGroups, không lưu vào bản chụp", async () => {
+    const [g1, g2] = await optionsMock.listGroups(chainId);
+    const base = g1.menuItemCount ?? 0;
+    await optionsMock.setItemGroups(chainId, "item-a", [g1.id]);
+    await optionsMock.setItemGroups(chainId, "item-b", [g1.id, g2.id]);
+    const after = await optionsMock.listGroups(chainId);
+    expect(after.find((g) => g.id === g1.id)?.menuItemCount).toBe(base + 2);
+    expect(after.find((g) => g.id === g2.id)?.menuItemCount).toBe((g2.menuItemCount ?? 0) + 1);
+    expect(localStorage.getItem(`smartfnb:mock:options:v1:${chainId}`) ?? "").not.toContain("menuItemCount");
+    await optionsMock.setItemGroups(chainId, "item-b", []);
+    expect((await optionsMock.listGroups(chainId)).find((g) => g.id === g1.id)?.menuItemCount).toBe(base + 1);
   });
 
   it("setItemGroups lưu thứ tự, giữ cờ noBatch; listItemGroups đọc đúng thứ tự; listItemConfigs lọc theo món", async () => {

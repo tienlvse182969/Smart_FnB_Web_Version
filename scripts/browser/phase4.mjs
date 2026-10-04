@@ -604,7 +604,7 @@ try {
     await rowButton("Topping thử", "Xoá");
     await sleep(700);
     const usageText = await q(`${tid("delete-usage")}?.innerText ?? ""`);
-    check("Xoá nhóm: hộp xác nhận nêu tên món đang dùng", /1 món/.test(usageText) && usageText.includes("Món Tuỳ Chọn"), usageText);
+    check("Xoá nhóm: hộp xác nhận nêu số món đang dùng (từ menuItemCount, quyết định 18)", /đang gắn cho 1 món/.test(usageText), usageText);
     await confirmModal("Xoá nhóm");
     await sleep(1300);
     list = await rows();
