@@ -140,7 +140,7 @@ describe("mock tuỳ chọn chi nhánh — lưu qua F5", () => {
   it("Owner tắt tuỳ chọn → chi nhánh không bật lại được (403), tắt thêm vẫn được", async () => {
     const groups = await optionsMock.listGroups(chainId);
     const opt = groups.flatMap((g) => g.options.map((o) => ({ g, o }))).find(({ o }) => !o.isDefault)!;
-    await optionsMock.setOptionActive(chainId, opt.g.id, opt.o.id, false);
+    await optionsMock.patchOption(chainId, opt.g.id, opt.o.id, { isActive: false });
     const row = (await branchOptionsMock.listBranchStates(branchId)).find((r) => r.optionId === opt.o.id)!;
     expect(row).toMatchObject({ ownerDisabled: true, effectiveAvailable: false });
     await expect(branchOptionsMock.setBranchOptionAvailable(branchId, opt.o.id, true)).rejects.toMatchObject({ status: 403 });

@@ -143,16 +143,19 @@ describe("real options — fetch giả, không gọi BE", () => {
     await expect(optionsReal.listItemConfigs("c1")).rejects.toThrow();
   });
 
-  it("listBranchStates và các hàm cũ: ném lỗi 'chưa hỗ trợ', không gọi BE", async () => {
+  it("listBranchStates và setItemNoBatch (chỉ mock): ném lỗi 'chưa hỗ trợ', không gọi BE", async () => {
     const fn = stub([]);
     await expect(optionsReal.listBranchStates("c1", "b1")).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.createGroup("c1", {} as never)).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.updateGroup("c1", "g1", {} as never)).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.deleteGroup("c1", "g1")).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.reorderGroups("c1", [])).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.setOptionActive("c1", "g1", "o1", false)).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.setItemConfig("c1", { menuItemId: "i1", groupIds: [] })).rejects.toThrow(/Chưa hỗ trợ/);
+    await expect(optionsReal.setItemNoBatch("c1", "i1", true)).rejects.toThrow(/Chưa hỗ trợ/);
     expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("giao diện không còn hàm cũ gửi/nhận cả nhóm", () => {
+    for (const impl of [optionsReal, optionsMock]) {
+      for (const name of ["createGroup", "updateGroup", "deleteGroup", "reorderGroups", "setOptionActive", "setItemConfig"]) {
+        expect(name in impl, name).toBe(false);
+      }
+    }
   });
 
   it("real.ts và mapper.ts không import mock/store và không đụng localStorage", () => {
@@ -230,7 +233,8 @@ describe("mock options — thao tác từng dòng (cùng luật với real)", ()
   it("setItemGroups lưu thứ tự, giữ cờ noBatch; listItemGroups đọc đúng thứ tự; listItemConfigs lọc theo món", async () => {
     const groups = await optionsMock.listGroups(chainId);
     const [g1, g2] = groups;
-    await optionsMock.setItemConfig(chainId, { menuItemId: "item-x", groupIds: [g1.id], noBatch: true });
+    await optionsMock.setItemGroups(chainId, "item-x", [g1.id]);
+    await optionsMock.setItemNoBatch(chainId, "item-x", true);
     expect(await optionsMock.setItemGroups(chainId, "item-x", [g2.id, g1.id])).toEqual([g2.id, g1.id]);
     expect((await optionsMock.listItemGroups(chainId, "item-x")).map((g) => g.id)).toEqual([g2.id, g1.id]);
     expect(await optionsMock.listItemConfigs(chainId, ["item-x"])).toEqual([{ menuItemId: "item-x", groupIds: [g2.id, g1.id], noBatch: true }]);

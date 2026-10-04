@@ -111,24 +111,4 @@ export const optionsReal: OptionsApi = {
   async setItemNoBatch() {
     throw unsupported("cờ không gom món chờ BE #17");
   },
-
-  // --- hàm cũ: không hỗ trợ ở real (không gọi BE) ---
-  async createGroup() {
-    throw unsupported("tạo cả nhóm kèm tuỳ chọn một lần (dùng addGroup + addOption)");
-  },
-  async updateGroup() {
-    throw unsupported("sửa cả nhóm kèm tuỳ chọn một lần (dùng patchGroup, addOption, patchOption, removeOption)");
-  },
-  async deleteGroup() {
-    throw unsupported("deleteGroup (dùng removeGroup)");
-  },
-  async reorderGroups() {
-    throw unsupported("reorderGroups (dùng patchGroup với displayOrder)");
-  },
-  async setOptionActive() {
-    throw unsupported("setOptionActive (dùng patchOption với isActive)");
-  },
-  async setItemConfig() {
-    throw unsupported("setItemConfig (dùng setItemGroups; cờ không gom món chờ BE #17)");
-  },
 };
