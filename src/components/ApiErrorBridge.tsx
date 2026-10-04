@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { App as AntApp, Button } from "antd";
-import { describeApiError, isReadOnlyError, READ_ONLY_TEXT, setApiErrorHandler, translateBackendMessage, type ApiErrorEvent } from "../api";
+import { describeApiError, isReadOnlyError, planUpgradeHint, READ_ONLY_TEXT, setApiErrorHandler, translateBackendMessage, type ApiErrorEvent } from "../api";
 import { hasDirtyForm } from "../lib/dirtyGuard";
 import { useAppStore } from "../store";
 
@@ -29,7 +29,7 @@ export default function ApiErrorBridge() {
           notification.warning({
             key: "api-quota-error",
             message: isReadOnlyError(event.error) ? "Chế độ chỉ đọc" : "Vượt hạn mức hoặc gói không hỗ trợ",
-            description: isReadOnlyError(event.error) ? READ_ONLY_TEXT : translateBackendMessage(event.error),
+            description: isReadOnlyError(event.error) ? READ_ONLY_TEXT : `${translateBackendMessage(event.error)} ${planUpgradeHint(event.error)}`.trim(),
             placement: "topRight",
           });
           break;

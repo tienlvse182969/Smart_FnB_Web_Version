@@ -5,7 +5,7 @@
 import { printFlagTable } from "./flags";
 
 export { authApi, TABLET_ONLY_MESSAGE, NO_WEB_ACCESS_MESSAGE, type AuthApi } from "./modules/auth";
-export { branchApi, describeBranchError, type BranchApi } from "./modules/branch";
+export { branchApi, describeBranchError, planUpgradeHint, type BranchApi } from "./modules/branch";
 export { reportApi, type ReportApi } from "./modules/report";
 export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
 export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
