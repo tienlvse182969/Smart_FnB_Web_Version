@@ -215,6 +215,15 @@ export const optionsMock: OptionsApi = {
     return [...groupIds];
   },
 
+  async setItemNoBatch(chainId, itemId, noBatch) {
+    await mockDelay();
+    assertMockWritable();
+    const s = getChainState(chainId);
+    const previous = s.itemOptions.get(itemId);
+    s.itemOptions.set(itemId, { menuItemId: itemId, groupIds: previous ? [...previous.groupIds] : [], noBatch });
+    persist(s);
+  },
+
   async createGroup(chainId, input) {
     await mockDelay();
     assertMockWritable();

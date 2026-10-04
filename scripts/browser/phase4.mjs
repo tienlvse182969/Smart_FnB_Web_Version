@@ -104,6 +104,13 @@ const clickDetail = (code, sel) => q(`(() => { const el = (${detailOf(code)})?.q
 const rowField = (code, optCode, field, value) => setInput(detailOf(code), `[data-testid="option-row"][data-code="${optCode}"] [data-testid="${field}"]`, value);
 const clickDefault = (code, optCode) =>
   q(`(() => { const el = (${detailOf(code)}).querySelector('[data-testid="option-row"][data-code="${optCode}"] [data-testid="opt-default"]'); (el.matches("input") ? el : el.querySelector("input")).click(); })()`);
+/** Chờ (tối đa 6 giây) tới khi thứ tự mã tuỳ chọn của nhóm đúng như `want`; lệnh patch và nạp lại có độ trễ giả lập. */
+const waitOptCodes = async (code, want) => {
+  for (let i = 0; i < 24; i++) {
+    if (J((await optRows(code)).map((r) => r.code)) === J(want)) return;
+    await sleep(250);
+  }
+};
 /** Thêm một tuỳ chọn bằng dòng thêm mới của chi tiết nhóm (mở dòng nếu chưa mở), bấm Lưu: MỘT lệnh. */
 const addOptionUI = async (groupCode, name, priceNum) => {
   if (!(await q(`!!(${detailOf(groupCode)})?.querySelector('[data-testid="option-row-new"]')`))) {
@@ -114,7 +121,9 @@ const addOptionUI = async (groupCode, name, priceNum) => {
   if (priceNum) await setInput(detailOf(groupCode), '[data-testid="option-row-new"] [data-testid="opt-price"]', String(priceNum));
   await sleep(250);
   await clickDetail(groupCode, '[data-testid="option-row-new"] [data-testid="opt-save"]');
-  await sleep(900);
+  // Dòng thêm mới chỉ đóng sau khi lưu xong VÀ nạp lại danh sách: chờ nó đóng rồi mới thêm dòng kế tiếp (nếu không, dòng sau gõ vào dòng sắp đóng).
+  await tab.waitFor(`!(${detailOf(groupCode)})?.querySelector('[data-testid="option-row-new"]')`, 6000, `dòng thêm tuỳ chọn ${name} chưa đóng`).catch(() => {});
+  await sleep(500);
 };
 const pv = (code) => q(`${tid(`preview-option-${code}`)}?.getAttribute("data-selected")`);
 const price = () => q(`${tid("preview-price")}?.textContent ?? ""`);
@@ -381,10 +390,12 @@ try {
     check("Sửa tuỳ chọn: giá mới 2.000 hiện ở danh sách nhóm", /Tạm \+2\.000/.test((await rows()).find((r) => r.includes("Size thử")) ?? ""));
     // đổi thứ tự bằng nút lên/xuống (2 lệnh patch displayOrder); lỗi thì nạp lại
     await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="M"] [data-testid="opt-down"]');
-    await sleep(1200);
+    await waitOptCodes("SIZE-THU", ["L", "M", "TAM"]);
+    await sleep(600);
     check("Đổi thứ tự: M xuống một bậc → L, M, Tạm", J((await optRows("SIZE-THU")).map((r) => r.code)) === J(["L", "M", "TAM"]), J((await optRows("SIZE-THU")).map((r) => r.code)));
     await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="M"] [data-testid="opt-up"]');
-    await sleep(1200);
+    await waitOptCodes("SIZE-THU", ["M", "L", "TAM"]);
+    await sleep(600);
     check("Đổi thứ tự: M lên lại → M, L, Tạm", J((await optRows("SIZE-THU")).map((r) => r.code)) === J(["M", "L", "TAM"]), J((await optRows("SIZE-THU")).map((r) => r.code)));
     // xoá tuỳ chọn có hộp xác nhận (quyết định 16): Huỷ thì còn, đồng ý mới xoá
     await clickDetail("SIZE-THU", '[data-testid="option-row"][data-code="TAM"] [data-testid="opt-delete"]');
@@ -448,12 +459,13 @@ try {
     list = await waitRowWith("Tạm min");
     check("Nhóm tạm: tối thiểu 2 mà chưa có tuỳ chọn → cả 'Chưa có tuỳ chọn' lẫn 'Không đủ tuỳ chọn để chọn tối thiểu 2'", list.some((r) => r.includes("Tạm min") && r.includes("Chưa có tuỳ chọn") && r.includes("Không đủ tuỳ chọn để chọn tối thiểu 2")), (list.find((r) => r.includes("Tạm min")) ?? "").slice(0, 160));
     await addOptionUI("TAM-MIN", "Một", 0);
+    const tamText = async () => (await rows()).find((r) => r.includes("Tạm min")) ?? "";
     check("Nhóm tạm: có 1 tuỳ chọn đang bật < tối thiểu 2 → còn nhãn đỏ 'Không đủ…', hết 'Chưa có tuỳ chọn'; không chặn lưu (đã lưu được dòng)", await (async () => {
-      const t = (await rows()).find((r) => r.includes("Tạm min")) ?? "";
+      const t = await tamText();
       return t.includes("Không đủ tuỳ chọn để chọn tối thiểu 2") && !t.includes("Chưa có tuỳ chọn");
-    })());
+    })(), (await tamText()).slice(0, 160));
     await addOptionUI("TAM-MIN", "Hai", 0);
-    check("Nhóm tạm: đủ 2 tuỳ chọn đang bật → hết nhãn 'Không đủ…'", !((await rows()).find((r) => r.includes("Tạm min")) ?? "").includes("Không đủ tuỳ chọn"));
+    check("Nhóm tạm: đủ 2 tuỳ chọn đang bật → hết nhãn 'Không đủ…'", !(await tamText()).includes("Không đủ tuỳ chọn"), (await tamText()).slice(0, 160));
     await rowButton("Tạm min", "Sửa");
     await sleep(800);
     await setInput(modal, '[data-testid="group-name"]', "Tạm min đổi");
@@ -483,13 +495,22 @@ try {
 
     // --- Đổi thứ tự nhóm (quyết định 15): Topping thử lên một bậc rồi xuống lại
     const order = async () => (await rows()).map((r) => (r.match(/Size thử|Topping thử/) ?? [""])[0]).filter(Boolean);
+    /** Chờ (tối đa 6 giây) tới khi thứ tự hai nhóm đúng như `want`; lệnh patch và nạp lại có độ trễ giả lập. */
+    const waitOrder = async (want) => {
+      for (let i = 0; i < 24; i++) {
+        if (J(await order()) === J(want)) return;
+        await sleep(250);
+      }
+    };
     const before = await order();
     await rowButton("Topping thử", "Lên");
-    await sleep(1400);
+    await waitOrder(["Topping thử", "Size thử"]);
+    await sleep(1200);
     const after = await order();
     check("Đổi thứ tự nhóm: Topping thử lên trước Size thử bằng 2 lệnh patch", J(before) === J(["Size thử", "Topping thử"]) && J(after) === J(["Topping thử", "Size thử"]), `${J(before)} → ${J(after)}`);
     await rowButton("Topping thử", "Xuống");
-    await sleep(1400);
+    await waitOrder(["Size thử", "Topping thử"]);
+    await sleep(1200);
     check("Đổi thứ tự nhóm: xuống lại → Size thử rồi Topping thử", J(await order()) === J(["Size thử", "Topping thử"]), J(await order()));
 
     // --- Món: gắn cả hai nhóm, xem trước
@@ -503,7 +524,13 @@ try {
     await sleep(400);
     check("Món: form có khu 'Tuỳ chọn món' kèm ghi chú 'lưu tạm, chờ BE' và 'Không gom món'", /chờ BE/.test(await q(`${tid("item-options-note")}?.innerText ?? ""`)) && (await has("item-nobatch")));
     check("Món: chưa gắn nhóm thì xem trước báo 'chưa gắn nhóm'", /chưa gắn nhóm/.test(await q(`${tid("option-preview")}?.innerText ?? ""`)));
-    await pickSelect(drawer, "Size thử", 1);
+    // Quyết định 12: nhóm chưa có tuỳ chọn hiện trong ô chọn nhưng khoá, ghi lý do (mở ô chọn, đọc, rồi chọn Size thử)
+    await q(`(() => { const root = ${drawer}; root.querySelectorAll(".ant-select-content, .ant-select-selector")[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); })()`);
+    await sleep(450);
+    const emptyOpt = await q(`(() => { const o = [...document.querySelectorAll(".ant-select-item-option")].find((e) => e.textContent.includes("Rỗng thử")); return o ? { disabled: o.classList.contains("ant-select-item-option-disabled") || o.getAttribute("aria-disabled") === "true", text: o.textContent } : null })()`);
+    check("Món: nhóm rỗng ('Rỗng thử') hiện trong ô chọn nhưng khoá, ghi lý do 'chưa có tuỳ chọn' (quyết định 12)", !!emptyOpt && emptyOpt.disabled === true && /chưa có tuỳ chọn/.test(emptyOpt.text), J(emptyOpt));
+    await q(`[...document.querySelectorAll(".ant-select-item-option")].find((e) => e.textContent.includes("Size thử"))?.click()`);
+    await sleep(600);
     await pickSelect(drawer, "Topping thử", 1);
     await pickSelect(drawer, "Một mình", 1);
     await sleep(400);

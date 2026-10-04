@@ -108,6 +108,10 @@ export const optionsReal: OptionsApi = {
     return saved.map((g) => g.id);
   },
 
+  async setItemNoBatch() {
+    throw unsupported("cờ không gom món chờ BE #17");
+  },
+
   // --- hàm cũ: không hỗ trợ ở real (không gọi BE) ---
   async createGroup() {
     throw unsupported("tạo cả nhóm kèm tuỳ chọn một lần (dùng addGroup + addOption)");

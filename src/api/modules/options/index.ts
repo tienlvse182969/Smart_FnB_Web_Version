@@ -60,6 +60,8 @@ export interface OptionsApi {
   removeOption(chainId: string, groupId: string, optionId: string): Promise<void>;
   /** Thay danh sách nhóm của món; thứ tự mảng = thứ tự hiển thị. `PUT items/:id/option-groups` body `{optionGroupIds}`. Trả danh sách id đã lưu. */
   setItemGroups(chainId: string, itemId: string, groupIds: string[]): Promise<string[]>;
+  /** Cờ "không gom món" của một món — chỉ mock (`capabilities.allowBatching`, BE chưa có #17); real ném lỗi "chưa hỗ trợ", không gọi BE. */
+  setItemNoBatch(chainId: string, itemId: string, noBatch: boolean): Promise<void>;
 
   // --- hàm CŨ (gửi/nhận cả nhóm lồng tuỳ chọn). Xoá ở 6.2b khi màn hình chuyển sang thao tác từng dòng; real KHÔNG hỗ trợ. ---
   /** @deprecated Dùng `addGroup` + `addOption`. Xoá ở 6.2b. Thứ tự tuỳ chọn = thứ tự mảng `options`. Lỗi quy tắc → 400, trùng mã nhóm → 409. */
