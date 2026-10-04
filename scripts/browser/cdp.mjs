@@ -152,7 +152,10 @@ class Tab {
     if (isWrite && f.times != null && f.hits >= f.times) return false; // sau lượt đầu: rơi về chặn như cũ (BlockedByClient)
     f.hits++;
     this.faultLog.push({ method, path, kind: f.kind });
-    if (isWrite) this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
+    if (isWrite) {
+      this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
+      this.logWrite(method, path);
+    }
     this.fulfillFault(p, f.kind, f);
     return true;
   }
@@ -172,8 +175,13 @@ class Tab {
       void this.send("Fetch.continueRequest", { requestId: p.requestId });
     } else {
       this.blockedWrites.push({ method, path, body: postData ?? null });
+      this.logWrite(method, path);
       void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" });
     }
+  }
+  /** Nhật ký TÍCH LUỸ mọi request ghi bị chặn (không bao giờ reset, khác `blockedWrites` mà script hay xoá); `caseName` do script đặt. */
+  logWrite(method, path) {
+    (this.writeLog ??= []).push({ method, path: path.split("?")[0], caseName: this.caseName ?? "" });
   }
   send(method, params = {}) {
     const id = ++this.n;
@@ -328,7 +336,24 @@ export async function newTab(url = "about:blank", authMode, opts = {}) {
   return tab;
 }
 
+/** Bảng tổng request ghi bị chặn: số lượng, mỗi dòng `METHOD đường dẫn` (id → {id}) kèm số lần và tên các ca. Chỉ in khi tab đã `blockWrites`. */
+export function printBlockedWritesSummary(tab) {
+  if (tab.blockAllow === undefined) return;
+  const log = tab.writeLog ?? [];
+  const rows = new Map();
+  for (const w of log) {
+    const key = `${w.method} ${w.path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "{id}")}`;
+    const row = rows.get(key) ?? { n: 0, cases: new Set() };
+    row.n++;
+    if (w.caseName) row.cases.add(w.caseName);
+    rows.set(key, row);
+  }
+  console.log(`\n[real] BẢNG REQUEST GHI BỊ CHẶN Ở CDP: ${log.length} request, ${rows.size} dòng khác nhau`);
+  for (const [key, row] of rows) console.log(`   ${String(row.n).padStart(3)}×  ${key}${row.cases.size ? `   (${[...row.cases].join("; ")})` : ""}`);
+}
+
 export async function closeTab(tab) {
+  printBlockedWritesSummary(tab);
   try {
     tab.ws.close();
     await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);

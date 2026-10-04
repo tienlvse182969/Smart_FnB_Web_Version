@@ -322,6 +322,7 @@ async function writeCase(spec, kind) {
     if (!(await spec.loaded())) return record(spec.id, "ghi", kind, ["PRECONDITION"], "màn không nạp được trước khi giả lập");
     await clearNotices();
     tab.blockedWrites.length = 0;
+    tab.caseName = `${spec.id}|${kind}`;
     tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/ });
     const out = await spec.write();
     const s = await snap();
