@@ -182,6 +182,28 @@ const screens = [
     } },
   { id: "owner/menu", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
   { id: "owner/menu/categories", role: "owner", route: "/owner/menu/categories", from: "/owner/plan", read: /\/menu\/categories/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
+  // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
+  { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      await q(`document.querySelector(".ant-table-row-expand-icon-collapsed")?.click()`);
+      await sleep(700);
+      return switchWrite('[data-testid^="group-detail-"]', { confirm: false })();
+    } },
+  // 6.3: gắn nhóm tuỳ chọn cho món (MenuTable, drawer) — PUT items/{id}/option-groups; món không đổi nên không có PATCH món. Chỉ nhận lỗi giả.
+  { id: "owner/menu (gắn nhóm)", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const opened = await q(`(() => { const r = document.querySelector(".ant-table-tbody > tr.ant-table-row"); const b = r && [...r.querySelectorAll("button")].find((x) => x.textContent.includes("Sửa") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!opened) return { skipped: "không có nút Sửa món" };
+      await sleep(1200);
+      await q(`document.querySelector('[data-testid="item-group-add"] .ant-select-content, [data-testid="item-group-add"] .ant-select-selector')?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+      await sleep(500);
+      const picked = await q(`(() => { const o = [...document.querySelectorAll(".ant-select-item-option")].find((e) => !e.classList.contains("ant-select-item-option-disabled")); if (!o) return false; o.click(); return true })()`);
+      if (!picked) return { skipped: "món đã gắn đủ nhóm có tuỳ chọn" };
+      await sleep(500);
+      await q(`document.querySelector('[data-testid="item-save"]')?.click()`);
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="item-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
   { id: "owner/accounts", role: "owner", route: "/owner/accounts", from: "/owner/plan", read: /\/employees/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
       const first = () => q(`document.querySelector(".ant-table-tbody > tr.ant-table-row")?.innerText.replace(/\\s+/g, " ") ?? ""`);
