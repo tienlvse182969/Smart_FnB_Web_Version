@@ -14,8 +14,8 @@ export type OptionItem = {
   displayOrder: number;
   /** Cờ kinh doanh cấp chuỗi (OW-04): tắt thì mọi chi nhánh không bán tuỳ chọn này. */
   isActive: boolean;
-  /** Tuỳ chọn mặc định (đặc tả 12.2). CHỜ BE: schema chưa có cột này (api-contract-plan.md mục 7 #15). */
-  isDefault: boolean;
+  /** Tuỳ chọn mặc định (đặc tả 12.2). CHỜ BE: schema chưa có cột này (api-contract-plan.md mục 7 #15). `undefined` ở real (`capabilities.isDefault` = false). */
+  isDefault?: boolean;
 };
 
 export type OptionGroup = {
@@ -39,7 +39,8 @@ export type OptionInput = {
   code: string;
   priceDelta: number;
   isActive: boolean;
-  isDefault: boolean;
+  /** Bỏ trống/`undefined` = không mặc định; real không gửi (BE chưa có, #15). */
+  isDefault?: boolean;
 };
 
 /** Tạo/sửa nhóm. Khi sửa mà có `options` thì THAY toàn bộ danh sách: có `id` giữ/sửa, không `id` tạo, thiếu thì xoá; thứ tự mảng = displayOrder. */
@@ -99,6 +100,6 @@ export type BranchOptionWriteResult = {
 export type ItemOptionConfig = {
   menuItemId: string;
   groupIds: string[];
-  /** Món không gom khi pha: mỗi ly là một mẻ. CHỜ BE (mục 7 #17). */
-  noBatch: boolean;
+  /** Món không gom khi pha: mỗi ly là một mẻ. CHỜ BE (mục 7 #17). `undefined` ở real (`capabilities.allowBatching` = false). */
+  noBatch?: boolean;
 };
