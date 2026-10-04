@@ -3,7 +3,7 @@
 //   node scripts/browser/phase4.mjs real   # dev server cổng 5173 với cờ mặc định, BE chạy: CHỈ ĐỌC — không thêm/sửa/xoá/bật tắt gì
 // Chế độ real so sánh với dữ liệu BE đọc bằng GET (đăng nhập demo bằng .env của BE, không in mật khẩu).
 import { readFileSync } from "node:fs";
-import { cli, newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 // --mode=mock|real (hoặc đối số trần như cũ); --only=owner|manager (không cờ = chạy hết)
 const CLI = cli();
@@ -13,6 +13,8 @@ const REAL = MODE === "real";
 const J = JSON.stringify;
 const tab = await newTab("about:blank", REAL ? "real" : "mock");
 const q = (expr) => tab.eval(expr);
+// Real chỉ đọc: chặn mọi request ghi ở tầng CDP (chỉ cho đăng nhập/làm mới/đăng xuất) và in bảng tổng khi kết thúc.
+if (REAL) await tab.blockWrites(SESSION_ALLOW);
 
 const click = (sel, text) =>
   q(`(() => { const el = [...document.querySelectorAll(${J(sel)})].find((e) => !${J(text ?? "")} || e.textContent.includes(${J(text ?? "")}));
@@ -320,7 +322,7 @@ try {
     await sleep(600);
     check("Món: xoá có bước xác nhận", /Xoá món/.test(await q(`document.body.innerText`)));
     await confirmModal("Xoá món");
-    await sleep(1500);
+    for (let i = 0; i < 24 && (await rows()).some((r) => r.includes("Món Thử Đã Sửa")); i++) await sleep(250); // chờ xoá xong + nạp lại (độ trễ giả lập)
     check("Món: xoá thành công", !(await rows()).some((r) => r.includes("Món Thử Đã Sửa")));
 
     // ============================================================ MOCK — Owner: tuỳ chọn món (4.3; options luôn là mock)
@@ -421,7 +423,8 @@ try {
     check("Lỗi BE: lưu một dòng báo lỗi tiếng Việt, dòng chưa lưu còn nguyên, nhóm không có thêm tuỳ chọn", /Máy chủ đang gặp sự cố/.test(await toasts()) && (await q(`!!(${detailOf("SIZE-THU")}).querySelector('[data-testid="option-row-new"]')`)) && (await optRows("SIZE-THU")).length === 2, await toasts());
     await tab.setSelect("mock-failure", "none");
     await clickDetail("SIZE-THU", '[data-testid="option-row-new"] [data-testid="opt-cancel"]');
-    await sleep(400);
+    await q(`document.querySelectorAll(".ant-notification-notice-close").forEach((b) => b.click())`); // thông báo "Máy chủ gặp sự cố" không tự tắt
+    await sleep(500);
 
     // --- Topping: không bắt buộc, tối đa 3, có giá
     await click(".ant-card button", "Thêm nhóm");
@@ -649,7 +652,7 @@ try {
     await sleep(600);
     await confirmModal("Tắt và bỏ mặc định");
     const offT = await waitToast("Đã tắt tuỳ chọn");
-    await sleep(600);
+    for (let i = 0; i < 24 && /100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? ""); i++) await sleep(250); // chờ nạp lại sau khi tắt
     check("Mặc định: đồng ý → tuỳ chọn tắt và hết cờ mặc định", offT.includes("Đã tắt tuỳ chọn") && !/100% ★/.test((await rows()).find((r) => r.includes("Đường")) ?? ""), offT);
 
     // --- BE lỗi khi lưu món: tuỳ chọn KHÔNG được lưu vào mock
