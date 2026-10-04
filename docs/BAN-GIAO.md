@@ -278,7 +278,7 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
 | 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · 5.8c ✅ · 5.8d ✅ · 5.8e ✅ (chốt) — **GĐ5 ✅ xong phần web trên `feat/v9-manager`**; kết quả chốt và tóm tắt ở mục 9 |
-| 6 | Owner: OW-03 tuỳ chọn real, liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10). Nhánh `feat/v9-owner`, bắt đầu từ `f701bb8`. Chia 6.1, 6.2a, 6.2b, 6.3–6.7 và quyết định ở mục 8b | 6.1 ✅ (`e2fcdf1`, `2fe85c7`, `37f220f`) · 6.2a ✅ (`8b627f6`, `0793a42`, `ac940a1`, commit docs) |
+| 6 | Owner: OW-03 tuỳ chọn real, liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10). Nhánh `feat/v9-owner`, bắt đầu từ `f701bb8`. Chia 6.1, 6.2a, 6.2b, 6.3–6.7 và quyết định ở mục 8b | 6.1 ✅ (`e2fcdf1`, `2fe85c7`, `37f220f`) · 6.2a ✅ (`8b627f6`, `0793a42`, `ac940a1`, `c38e964`) · 6.2b ✅ (`a1dbba7`, `aa55732`, `dd48fb9`, `f3c5b6f`, commit docs) |
 | 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
 | 8 | Màn hình gọi số trên TV | |
 | 9 | Báo cáo đa chi nhánh, trợ lý AI (real), chỉ đọc khi hết hạn khớp BE | |
@@ -291,8 +291,8 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 |---|---|---|---|---|
 | 6.1 ✅ | Sửa trùng thông báo ở `Branches.tsx`; nhãn "(số liệu mẫu)" ở `StaffTable.tsx`; khối `phase5 --only=staff`; ghi tài liệu quyết định (`e2fcdf1`, `2fe85c7`, `37f220f`) | không đổi cờ | `phase58-faults --only=owner/branches`; `phase5 --only=staff` | không |
 | 6.2a ✅ | Tầng dữ liệu OW-03: log request ghi bị chặn (`8b627f6`); `syncSelectionRule` + bộ kiểm hai chiều (`0793a42`); `optionsApi` theo từng thao tác + `options/real.ts` **chưa bật** (`ac940a1`); chưa đổi màn hình | `options` vẫn mock | vitest; `phase4 --only=owner` mock; `phase5 --only=menu` mock | không |
-| 6.2b | Màn `OptionGroups.tsx` chuyển sang thao tác từng dòng (mock): form nhóm lưu riêng, mỗi dòng tuỳ chọn lưu ngay; nối `syncSelectionRule`; xoá hàm cũ `@deprecated` | `options` mock | `phase4 --only=owner` (sửa khối tuỳ chọn) | không |
-| 6.3 | Bật `options=real`; gắn nhóm vào món (`setItemGroups`, `listItemConfigs` ≤ 4 song song); ô `isDefault`/`allowBatching` khoá "chờ BE #15/#17"; ẩn panel trạng thái theo chi nhánh ở real; kiểm real chỉ đọc | `options=real` | `phase4 --only=owner` mock + real chỉ đọc; `phase5 --only=menu` | #16 (cũ) |
+| 6.2b ✅ | `OptionGroups.tsx` lưu từng thao tác (form nhóm riêng, mỗi dòng tuỳ chọn lưu ngay, nối `syncSelectionRule`, quyết định 12–16) `a1dbba7`; `MenuTable.tsx` gắn nhóm bằng `setItemGroups` (+ `setItemNoBatch` chỉ mock) `aa55732`; xoá hàm cũ của `optionsApi` `dd48fb9`; `phase4` chặn ghi ở CDP khi real `f3c5b6f` | `options` mock | `phase4 --only=owner` mock 99/99, real 18/18; `phase5 --only=menu` mock 24/24 | không |
+| 6.3 | Bật `options=real`; kiểm real chỉ đọc, chặn ghi ở CDP, so body từng lệnh với DTO BE (`CreateMenuOptionGroupDto`, `CreateMenuOptionDto`, `SetMenuItemOptionGroupsDto`); ô `isDefault`/`allowBatching` khoá "chờ BE #15/#17" (đã có sẵn theo `capabilities`); panel trạng thái theo chi nhánh ẩn ở real; `listItemConfigs` ≤ 4 song song. Việc còn lại của real: màn gọi `listItemConfigs` truyền đủ `itemIds`, ca real của `phase4` (hiện "gắn nhóm mock lên món thật") viết lại | `options=real` | `phase4 --only=owner` mock + real chỉ đọc; `phase5 --only=menu` | #16 (cũ) |
 | 6.4 | Nhận diện real: GET/PUT/DELETE + tải logo multipart; `useDirtyGuard` | `branding=real` | `phase2 --only=brand` mock; real chỉ đọc, chặn `PUT`, `POST logo`, `DELETE` | #39 (mới); #33 (cũ). Dài hơn mức thường vì đổi cách tải logo từ data URL sang multipart |
 | 6.5 | PayOS: nhập ba khoá (che sau khi lưu), gỡ liên kết, hộp xác nhận | `payos=real` | mock: máy trạng thái; real chỉ GET | #40 (mới) |
 | 6.6 | "Gói của tôi" (OW-10) | `plan` real một phần | `phase2 --only=plan`; phase6 | #38 (cũ) |
@@ -315,6 +315,11 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 9 | Đọc cấu hình tuỳ chọn từng món (N+1): chấp nhận, tối đa 4 request song song |
 | 10 | Logo chỉ tải lên khi bấm Lưu, không tải lúc chọn file |
 | 11 | Tắt tuỳ chọn đang mặc định: giữ hộp xác nhận ở mock; real chưa áp dụng vì chưa có `isDefault` |
+| 12 | Nhóm chưa có tuỳ chọn vẫn hiện, kèm nhãn cảnh báo "Chưa có tuỳ chọn"; không cho gắn nhóm rỗng vào món (ô chọn nhóm ở `MenuTable` khoá nhóm rỗng, ghi lý do). Tạo nhóm xong tự mở ô thêm tuỳ chọn đầu tiên |
+| 13 | Xoá tuỳ chọn cuối cùng của một nhóm đang gắn món: hộp xác nhận ghi "N món đang dùng nhóm này" (N lấy từ cấu hình món `listItemConfigs`, cùng nguồn với cột "Số món") |
+| 14 | Số tuỳ chọn đang bật < `min` của nhóm: nhãn cảnh báo đỏ "Không đủ tuỳ chọn để chọn tối thiểu N", không chặn lưu |
+| 15 | Sắp xếp nhóm và tuỳ chọn bằng nút lên/xuống; mỗi lần đổi 2 dòng = 2 lệnh `patch displayOrder`; lỗi giữa chừng → nạp lại từ nguồn, báo lỗi qua `showApiError`. Hai dòng trùng `displayOrder` thì đánh số lại theo vị trí (các dòng khác trùng thì thứ tự có thể chưa đúng — chưa gặp vì web luôn tạo `max + 1`) |
+| 16 | Xoá tuỳ chọn có hộp xác nhận (`Xoá tuỳ chọn "…"`), Huỷ thì giữ nguyên |
 
 ## 9. Chốt giai đoạn 5 (5.8e, 2026-10-04)
 
@@ -343,3 +348,8 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 - phase5 mock: 1/2 lượt trượt đúng 1 kiểm ("Đủ hạn mức: nút 'Thêm nhân viên' bị khoá", 110/111); chạy lại 111/111. Trước đó 3 lượt liền 111/111.
 - Lần chạy đầu của lượt chốt (phase2, phase3, phase4 real) hỏng vì tôi sửa `.env.example` giữa lúc chạy (Vite theo dõi `.env*`); suy đoán, không chứng minh được; chạy lại sạch đạt hết. **Quy tắc: không sửa file `.env*` khi đang chạy kiểm trình duyệt.**
 - Một kiểm phase3 mock ("Đổi gói (hạ vượt hạn mức)") đòi câu tiếng Anh cũ của BE: lỗi **script** do dịch lỗi ở 5.8b; đã sửa kỳ vọng thành câu tiếng Việt.
+
+**Chập chờn gặp ở GĐ6** (không phải lỗi app):
+- `phase58-faults --only=owner/branches` (real): ở 6.2a có 1 lần 7/8 (bảng chỉ ghi 4 request thay vì 5). Ở 6.2b chạy lại 3 lần liên tiếp: **8/8 cả 3 lần**, mỗi lần 5 request ghi bị chặn (`POST /api/v1/restaurant-chains/{id}/branches`). Chưa tái hiện, chưa rõ nguyên nhân; không sửa script.
+- `phase4 --mode=mock --only=owner` (6.2b): khi viết khối tuỳ chọn từng dòng gặp 5 kiểu trượt do **script** gõ/đọc trước khi mã ứng dụng xong (dòng thêm tuỳ chọn mới đóng chậm hơn 900 ms cố định nên dòng kế tiếp gõ vào dòng sắp đóng; đổi thứ tự nhóm/tuỳ chọn, xoá món và tắt mặc định chờ `sleep` cố định trong khi lệnh patch + nạp lại có độ trễ giả lập). Đã đổi sang **chờ điều kiện** (`addOptionUI`, `waitOptCodes`, `waitOrder`, các vòng chờ), sau đó 5/6 lần chạy 99/99, 1 lần ngắt vì `CDP timeout: Runtime.evaluate` (hạ tầng Chrome, chạy lại 99/99).
+- Thông báo "Máy chủ gặp sự cố" (`duration: 0`) không tự tắt: ca giả lập lỗi BE phải đóng nó (`.ant-notification-notice-close`) trước các ca sau.
