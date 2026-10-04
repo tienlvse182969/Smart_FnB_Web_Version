@@ -49,6 +49,8 @@ export type OptionGroupInput = {
   isRequired: boolean;
   minSelections: number;
   maxSelections: number;
+  /** Chỉ kiểm khoảng 0–9999 nếu có (BE `displayOrder`); thứ tự thật do web đặt khi sắp xếp. */
+  displayOrder?: number;
   isActive: boolean;
   options: OptionInput[];
 };
