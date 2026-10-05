@@ -1,7 +1,7 @@
 /**
- * Bản REAL của module options — BE `0083289`, role OWNER, `chain-menu.controller.ts:114-205, 329-345`. CHƯA BẬT (cờ `options` = mock).
- * KHÔNG import `api/mock/*` và KHÔNG dùng localStorage: `isDefault` và `noBatch` BE chưa có (#15, #17) nên real không đọc, không ghi
- * (quyết định GĐ6 số 1); `capabilities` đều false.
+ * Bản REAL của module options — BE role OWNER, `chain-menu.controller.ts:114-205, 329-345`. Đã bật mặc định từ 6.3.
+ * KHÔNG import `api/mock/*` và KHÔNG dùng localStorage: `isDefault` BE chưa trả/nhận (#15, một phần) nên real không đọc, không ghi
+ * (quyết định GĐ6 số 1); `capabilities` đều false. Cờ "không gom món" không thuộc module này: là `MenuItem.allowBatching` (#17, quyết định 22).
  * Body CHỈ gồm trường nằm trong DTO của BE: `forbidNonWhitelisted` (`app.setup.ts:21-22`) trả 400 nếu gửi trường lạ (như `isDefault`).
  */
 import { mapWithLimit } from "../../../lib/concurrency";
@@ -28,7 +28,7 @@ function assertValid(errors: string[]): void {
 const unsupported = (what: string) => new Error(`Chưa hỗ trợ ở chế độ real: ${what}.`);
 
 export const optionsReal: OptionsApi = {
-  capabilities: { isDefault: false, allowBatching: false, branchStates: false },
+  capabilities: { isDefault: false, branchStates: false },
 
   async listGroups(chainId) {
     return (await request<RawOptionGroup[]>(`${base(chainId)}/option-groups`)).map(mapGroup);
@@ -106,9 +106,5 @@ export const optionsReal: OptionsApi = {
     // SetMenuItemOptionGroupsDto (menu.dto.ts:344): { optionGroupIds }, thứ tự mảng = thứ tự hiển thị; BE trả danh sách nhóm đã gắn.
     const saved = await request<RawOptionGroup[]>(`${base(chainId)}/items/${itemId}/option-groups`, { method: "PUT", body: { optionGroupIds: groupIds } });
     return saved.map((g) => g.id);
-  },
-
-  async setItemNoBatch() {
-    throw unsupported("cờ không gom món chờ BE #17");
   },
 };

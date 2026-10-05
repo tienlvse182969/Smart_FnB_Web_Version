@@ -37,7 +37,7 @@ function optionOf(group: OptionGroup, optionId: string): OptionItem {
 const sortedGroup = (g: OptionGroup): OptionGroup => sorted([g])[0];
 
 export const optionsMock: OptionsApi = {
-  capabilities: { isDefault: true, allowBatching: true, branchStates: true },
+  capabilities: { isDefault: true, branchStates: true },
 
   async listGroups(chainId) {
     await mockDelay();
@@ -182,19 +182,9 @@ export const optionsMock: OptionsApi = {
     const s = getChainState(chainId);
     if (new Set(groupIds).size !== groupIds.length) throw new ApiError(400, "Một nhóm không được gắn hai lần cho một món");
     for (const gid of groupIds) groupOf(s, gid);
-    const previous = s.itemOptions.get(itemId);
-    s.itemOptions.set(itemId, { menuItemId: itemId, groupIds: [...groupIds], noBatch: previous?.noBatch ?? false });
+    s.itemOptions.set(itemId, { menuItemId: itemId, groupIds: [...groupIds] });
     persist(s);
     return [...groupIds];
-  },
-
-  async setItemNoBatch(chainId, itemId, noBatch) {
-    await mockDelay();
-    assertMockWritable();
-    const s = getChainState(chainId);
-    const previous = s.itemOptions.get(itemId);
-    s.itemOptions.set(itemId, { menuItemId: itemId, groupIds: previous ? [...previous.groupIds] : [], noBatch });
-    persist(s);
   },
 
   async listItemConfigs(chainId, itemIds) {

@@ -97,11 +97,9 @@ export type BranchOptionWriteResult = {
 
 /**
  * Cấu hình tuỳ chọn của một MÓN THẬT (theo ID món từ BE): các nhóm gắn vào món theo thứ tự
- * (`MenuItemOptionGroup.displayOrder`) và cờ "không gom món" (đặc tả 8.3). CHỜ BE cho cả hai.
+ * (`MenuItemOptionGroup.displayOrder`). Cờ "không gom món" KHÔNG nằm ở đây từ 6.3d: nó là `MenuItem.allowBatching` (một nguồn, #17).
  */
 export type ItemOptionConfig = {
   menuItemId: string;
   groupIds: string[];
-  /** Món không gom khi pha: mỗi ly là một mẻ. CHỜ BE (mục 7 #17). `undefined` ở real (`capabilities.allowBatching` = false). */
-  noBatch?: boolean;
 };

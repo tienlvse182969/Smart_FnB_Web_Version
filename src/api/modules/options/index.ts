@@ -13,12 +13,10 @@ import type { GroupFields, OptionFields } from "./rules";
 export type { OptionGroupInput } from "../../../types";
 export type { GroupFields, OptionFields } from "./rules";
 
-/** Việc mà bản đang chạy làm được. Mock: cả ba; real: không có gì (BE chưa có #15, #17, và Owner chưa đọc được trạng thái theo chi nhánh). */
+/** Việc mà bản đang chạy làm được. Mock: cả hai; real: không có gì (BE chưa trả/nhận `isDefault` #15, Owner chưa đọc được trạng thái theo chi nhánh). */
 export interface OptionsCapabilities {
   /** Tuỳ chọn mặc định (`isDefault`, #15). */
   isDefault: boolean;
-  /** Cờ "không gom món" (`noBatch`, #17). */
-  allowBatching: boolean;
   /** Đọc trạng thái còn bán của tuỳ chọn theo chi nhánh (`listBranchStates`). */
   branchStates: boolean;
 }
@@ -60,8 +58,6 @@ export interface OptionsApi {
   removeOption(chainId: string, groupId: string, optionId: string): Promise<void>;
   /** Thay danh sách nhóm của món; thứ tự mảng = thứ tự hiển thị. `PUT items/:id/option-groups` body `{optionGroupIds}`. Trả danh sách id đã lưu. */
   setItemGroups(chainId: string, itemId: string, groupIds: string[]): Promise<string[]>;
-  /** Cờ "không gom món" của một món — chỉ mock (`capabilities.allowBatching`, BE chưa có #17); real ném lỗi "chưa hỗ trợ", không gọi BE. */
-  setItemNoBatch(chainId: string, itemId: string, noBatch: boolean): Promise<void>;
 }
 
 export const optionsApi = defineApi<OptionsApi>("options", { real: optionsReal, mock: optionsMock });

@@ -38,9 +38,15 @@ describe("mapper menu", () => {
       { branchId: "b2", isEnabled: false, isAvailable: false },
     ]);
     expect(Object.keys(item).sort()).toEqual(
-      ["branches", "categoryId", "categoryName", "description", "enabledBranchCount", "id", "imageUrl", "isActive", "name", "preparationMinutes", "price", "sku"].sort(),
+      ["allowBatching", "branches", "categoryId", "categoryName", "description", "enabledBranchCount", "id", "imageUrl", "isActive", "name", "preparationMinutes", "price", "sku"].sort(),
     );
     expect(JSON.stringify(mapItem({ ...rawItem, internalCost: 5 } as RawItem))).not.toContain("internalCost");
+  });
+
+  it("allowBatching (#17, menu.service.ts:47): đọc đúng giá trị; BE cũ không trả → true (mặc định của BE)", () => {
+    expect(mapItem({ ...rawItem, allowBatching: false }).allowBatching).toBe(false);
+    expect(mapItem({ ...rawItem, allowBatching: true }).allowBatching).toBe(true);
+    expect(mapItem(rawItem).allowBatching).toBe(true);
   });
 
   it("tiền qua parseAmount: chuỗi thập phân → số", () => {
@@ -200,5 +206,46 @@ describe("real menu — ghi bật/tắt món chi nhánh", () => {
     expect(new URL(url).pathname).toMatch(/\/branches\/b1\/menu\/items\/i1$/);
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(String(init.body))).toEqual({ isAvailable: false });
+  });
+});
+
+describe("real menu — allowBatching (#17, quyết định 22)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const respond = () => vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...rawItem, allowBatching: false }), { status: 200, headers: { "Content-Type": "application/json" } }));
+  const call = (fn: ReturnType<typeof vi.fn>) => {
+    const [url, init] = fn.mock.calls[0] as [string, RequestInit];
+    return { path: new URL(url).pathname, method: init.method, body: JSON.parse(String(init.body)) as Record<string, unknown> };
+  };
+
+  it("PATCH /restaurant-chains/{c}/menu/items/{id} gửi { allowBatching } (UpdateMenuItemDto, menu.dto.ts:178-185), không trường lạ", async () => {
+    const fn = respond();
+    vi.stubGlobal("fetch", fn);
+    const updated = await menuReal.updateItem("c1", "i1", { allowBatching: false });
+    expect(call(fn)).toMatchObject({ method: "PATCH", body: { allowBatching: false } });
+    expect(call(fn).path).toMatch(/\/restaurant-chains\/c1\/menu\/items\/i1$/);
+    expect(Object.keys(call(fn).body)).toEqual(["allowBatching"]);
+    expect(updated.allowBatching).toBe(false);
+  });
+
+  it("POST …/items gửi allowBatching tường minh khi tạo (CreateMenuItemDto, menu.dto.ts:112-119)", async () => {
+    const fn = respond();
+    vi.stubGlobal("fetch", fn);
+    await menuReal.createItem("c1", { categoryId: "c1", sku: "NB-1", name: "Món", price: 30000, allowBatching: false, branchIds: ["b1"] });
+    expect(call(fn).method).toBe("POST");
+    expect(call(fn).body).toMatchObject({ allowBatching: false, sku: "NB-1", branchIds: ["b1"] });
+  });
+});
+
+describe("mock menu — allowBatching là trường của món (một nguồn)", () => {
+  it("món mẫu mặc định gom được; tạo/sửa/đọc lại khớp real", async () => {
+    setScenario({ profile: "A", tier: null, expired: false });
+    const chainId = (await branchMock.listChains())[0].id;
+    const items = await menuMock.listItems(chainId);
+    expect(items.every((i) => i.allowBatching === true)).toBe(true);
+    const cat = (await menuMock.listCategories(chainId))[0];
+    const created = await menuMock.createItem(chainId, { categoryId: cat.id, sku: "NB-MOCK", name: "Món không gom", price: 25000, allowBatching: false, branchIds: [] });
+    expect(created.allowBatching).toBe(false);
+    expect((await menuMock.updateItem(chainId, created.id, { allowBatching: true })).allowBatching).toBe(true);
+    expect((await menuMock.listItems(chainId)).find((i) => i.id === created.id)?.allowBatching).toBe(true);
   });
 });

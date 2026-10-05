@@ -964,10 +964,33 @@ try {
       itemUi = await q(`({ noBatchDisabled: ${tid("item-nobatch")}.disabled, label: ${drawer}.innerText, note: ${tid("item-options-note")}?.innerText ?? "" })`);
       await clickTid("item-save");
     });
-    check("Real · Món: ô 'Không gom món' bị khoá, ghi 'chờ BE #17'; ghi chú tuỳ chọn không còn nói 'lưu tạm'", itemUi.noBatchDisabled === true && /chờ BE #17/.test(itemUi.label) && !/lưu tạm/.test(itemUi.note), J({ d: itemUi.noBatchDisabled, n: itemUi.note }));
+    check("Real · Món: ô 'Không gom món' MỞ (BE có allowBatching, #17), không còn chữ 'chờ BE #17'; ghi chú không còn nói 'lưu tạm'", itemUi.noBatchDisabled === false && !/chờ BE #17/.test(itemUi.label) && !/lưu tạm/.test(itemUi.note), J({ d: itemUi.noBatchDisabled, n: itemUi.note }));
     check("Real · Ghi: gắn nhóm cho món → PUT items/{id}/option-groups, body CHỈ {optionGroupIds:[…]} theo thứ tự đã chọn, không PATCH món",
       w.length === 1 && w[0].method === "PUT" && w[0].rawPath === `${optionsBase}/items/${attachItem.id}/option-groups` && keysOf(w[0].body) === keysOf({ optionGroupIds: 1 }) &&
         J(w[0].body.optionGroupIds) === J([...be.itemGroups[attachItem.id], attachGroup.id]),
+      J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
+    await dismissAll();
+    await q(`document.querySelector(".ant-drawer-close")?.click()`);
+    await sleep(600);
+
+    // --- "Không gom món" (6.3d, #17): PATCH items/:id { allowBatching } cùng lệnh lưu món (UpdateMenuItemDto, menu.dto.ts:126-185)
+    const batchItem = be.items[0];
+    const uiNoBatch = [];
+    w = await writesOf(async () => {
+      await rowButton(batchItem.name, "Sửa");
+      await openedDrawer();
+      await sleep(900);
+      uiNoBatch.push(await q(`${tid("item-nobatch")}.getAttribute("aria-checked")`));
+      await clickTid("item-nobatch");
+      await sleep(300);
+      uiNoBatch.push(await q(`${tid("item-nobatch")}.getAttribute("aria-checked")`));
+      await clickTid("item-save");
+    });
+    const DTO_FIELDS = ["categoryId", "name", "description", "price", "imageUrl", "preparationMinutes", "allowBatching"]; // UpdateMenuItemDto: không có sku/branchIds/isActive
+    check(`Real · Món: ô 'Không gom món' đọc đúng allowBatching của BE (${batchItem.allowBatching}) → tắt/bật theo nó`, uiNoBatch[0] === String(batchItem.allowBatching === false) && uiNoBatch[1] === String(batchItem.allowBatching !== false), J(uiNoBatch));
+    check("Real · Ghi: đổi 'Không gom món' → đúng 1 PATCH items/{id}, allowBatching = giá trị ngược lại, mọi khoá nằm trong UpdateMenuItemDto, KHÔNG có PUT option-groups",
+      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/items/${batchItem.id}` && typeof w[0].body.allowBatching === "boolean" && w[0].body.allowBatching === !batchItem.allowBatching &&
+        Object.keys(w[0].body).every((k) => DTO_FIELDS.includes(k)) && w[0].body.categoryId === batchItem.categoryId && w[0].body.name === batchItem.name && w[0].body.price === Math.round(Number(batchItem.price)),
       J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
     await dismissAll();
     await q(`document.querySelector(".ant-drawer-close")?.click()`);

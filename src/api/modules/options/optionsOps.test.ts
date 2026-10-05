@@ -52,8 +52,8 @@ describe("real options — fetch giả, không gọi BE", () => {
     }));
 
   it("capabilities real đều false", () => {
-    expect(optionsReal.capabilities).toEqual({ isDefault: false, allowBatching: false, branchStates: false });
-    expect(optionsMock.capabilities).toEqual({ isDefault: true, allowBatching: true, branchStates: true });
+    expect(optionsReal.capabilities).toEqual({ isDefault: false, branchStates: false });
+    expect(optionsMock.capabilities).toEqual({ isDefault: true, branchStates: true });
   });
 
   it("listGroups: GET option-groups, giá Decimal chuỗi → số", async () => {
@@ -143,14 +143,15 @@ describe("real options — fetch giả, không gọi BE", () => {
     expect(peak).toBe(ITEM_CONFIG_CONCURRENCY);
     expect(configs.map((c) => c.menuItemId)).toEqual(ids.filter((id) => id !== "i3"));
     expect(configs[0]).toEqual({ menuItemId: "i1", groupIds: ["g-i1"] });
-    expect("noBatch" in configs[0]).toBe(false);
+    expect("noBatch" in configs[0]).toBe(false); // cờ không gom món là allowBatching của món, không thuộc cấu hình tuỳ chọn
     await expect(optionsReal.listItemConfigs("c1")).rejects.toThrow();
   });
 
-  it("listBranchStates và setItemNoBatch (chỉ mock): ném lỗi 'chưa hỗ trợ', không gọi BE", async () => {
+  it("listBranchStates (chỉ mock): ném lỗi 'chưa hỗ trợ', không gọi BE; không còn setItemNoBatch (cờ là allowBatching của món)", async () => {
     const fn = stub([]);
     await expect(optionsReal.listBranchStates("c1", "b1")).rejects.toThrow(/Chưa hỗ trợ/);
-    await expect(optionsReal.setItemNoBatch("c1", "i1", true)).rejects.toThrow(/Chưa hỗ trợ/);
+    expect("setItemNoBatch" in optionsReal).toBe(false);
+    expect("setItemNoBatch" in optionsMock).toBe(false);
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -247,14 +248,13 @@ describe("mock options — thao tác từng dòng (cùng luật với real)", ()
     expect((await optionsMock.listGroups(chainId)).find((g) => g.id === g1.id)?.menuItemCount).toBe(base + 1);
   });
 
-  it("setItemGroups lưu thứ tự, giữ cờ noBatch; listItemGroups đọc đúng thứ tự; listItemConfigs lọc theo món", async () => {
+  it("setItemGroups lưu thứ tự; listItemGroups đọc đúng thứ tự; listItemConfigs lọc theo món", async () => {
     const groups = await optionsMock.listGroups(chainId);
     const [g1, g2] = groups;
     await optionsMock.setItemGroups(chainId, "item-x", [g1.id]);
-    await optionsMock.setItemNoBatch(chainId, "item-x", true);
     expect(await optionsMock.setItemGroups(chainId, "item-x", [g2.id, g1.id])).toEqual([g2.id, g1.id]);
     expect((await optionsMock.listItemGroups(chainId, "item-x")).map((g) => g.id)).toEqual([g2.id, g1.id]);
-    expect(await optionsMock.listItemConfigs(chainId, ["item-x"])).toEqual([{ menuItemId: "item-x", groupIds: [g2.id, g1.id], noBatch: true }]);
+    expect(await optionsMock.listItemConfigs(chainId, ["item-x"])).toEqual([{ menuItemId: "item-x", groupIds: [g2.id, g1.id] }]);
     expect(await optionsMock.listItemConfigs(chainId, ["khong-co"])).toEqual([]);
     await expect(optionsMock.setItemGroups(chainId, "item-x", [g1.id, g1.id])).rejects.toMatchObject({ status: 400 });
     await expect(optionsMock.setItemGroups(chainId, "item-x", ["khong-co"])).rejects.toMatchObject({ status: 404 });

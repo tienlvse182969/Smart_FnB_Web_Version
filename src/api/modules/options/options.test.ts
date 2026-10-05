@@ -158,14 +158,16 @@ describe("mock options — cùng quy tắc khi gọi vòng qua form", () => {
     await expect(optionsMock.patchOption(chainId, g.id, m.id, { isActive: true, isDefault: true })).rejects.toMatchObject({ status: 400 });
   });
 
-  it("gắn nhóm cho món theo ID thật, cờ không gom món; xoá nhóm gỡ khỏi món", async () => {
+  it("gắn nhóm cho món theo ID thật; cờ không gom món là allowBatching của món (một nguồn); xoá nhóm gỡ khỏi món", async () => {
     const cat = (await menuMock.listCategories(chainId))[0];
     const item = await menuMock.createItem(chainId, { categoryId: cat.id, sku: "OPT-1", name: "Món có tuỳ chọn", price: 30000, branchIds: [] });
     const size = await createFullGroup(chainId, { ...sizeInput, code: "SIZE5" });
     const top = await createFullGroup(chainId, { ...toppingInput, code: "TOP5" });
     await optionsMock.setItemGroups(chainId, item.id, [top.id, size.id]);
-    await optionsMock.setItemNoBatch(chainId, item.id, true);
-    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)).toEqual({ menuItemId: item.id, groupIds: [top.id, size.id], noBatch: true });
+    expect(item.allowBatching).toBe(true);
+    expect((await menuMock.updateItem(chainId, item.id, { allowBatching: false })).allowBatching).toBe(false);
+    expect((await menuMock.listItems(chainId)).find((i) => i.id === item.id)?.allowBatching).toBe(false);
+    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)).toEqual({ menuItemId: item.id, groupIds: [top.id, size.id] });
     await expect(optionsMock.setItemGroups(chainId, item.id, [size.id, size.id])).rejects.toMatchObject({ status: 400 });
 
     await optionsMock.removeGroup(chainId, size.id);
@@ -188,12 +190,11 @@ describe("mock options lưu qua F5 (localStorage, 4.4)", () => {
   it("tạo nhóm rồi 'tải lại trang' (bỏ state trong bộ nhớ) → nhóm và liên kết món vẫn còn", async () => {
     const g = await createFullGroup(chainId, { ...toppingInput, code: "PERSIST1" });
     await optionsMock.setItemGroups(chainId, "mon-that-da-xoa", [g.id]);
-    await optionsMock.setItemNoBatch(chainId, "mon-that-da-xoa", true);
     expect(localStorage.getItem(key())).toContain("PERSIST1");
     resetMockStates();
     expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(true);
     // Liên kết tới món không còn trên danh sách món thật vẫn được giữ (không tự xoá).
-    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === "mon-that-da-xoa")).toMatchObject({ groupIds: [g.id], noBatch: true });
+    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === "mon-that-da-xoa")).toMatchObject({ groupIds: [g.id] });
   });
 
   it("xoá dữ liệu mock → nhóm tự tạo biến mất sau khi tải lại", async () => {
