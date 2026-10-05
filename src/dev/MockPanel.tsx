@@ -15,6 +15,7 @@ import {
 } from "../api";
 import { clearPersistedAccounts } from "../api/modules/account/persist";
 import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
+import { clearPersistedBranding } from "../api/modules/branding/persist";
 import { clearPersistedOptions } from "../api/modules/options/persist";
 import { createMockPairingCode } from "../api/modules/stations/pairingMock";
 import { useAppStore } from "../store";
@@ -172,6 +173,7 @@ export default function MockPanel() {
               clearPersistedOptions();
               clearPersistedBranchOptions();
               clearPersistedAccounts();
+              clearPersistedBranding();
               window.location.reload();
             }}
           >

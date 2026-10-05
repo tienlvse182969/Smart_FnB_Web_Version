@@ -5,7 +5,9 @@ import { setScenario } from "../../mock/scenario";
 import { branchMock } from "../branch/mock";
 import { BE_DEFAULT_BRANDING, BRAND_COLOR_PRESETS } from "../../../theme";
 import { absoluteLogoUrl, mapBranding, serverOrigin, type RawBranding } from "./mapper";
+import { resetMockStates } from "../../mock/store";
 import { brandingMock } from "./mock";
+import { BRANDING_STORAGE_PREFIX, clearPersistedBranding } from "./persist";
 import { brandingReal } from "./real";
 import { validateBrandingFields, validateLogoFile } from "./validate";
 
@@ -204,6 +206,21 @@ describe("mock branding — cùng giao diện, logo là data URL", () => {
     const reset = await brandingMock.resetBranding(chainId);
     expect(reset.isCustom).toBe(false);
     expect(reset.logoUrl).toBeUndefined();
+  });
+
+  it("lưu qua F5: sau 'tải lại' (ChainState mới) nhận diện đã lưu vẫn còn; Khôi phục mặc định cũng sống qua F5; xoá dữ liệu mock dọn sạch", async () => {
+    await brandingMock.updateBranding(chainId, { primaryColor: BLUE, displayName: "Quán F5" });
+    expect(localStorage.getItem(`${BRANDING_STORAGE_PREFIX}${chainId}`)).toContain("Quán F5");
+    resetMockStates();
+    expect(await brandingMock.getBranding(chainId)).toMatchObject({ primaryColor: BLUE, displayName: "Quán F5", isCustom: true });
+    await brandingMock.resetBranding(chainId);
+    resetMockStates();
+    expect((await brandingMock.getBranding(chainId))?.isCustom).toBe(false);
+    clearPersistedBranding();
+    expect(localStorage.getItem(`${BRANDING_STORAGE_PREFIX}${chainId}`)).toBeNull();
+    localStorage.setItem(`${BRANDING_STORAGE_PREFIX}${chainId}`, "{không phải json");
+    resetMockStates();
+    await expect(brandingMock.getBranding(chainId)).resolves.toMatchObject({ tenantId: chainId });
   });
 
   it("mock cũng chặn logo sai định dạng / quá cỡ và tên quá dài", async () => {

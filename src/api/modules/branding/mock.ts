@@ -6,7 +6,11 @@ import { assertMockFeature, assertMockWritable } from "../../mock/guards";
 import { getChainState } from "../../mock/store";
 import { mockPlanBase } from "../plan/source";
 import type { BrandingApi } from "./index";
+import { loadPersistedBranding, savePersistedBranding } from "./persist";
 import { validateBrandingFields } from "./validate";
+
+/** ChainState đã thử nạp nhận diện từ localStorage (gắn theo đối tượng: `resetMockStates` tạo ChainState mới thì nạp lại, như tải lại trang). */
+const loadedFromStorage = new WeakSet<object>();
 
 /** Mock giữ logo dạng data URL (không có máy chủ lưu tệp). */
 const readAsDataUrl = (file: File): Promise<string> =>
@@ -24,6 +28,12 @@ export const brandingMock: BrandingApi = {
     // Gói không có tính năng nhận diện thì trả bộ mặc định, cấu hình đã lưu vẫn giữ (đặc tả 10.5).
     if (!mockPlanBase().features.branding.enabled) {
       return createDefaultBranding(chainId, state.profile.name);
+    }
+    // Nhận diện đã lưu qua F5 (chỉ khi cờ branding = mock): nạp một lần vào ChainState rồi dùng bản trong bộ nhớ.
+    if (!loadedFromStorage.has(state)) {
+      loadedFromStorage.add(state);
+      const saved = loadPersistedBranding(chainId);
+      if (saved) state.branding = saved;
     }
     return { ...state.branding };
   },
@@ -44,6 +54,7 @@ export const brandingMock: BrandingApi = {
     };
     if (input.logoFile) next.logoUrl = await readAsDataUrl(input.logoFile);
     state.branding = next;
+    savePersistedBranding(chainId, next);
     return { ...next };
   },
 
@@ -53,6 +64,8 @@ export const brandingMock: BrandingApi = {
     assertMockFeature("branding");
     const state = getChainState(chainId);
     state.branding = createDefaultBranding(chainId, state.profile.name);
+    // Khôi phục mặc định cũng là một trạng thái phải sống qua F5 (nếu không, bản đã lưu cũ sẽ hiện lại).
+    savePersistedBranding(chainId, state.branding);
     return { ...state.branding };
   },
 };

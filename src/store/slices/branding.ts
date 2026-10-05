@@ -11,6 +11,8 @@ export interface BrandingSlice {
   updateBranding: (data: BrandingInput) => Promise<void>;
   /** Owner khôi phục về nhận diện mặc định của nền tảng. */
   resetBranding: () => Promise<void>;
+  /** Nạp lại nhận diện từ nguồn (sau lỗi giữa chừng khi lưu nhiều lệnh). */
+  reloadBranding: () => Promise<void>;
 }
 
 export const createBrandingSlice: SliceCreator<BrandingSlice> = (set, get) => ({
@@ -23,6 +25,12 @@ export const createBrandingSlice: SliceCreator<BrandingSlice> = (set, get) => ({
     const branding = await brandingApi.updateBranding(chainId, data);
     set({ tenantBranding: branding });
     broadcast.send({ type: "BRANDING_UPDATED", tenantId: chainId });
+  },
+
+  reloadBranding: async () => {
+    const { chainId } = get();
+    if (!chainId) return;
+    set({ tenantBranding: await brandingApi.getBranding(chainId) });
   },
 
   resetBranding: async () => {
