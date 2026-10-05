@@ -99,6 +99,8 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/a logo file is required/i, "Chưa chọn tệp logo."],
   [/logo must be a valid/i, "Logo phải là ảnh JPEG, PNG hoặc WebP."],
   [/logo must not exceed/i, "Logo tối đa 5 MB."],
+  // 413 do Multer (`FileInterceptor` limits.fileSize, branding.controller.ts:79) trả "File too large" trước khi tới service.
+  [/file too large|payload too large/i, "Tệp quá lớn (máy chủ nhận tối đa 5 MB; web giới hạn logo 1 MB)."],
   [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],
   [/invalid report date|use valid yyyy-mm-dd|report range must contain|reporting range cannot exceed|from must be earlier/i, "Khoảng ngày báo cáo không hợp lệ (từ 1 đến 366 ngày, từ ngày phải trước đến ngày)."],
   [/unknown chain timezone/i, "Múi giờ của chuỗi không hợp lệ."],

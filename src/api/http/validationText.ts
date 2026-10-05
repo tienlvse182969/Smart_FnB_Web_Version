@@ -28,6 +28,10 @@ export const FIELD_LABELS: Record<string, string> = {
   description: "Mô tả",
   imageUrl: "Ảnh (URL)",
   logoUrl: "Logo (URL)",
+  displayName: "Tên hiển thị",
+  primaryColor: "Màu chủ đạo",
+  secondaryColor: "Màu phụ",
+  accentColor: "Màu nhấn",
   price: "Giá",
   priceDelta: "Giá cộng thêm",
   preparationMinutes: "Thời gian pha",
@@ -111,6 +115,8 @@ const RULES: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/must contain a number/i, () => "cần có chữ số"],
   [/must contain 8 to 15 digits/i, () => "phải gồm 8 đến 15 chữ số"],
   [/may only contain uppercase letters, numbers, underscores, and hyphens/i, () => "chỉ gồm chữ hoa, số, gạch dưới, gạch ngang"],
+  [/must be a hexadecimal color/i, () => "không phải mã màu hợp lệ"],
+  [/must be a url address/i, () => "không phải địa chỉ URL hợp lệ"],
   [/must match .* regular expression/i, () => "sai định dạng"],
 ];
 

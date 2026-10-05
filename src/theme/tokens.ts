@@ -75,6 +75,16 @@ export const BRAND_COLOR_PRESETS = [
   "#7C3AED", // tím
 ] as const;
 
+/**
+ * Bộ nhận diện MẶC ĐỊNH phía BE khi chuỗi chưa cấu hình nhận diện hoặc sau `DELETE` (`branding.service.ts:21-25`).
+ * Khác bộ mặc định của nền tảng (`PLATFORM_BRAND`); chỉ dùng để suy `isCustom` khi đọc nhận diện từ BE (`api/modules/branding/mapper.ts`).
+ */
+export const BE_DEFAULT_BRANDING = {
+  primaryColor: "#0F172A",
+  secondaryColor: "#FFFFFF",
+  accentColor: "#22C55E",
+} as const;
+
 /** Bộ token thương hiệu đã giải quyết xong — thứ duy nhất màn hình/theme được đọc. */
 export interface BrandTokens {
   primary: string;

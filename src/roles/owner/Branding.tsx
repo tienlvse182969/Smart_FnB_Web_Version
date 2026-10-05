@@ -80,7 +80,7 @@ function BrandingForm() {
     try {
       // BR-43: cảnh báo Owner nếu hệ thống phải tự đổi màu chữ do tương phản thấp.
       const willUseBlackText = !isDarkEnoughForWhiteText(primaryColor);
-      await updateBranding({ primaryColor, accentColor, displayName: displayName.trim(), logoUrl });
+      await updateBranding({ primaryColor, accentColor, displayName: displayName.trim() }); // logo (tệp) đi qua `logoFile` ở bước màn hình kế tiếp
       if (willUseBlackText) {
         message.warning(
           `Màu chủ đạo có độ tương phản thấp với chữ trắng (tỷ lệ ${contrastRatio(primaryColor, PLATFORM_BRAND.primaryContrast).toFixed(1)}:1) — đã tự chuyển chữ trên nút chính sang màu đen để dễ đọc (BR-43).`,
