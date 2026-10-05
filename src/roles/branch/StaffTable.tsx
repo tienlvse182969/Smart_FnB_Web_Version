@@ -141,7 +141,7 @@ export default function StaffTable() {
       <div data-testid="staff-quota" style={{ fontSize: 13, marginBottom: 14, color: limitReached ? palette.error.text : palette.textMuted }}>
         {quota ? (
           <>
-            Đã dùng <b>{quota.used}{quota.limit != null ? `/${quota.limit}` : ""}</b> tài khoản của gói
+            Đã dùng <b>{quota.used}{quota.limit != null ? `/${quota.limit}` : ""}</b> tài khoản của gói{sampleOnly ? " (số liệu mẫu)" : ""}
             {limitReached ? " — đã đủ hạn mức, không tạo mới hay mở khoá thêm được." : "."}
           </>
         ) : (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { App, Button, Card, ColorPicker, Input } from "antd";
 import { ImageUp, RotateCcw, Save, Send, Ticket } from "lucide-react";
+import { showApiError } from "../../api";
 import { SectionTitle } from "../../components/bits";
 import ActionButton from "../../plan/ActionButton";
 import FeatureGate from "../../plan/FeatureGate";
@@ -89,7 +90,7 @@ function BrandingForm() {
         message.success("Đã lưu nhận diện — áp dụng ngay cho mọi tài khoản trong chuỗi");
       }
     } catch (err) {
-      message.error(err instanceof Error ? err.message : "Không lưu được");
+      showApiError(message.error, err, "Không lưu được");
     } finally {
       setSaving(false);
     }
@@ -101,7 +102,7 @@ function BrandingForm() {
       await resetBranding();
       message.success("Đã khôi phục theme mặc định của nền tảng");
     } catch (err) {
-      message.error(err instanceof Error ? err.message : "Không khôi phục được");
+      showApiError(message.error, err, "Không khôi phục được");
     } finally {
       setSaving(false);
     }

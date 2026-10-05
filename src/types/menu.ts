@@ -45,6 +45,8 @@ export type MenuItem = {
   /** Ảnh dạng URL — TODO(BE): chưa có endpoint tải ảnh lên. */
   imageUrl: string | null;
   preparationMinutes: number | null;
+  /** Cho phép gom món khi pha (OW-02, đặc tả 8.3; BE `allow_batching`, #17). `false` = "Không gom món": mỗi ly là một mẻ. MỘT nguồn cho mock lẫn real. */
+  allowBatching: boolean;
   /** Cờ kinh doanh cấp chuỗi: Owner tắt → mọi chi nhánh đều không bán (OW-04). */
   isActive: boolean;
   branches: MenuItemBranch[];
@@ -69,6 +71,8 @@ export type MenuItemInput = {
   imageUrl?: string;
   /** 0–1440 phút. */
   preparationMinutes?: number;
+  /** Mặc định BE là `true`; web gửi tường minh khi tạo món (`CreateMenuItemDto`, menu.dto.ts:112-119). */
+  allowBatching?: boolean;
   /** Chi nhánh bán món; luôn gửi tường minh khi tạo. */
   branchIds: string[];
 };

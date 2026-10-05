@@ -132,6 +132,7 @@ export const menuMock: MenuApi = {
       price: input.price,
       imageUrl: input.imageUrl?.trim() || null,
       preparationMinutes: input.preparationMinutes ?? null,
+      allowBatching: input.allowBatching ?? true,
       isActive: true,
     };
     s.menuItems.push(item);
@@ -156,6 +157,7 @@ export const menuMock: MenuApi = {
     if (patch.price !== undefined) item.price = patch.price;
     if (patch.imageUrl !== undefined) item.imageUrl = patch.imageUrl.trim() || null;
     if (patch.preparationMinutes !== undefined) item.preparationMinutes = patch.preparationMinutes;
+    if (patch.allowBatching !== undefined) item.allowBatching = patch.allowBatching;
     return view(s, item);
   },
 

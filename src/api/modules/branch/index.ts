@@ -9,7 +9,7 @@ import type {
   CreateBranchInput,
   UpdateBranchInput,
 } from "../../../types";
-import { ApiError } from "../../http/errors";
+import { ApiError, describeApiError, translateBackendMessage } from "../../http/errors";
 import { defineApi } from "../../define";
 import { branchMock } from "./mock";
 import { branchReal } from "./real";
@@ -38,17 +38,25 @@ interface PlanLimitBody {
  * của backend đã là tiếng Việt và nêu rõ hạn mức, nên chỉ bổ sung gợi ý nâng gói phía sau.
  */
 export function describeBranchError(err: unknown): string {
-  if (!(err instanceof ApiError)) {
-    return err instanceof Error ? err.message : "Không lưu được chi nhánh";
-  }
+  if (!(err instanceof ApiError)) return describeApiError(err);
 
   if (err.code === "PLAN_LIMIT_REACHED") {
-    const body = err.body as PlanLimitBody | null;
-    const suggestion = body?.suggestedPlans?.[0];
-    return suggestion
-      ? `${err.message} Gói "${suggestion.name}" cho phép ${suggestion.maxBranches} chi nhánh.`
-      : err.message;
+    const text = translateBackendMessage(err);
+    const hint = planUpgradeHint(err);
+    return hint ? `${text} ${hint}` : text;
   }
 
-  return err.message;
+  return describeApiError(err); // luôn tiếng Việt: 5xx → câu chung, 400/404/409 → bảng dịch (errors.ts)
+}
+
+/**
+ * Gợi ý nâng gói khi hết hạn mức CHI NHÁNH ("Gói X cho phép N chi nhánh."); rỗng với lỗi khác hoặc hạn mức tài khoản.
+ * Thông báo hạn mức toàn cục (`ApiErrorBridge`) dùng để chỉ có MỘT thông báo, đủ gợi ý.
+ */
+export function planUpgradeHint(err: unknown): string {
+  if (!(err instanceof ApiError) || err.code !== "PLAN_LIMIT_REACHED") return "";
+  const body = err.body as PlanLimitBody | null;
+  if (body?.quota?.resource !== "branches") return "";
+  const suggestion = body.suggestedPlans?.[0];
+  return suggestion ? `Gói "${suggestion.name}" cho phép ${suggestion.maxBranches} chi nhánh.` : "";
 }

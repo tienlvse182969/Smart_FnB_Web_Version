@@ -14,8 +14,8 @@ export type OptionItem = {
   displayOrder: number;
   /** Cờ kinh doanh cấp chuỗi (OW-04): tắt thì mọi chi nhánh không bán tuỳ chọn này. */
   isActive: boolean;
-  /** Tuỳ chọn mặc định (đặc tả 12.2). CHỜ BE: schema chưa có cột này (api-contract-plan.md mục 7 #15). */
-  isDefault: boolean;
+  /** Tuỳ chọn mặc định (đặc tả 12.2). CHỜ BE: schema chưa có cột này (api-contract-plan.md mục 7 #15). `undefined` ở real (`capabilities.isDefault` = false). */
+  isDefault?: boolean;
 };
 
 export type OptionGroup = {
@@ -30,6 +30,8 @@ export type OptionGroup = {
   displayOrder: number;
   isActive: boolean;
   options: OptionItem[];
+  /** Số món đang dùng nhóm này: real = `_count.menuItems` của BE; mock = số món có cấu hình gắn nhóm. Dùng cho cột "Số món" và hộp xoá. */
+  menuItemCount?: number;
 };
 
 /** Tuỳ chọn khi tạo/sửa. Có `id` = sửa tuỳ chọn đó; không có = tạo mới. */
@@ -39,7 +41,8 @@ export type OptionInput = {
   code: string;
   priceDelta: number;
   isActive: boolean;
-  isDefault: boolean;
+  /** Bỏ trống/`undefined` = không mặc định; real không gửi (BE chưa có, #15). */
+  isDefault?: boolean;
 };
 
 /** Tạo/sửa nhóm. Khi sửa mà có `options` thì THAY toàn bộ danh sách: có `id` giữ/sửa, không `id` tạo, thiếu thì xoá; thứ tự mảng = displayOrder. */
@@ -49,6 +52,8 @@ export type OptionGroupInput = {
   isRequired: boolean;
   minSelections: number;
   maxSelections: number;
+  /** Chỉ kiểm khoảng 0–9999 nếu có (BE `displayOrder`); thứ tự thật do web đặt khi sắp xếp. */
+  displayOrder?: number;
   isActive: boolean;
   options: OptionInput[];
 };
@@ -92,11 +97,9 @@ export type BranchOptionWriteResult = {
 
 /**
  * Cấu hình tuỳ chọn của một MÓN THẬT (theo ID món từ BE): các nhóm gắn vào món theo thứ tự
- * (`MenuItemOptionGroup.displayOrder`) và cờ "không gom món" (đặc tả 8.3). CHỜ BE cho cả hai.
+ * (`MenuItemOptionGroup.displayOrder`). Cờ "không gom món" KHÔNG nằm ở đây từ 6.3d: nó là `MenuItem.allowBatching` (một nguồn, #17).
  */
 export type ItemOptionConfig = {
   menuItemId: string;
   groupIds: string[];
-  /** Món không gom khi pha: mỗi ly là một mẻ. CHỜ BE (mục 7 #17). */
-  noBatch: boolean;
 };

@@ -170,6 +170,16 @@ interface RequestOptions {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  try {
+    return await requestOnce<T>(path, options);
+  } catch (err) {
+    // Gắn phương thức HTTP vào lỗi để lớp báo lỗi biết đây là đọc (GET) hay ghi; `errors.ts` quyết định nút Thử lại theo đó.
+    if (err instanceof ApiError && err.method === undefined) err.method = options.method ?? "GET";
+    throw err;
+  }
+}
+
+async function requestOnce<T>(path: string, options: RequestOptions): Promise<T> {
   const { method = "GET", body, anonymous = false } = options;
   const init: RequestInit = { method };
   if (body !== undefined) init.body = JSON.stringify(body);

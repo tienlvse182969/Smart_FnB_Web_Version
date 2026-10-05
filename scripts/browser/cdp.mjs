@@ -108,16 +108,20 @@ class Tab {
     this.fault = fault ? { ...fault, hits: 0 } : null;
     this.faultLog = [];
   }
-  fulfillFault(p, kind) {
+  fulfillFault(p, kind, fault) {
     if (kind === "network") {
       void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "ConnectionRefused" });
       return;
     }
     const code = Number(kind);
     const bodies = {
+      // 400: body do script truyền (`fault.body`), ví dụ body validate thật của BE: { statusCode: 400, message: ["name should not be empty"], error: "Bad Request" }
+      400: fault?.body ?? { statusCode: 400, message: ["name should not be empty"], error: "Bad Request" },
       500: { statusCode: 500, message: "Internal server error" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
       401: { statusCode: 401, message: "Unauthorized" },
+      // 409: body do script truyền (`fault.body`), ví dụ `PLAN_LIMIT_REACHED` kèm quota và gói gợi ý như BE.
+      409: fault?.body ?? { statusCode: 409, message: "Conflict", error: "Conflict" },
     };
     void this.send("Fetch.fulfillRequest", {
       requestId: p.requestId,
@@ -150,8 +154,11 @@ class Tab {
     if (isWrite && f.times != null && f.hits >= f.times) return false; // sau lượt đầu: rơi về chặn như cũ (BlockedByClient)
     f.hits++;
     this.faultLog.push({ method, path, kind: f.kind });
-    if (isWrite) this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
-    this.fulfillFault(p, f.kind);
+    if (isWrite) {
+      this.blockedWrites.push({ method, path, body: p.request.postData ?? null });
+      this.logWrite(method, path);
+    }
+    this.fulfillFault(p, f.kind, f);
     return true;
   }
   onRequestPaused(p) {
@@ -170,8 +177,27 @@ class Tab {
       void this.send("Fetch.continueRequest", { requestId: p.requestId });
     } else {
       this.blockedWrites.push({ method, path, body: postData ?? null });
+      this.logWrite(method, path);
+      if (this.fulfillWrites) {
+        // Chế độ "trả lời giả": request ghi VẪN KHÔNG rời trình duyệt (không tới BE); trình duyệt nhận 200 `{}` để luồng nhiều lệnh
+        // (ví dụ đổi chỗ = 2 lệnh patch) chạy hết. Chỉ bật tạm cho đúng bước cần quan sát, rồi tắt.
+        void this.send("Fetch.fulfillRequest", {
+          requestId: p.requestId,
+          responseCode: 200,
+          responseHeaders: [
+            { name: "Content-Type", value: "application/json" },
+            { name: "Access-Control-Allow-Origin", value: "*" },
+          ],
+          body: Buffer.from("{}").toString("base64"),
+        });
+        return;
+      }
       void this.send("Fetch.failRequest", { requestId: p.requestId, errorReason: "BlockedByClient" });
     }
+  }
+  /** Nhật ký TÍCH LUỸ mọi request ghi bị chặn (không bao giờ reset, khác `blockedWrites` mà script hay xoá); `caseName` do script đặt. */
+  logWrite(method, path) {
+    (this.writeLog ??= []).push({ method, path: path.split("?")[0], caseName: this.caseName ?? "" });
   }
   send(method, params = {}) {
     const id = ++this.n;
@@ -326,7 +352,24 @@ export async function newTab(url = "about:blank", authMode, opts = {}) {
   return tab;
 }
 
+/** Bảng tổng request ghi bị chặn: số lượng, mỗi dòng `METHOD đường dẫn` (id → {id}) kèm số lần và tên các ca. Chỉ in khi tab đã `blockWrites`. */
+export function printBlockedWritesSummary(tab) {
+  if (tab.blockAllow === undefined) return;
+  const log = tab.writeLog ?? [];
+  const rows = new Map();
+  for (const w of log) {
+    const key = `${w.method} ${w.path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "{id}")}`;
+    const row = rows.get(key) ?? { n: 0, cases: new Set() };
+    row.n++;
+    if (w.caseName) row.cases.add(w.caseName);
+    rows.set(key, row);
+  }
+  console.log(`\n[real] BẢNG REQUEST GHI BỊ CHẶN Ở CDP: ${log.length} request, ${rows.size} dòng khác nhau`);
+  for (const [key, row] of rows) console.log(`   ${String(row.n).padStart(3)}×  ${key}${row.cases.size ? `   (${[...row.cases].join("; ")})` : ""}`);
+}
+
 export async function closeTab(tab) {
+  printBlockedWritesSummary(tab);
   try {
     tab.ws.close();
     await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);

@@ -10,11 +10,13 @@ import { accounts, cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW }
 // --mode=mock|real (hoặc đối số trần như cũ); --only=menu = chỉ khối menu món + tuỳ chọn chi nhánh (5.7b, 5.7d); không cờ = chạy hết
 const CLI = cli();
 const MODE = CLI.mode ?? "mock";
-if (CLI.only && !CLI.only.every((n) => n === "menu")) {
-  console.log(`--only hỗ trợ: menu (nhận được: ${CLI.only.join(",")})`);
+if (CLI.only && !CLI.only.every((n) => n === "menu" || n === "staff")) {
+  console.log(`--only hỗ trợ: menu, staff (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
 }
 const FULL = !CLI.only;
+const MENU = FULL || CLI.only.includes("menu");
+const STAFF = FULL || CLI.only.includes("staff"); // màn Nhân viên của Manager (5.4): mock đủ ca, real chỉ đọc + nhãn "(số liệu mẫu)"
 const REAL = MODE === "real";
 const J = JSON.stringify;
 const tab = await newTab("about:blank", REAL ? "real" : "mock");
@@ -251,6 +253,9 @@ try {
     await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 8000, "shell owner còn");
     check("Đang có phiên Owner: sau đó vẫn vào lại được khu Owner (không bị đăng xuất)", (await path()).startsWith("/owner"), await path());
 
+    } // hết các khối trước staff
+
+    if (STAFF) { // khối staff (5.4): tự đăng nhập Manager, chạy được riêng bằng --only=staff
     // Manager tạo nhân viên
     await tab.goto("/login");
     await tab.clearStorage();
@@ -259,9 +264,11 @@ try {
     await tab.waitFor(`location.pathname.startsWith("/manager")`, 20000, "vào manager");
     await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell");
     await sleep(1000);
+    if (!FULL) await tab.scenario({ profile: "A", tier: "ADVANCED" });
     await tab.clickMenu("Nhân viên");
     await sleep(1200);
     check("Manager: màn Nhân viên không hiện mật khẩu nào", !SECRET.test(await pageText()));
+    check("Nhân viên (mock): dòng hạn mức KHÔNG có nhãn '(số liệu mẫu)' (số liệu của mock là số liệu thật của mock)", !/số liệu mẫu/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
     check("Nhân viên (mock): không có banner 'dữ liệu mẫu' và có dòng hạn mức 'Đã dùng X/Y tài khoản'", !(await has("staff-mock-banner")) && /Đã dùng \d+\/\d+ tài khoản/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
     const staffRowsNow = await waitRows((r) => r.length >= 4);
     check("Nhân viên: bảng chỉ có Cashier/Barista của chi nhánh mình, hiện trạng thái và đăng nhập gần nhất", staffRowsNow.length >= 4 && staffRowsNow.every((r) => /Cashier|Barista/.test(r) && /Đang hoạt động|Đã khoá|Chờ đặt mật khẩu/.test(r) && /Chưa từng|\d{2}\/\d{2}\/\d{4}/.test(r)), `${staffRowsNow.length} dòng; ${staffRowsNow[0]?.slice(0, 100)}`);
@@ -430,6 +437,9 @@ try {
     check("Không chỗ nào ở màn Nhân viên hiện mật khẩu", !SECRET.test(await pageText()));
     await tab.scenario({ profile: "A", tier: "ADVANCED" });
 
+    } // hết khối staff
+
+    if (FULL) {
     // ============================================================ MOCK — 5.5 quầy và máy in
     await tab.clickMenu("Quầy và máy in");
     await sleep(1000);
@@ -624,7 +634,7 @@ try {
     } // hết các khối trước 5.7b
 
     // ============================================================ MOCK — 5.7b menu món chi nhánh (BM-02) + 5.7d tuỳ chọn (--only=menu)
-    if (!FULL) {
+    if (MENU && !FULL) {
       await tab.goto("/login");
       await tab.clearStorage();
       await tab.login("manager");
@@ -633,7 +643,7 @@ try {
       await sleep(1000);
       await tab.scenario({ profile: "A", tier: "ADVANCED" });
     }
-    {
+    if (MENU) {
     await tab.clickMenu("Món tại chi nhánh");
     await sleep(1200);
     const menuRows = () =>
@@ -973,7 +983,9 @@ try {
     check("Real · Gói: GET lại /admin/service-plans — dữ liệu không đổi", J(afterPlans) === beforePlans);
     await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
 
-    // ---- 5.5: Manager — quầy và máy in (đọc thật; tạo bấm tới hết xác nhận, request ghi bị chặn ở CDP)
+    } // hết các khối trước staff
+
+    if (STAFF) { // khối staff (5.4): tự đăng nhập Manager, chạy được riêng bằng --only=staff
     await q(`(localStorage.clear(), sessionStorage.clear(), true)`);
     await tab.goto("/login");
     await tab.login("manager");
@@ -993,7 +1005,11 @@ try {
     check("Real · Manager · Nhân viên: 0 toast lỗi", (await toasts()) === "", await toasts());
     check("Real · Manager · Nhân viên: 0 request ghi bị chặn ở CDP", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
     check("Real · Manager · Nhân viên: bảng có dữ liệu mẫu và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
+    const realQuotaText = await q(`${tid("staff-quota")}?.innerText ?? ""`);
+    check("Real · Manager · Nhân viên: dòng hạn mức có nhãn '(số liệu mẫu)' ngay sau 'tài khoản của gói' (chờ #38)", /Đã dùng \d+\/\d+ tài khoản của gói \(số liệu mẫu\)/.test(realQuotaText), realQuotaText.replace(/\s+/g, " ").slice(0, 80));
+    }
 
+    if (FULL) {
     await tab.clickMenu("Quầy và máy in");
     await sleep(1800);
     const beStations = await beGet("/stations", "manager");
@@ -1060,6 +1076,7 @@ try {
 
     } // hết các khối trước 5.7b
 
+    if (MENU) {
     if (!FULL) {
       await tab.goto("/login");
       await tab.clearStorage();
@@ -1143,6 +1160,7 @@ try {
       const optReqs = tab.requests.slice(optReqMark).filter((r) => /\/api\/v1\/(manager|barista)\//.test(r.url));
       check("Real · Tuỳ chọn chi nhánh: 0 request tới /barista/* (cả đọc lẫn ghi bị chặn), chỉ dùng /manager/menu-options", !optReqs.some((r) => /\/barista\//.test(r.url)) && !tab.blockedWrites.some((w) => /\/barista\//.test(w.path)) && optReqs.some((r) => /\/manager\/menu-options/.test(r.url)), [...new Set(optReqs.map((r) => `${r.method} ${new URL(r.url).pathname.replace(/[0-9a-f-]{36}/g, "{id}")}`))].join(" | "));
     }
+    } // hết khối menu
 
     check("Real · Không có request ghi nào ngoài các thao tác đã định ở trên (tổng bị chặn)", true, `${tab.blockedWrites.length} request ghi bị chặn: ${tab.blockedWrites.map((w) => `${w.method} ${w.path.replace(/[0-9a-f-]{36}/g, "{id}")}`).join(" | ")}`);
     console.log(`[real] request ghi bị chặn ở CDP: ${tab.blockedWrites.length}`);

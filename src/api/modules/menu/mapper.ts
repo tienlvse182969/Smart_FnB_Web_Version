@@ -31,6 +31,8 @@ export interface RawItem {
   price: string | number;
   imageUrl?: string | null;
   preparationMinutes?: number | null;
+  /** BE `91867ae` (#17): có ở list/create/update (`itemSelect`, menu.service.ts:47); BE cũ không trả → coi như `true` (mặc định của BE). */
+  allowBatching?: boolean;
   isActive: boolean;
   isAvailable?: boolean;
   category?: { id: string; name: string };
@@ -83,6 +85,7 @@ export function mapItem(raw: RawItem): MenuItem {
     price: parseAmount(raw.price),
     imageUrl: raw.imageUrl ?? null,
     preparationMinutes: raw.preparationMinutes ?? null,
+    allowBatching: raw.allowBatching ?? true,
     isActive: raw.isActive,
     branches,
     enabledBranchCount: raw.enabledBranchCount ?? branches.filter((b) => b.isEnabled).length,

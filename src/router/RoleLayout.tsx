@@ -1,6 +1,8 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import RoleShell, { type NavItem } from "../layout/RoleShell";
 import { page } from "../components/bits";
+import DirtyWatcher from "../components/DirtyWatcher";
+import RefreshBoundary from "../components/RefreshBoundary";
 import { useAppStore } from "../store";
 import { roleRoutes, type WebRole } from "./routeConfig";
 
@@ -53,7 +55,10 @@ export default function RoleLayout({ role }: { role: WebRole }) {
       searchPlaceholder={SEARCH_PLACEHOLDER[role]}
     >
       <div style={page}>
-        <Outlet />
+        <DirtyWatcher />
+        <RefreshBoundary>
+          <Outlet />
+        </RefreshBoundary>
       </div>
     </RoleShell>
   );

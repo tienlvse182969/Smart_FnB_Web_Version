@@ -203,6 +203,7 @@ export function buildMenu(profile: MockProfile): StoredMenuItem[] {
     price: seed.price,
     imageUrl: null,
     preparationMinutes: null,
+    allowBatching: true,
     isActive: seed.activeChain ?? true,
     seedOptionGroupIds: groups(seed.kind),
     seeded: true,

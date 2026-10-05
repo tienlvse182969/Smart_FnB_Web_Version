@@ -7,6 +7,7 @@ import { branchMock } from "../branch/mock";
 import { menuMock } from "../menu/mock";
 import { optionsMock } from "./mock";
 import { clearPersistedOptions } from "./persist";
+import { createFullGroup } from "./testSupport";
 import { defaultSelection, toggleOption, unitPrice, validateGroupInput, validateSelection } from "./rules";
 
 mockControl.latency = [0, 0];
@@ -112,57 +113,64 @@ describe("mock options — cùng quy tắc khi gọi vòng qua form", () => {
   });
 
   it("tạo nhóm: lỗi quy tắc → 400, trùng mã → 409, hợp lệ → có id và thứ tự", async () => {
-    await expect(optionsMock.createGroup(chainId, { ...sizeInput, code: "X1", minSelections: 3, maxSelections: 1 })).rejects.toMatchObject({ status: 400 });
-    await expect(optionsMock.createGroup(chainId, { ...sizeInput, code: "X2", isRequired: true, minSelections: 0 })).rejects.toMatchObject({ status: 400 });
-    const size = await optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE2" });
-    const topping = await optionsMock.createGroup(chainId, { ...toppingInput, code: "TOP2" });
+    const fields = (code: string, over: object = {}) => ({ name: "Size", code, isRequired: true, minSelections: 1, maxSelections: 1, ...over });
+    await expect(optionsMock.addGroup(chainId, fields("X1", { minSelections: 3, maxSelections: 1 }))).rejects.toMatchObject({ status: 400 });
+    await expect(optionsMock.addGroup(chainId, fields("X2", { isRequired: true, minSelections: 0 }))).rejects.toMatchObject({ status: 400 });
+    // hai chiều: không bắt buộc mà min > 0 cũng sai (BE `menu.service.ts:589`)
+    await expect(optionsMock.addGroup(chainId, fields("X3", { isRequired: false, minSelections: 1 }))).rejects.toMatchObject({ status: 400 });
+    const size = await createFullGroup(chainId, { ...sizeInput, code: "SIZE2" });
+    const topping = await createFullGroup(chainId, { ...toppingInput, code: "TOP2" });
     expect(size.options.map((o) => o.displayOrder)).toEqual([1, 2]);
     expect(topping.displayOrder).toBeGreaterThan(size.displayOrder);
-    await expect(optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE2" })).rejects.toMatchObject({ status: 409 });
+    await expect(optionsMock.addGroup(chainId, fields("SIZE2"))).rejects.toMatchObject({ status: 409 });
   });
 
-  it("sửa nhóm giữ id tuỳ chọn cũ, thêm/xoá tuỳ chọn, đổi thứ tự theo mảng", async () => {
-    const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "TOP3" });
+  it("sửa từng dòng: thêm/sửa/xoá tuỳ chọn giữ id, đổi thứ tự bằng displayOrder, đổi mã trùng → 409", async () => {
+    const g = await createFullGroup(chainId, { ...toppingInput, code: "TOP3" });
     const [a, b] = g.options;
-    const updated = await optionsMock.updateGroup(chainId, g.id, {
-      ...toppingInput,
-      code: "TOP3",
-      options: [{ ...b }, { ...a, priceDelta: 6000 }, opt("NEW")],
-    });
-    expect(updated.options.map((o) => o.code)).toEqual(["COCONUT", "PEARL", "NEW"]);
+    await optionsMock.patchOption(chainId, g.id, a.id, { priceDelta: 6000, displayOrder: b.displayOrder });
+    await optionsMock.patchOption(chainId, g.id, b.id, { displayOrder: a.displayOrder });
+    const added = await optionsMock.addOption(chainId, g.id, { name: "NEW", code: "NEW", priceDelta: 0 });
+    await optionsMock.removeOption(chainId, g.id, g.options[3].id);
+    const updated = (await optionsMock.listGroups(chainId)).find((x) => x.id === g.id)!;
+    expect(updated.options.map((o) => o.code)).toEqual(["COCONUT", "PEARL", "PUDDING", "NEW"]);
     expect(updated.options[1]).toMatchObject({ id: a.id, priceDelta: 6000, displayOrder: 2 });
-    await expect(optionsMock.updateGroup(chainId, g.id, { ...toppingInput, code: "SIZE" })).rejects.toMatchObject({ status: 409 });
+    expect(added.displayOrder).toBeGreaterThan(4);
+    await expect(optionsMock.patchGroup(chainId, g.id, { code: "SIZE" })).rejects.toMatchObject({ status: 409 });
+    await expect(optionsMock.patchOption(chainId, g.id, a.id, { code: "COCONUT" })).rejects.toMatchObject({ status: 409 });
   });
 
   it("tắt tuỳ chọn cấp chuỗi; tuỳ chọn đang mặc định thì mock từ chối, phải bỏ mặc định tường minh", async () => {
-    const g = await optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE4" });
+    const g = await createFullGroup(chainId, { ...sizeInput, code: "SIZE4" });
     const m = g.options.find((o) => o.isDefault)!;
     const l = g.options.find((o) => !o.isDefault)!;
     // Tuỳ chọn không mặc định: tắt được.
-    expect((await optionsMock.setOptionActive(chainId, g.id, l.id, false)).options.find((o) => o.id === l.id)!.isActive).toBe(false);
-    await optionsMock.setOptionActive(chainId, g.id, l.id, true);
+    expect((await optionsMock.patchOption(chainId, g.id, l.id, { isActive: false })).isActive).toBe(false);
+    await optionsMock.patchOption(chainId, g.id, l.id, { isActive: true });
     // Mặc định: bị từ chối, trạng thái không đổi (không âm thầm bỏ cờ).
-    await expect(optionsMock.setOptionActive(chainId, g.id, m.id, false)).rejects.toMatchObject({ status: 400, message: expect.stringContaining("bỏ mặc định") });
+    await expect(optionsMock.patchOption(chainId, g.id, m.id, { isActive: false })).rejects.toMatchObject({ status: 400, message: expect.stringContaining("bỏ mặc định") });
     expect((await optionsMock.listGroups(chainId)).find((x) => x.id === g.id)!.options.find((o) => o.id === m.id)).toMatchObject({ isActive: true, isDefault: true });
-    // Lưu cả nhóm với tuỳ chọn mặc định đang tắt cũng bị từ chối (đi vòng qua form).
-    const bad = { ...sizeInput, code: "SIZE4", options: g.options.map((o) => (o.id === m.id ? { ...o, isActive: false } : o)) };
-    await expect(optionsMock.updateGroup(chainId, g.id, bad)).rejects.toMatchObject({ status: 400 });
-    // Owner đồng ý bỏ mặc định: tắt và bỏ cờ trong cùng một lần lưu thì được.
-    const ok = { ...bad, options: bad.options.map((o) => (o.id === m.id ? { ...o, isDefault: false } : o)) };
-    const saved = await optionsMock.updateGroup(chainId, g.id, ok);
-    expect(saved.options.find((o) => o.id === m.id)).toMatchObject({ isActive: false, isDefault: false });
+    // Owner đồng ý bỏ mặc định: bỏ cờ tường minh rồi tắt thì được.
+    await optionsMock.patchOption(chainId, g.id, m.id, { isDefault: false });
+    expect(await optionsMock.patchOption(chainId, g.id, m.id, { isActive: false })).toMatchObject({ isActive: false, isDefault: false });
+    // Số tuỳ chọn mặc định không vượt tối đa (=1)
+    await optionsMock.patchOption(chainId, g.id, l.id, { isDefault: true });
+    await expect(optionsMock.patchOption(chainId, g.id, m.id, { isActive: true, isDefault: true })).rejects.toMatchObject({ status: 400 });
   });
 
-  it("gắn nhóm cho món theo ID thật, cờ không gom món; xoá nhóm gỡ khỏi món", async () => {
+  it("gắn nhóm cho món theo ID thật; cờ không gom món là allowBatching của món (một nguồn); xoá nhóm gỡ khỏi món", async () => {
     const cat = (await menuMock.listCategories(chainId))[0];
     const item = await menuMock.createItem(chainId, { categoryId: cat.id, sku: "OPT-1", name: "Món có tuỳ chọn", price: 30000, branchIds: [] });
-    const size = await optionsMock.createGroup(chainId, { ...sizeInput, code: "SIZE5" });
-    const top = await optionsMock.createGroup(chainId, { ...toppingInput, code: "TOP5" });
-    await optionsMock.setItemConfig(chainId, { menuItemId: item.id, groupIds: [top.id, size.id], noBatch: true });
-    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)).toEqual({ menuItemId: item.id, groupIds: [top.id, size.id], noBatch: true });
-    await expect(optionsMock.setItemConfig(chainId, { menuItemId: item.id, groupIds: [size.id, size.id], noBatch: false })).rejects.toMatchObject({ status: 400 });
+    const size = await createFullGroup(chainId, { ...sizeInput, code: "SIZE5" });
+    const top = await createFullGroup(chainId, { ...toppingInput, code: "TOP5" });
+    await optionsMock.setItemGroups(chainId, item.id, [top.id, size.id]);
+    expect(item.allowBatching).toBe(true);
+    expect((await menuMock.updateItem(chainId, item.id, { allowBatching: false })).allowBatching).toBe(false);
+    expect((await menuMock.listItems(chainId)).find((i) => i.id === item.id)?.allowBatching).toBe(false);
+    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)).toEqual({ menuItemId: item.id, groupIds: [top.id, size.id] });
+    await expect(optionsMock.setItemGroups(chainId, item.id, [size.id, size.id])).rejects.toMatchObject({ status: 400 });
 
-    await optionsMock.deleteGroup(chainId, size.id);
+    await optionsMock.removeGroup(chainId, size.id);
     expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === item.id)!.groupIds).toEqual([top.id]);
     await menuMock.deleteItem(chainId, item.id);
     expect((await optionsMock.listItemConfigs(chainId)).some((c) => c.menuItemId === item.id)).toBe(false);
@@ -180,17 +188,17 @@ describe("mock options lưu qua F5 (localStorage, 4.4)", () => {
   });
 
   it("tạo nhóm rồi 'tải lại trang' (bỏ state trong bộ nhớ) → nhóm và liên kết món vẫn còn", async () => {
-    const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST1" });
-    await optionsMock.setItemConfig(chainId, { menuItemId: "mon-that-da-xoa", groupIds: [g.id], noBatch: true });
+    const g = await createFullGroup(chainId, { ...toppingInput, code: "PERSIST1" });
+    await optionsMock.setItemGroups(chainId, "mon-that-da-xoa", [g.id]);
     expect(localStorage.getItem(key())).toContain("PERSIST1");
     resetMockStates();
     expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(true);
     // Liên kết tới món không còn trên danh sách món thật vẫn được giữ (không tự xoá).
-    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === "mon-that-da-xoa")).toMatchObject({ groupIds: [g.id], noBatch: true });
+    expect((await optionsMock.listItemConfigs(chainId)).find((c) => c.menuItemId === "mon-that-da-xoa")).toMatchObject({ groupIds: [g.id] });
   });
 
   it("xoá dữ liệu mock → nhóm tự tạo biến mất sau khi tải lại", async () => {
-    const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST2" });
+    const g = await createFullGroup(chainId, { ...toppingInput, code: "PERSIST2" });
     clearPersistedOptions();
     expect(localStorage.getItem(key())).toBeNull();
     resetMockStates();
@@ -214,7 +222,7 @@ describe("mock options lưu qua F5 (localStorage, 4.4)", () => {
     });
     try {
       resetMockStates();
-      const g = await optionsMock.createGroup(chainId, { ...toppingInput, code: "PERSIST3" });
+      const g = await createFullGroup(chainId, { ...toppingInput, code: "PERSIST3" });
       expect((await optionsMock.listGroups(chainId)).some((x) => x.id === g.id)).toBe(true);
     } finally {
       getSpy.mockRestore();

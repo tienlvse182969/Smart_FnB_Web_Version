@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, classifyApiError, describeApiError, ERROR_DEDUPE_MS, GENERIC_ERROR_TEXT, isQuotaError, isReadOnlyError, READ_ONLY_TEXT, reportApiError, resetErrorDedupe, SERVER_ERROR_TEXT, setApiErrorHandler, showApiError } from "./http/errors";
-import { clearTokens, getAccessToken, refreshSession, setTokens } from "./http/client";
+import { clearTokens, getAccessToken, refreshSession, request, setTokens } from "./http/client";
 import { defineApi, wrapWithErrorHandling } from "./define";
 import { API_MODULES, DEFAULT_MODES, flagTable, resolveModes } from "./flags";
 import { mockControl } from "./mock/control";
@@ -21,11 +21,11 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan/admin/menu/account/stations = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin/menu/options/account/stations = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "account", "stations", "branch_options"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["options", "branding", "order", "ai", "payos"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "account", "stations", "branch_options"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["branding", "order", "ai", "payos"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });
@@ -33,8 +33,9 @@ describe("cờ module", () => {
   it("VITE_API_BRANCH_OPTIONS ghi đè riêng, không đụng cờ options của Owner", () => {
     const modes = resolveModes({ VITE_API_BRANCH_OPTIONS: "mock" });
     expect(modes.branch_options).toBe("mock");
-    expect(modes.options).toBe("mock");
+    expect(modes.options).toBe("real");
     expect(resolveModes({ VITE_API_OPTIONS: "mock" }).branch_options).toBe("real");
+    expect(resolveModes({ VITE_API_OPTIONS: "mock" }).options).toBe("mock");
   });
 
   it("VITE_API_<MODULE> ghi đè từng module riêng lẻ", () => {
@@ -106,6 +107,47 @@ describe("lỗi API thống nhất", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(show).not.toHaveBeenCalled();
     setApiErrorHandler(null);
+  });
+
+  it("đọc/ghi theo phương thức HTTP của request, không theo tên hàm: GET có Thử lại; POST, PUT, PATCH, DELETE lỗi 500/mạng không có", async () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const failing = (status: number, method: string) => async () => {
+      throw Object.assign(new ApiError(status, "x"), { method });
+    };
+    const api = wrapWithErrorHandling({
+      saveViaGet: failing(500, "GET"), // tên kiểu ghi nhưng request là GET → có nút
+      listViaPost: failing(500, "POST"), // tên kiểu đọc nhưng request là POST → không có nút
+      patchIt: failing(500, "PATCH"),
+      putIt: failing(0, "PUT"),
+      deleteIt: failing(500, "DELETE"),
+      getNet: failing(0, "GET"),
+    });
+    for (const name of Object.keys(api) as (keyof typeof api)[]) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    const byCall = handler.mock.calls.map((c) => [c[0].kind, c[0].canRetry]);
+    // listViaPost, patchIt, deleteIt (500, ghi) không báo toàn cục; putIt mạng báo nhưng không có nút
+    expect(byCall).toEqual([["server", true], ["network", false], ["network", true]]);
+    setApiErrorHandler(null);
+  });
+
+  it("lớp http gắn phương thức vào lỗi; làm mới phiên (POST /auth/refresh) không phải request() nên không bao giờ có Thử lại", async () => {
+    const reject = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", reject);
+    try {
+      await expect(request("/x")).rejects.toMatchObject({ status: 0, method: "GET" });
+      await expect(request("/x", { method: "PATCH", body: {} })).rejects.toMatchObject({ status: 0, method: "PATCH" });
+      vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response(JSON.stringify({ message: "Internal server error" }), { status: 500 })));
+      await expect(request("/y", { method: "POST", body: {} })).rejects.toMatchObject({ status: 500, method: "POST" });
+      await expect(request("/y")).rejects.toMatchObject({ status: 500, method: "GET" });
+      // refresh hỏng: lỗi không có method → không có Thử lại dù là mạng
+      const handler = vi.fn();
+      setApiErrorHandler(handler);
+      reportApiError(new ApiError(0, "mạng"));
+      expect(handler.mock.calls[0][0].canRetry).toBe(false);
+      setApiErrorHandler(null);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("lỗi 5xx (500, 502, 503) → một câu tiếng Việt, không lộ câu của BE", () => {
@@ -196,8 +238,31 @@ describe("lỗi API thống nhất", () => {
     });
     await expect(api.listThings()).rejects.toBeInstanceOf(ApiError);
     await expect(api.createThing()).rejects.toBeInstanceOf(ApiError);
-    expect(handler.mock.calls[0][0].retry).toBeTypeOf("function");
-    expect(handler.mock.calls[1][0].retry).toBeUndefined();
+    expect(handler.mock.calls[0][0].canRetry).toBe(true);
+    expect(handler.mock.calls[1][0].canRetry).toBe(false);
+    setApiErrorHandler(null);
+  });
+
+  it("Thử lại: chỉ lỗi ĐỌC mất mạng và 5xx; không cho 403, 401, 404, 409, 4xx khác và không cho lỗi ghi", async () => {
+    const handler = vi.fn();
+    setApiErrorHandler(handler);
+    const fail = (status: number, code: string | null = null) => async () => {
+      throw new ApiError(status, "x", [], code);
+    };
+    const api = wrapWithErrorHandling({
+      listA: fail(0), listB: fail(500), listC: fail(503), listD: fail(403), listE: fail(401), listF: fail(404), listG: fail(409), listH: fail(400),
+      saveA: fail(0), saveB: fail(500), saveC: fail(403),
+    });
+    const retryable: Record<string, boolean> = { listA: true, listB: true, listC: true, listD: false, saveA: false, saveC: false };
+    for (const name of Object.keys(retryable) as (keyof typeof api)[]) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    const events = handler.mock.calls.map((c) => c[0]);
+    // listE (401), listF (404), listG (409), listH (400), saveB (500 ghi) không báo toàn cục
+    for (const name of ["listE", "listF", "listG", "listH", "saveB"] as const) await expect(api[name]()).rejects.toBeInstanceOf(ApiError);
+    expect(handler.mock.calls.length).toBe(events.length + 1); // chỉ listE (401, báo toàn cục, không retry) thêm vào
+    expect(events.map((e) => [e.kind, e.canRetry])).toEqual([
+      ["network", true], ["server", true], ["server", true], ["forbidden", false], ["network", false], ["forbidden", false],
+    ]);
+    expect(handler.mock.calls[events.length][0]).toMatchObject({ kind: "unauthorized", canRetry: false });
     setApiErrorHandler(null);
   });
 

@@ -125,7 +125,22 @@ const screens = [
       await sleep(2200);
       return { ok: true, after: await q(`[...document.querySelectorAll(".ant-modal button")].some((x) => x.textContent.trim() === "Gia hạn" && !x.disabled && !x.classList.contains("ant-btn-loading"))`), kind: "modal" };
     } },
-  { id: "admin/signups", role: "admin", route: "/admin/signups", from: "/admin/plans", read: /registration/, loaded: () => noErrorUi() },
+  { id: "admin/signups", role: "admin", route: "/admin/signups", from: "/admin/plans", read: /registration/, loaded: () => noErrorUi(),
+    // Từ chối hồ sơ (POST …/reject): mở hồ sơ đầu tiên, nhập lý do, bấm Từ chối. Chỉ nhận lỗi giả, không bao giờ tới BE.
+    write: async () => {
+      if ((await rowsCount()) === 0) return { skipped: "không có hồ sơ nào trong danh sách (lọc mặc định: chờ duyệt)" };
+      await q(`document.querySelector(".ant-table-tbody > tr.ant-table-row")?.click()`);
+      await sleep(1500);
+      const open = await q(`(() => { const b = [...document.querySelectorAll(".ant-drawer-body button")].find((x) => x.textContent.includes("Từ chối") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!open) return { skipped: "hồ sơ đầu tiên không còn ở trạng thái chờ duyệt (nút Từ chối khoá hoặc không có)" };
+      await sleep(900);
+      await q(`(() => { const el = document.querySelector(".ant-modal textarea"); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, "Giả lập lỗi — hồ sơ không đủ thông tin"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await sleep(300);
+      const sent = await q(`(() => { const b = [...document.querySelectorAll(".ant-modal button")].find((x) => x.textContent.includes("Từ chối hồ sơ") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!sent) return { skipped: "không bấm được nút Từ chối hồ sơ" };
+      await sleep(2200);
+      return { ok: true, kind: "modal", after: await q(`[...document.querySelectorAll(".ant-modal button")].some((x) => x.textContent.includes("Từ chối hồ sơ") && !x.disabled && !x.classList.contains("ant-btn-loading"))`) };
+    } },
   { id: "admin/plans", role: "admin", route: "/admin/plans", from: "/admin/tenants", read: /\/admin\/service-plans/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
       const before = await rowsCount();
@@ -143,10 +158,52 @@ const screens = [
       await sleep(2200);
       return { ok: true, before, after: await rowsCount(), kind: "drawer", saveEnabled: await q(`[...document.querySelectorAll(".ant-drawer-body button")].some((x) => x.textContent.includes("Lưu gói") && !x.disabled && !x.classList.contains("ant-btn-loading"))`) };
     } },
-  { id: "owner/reports", role: "owner", route: "/owner/reports", from: "/owner/plan", read: /\/reports\//, loaded: () => bodyHas(`/Doanh thu/`) },
-  { id: "owner/branches", role: "owner", route: "/owner/branches", from: "/owner/plan", read: /\/branches/, loaded: () => noErrorUi(), storeBased: true },
+  { id: "owner/reports", ownRetry: true, role: "owner", route: "/owner/reports", from: "/owner/plan", read: /\/reports\//, loaded: () => bodyHas(`/Doanh thu/`) },
+  { id: "owner/branches", role: "owner", route: "/owner/branches", from: "/owner/plan", read: /\/branches/, loaded: () => noErrorUi(), storeBased: true,
+    // Tạo chi nhánh (POST /restaurant-chains/{id}/branches): điền tối thiểu, chọn tỉnh, bấm Tạo. Chỉ nhận lỗi giả.
+    write: async () => {
+      const before = await q(`[...document.querySelectorAll("button")].filter((b) => /Sửa/.test(b.textContent)).length`);
+      const opened = await q(`(() => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent.includes("Thêm chi nhánh") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!opened) return { skipped: "nút Thêm chi nhánh khoá (đủ hạn mức gói hoặc hết hạn)" };
+      await sleep(900);
+      const setPh = (ph, value) => q(`(() => { const el = document.querySelector('.ant-drawer-body input[placeholder=${J(ph)}]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await setPh("VD: HCM-Q10", "GIA-LAP-LOI");
+      await setPh("VD: Chi nhánh Quận 10", "Chi nhánh giả lập lỗi");
+      await setPh("VD: 123 Nguyễn Huệ", "1 Đường Thử");
+      await q(`document.querySelector(".ant-drawer-body .ant-select-content, .ant-drawer-body .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+      await sleep(400);
+      await q(`document.querySelector(".ant-select-item-option")?.click()`);
+      await sleep(500);
+      const sent = await q(`(() => { const b = [...document.querySelectorAll(".ant-drawer-body button")].find((x) => x.textContent.includes("Tạo chi nhánh") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!sent) return { skipped: "nút Tạo chi nhánh khoá (thiếu ô bắt buộc)" };
+      await sleep(2200);
+      const after = await q(`[...document.querySelectorAll("button")].filter((b) => /Sửa/.test(b.textContent)).length`);
+      return { ok: true, kind: "drawer", before, after, saveEnabled: await q(`[...document.querySelectorAll(".ant-drawer-body button")].some((x) => x.textContent.includes("Tạo chi nhánh") && !x.disabled && !x.classList.contains("ant-btn-loading"))`) };
+    } },
   { id: "owner/menu", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
   { id: "owner/menu/categories", role: "owner", route: "/owner/menu/categories", from: "/owner/plan", read: /\/menu\/categories/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
+  // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
+  { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      await q(`document.querySelector(".ant-table-row-expand-icon-collapsed")?.click()`);
+      await sleep(700);
+      return switchWrite('[data-testid^="group-detail-"]', { confirm: false })();
+    } },
+  // 6.3: gắn nhóm tuỳ chọn cho món (MenuTable, drawer) — PUT items/{id}/option-groups; món không đổi nên không có PATCH món. Chỉ nhận lỗi giả.
+  { id: "owner/menu (gắn nhóm)", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const opened = await q(`(() => { const r = document.querySelector(".ant-table-tbody > tr.ant-table-row"); const b = r && [...r.querySelectorAll("button")].find((x) => x.textContent.includes("Sửa") && !x.disabled); if (!b) return false; b.click(); return true })()`);
+      if (!opened) return { skipped: "không có nút Sửa món" };
+      await sleep(1200);
+      await q(`document.querySelector('[data-testid="item-group-add"] .ant-select-content, [data-testid="item-group-add"] .ant-select-selector')?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
+      await sleep(500);
+      const picked = await q(`(() => { const o = [...document.querySelectorAll(".ant-select-item-option")].find((e) => !e.classList.contains("ant-select-item-option-disabled")); if (!o) return false; o.click(); return true })()`);
+      if (!picked) return { skipped: "món đã gắn đủ nhóm có tuỳ chọn" };
+      await sleep(500);
+      await q(`document.querySelector('[data-testid="item-save"]')?.click()`);
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="item-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
   { id: "owner/accounts", role: "owner", route: "/owner/accounts", from: "/owner/plan", read: /\/employees/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
       const first = () => q(`document.querySelector(".ant-table-tbody > tr.ant-table-row")?.innerText.replace(/\\s+/g, " ") ?? ""`);
@@ -157,7 +214,7 @@ const screens = [
       await sleep(2200);
       return { ok: true, before, after: await first(), kind: "row" };
     } },
-  { id: "manager/branch-info", role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
+  { id: "manager/branch-info", ownRetry: true, role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
   { id: "manager/menu (tuỳ chọn)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/manager\/menu-options/, afterNav: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(1500); },
     loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-option-row"]').length`)) > 0 && (await noErrorUi()),
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(700); return switchWrite('[data-testid="branch-option-row"][data-owner-disabled="false"]')(); } },
@@ -185,8 +242,27 @@ const screens = [
 ];
 
 // --- ca đọc ------------------------------------------------------------------------------------------------------
+/** Số request đọc khớp `spec.read` kể từ mốc `mark`. */
+const countReads = (spec, mark) =>
+  tab.requests.slice(mark).filter((r) => r.method === "GET" && /\/api\/v1\//.test(r.url) && spec.read.test(new URL(r.url).pathname)).length;
+
+/** Mốc "một lượt nạp bình thường" của màn (không giả lập lỗi), đo một lần cho mỗi màn. Dev bật StrictMode nên mount nào cũng gọi đôi. */
+const baselines = new Map();
+async function baselineOf(spec) {
+  if (baselines.has(spec.id)) return baselines.get(spec.id);
+  await spaGo(spec.from);
+  await sleep(700);
+  const mark = tab.requests.length;
+  await spaGo(spec.route);
+  await sleep(2300);
+  const n = countReads(spec, mark);
+  baselines.set(spec.id, n);
+  return n;
+}
+
 async function readCase(spec, kind) {
   try {
+    const base = spec.storeBased ? 0 : await baselineOf(spec);
     await spaGo(spec.from);
     await sleep(900);
     await clearNotices();
@@ -218,14 +294,26 @@ async function readCase(spec, kind) {
     const { problems, texts } = judgeError(s);
     // thử lại
     let reloaded;
-    if (s.retry) {
+    // 5.8c: Thử lại có cho lỗi đọc mất mạng và 500; KHÔNG có cho 403 (trừ màn có khối lỗi riêng kèm nút: Reports, BranchInfo).
+    const expectRetry = kind === "network" || kind === "500";
+    let retryNote = "";
+    if (s.retry && !expectRetry && !spec.ownRetry) problems.push("UNEXPECTED_RETRY");
+    if (s.retry && (expectRetry || spec.ownRetry)) {
+      const mark2 = tab.requests.length;
       await q(`[...document.querySelectorAll("button")].find((b) => /thử lại/i.test(b.textContent) && !b.disabled)?.click()`);
       await sleep(2600);
+      // Mỗi lần bấm = đúng một lượt nạp: số request đọc khớp `spec.read` bằng số của một lần nạp bình thường (`baseline`, đã gồm cả
+      // lần gọi đôi của StrictMode ở dev). Màn có nút Thử lại riêng (không dựng lại màn) chỉ cần ≥ 1 và không vượt baseline.
+      const again = countReads(spec, mark2);
+      retryNote = ` request sau 1 lần bấm=${again} (một lần nạp bình thường=${base})`;
+      if (spec.ownRetry ? again < 1 || again > base : again !== base) problems.push("RETRY_REQUEST_COUNT");
       if (spec.afterNav) await spec.afterNav();
       reloaded = await spec.loaded();
       if (!reloaded) problems.push("RETRY_NOLOAD");
+    } else if (s.retry) {
+      reloaded = await spec.loaded();
     } else {
-      problems.push("NO_RETRY");
+      if (expectRetry) problems.push("NO_RETRY");
       await spaGo(spec.from);
       await sleep(700);
       await spaGo(spec.route);
@@ -234,7 +322,7 @@ async function readCase(spec, kind) {
       reloaded = await spec.loaded();
       if (!reloaded) problems.push("NO_RECOVERY");
     }
-    record(spec.id, "đọc", kind, problems, `"${texts.join(" || ")}" retry=${s.retry} nạp lại=${reloaded}`);
+    record(spec.id, "đọc", kind, problems, `"${texts.join(" || ")}" retry=${s.retry} nạp lại=${reloaded}${retryNote}`);
   } catch (e) {
     tab.setFault(null);
     record(spec.id, "đọc", kind, ["SCRIPT"], e.message);
@@ -256,6 +344,7 @@ async function writeCase(spec, kind) {
     if (!(await spec.loaded())) return record(spec.id, "ghi", kind, ["PRECONDITION"], "màn không nạp được trước khi giả lập");
     await clearNotices();
     tab.blockedWrites.length = 0;
+    tab.caseName = `${spec.id}|${kind}`;
     tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/ });
     const out = await spec.write();
     const s = await snap();
@@ -274,6 +363,8 @@ async function writeCase(spec, kind) {
       return record(spec.id, "ghi", kind, problems, `ghi bị chặn: ${attempted} "${texts.join(" || ")}"`);
     }
     const { problems, texts } = judgeError(s);
+    // 5.8c: lỗi GHI không có nút Thử lại (người dùng tự bấm lại thao tác)
+    if (s.retry) problems.push("WRITE_HAS_RETRY");
     // khôi phục trạng thái
     if (typeof out.before === "number" && typeof out.after === "number" && out.before !== out.after) problems.push("NOT_RESTORED");
     if (typeof out.before === "string" && out.before !== out.after) problems.push("NOT_RESTORED");
@@ -307,12 +398,18 @@ async function scopeCase(role, route, kind) {
       const ok = s.sider && s.path.startsWith("/" + role) && s.notices.length + s.alerts.length === 0;
       return record(id, "scope", kind, ok ? [] : ["NOT_RECOVERED"], `hits=${hits} path=${s.path}`);
     }
+    // Admin không nạp phạm vi chuỗi/chi nhánh khi F5 (phiên khôi phục bằng refresh, không gọi /auth/me, /restaurant-chains, /branches):
+    // không có request để giả lập thì ca này không áp dụng (N/A), không phải lỗi.
+    if (hits === 0) return record(id, "scope", kind, [], `N/A: vai ${role} không gọi API nạp khu vực khi F5 (path=${s.path})`);
     const { problems, texts } = judgeError(s);
-    if (hits === 0) problems.push("NO_REQUEST");
     let recovered = false;
     if (s.retry) {
+      const m = tab.requests.length;
       await q(`[...document.querySelectorAll("button")].find((b) => /thử lại/i.test(b.textContent) && !b.disabled)?.click()`);
       await sleep(3000);
+      // Thử lại của màn lỗi khu vực chỉ chạy một lượt nạp (không có lượt thứ hai từ nút Thử lại toàn cục).
+      const chains = tab.requests.slice(m).filter((r) => r.method === "GET" && /\/api\/v1\/restaurant-chains$/.test(new URL(r.url).pathname)).length;
+      if (role !== "manager" && chains !== 1) problems.push("RETRY_RAN_TWICE");
       recovered = await q(`!!document.querySelector(".ant-layout-sider") && ![...document.querySelectorAll(".ant-alert-error")].some((e) => e.offsetParent !== null)`);
       if (!recovered) problems.push("RETRY_NOLOAD");
     } else {

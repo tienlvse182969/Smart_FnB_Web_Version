@@ -7,8 +7,57 @@ import { MAX_PRICE } from "../menu/validate";
 
 export const CODE_PATTERN = /^[A-Z0-9_-]{1,50}$/; // CHỜ BE: giả định cùng định dạng với SKU; BE chưa công bố quy tắc `code`.
 
-/** Lỗi nhập một nhóm (kèm tuỳ chọn). Rỗng = hợp lệ. Thứ tự lỗi ổn định để hiện cho người dùng. */
-export function validateGroupInput(input: OptionGroupInput): string[] {
+/** Giới hạn của BE: `min` 0–100, `max` 1–100 (`menu.dto.ts:262-275`), `displayOrder` 0–9999 (`menu.dto.ts:278-284`). */
+export const MAX_MIN_SELECTIONS = 100;
+export const MAX_MAX_SELECTIONS = 100;
+export const MAX_DISPLAY_ORDER = 9999;
+
+export type SelectionRule = { isRequired: boolean; minSelections: number; maxSelections: number };
+export type SelectionRuleField = keyof SelectionRule;
+
+const toInt = (value: number, fallback: number) => (Number.isFinite(value) ? Math.trunc(value) : fallback);
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
+
+/**
+ * Đồng bộ luật chọn của nhóm sau khi người dùng đổi MỘT trường (`changed`), để bộ kiểm `validateGroupInput` luôn đạt:
+ *   - tick bắt buộc mà min = 0 → min = 1; bỏ tick → min = 0;
+ *   - đổi min > 0 → bắt buộc; đổi min = 0 → không bắt buộc;
+ *   - max không bao giờ nhỏ hơn min (min tăng vượt max → max = min; hạ max xuống dưới min → max = min).
+ * Số ngoài khoảng của BE được kẹp vào khoảng (min 0–100, max 1–100); không phải số thì coi như 0 (min) hoặc 1 (max).
+ */
+export function syncSelectionRule(rule: SelectionRule, changed: SelectionRuleField): SelectionRule {
+  let min = clamp(toInt(rule.minSelections, 0), 0, MAX_MIN_SELECTIONS);
+  let max = clamp(toInt(rule.maxSelections, 1), 1, MAX_MAX_SELECTIONS);
+  let isRequired = rule.isRequired;
+  if (changed === "isRequired") min = isRequired ? Math.max(min, 1) : 0;
+  else if (changed === "minSelections") isRequired = min > 0;
+  else isRequired = min > 0; // đổi max không đổi cờ, nhưng vẫn giữ hai chiều đúng nếu đầu vào lệch
+  if (max < min) max = min;
+  return { isRequired, minSelections: min, maxSelections: max };
+}
+
+/** Trường của riêng một nhóm (không có tuỳ chọn) — thứ BE nhận ở `POST/PATCH option-groups` (`menu.dto.ts:236-284`). */
+export type GroupFields = Pick<OptionGroupInput, "name" | "code" | "isRequired" | "minSelections" | "maxSelections" | "displayOrder">;
+
+/** Trường của riêng một tuỳ chọn — thứ BE nhận ở `POST/PATCH …/options` (`menu.dto.ts:295-335`); `isDefault` BE chưa có (#15), chỉ mock nhận. */
+export type OptionFields = { name: string; code: string; priceDelta: number; displayOrder?: number };
+
+/** Lỗi trường của một tuỳ chọn khi tạo/sửa riêng lẻ. Rỗng = hợp lệ. */
+export function validateOptionFields(fields: Partial<OptionFields>): string[] {
+  const errors: string[] = [];
+  if (fields.name !== undefined && !fields.name.trim()) errors.push("Tuỳ chọn cần có tên");
+  if (fields.code !== undefined && !CODE_PATTERN.test(fields.code)) errors.push("Mã tuỳ chọn chỉ gồm chữ hoa, số, gạch dưới hoặc gạch ngang, tối đa 50 ký tự");
+  if (fields.priceDelta !== undefined && (!Number.isInteger(fields.priceDelta) || fields.priceDelta < 0 || fields.priceDelta > MAX_PRICE)) {
+    errors.push("Giá cộng thêm phải là số nguyên đồng, từ 0 trở lên");
+  }
+  if (fields.displayOrder !== undefined && (!Number.isInteger(fields.displayOrder) || fields.displayOrder < 0 || fields.displayOrder > MAX_DISPLAY_ORDER)) {
+    errors.push(`Thứ tự hiển thị phải là số nguyên từ 0 đến ${MAX_DISPLAY_ORDER}`);
+  }
+  return errors;
+}
+
+/** Lỗi trường của một nhóm khi tạo/sửa riêng lẻ (chưa xét tuỳ chọn). Rỗng = hợp lệ. */
+export function validateGroupFields(input: GroupFields): string[] {
   const errors: string[] = [];
   if (!input.name.trim()) errors.push("Nhóm cần có tên");
   if (!CODE_PATTERN.test(input.code)) errors.push("Mã nhóm chỉ gồm chữ hoa, số, gạch dưới hoặc gạch ngang, tối đa 50 ký tự");
@@ -17,10 +66,43 @@ export function validateGroupInput(input: OptionGroupInput): string[] {
   if (!Number.isInteger(min) || !Number.isInteger(max)) errors.push("Số chọn tối thiểu và tối đa phải là số nguyên");
   else {
     if (min < 0) errors.push("Số chọn tối thiểu không được âm");
+    if (min > MAX_MIN_SELECTIONS) errors.push(`Số chọn tối thiểu tối đa là ${MAX_MIN_SELECTIONS}`);
     if (max < 1) errors.push("Số chọn tối đa phải từ 1 trở lên");
+    if (max > MAX_MAX_SELECTIONS) errors.push(`Số chọn tối đa tối đa là ${MAX_MAX_SELECTIONS}`);
     if (min > max) errors.push("Số chọn tối thiểu không được lớn hơn số chọn tối đa");
+    // BE (`menu.service.ts:589`): `isRequired` đúng khi và chỉ khi `min > 0` — hai chiều.
     if (input.isRequired && min < 1) errors.push("Nhóm bắt buộc phải có số chọn tối thiểu từ 1 trở lên");
+    if (!input.isRequired && min > 0) errors.push("Nhóm không bắt buộc phải có số chọn tối thiểu bằng 0");
   }
+  if (input.displayOrder !== undefined && (!Number.isInteger(input.displayOrder) || input.displayOrder < 0 || input.displayOrder > MAX_DISPLAY_ORDER)) {
+    errors.push(`Thứ tự hiển thị phải là số nguyên từ 0 đến ${MAX_DISPLAY_ORDER}`);
+  }
+  return errors;
+}
+
+/**
+ * Lỗi khi SỬA TỪNG PHẦN một nhóm. Ba trường luật chọn (`isRequired`, `min`, `max`) phải đi cùng nhau — web luôn gửi cả bộ đã qua
+ * `syncSelectionRule`, không dựa vào cách BE tự suy phần thiếu (`menu.service.ts:187-205`).
+ */
+export function validateGroupPatch(patch: Partial<GroupFields>): string[] {
+  const rule = [patch.isRequired, patch.minSelections, patch.maxSelections];
+  const given = rule.filter((v) => v !== undefined).length;
+  if (given > 0 && given < 3) return ["Luật chọn (bắt buộc, tối thiểu, tối đa) phải được sửa cùng lúc"];
+  const errors = validateGroupFields({
+    name: patch.name ?? "x",
+    code: patch.code ?? "X",
+    isRequired: patch.isRequired ?? false,
+    minSelections: patch.minSelections ?? 0,
+    maxSelections: patch.maxSelections ?? 1,
+    displayOrder: patch.displayOrder,
+  });
+  return errors;
+}
+
+/** Lỗi nhập một nhóm (kèm tuỳ chọn). Rỗng = hợp lệ. Thứ tự lỗi ổn định để hiện cho người dùng. */
+export function validateGroupInput(input: OptionGroupInput): string[] {
+  const errors = validateGroupFields(input);
+  const { minSelections: min, maxSelections: max } = input;
 
   if (input.options.length === 0) errors.push("Nhóm cần ít nhất một tuỳ chọn");
   const codes = new Set<string>();

@@ -92,7 +92,7 @@ export function getChainState(chainId: string): ChainState {
       staffSeeded: new Set(),
     };
     for (const m of state.menuItems) {
-      if (m.seedOptionGroupIds?.length) state.itemOptions.set(m.id, { menuItemId: m.id, groupIds: [...m.seedOptionGroupIds], noBatch: false });
+      if (m.seedOptionGroupIds?.length) state.itemOptions.set(m.id, { menuItemId: m.id, groupIds: [...m.seedOptionGroupIds] });
     }
     // Mock tuỳ chọn lưu qua F5: nạp trước khi ai đó dùng state (kể cả bộ sinh đơn).
     const saved = loadPersistedOptions(chainId);

@@ -3,7 +3,7 @@ import { Hash, MapPin, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ApiBranch, Branch } from "../../types";
 import { useAppStore } from "../../store";
-import { describeBranchError } from "../../api";
+import { showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
@@ -125,7 +125,7 @@ export default function Branches() {
             }
             setEditing(null);
           } catch (err) {
-            message.error(describeBranchError(err));
+            showApiError(message.error, err);
           } finally {
             setSaving(false);
           }

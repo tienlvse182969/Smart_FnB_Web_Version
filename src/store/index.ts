@@ -17,6 +17,7 @@ import { createBrandingSlice } from "./slices/branding";
 import { createPlanSlice } from "./slices/plan";
 import { createBranchSlice } from "./slices/branches";
 import { createMenuSlice } from "./slices/menu";
+import { createRefreshSlice } from "./slices/refresh";
 
 export type { AppState, BranchFormData, ScopeStatus } from "./types";
 
@@ -26,4 +27,5 @@ export const useAppStore = create<AppState>()((...args) => ({
   ...createPlanSlice(...args),
   ...createBranchSlice(...args),
   ...createMenuSlice(...args),
+  ...createRefreshSlice(...args),
 }));
