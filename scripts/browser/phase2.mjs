@@ -53,7 +53,12 @@ try {
   }
 
   // ---------------------------------------------------------------- đổi nhận diện giữa 2 doanh nghiệp mock
-  if (want("brand")) {
+  // Khối này đổi doanh nghiệp A↔B bằng panel mock nên cần nhận diện MOCK (cờ branding = mock, 6.4 đã đổi mặc định sang real): chạy
+  // trên dev server cờ mock với `--mode=mock --only=brand` (AUTH_MODE=mock). Chế độ real bỏ qua khối này; nhận diện real do phase6 kiểm.
+  const MOCK_RUN = cli().mode === "mock" || process.env.AUTH_MODE === "mock";
+  if (want("brand") && !MOCK_RUN) {
+    console.log("SKIP  khối brand cần dev server cờ mock (VITE_API_BRANDING=mock …) và --mode=mock; nhận diện real do phase6 --only=branding kiểm");
+  } else if (want("brand")) {
     await freshOwner(tab);
     const screens = ["Tổng quan", "Chi nhánh", "Menu toàn chuỗi", "Tài khoản quản lý", "Nhận diện"];
     const snap = async (label) => {
@@ -104,7 +109,8 @@ try {
     await freshOwner(tab);
     const locked = async (label) => {
       await toMenu(tab, label);
-      return tab.eval(`!!document.querySelector('[data-testid="feature-lock"]')`);
+      // Thẻ khoá cả màn (AI) hoặc ghi chú khoá của màn Nhận diện (6.4: màn hiện nhưng khoá ô và nút, quyết định 24).
+      return tab.eval(`!!document.querySelector('[data-testid="feature-lock"], [data-testid="branding-plan-lock"]')`);
     };
     const lockedCompare = async () => {
       await toMenu(tab, "Tổng quan");

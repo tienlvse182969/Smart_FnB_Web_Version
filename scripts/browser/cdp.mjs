@@ -176,7 +176,10 @@ class Tab {
     if (safe) {
       void this.send("Fetch.continueRequest", { requestId: p.requestId });
     } else {
-      this.blockedWrites.push({ method, path, body: postData ?? null });
+      // `contentType` để kiểm multipart (tải logo): có `multipart/form-data; boundary=…` thì trường `body` chứa các phần của form.
+      const headers = p.request.headers ?? {};
+      const contentType = headers["Content-Type"] ?? headers["content-type"] ?? null;
+      this.blockedWrites.push({ method, path, body: postData ?? null, contentType });
       this.logWrite(method, path);
       if (this.fulfillWrites) {
         // Chế độ "trả lời giả": request ghi VẪN KHÔNG rời trình duyệt (không tới BE); trình duyệt nhận 200 `{}` để luồng nhiều lệnh
@@ -188,7 +191,7 @@ class Tab {
             { name: "Content-Type", value: "application/json" },
             { name: "Access-Control-Allow-Origin", value: "*" },
           ],
-          body: Buffer.from("{}").toString("base64"),
+          body: Buffer.from(this.fulfillBody ?? "{}").toString("base64"), // `fulfillBody`: chuỗi JSON để màn nhận lại dữ liệu hợp lệ
         });
         return;
       }

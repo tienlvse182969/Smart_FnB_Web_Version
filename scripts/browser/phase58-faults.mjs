@@ -182,6 +182,19 @@ const screens = [
     } },
   { id: "owner/menu", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
   { id: "owner/menu/categories", role: "owner", route: "/owner/menu/categories", from: "/owner/plan", read: /\/menu\/categories/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
+  // 6.4: nhận diện thương hiệu (branding = real). Màn đọc nhận diện từ store (nạp ở bước vào khu vực, như owner/branches); ghi = Lưu đổi tên
+  // (PUT /restaurant-chains/{id}/branding). Chỉ nhận lỗi giả, không bao giờ tới BE.
+  { id: "owner/branding", role: "owner", route: "/owner/branding", from: "/owner/plan", read: /\/branding$/, storeBased: true,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="branding-save"]')`)) && (await noErrorUi()),
+    write: async () => {
+      const set = await q(`(() => { const el = document.querySelector('[data-testid="branding-name"]'); if (!el) return false; const input = el.matches("input") ? el : el.querySelector("input"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, input.value + " X"); input.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
+      if (!set) return { skipped: "không thấy ô tên nhận diện" };
+      await sleep(300);
+      const clicked = await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+      if (!clicked) return { skipped: "nút Lưu nhận diện khoá" };
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
   // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
   { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
