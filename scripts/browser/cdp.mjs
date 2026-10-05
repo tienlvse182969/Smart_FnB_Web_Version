@@ -120,6 +120,8 @@ class Tab {
       500: { statusCode: 500, message: "Internal server error" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
       401: { statusCode: 401, message: "Unauthorized" },
+      // 409: body do script truyền (`fault.body`), ví dụ `PLAN_LIMIT_REACHED` kèm quota và gói gợi ý như BE.
+      409: fault?.body ?? { statusCode: 409, message: "Conflict", error: "Conflict" },
     };
     void this.send("Fetch.fulfillRequest", {
       requestId: p.requestId,

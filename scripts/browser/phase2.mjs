@@ -2,7 +2,7 @@
 // Cần: dev server đang chạy (PORT), Chrome CDP (scripts/browser/chrome.mjs), BE chạy cho nhóm dùng API thật.
 //   node scripts/browser/phase2.mjs [brand|plan|errors|ai|refresh|flip|login]   (bỏ trống = tất cả trừ flip)
 // "flip" chạy trên dev server khởi động với VITE_API_AUTH=mock VITE_API_BRANCH=mock VITE_API_REPORT=mock + AUTH_MODE=mock.
-import { cli, newTab, closeTab, check, results, sleep } from "./cdp.mjs";
+import { cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 const only = cli().only?.[0] ?? cli().positional; // --only=<nhóm> (brand|plan|errors|ai|refresh|flip|login) hoặc đối số trần như cũ
 const want = (g) => (only ? only === g : g !== "flip");
@@ -25,6 +25,8 @@ const toMenu = async (tab, label) => {
 
 try {
   const tab = await newTab();
+  // Chặn mọi request ghi ở tầng CDP (chỉ cho đăng nhập/làm mới/đăng xuất) và in bảng tổng khi kết thúc, như các phase khác.
+  await tab.blockWrites(SESSION_ALLOW);
 
   // ---------------------------------------------------------------- login / nhận diện nền tảng
   if (want("login")) {
@@ -171,41 +173,63 @@ try {
   // ---------------------------------------------------------------- lỗi API thống nhất
   if (want("errors")) {
     await freshOwner(tab);
-    await tab.scenario({ profile: "A", tier: "ADVANCED" });
     const msgs = () => tab.eval(`[...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map((e) => e.textContent).join(" | ")`);
+    const closeNotices = async () => {
+      await tab.eval(`document.querySelectorAll(".ant-notification-notice-close").forEach((b) => b.click())`);
+      await sleep(400);
+    };
 
-    await tab.openMockPanel();
-    // Dùng màn còn chạy mock (Tuỳ chọn món): "Menu toàn chuỗi" đã là real từ 4.2 nên lỗi giả lập của panel mock không chạm tới.
-    await tab.setSelect("mock-failure", "forbidden");
-    await toMenu(tab, "Tuỳ chọn món");
-    await sleep(1200);
+    // Tiêm lỗi ở tầng CDP (Fetch) trên MỘT GET real ổn định, không phụ thuộc module nào đang mock/real (quyết định 20): màn "Danh mục món"
+    // đọc `GET /restaurant-chains/{id}/menu/categories` mỗi lần vào màn. Chỉ GET khớp bị giả lập; mọi request ghi bị chặn (blockWrites ở đầu script).
+    const READ = /\/menu\/categories/;
+    const visit = async () => {
+      await toMenu(tab, "Tổng quan");
+      await toMenu(tab, "Danh mục món");
+      await sleep(1200);
+    };
+
+    tab.setFault({ kind: "403", match: READ });
+    await visit();
     check("403 → thông báo không đủ quyền", /không đủ quyền/i.test(await msgs()), await msgs());
+    tab.setFault(null);
+    await closeNotices();
 
-    await tab.setSelect("mock-failure", "quota");
-    await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Tuỳ chọn món");
-    await sleep(1200);
-    check("lỗi hạn mức → thông báo vượt hạn mức", /vượt hạn mức/i.test(await msgs()), await msgs());
+    // 409 `PLAN_LIMIT_REACHED` có body như BE (`plan-quota.service.ts` assertWithinQuota), trả cho GET để kiểm đường thông báo hạn mức toàn cục.
+    tab.setFault({
+      kind: "409",
+      match: READ,
+      body: {
+        statusCode: 409,
+        error: "PLAN_LIMIT_REACHED",
+        message: "Gói Cơ bản chỉ cho phép 1 chi nhánh. Nâng gói để thêm mới.",
+        quota: { resource: "branches", used: 1, limit: 1, remaining: 0 },
+        currentPlan: { name: "Cơ bản" },
+        suggestedPlans: [{ name: "Tiêu chuẩn", maxBranches: 5, priceDifference: "0" }],
+      },
+    });
+    await visit();
+    check("lỗi hạn mức → thông báo vượt hạn mức (kèm gợi ý gói chi nhánh)", /vượt hạn mức/i.test(await msgs()) && /Gói "Tiêu chuẩn" cho phép 5 chi nhánh/.test(await msgs()), await msgs());
+    tab.setFault(null);
+    await closeNotices();
 
-    await tab.setSelect("mock-failure", "network");
-    await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Tuỳ chọn món");
-    await sleep(1200);
+    tab.setFault({ kind: "network", match: READ });
+    await visit();
     const net = await tab.eval(`(() => { const n = document.querySelector(".ant-notification-notice"); return n ? { text: n.textContent, retry: !![...n.querySelectorAll("button")].find((b) => /Thử lại/.test(b.textContent)) } : null })()`);
     check("lỗi mạng → thông báo kèm nút Thử lại", !!net && net.retry && /kết nối/i.test(net.text), JSON.stringify(net));
 
-    await tab.setSelect("mock-failure", "none");
+    tab.setFault(null);
     await tab.eval(`[...document.querySelectorAll(".ant-notification-notice button")].find((b) => /Thử lại/.test(b.textContent))?.click()`);
     await sleep(2500);
     const after = await msgs();
     check("bấm Thử lại khi mạng ổn → kết nối lại thành công", /kết nối lại/i.test(after) || !/Mất kết nối/.test(after), after);
+    await closeNotices();
 
-    await tab.setSelect("mock-failure", "unauthorized");
-    await toMenu(tab, "Tổng quan");
-    await toMenu(tab, "Tuỳ chọn món");
+    // 401 + làm mới phiên cũng thất bại (`refresh: "fail"`) = hết phiên thật sự → về /login
+    tab.setFault({ kind: "401", match: READ, refresh: "fail" });
+    await visit();
     await tab.waitFor(`location.pathname === "/login"`, 10000, "về /login sau 401").catch(() => {});
     check("401 → hết phiên, về /login", (await tab.path()) === "/login", await tab.path());
-    await tab.eval(`localStorage.removeItem("fnb.mock.failure")`);
+    tab.setFault(null);
   }
 
   // ---------------------------------------------------------------- 2 tab cùng hết hạn access token
