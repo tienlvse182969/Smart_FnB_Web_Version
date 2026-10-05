@@ -219,11 +219,13 @@ try {
 
     // làm hỏng access token (localStorage dùng chung) → mọi request kế tiếp của cả hai tab dính 401
     await tab.eval(`localStorage.setItem("smartfnb_access_token", "token-het-han")`);
-    const before = [tab, other].reduce((n, t) => n + t.requests.filter((r) => /\/auth\/refresh/.test(r.url)).length, 0);
+    // Chỉ đếm POST: yêu cầu kiểm tra trước CORS (OPTIONS) của chính lần refresh đó cũng được CDP ghi lại khi Chrome chưa có bộ nhớ đệm preflight (Chrome mới dựng), nên đếm cả OPTIONS sẽ ra 2 cho một lần refresh.
+    const isRefresh = (r) => /\/auth\/refresh/.test(r.url) && r.method === "POST";
+    const before = [tab, other].reduce((n, t) => n + t.requests.filter(isRefresh).length, 0);
     // cả hai tab cùng bấm sang "Tổng quan" (gọi 3 báo cáo thật) gần như đồng thời
     await Promise.all([tab.clickMenu("Tổng quan"), other.clickMenu("Tổng quan")]);
     await sleep(4000);
-    const refreshes = [tab, other].reduce((n, t) => n + t.requests.filter((r) => /\/auth\/refresh/.test(r.url)).length, 0) - before;
+    const refreshes = [tab, other].reduce((n, t) => n + t.requests.filter(isRefresh).length, 0) - before;
     const tokens = await tab.tokens();
     check("hai tab cùng hết hạn: chỉ gọi /auth/refresh đúng 1 lần", refreshes === 1, `số lần refresh = ${refreshes}`);
     check("không tab nào bị đá ra /login", (await tab.path()) !== "/login" && (await other.path()) !== "/login", `${await tab.path()} | ${await other.path()}`);
