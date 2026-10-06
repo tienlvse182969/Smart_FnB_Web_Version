@@ -12,7 +12,7 @@ import { accounts, check, cli, closeTab, newTab, results, sleep, SESSION_ALLOW }
 const CLI = cli();
 const MODE = CLI.mode ?? "mock";
 const REAL = MODE === "real";
-const BLOCKS = ["branding", "payos"];
+const BLOCKS = ["branding", "payos", "plan"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -110,7 +110,9 @@ async function readBe() {
   const managerGet = await call(`/restaurant-chains/${chainId}/branding`, mgr);
   // GET trạng thái PayOS (chỉ đọc; BE không bao giờ trả khoá) để đối chiếu khối payos.
   const payos = (await call(`/restaurant-chains/${chainId}/payos-channel`, owner)).body;
-  return { chainId, branding, managerStatus: managerGet.status, payos };
+  // GET /restaurant-chains (chỉ đọc): gói + hạn mức thật để đối chiếu khối plan.
+  const chains = (await call("/restaurant-chains", owner)).body;
+  return { chainId, branding, managerStatus: managerGet.status, payos, chains };
 }
 
 // Mặc định của BE (branding.service.ts:21-25) để suy isCustom giống mapper của web.
@@ -566,6 +568,78 @@ try {
       check("Real · Quét localStorage/sessionStorage: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
       const after = await readBe();
       check("Real · Trạng thái PayOS ở BE (đọc lại bằng GET) KHÔNG đổi", J(after.payos) === J(be.payos), `${J(be.payos)} → ${J(after.payos)}`);
+    }
+  }
+
+  // ============================================================ Gói của tôi (OW-10)
+  if (want("plan")) {
+    const planText = (id) => q(`${tid(id)}?.innerText ?? ""`);
+    const goPlan = async () => {
+      await spaGo("/owner/reports");
+      await spaGo("/owner/plan");
+      await tab.waitFor(`document.querySelector('[data-testid="myplan-name"]') || document.querySelector('[data-testid="myplan-none"]')`, 15000, "màn Gói của tôi");
+      await sleep(400);
+    };
+    const upgradeButtons = () => q(`[...document.querySelectorAll("button, a")].filter((el) => /gia hạn|đổi gói|nâng cấp|nâng gói|thanh toán/i.test(el.textContent)).length`);
+    const featureState = (key) => q(`${tid("myplan-feature-" + key)}?.getAttribute("data-enabled")`);
+    const PENDING = "Chưa có dữ liệu từ máy chủ (chờ BE #38)";
+    const CONTACT = "Liên hệ quản trị nền tảng để đổi gói hoặc gia hạn.";
+
+    if (!REAL) {
+      await freshLogin("owner");
+      await tab.scenario({ profile: "A", tier: "STANDARD" });
+      await goPlan();
+      check("Mock · Gói Tiêu chuẩn: tên gói, trạng thái 'Đang hoạt động', có ngày hết hạn (không ghi 'chờ BE')", (await planText("myplan-name")) === "Tiêu chuẩn" && (await planText("myplan-status")) === "Đang hoạt động" && /\d/.test(await planText("myplan-expiry")) && !/chờ BE/.test(await planText("myplan-expiry")), `${await planText("myplan-name")} | ${await planText("myplan-expiry")}`);
+      const lim = await Promise.all([planText("myplan-limit-branches"), planText("myplan-limit-accounts")]);
+      check("Mock · Hạn mức dạng 'Đã dùng X / Y' cho chi nhánh (3 / 5) và tài khoản (/ 30)", /Đã dùng 3 \/ 5/.test(lim[0]) && /Đã dùng \d+ \/ 30/.test(lim[1]), J(lim));
+      check("Mock · Chưa chạm hạn mức: không có nhãn cảnh báo", !(await has("myplan-limit-warn-branches")) && !(await has("myplan-limit-warn-accounts")));
+      check("Mock · Tiêu chuẩn: nhận diện Có, so sánh đa chi nhánh Có, Trợ lý AI Chưa có", (await featureState("branding")) === "true" && (await featureState("multiBranchCompare")) === "true" && (await featureState("aiAssistant")) === "false");
+      check("Mock · Có câu liên hệ quản trị; không có nút gia hạn/đổi gói/nâng cấp", (await planText("myplan-contact")) === CONTACT && (await upgradeButtons()) === 0, `${await upgradeButtons()}`);
+
+      await tab.scenario({ profile: "A", tier: "BASIC" });
+      await sleep(900);
+      await goPlan();
+      check("Mock · Gói Cơ bản: nhận diện/so sánh/AI đều 'Chưa có'", (await featureState("branding")) === "false" && (await featureState("multiBranchCompare")) === "false" && (await featureState("aiAssistant")) === "false");
+      check("Mock · Gói Cơ bản (3 chi nhánh / hạn mức 2): hạn mức chi nhánh có nhãn cảnh báo", await has("myplan-limit-warn-branches"), await planText("myplan-limit-branches"));
+      await tab.scenario({ profile: "A", tier: "STANDARD", expired: true });
+      await sleep(900);
+      await goPlan();
+      check("Mock · Gói hết hạn (panel): trạng thái 'Đã hết hạn'", (await planText("myplan-status")) === "Đã hết hạn", await planText("myplan-status"));
+      await tab.scenario({ profile: "A", tier: "STANDARD", expired: false });
+    } else {
+      const be = await readBe();
+      const chain = be.chains.find((c) => c.id === be.chainId) ?? be.chains[0];
+      const sub = chain.subscription;
+      await freshLogin("owner");
+      tab.blockedWrites.length = 0;
+      const writesBefore = (tab.writeLog ?? []).length;
+      await goPlan();
+      check(`Real · Tên gói khớp BE (${sub?.plan?.name})`, (await planText("myplan-name")) === sub?.plan?.name, await planText("myplan-name"));
+      const quota = (r) => sub.quotas.find((x) => x.resource === r);
+      const lim = { branches: await planText("myplan-limit-branches"), accounts: await planText("myplan-limit-accounts") };
+      check("Real · Hạn mức khớp BE từng con số (chi nhánh, tài khoản)", ["branches", "accounts"].every((r) => lim[r].includes(`Đã dùng ${quota(r).used} / ${quota(r).limit}`)), `${J(lim)} | BE ${J(sub.quotas.filter((x) => x.resource !== "tables"))}`);
+      const warnOk = await Promise.all(["branches", "accounts"].map(async (r) => (await has("myplan-limit-warn-" + r)) === (quota(r).used >= quota(r).limit)));
+      check("Real · Nhãn cảnh báo hạn mức đúng (chỉ khi dùng ≥ tối đa)", warnOk.every(Boolean), J(warnOk));
+      check("Real · Tính năng khớp cờ BE (nhận diện, so sánh); Trợ lý AI ghi 'chưa có dữ liệu' (BE chưa trả cờ AI)", (await featureState("branding")) === String(sub.plan.brandingEnabled) && (await featureState("multiBranchCompare")) === String(sub.plan.multiBranchComparisonEnabled) && (await featureState("aiAssistant")) === "unknown", `BE ${sub.plan.brandingEnabled}/${sub.plan.multiBranchComparisonEnabled}`);
+      check("Real · Trạng thái và ngày hết hạn ghi đúng câu 'Chưa có dữ liệu từ máy chủ (chờ BE #38)' (không dùng giá trị mock)", (await planText("myplan-status")) === PENDING && (await planText("myplan-expiry")) === PENDING, `${await planText("myplan-status")} | ${await planText("myplan-expiry")}`);
+      check("Real · Có câu liên hệ quản trị; không có nút gia hạn/đổi gói/nâng cấp", (await planText("myplan-contact")) === CONTACT && (await upgradeButtons()) === 0);
+      check("Real · Gói thật không bị đọc thành hết hạn: không có banner chỉ đọc", !(await has("read-only-banner")));
+
+      // subscription null: trả lời giả cho GET /restaurant-chains (không tới BE), đúng dạng BE (subscription: null)
+      tab.readOverride = { match: /\/api\/v1\/restaurant-chains$/, body: J(be.chains.map((c) => ({ ...c, subscription: null }))) };
+      await tab.goto("/owner/plan");
+      await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell sau F5 (gói null)");
+      await tab.waitFor(`document.querySelector('[data-testid="myplan-none"]')`, 15000, "khối không có gói");
+      await sleep(600);
+      const noneText = await planText("myplan-none");
+      const noneToasts = await toasts();
+      check("Real · subscription null: khối 'Không có gói đang hoạt động' kèm câu liên hệ", /Không có gói đang hoạt động/.test(noneText) && noneText.includes(CONTACT), noneText);
+      check("Real · subscription null: không phải lỗi — không toast, không khối lỗi, không nút Thử lại", noneToasts === "" && !(await q(`!!document.querySelector(".ant-alert-error")`)) && !(await q(`[...document.querySelectorAll("button")].some((b) => /thử lại/i.test(b.textContent))`)), noneToasts);
+      tab.readOverride = null;
+      await tab.goto("/owner/plan");
+      await tab.waitFor(`document.querySelector('[data-testid="myplan-name"]')`, 20000, "gói thật sau khi bỏ trả lời giả");
+      check("Real · Bỏ trả lời giả: lại thấy gói thật", (await planText("myplan-name")) === sub.plan.name);
+      check("Real · 0 request ghi trong khối plan", (tab.writeLog ?? []).length === writesBefore && tab.blockedWrites.length === 0, `${(tab.writeLog ?? []).length - writesBefore}`);
     }
   }
 } catch (e) {

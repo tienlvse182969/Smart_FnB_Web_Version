@@ -196,6 +196,10 @@ const screens = [
       await sleep(2200);
       return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
     } },
+  // 6.6: Gói của tôi (plan = real). Màn đọc gói từ store (nạp cùng phạm vi bằng GET /restaurant-chains khi vào khu vực, như owner/branding),
+  // không có request đọc riêng và không có thao tác ghi; lỗi đọc gói do ca `scope` (màn lỗi nạp khu vực có Thử lại) kiểm.
+  { id: "owner/plan", role: "owner", route: "/owner/plan", from: "/owner/reports", read: /\/restaurant-chains$/, storeBased: true,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="myplan-name"]')`)) && (await noErrorUi()) },
   // 6.5: liên kết PayOS (payos = real). Đọc = GET …/payos-channel (màn có khối lỗi riêng kèm Thử lại); ghi = nhập 3 khoá GIẢ rồi Lưu
   // (PUT …/payos-channel). Chỉ nhận lỗi giả, không bao giờ tới BE, khoá giả không phải khoá thật. Thêm ca 503 như BE khi thiếu PAYOS_MASTER_KEY.
   { id: "owner/payos", ownRetry: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,

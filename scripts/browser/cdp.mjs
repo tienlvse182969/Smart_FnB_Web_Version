@@ -173,6 +173,21 @@ class Tab {
         return url;
       }
     })();
+    // `readOverride = { match: RegExp, body: string }`: request ĐỌC (GET) khớp nhận 200 với body do script dựng (ví dụ phản hồi BE đã sửa
+    // `subscription: null`). Request vẫn KHÔNG tới BE. Tắt bằng `tab.readOverride = null`.
+    if (this.readOverride && method === "GET" && this.readOverride.match.test(path)) {
+      void this.send("Fetch.fulfillRequest", {
+        requestId: p.requestId,
+        responseCode: 200,
+        responseHeaders: [
+          { name: "Content-Type", value: "application/json" },
+          { name: "Access-Control-Allow-Origin", value: ORIGIN },
+          { name: "Vary", value: "Origin" },
+        ],
+        body: Buffer.from(this.readOverride.body).toString("base64"),
+      });
+      return;
+    }
     if (this.tryFault(p, method, path)) return;
     const safe = ["GET", "HEAD", "OPTIONS"].includes(method) || (method === "POST" && this.blockAllow?.some((re) => re.test(path)));
     if (safe) {
