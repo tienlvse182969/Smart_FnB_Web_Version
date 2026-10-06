@@ -1,4 +1,6 @@
-// Kiểm tra trình duyệt thật cho Giai đoạn 6 (Owner): nhận diện thương hiệu (OW-07). Các khối sau (PayOS, Gói của tôi) thêm dần ở 6.5, 6.6.
+// Kiểm tra trình duyệt thật cho Giai đoạn 6 (Owner): nhận diện thương hiệu (OW-07, khối `branding`), liên kết PayOS (OW-06, khối `payos`, từ 6.5).
+// Khối `payos` dùng khoá GIẢ ("test-…-khong-that"); real: PUT/DELETE payos-channel bị chặn ở CDP, KHÔNG nhập khoá thật. Mock cần thêm VITE_API_PAYOS=mock.
+// Khối sau (Gói của tôi) thêm ở 6.6.
 //   node scripts/browser/phase6.mjs --mode=mock --only=branding   # dev server cờ mock (VITE_API_*=mock, gồm BRANDING, OPTIONS), AUTH_MODE=mock
 //   node scripts/browser/phase6.mjs --mode=real --only=branding   # dev server cổng 5173 với cờ mặc định: CHỈ ĐỌC
 //     Mọi request GHI bị chặn ở tầng CDP TRƯỚC khi rời trình duyệt (chỉ cho POST /auth/login|refresh|logout); script bấm tới hết hộp
@@ -10,7 +12,7 @@ import { accounts, check, cli, closeTab, newTab, results, sleep, SESSION_ALLOW }
 const CLI = cli();
 const MODE = CLI.mode ?? "mock";
 const REAL = MODE === "real";
-const BLOCKS = ["branding"];
+const BLOCKS = ["branding", "payos"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -106,7 +108,9 @@ async function readBe() {
   const branding = (await call(`/restaurant-chains/${chainId}/branding`, owner)).body;
   const mgr = await asRole("manager.demo@smartfnb.local");
   const managerGet = await call(`/restaurant-chains/${chainId}/branding`, mgr);
-  return { chainId, branding, managerStatus: managerGet.status };
+  // GET trạng thái PayOS (chỉ đọc; BE không bao giờ trả khoá) để đối chiếu khối payos.
+  const payos = (await call(`/restaurant-chains/${chainId}/payos-channel`, owner)).body;
+  return { chainId, branding, managerStatus: managerGet.status, payos };
 }
 
 // Mặc định của BE (branding.service.ts:21-25) để suy isCustom giống mapper của web.
@@ -381,6 +385,188 @@ try {
     check("Real · Manager: giao diện đúng nhận diện (mặc định → nền tảng; tuỳ biến → màu BE)", lower(await brandVar()) === (beCustom ? lower(be.branding.primaryColor) : PLATFORM_PRIMARY), await brandVar());
     await freshLogin("admin");
     check("Real · Admin: luôn nhận diện nền tảng (BR-44), không có lỗi nhận diện", lower(await brandVar()) === PLATFORM_PRIMARY && !/lỗi|sự cố/i.test(await toasts()), await brandVar());
+  }
+
+  // ============================================================ PayOS (OW-06)
+  // Khoá dùng trong script là chuỗi GIẢ rõ ràng; KHÔNG nhập khoá PayOS thật. Real: mọi PUT/DELETE bị chặn ở CDP trước khi rời trình duyệt.
+  if (want("payos")) {
+    const FAKE = { clientId: "test-client-id-khong-that", apiKey: "test-api-key-khong-that", checksumKey: "test-checksum-key-khong-that" };
+    const KEY_IDS = ["payos-clientId", "payos-apiKey", "payos-checksumKey"];
+    const setKey = (id, value) =>
+      q(`(() => { const el = ${tid(id)}; if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
+    const keyVal = (id) => q(`${tid(id)}?.value ?? null`);
+    const fillAll = async () => {
+      await setKey("payos-clientId", FAKE.clientId);
+      await setKey("payos-apiKey", FAKE.apiKey);
+      await setKey("payos-checksumKey", FAKE.checksumKey);
+      await sleep(300);
+    };
+    const payosStatus = () => q(`${tid("payos-status")}?.innerText ?? ""`);
+    const waitStatus = async (re, ms = 6000) => {
+      for (let i = 0; i < ms / 100; i++) {
+        const t = await payosStatus();
+        if (re.test(t)) return t;
+        await sleep(100);
+      }
+      return payosStatus();
+    };
+    const gotoPayos = async () => {
+      await spaGo("/owner/reports");
+      await spaGo("/owner/payos");
+      await tab.waitFor(`document.querySelector('[data-testid="payos-status"]') || document.querySelector('[data-testid="payos-load-error"]')`, 15000, "màn PayOS");
+      await sleep(400);
+    };
+    // Quét lưu trữ trình duyệt tìm khoá giả (giá trị lẫn tên khoá). Mong 0 kết quả.
+    const storageHits = () =>
+      q(`(() => { const hits = []; for (const [name, s] of [["localStorage", localStorage], ["sessionStorage", sessionStorage]]) for (let i = 0; i < s.length; i++) { const k = s.key(i); if ((k + "=" + s.getItem(k)).includes("khong-that")) hits.push(name + ":" + k); } return hits; })()`);
+    const toggleEye = (id) => q(`(() => { const w = ${tid(id)}?.closest(".ant-input-password"); const i = w?.querySelector(".ant-input-password-icon"); if (!i) return false; i.click(); return true })()`);
+
+    if (!REAL) {
+      // -------- MOCK
+      await freshLogin("owner");
+      await tab.scenario({ profile: "A", tier: "STANDARD" });
+      await gotoPayos();
+      check("Mock · Chưa liên kết: trạng thái 'Chưa liên kết', không có nút Gỡ liên kết", /Chưa liên kết/.test(await payosStatus()) && !(await has("payos-unlink")));
+      const types = await q(`${J(KEY_IDS)}.map((id) => { const e = document.querySelector('[data-testid="' + id + '"]'); return e.getAttribute("type") + "/" + e.getAttribute("autocomplete"); })`);
+      check("Mock · 3 ô khoá kiểu mật khẩu, autocomplete=off", types.every((t) => t === "password/off"), J(types));
+      await setKey("payos-apiKey", FAKE.apiKey);
+      const hidden = await q(`${tid("payos-apiKey")}.getAttribute("type")`);
+      await toggleEye("payos-apiKey");
+      await sleep(200);
+      const shownType = await q(`${tid("payos-apiKey")}.getAttribute("type")`);
+      await toggleEye("payos-apiKey");
+      await sleep(200);
+      check("Mock · Nút hiện/ẩn: password → text → password", hidden === "password" && shownType === "text" && (await q(`${tid("payos-apiKey")}.getAttribute("type")`)) === "password", `${hidden} → ${shownType}`);
+
+      // ô trống chặn
+      await setKey("payos-clientId", FAKE.clientId);
+      await setKey("payos-apiKey", "");
+      await clickTid("payos-save");
+      await sleep(500);
+      check("Mock · Ô trống: báo lỗi ở ô trống (API Key, Checksum Key), không lưu", (await has("payos-apiKey-error")) && (await has("payos-checksumKey-error")) && !(await has("payos-clientId-error")) && /Chưa liên kết/.test(await payosStatus()));
+      // đủ 3 → Đang kiểm tra → Đã liên kết
+      await fillAll();
+      await clickTid("payos-save");
+      let sawVerifying = false;
+      for (let i = 0; i < 40 && !sawVerifying; i++) {
+        if (/Đang kiểm tra/.test(await payosStatus())) sawVerifying = true;
+        else await sleep(30);
+      }
+      const linkedText = await waitStatus(/Đã liên kết/);
+      check("Mock · Lưu: 'Đang kiểm tra' chớp qua rồi 'Đã liên kết'", sawVerifying && /Đã liên kết/.test(linkedText), `thấy Đang kiểm tra=${sawVerifying}; cuối=${linkedText}`);
+      const vals = await Promise.all(KEY_IDS.map(keyVal));
+      check("Mock · Sau khi lưu thành công: 3 ô khoá TRỐNG; hiện ngày liên kết/cập nhật; có nút Gỡ liên kết", vals.every((v) => v === "") && (await has("payos-dates")) && (await has("payos-unlink")), J(vals.map((v) => v.length)));
+      check("Mock · Quét localStorage/sessionStorage: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
+
+      // F5 giữ trạng thái
+      await tab.goto("/owner/payos");
+      await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell sau F5");
+      await tab.waitFor(`document.querySelector('[data-testid="payos-status"]')`, 15000, "màn PayOS sau F5");
+      check("Mock · F5: vẫn 'Đã liên kết', ô khoá trống, lưu trữ chỉ có trạng thái", /Đã liên kết/.test(await payosStatus()) && (await keyVal("payos-apiKey")) === "" && (await storageHits()).length === 0 && (await q(`Object.keys(localStorage).filter((k) => k.startsWith("smartfnb:mock:payos:v1:")).length`)) === 1);
+
+      // cập nhật: phải nhập đủ 3
+      await setKey("payos-clientId", FAKE.clientId);
+      await clickTid("payos-save");
+      await sleep(500);
+      check("Mock · Cập nhật khoá: nhập thiếu → chặn (phải nhập lại đủ 3), vẫn Đã liên kết", (await has("payos-apiKey-error")) && (await has("payos-checksumKey-error")) && /Đã liên kết/.test(await payosStatus()));
+      await fillAll();
+      await clickTid("payos-save");
+      await waitToast("Đã cập nhật khoá PayOS");
+      check("Mock · Cập nhật đủ 3 khoá: báo 'Đã cập nhật khoá PayOS', ô trống lại", (await Promise.all(KEY_IDS.map(keyVal))).every((v) => v === "") && /Đã liên kết/.test(await payosStatus()));
+      await dismissAll();
+
+      // gỡ liên kết: có xác nhận đúng câu
+      await clickTid("payos-unlink");
+      await sleep(600);
+      const warn = await q(`${tid("payos-unlink-confirm")}?.innerText ?? ""`);
+      check("Mock · Gỡ liên kết: hộp xác nhận ghi đúng câu 'QR thanh toán ở mọi chi nhánh sẽ ngừng hoạt động cho tới khi liên kết lại'", warn.includes("QR thanh toán ở mọi chi nhánh sẽ ngừng hoạt động cho tới khi liên kết lại"), warn);
+      await confirmOk("Gỡ liên kết");
+      const unText = await waitStatus(/Chưa liên kết/);
+      check("Mock · Xác nhận gỡ → 'Chưa liên kết'", /Chưa liên kết/.test(unText) && !(await has("payos-unlink")), unText);
+      await dismissAll();
+
+      // Lỗi (panel mô phỏng) — chỉ mock có trạng thái này
+      await fillAll();
+      await clickTid("payos-save");
+      await waitStatus(/Đã liên kết/);
+      await tab.openMockPanel();
+      await tab.setCheckbox("mock-payos-error", true);
+      await gotoPayos();
+      check("Mock · Panel giả lập Lỗi: trạng thái 'Lỗi' + nhắc nhập lại đủ 3 khoá", /^Lỗi$/.test((await payosStatus()).trim()) && /Nhập lại đủ 3 khoá để liên kết lại/.test(await q(`document.body.innerText`)), await payosStatus());
+      await tab.setCheckbox("mock-payos-error", false);
+      await gotoPayos();
+      check("Mock · Tắt giả lập Lỗi: về 'Đã liên kết'", /Đã liên kết/.test(await payosStatus()));
+      check("Mock · Quét lưu trữ cuối khối PayOS: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
+    } else {
+      // -------- REAL — chỉ đọc; PUT/DELETE bị chặn ở CDP, không tới BE
+      const be = await readBe();
+      const base = `/api/v1/restaurant-chains/${be.chainId}/payos-channel`;
+      const idRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+      const writesOf = async (action, settle = 1500) => {
+        tab.blockedWrites.length = 0;
+        await action();
+        await sleep(settle);
+        return tab.blockedWrites.map((w) => ({ method: w.method, path: w.path.replace(idRe, "{id}"), rawPath: w.path, contentType: w.contentType, raw: w.body, body: (() => { try { return w.body ? JSON.parse(w.body) : undefined; } catch { return undefined; } })() }));
+      };
+      const keysOf = (b) => J(Object.keys(b ?? {}).sort());
+      const mask = (b) => J(Object.fromEntries(Object.entries(b ?? {}).map(([k]) => [k, "***"])));
+      const beLinked = be.payos?.configured === true;
+
+      await freshLogin("owner");
+      await gotoPayos();
+      check(`Real · GET: trạng thái khớp BE (configured=${beLinked})`, beLinked ? /Đã liên kết/.test(await payosStatus()) : /Chưa liên kết/.test(await payosStatus()), `${await payosStatus()} (BE ${J(be.payos)})`);
+      check("Real · GET: ô khoá trống, kiểu mật khẩu (BE không bao giờ trả khoá)", (await Promise.all(KEY_IDS.map(keyVal))).every((v) => v === "") && (await q(`${tid("payos-apiKey")}.getAttribute("type")`)) === "password");
+      if (beLinked) check("Real · GET: hiện ngày liên kết/cập nhật từ BE", await has("payos-dates"), await q(`${tid("payos-dates")}?.innerText ?? ""`));
+
+      // thiếu ô: 0 request
+      tab.caseName = "payos: ô trống";
+      let w = await writesOf(async () => {
+        await setKey("payos-clientId", FAKE.clientId);
+        await clickTid("payos-save");
+      }, 800);
+      check("Real · Ô trống: báo lỗi từng ô, 0 request ghi", w.length === 0 && (await has("payos-apiKey-error")), J(w.map((x) => x.path)));
+      await gotoPayos();
+
+      // lưu: đúng 1 PUT, đúng 3 trường
+      tab.caseName = "payos: Lưu 3 khoá giả";
+      w = await writesOf(async () => {
+        await fillAll();
+        await clickTid("payos-save");
+      });
+      check("Real · Ghi: nhập 3 khoá GIẢ rồi Lưu → đúng 1 PUT /payos-channel, body CHỈ {clientId, apiKey, checksumKey} khớp SavePayosChannelDto (giá trị che ***)",
+        w.length === 1 && w[0].method === "PUT" && w[0].rawPath === base && keysOf(w[0].body) === keysOf({ clientId: 1, apiKey: 1, checksumKey: 1 }) && w[0].body.clientId === FAKE.clientId && w[0].body.apiKey === FAKE.apiKey && w[0].body.checksumKey === FAKE.checksumKey && w[0].contentType === "application/json",
+        J(w.map((x) => ({ m: x.method, p: x.path, b: mask(x.body) }))));
+      await dismissAll();
+      await gotoPayos();
+
+      // gỡ liên kết thật cần BE đã liên kết; nếu BE chưa liên kết, dùng trả lời giả (fulfillWrites) để UI sang 'Đã liên kết' mà request vẫn không tới BE
+      tab.caseName = "payos: Lưu rồi Gỡ (trả lời giả)";
+      tab.fulfillBody = J({ configured: true, id: "00000000-0000-0000-0000-000000000000", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" });
+      tab.fulfillWrites = true;
+      w = await writesOf(async () => {
+        await fillAll();
+        await clickTid("payos-save");
+        await waitStatus(/Đã liên kết/);
+      }, 600);
+      const afterSave = { status: await payosStatus(), vals: await Promise.all(KEY_IDS.map(keyVal)) };
+      check("Real · (trả lời giả) Lưu thành công: 'Đã liên kết', 3 ô khoá TRỐNG", /Đã liên kết/.test(afterSave.status) && afterSave.vals.every((v) => v === ""), J({ status: afterSave.status, lens: afterSave.vals.map((v) => v.length) }));
+      tab.fulfillBody = J({ configured: false });
+      w = await writesOf(async () => {
+        await clickTid("payos-unlink");
+        await sleep(600);
+        check("Real · Gỡ liên kết: hộp xác nhận ghi đúng câu 'QR thanh toán ở mọi chi nhánh sẽ ngừng hoạt động cho tới khi liên kết lại'", (await q(`${tid("payos-unlink-confirm")}?.innerText ?? ""`)).includes("QR thanh toán ở mọi chi nhánh sẽ ngừng hoạt động cho tới khi liên kết lại"));
+        await confirmOk("Gỡ liên kết");
+      }, 1200);
+      tab.fulfillWrites = false;
+      tab.fulfillBody = undefined;
+      check("Real · Ghi: Gỡ liên kết (sau xác nhận) → đúng 1 DELETE /payos-channel, không body", w.length === 1 && w[0].method === "DELETE" && w[0].rawPath === base && !w[0].raw, J(w.map((x) => ({ m: x.method, p: x.path }))));
+      check("Real · Sau gỡ (trả lời giả): 'Chưa liên kết'", /Chưa liên kết/.test(await payosStatus()), await payosStatus());
+      await dismissAll();
+
+      check("Real · Quét localStorage/sessionStorage: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
+      const after = await readBe();
+      check("Real · Trạng thái PayOS ở BE (đọc lại bằng GET) KHÔNG đổi", J(after.payos) === J(be.payos), `${J(be.payos)} → ${J(after.payos)}`);
+    }
   }
 } catch (e) {
   console.log("ERROR", e.stack ?? e.message);

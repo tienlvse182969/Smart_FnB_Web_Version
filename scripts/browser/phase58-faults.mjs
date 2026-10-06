@@ -196,6 +196,22 @@ const screens = [
       await sleep(2200);
       return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
     } },
+  // 6.5: liên kết PayOS (payos = real). Đọc = GET …/payos-channel (màn có khối lỗi riêng kèm Thử lại); ghi = nhập 3 khoá GIẢ rồi Lưu
+  // (PUT …/payos-channel). Chỉ nhận lỗi giả, không bao giờ tới BE, khoá giả không phải khoá thật. Thêm ca 503 như BE khi thiếu PAYOS_MASTER_KEY.
+  { id: "owner/payos", ownRetry: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
+    extraWriteKinds: [{ kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." }],
+    write: async () => {
+      const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
+      if (!(await setKey("payos-clientId", "test-client-id-khong-that"))) return { skipped: "không thấy ô khoá PayOS" };
+      await setKey("payos-apiKey", "test-api-key-khong-that");
+      await setKey("payos-checksumKey", "test-checksum-key-khong-that");
+      await sleep(300);
+      const clicked = await q(`(() => { const b = document.querySelector('[data-testid="payos-save"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+      if (!clicked) return { skipped: "nút Lưu PayOS khoá (gói hết hạn)" };
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="payos-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
   // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
   { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
@@ -348,7 +364,7 @@ async function readCase(spec, kind) {
 }
 
 // --- ca ghi ------------------------------------------------------------------------------------------------------
-async function writeCase(spec, kind) {
+async function writeCase(spec, kind, extra) {
   try {
     await spaGo(spec.from);
     await sleep(700);
@@ -359,7 +375,7 @@ async function writeCase(spec, kind) {
     await clearNotices();
     tab.blockedWrites.length = 0;
     tab.caseName = `${spec.id}|${kind}`;
-    tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/ });
+    tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/, ...(extra?.body && { body: extra.body }) });
     const out = await spec.write();
     const s = await snap();
     const attempted = tab.blockedWrites.length;
@@ -379,6 +395,8 @@ async function writeCase(spec, kind) {
     const { problems, texts } = judgeError(s);
     // 5.8c: lỗi GHI không có nút Thử lại (người dùng tự bấm lại thao tác)
     if (s.retry) problems.push("WRITE_HAS_RETRY");
+    // Ca có câu mong đợi riêng (ví dụ 503 thiếu PAYOS_MASTER_KEY): thông báo phải đúng câu tiếng Việt, không lộ câu thô của BE.
+    if (extra?.expect && !texts.some((t) => t.includes(extra.expect))) problems.push("WRONG_TEXT");
     // khôi phục trạng thái
     if (typeof out.before === "number" && typeof out.after === "number" && out.before !== out.after) problems.push("NOT_RESTORED");
     if (typeof out.before === "string" && out.before !== out.after) problems.push("NOT_RESTORED");
@@ -495,7 +513,12 @@ try {
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
     if (inGroup("read")) for (const spec of mine) for (const kind of KINDS) await readCase(spec, kind);
-    if (inGroup("write")) for (const spec of mine.filter((s) => s.write)) for (const kind of KINDS) await writeCase(spec, kind);
+    if (inGroup("write")) {
+      for (const spec of mine.filter((s) => s.write)) {
+        for (const kind of KINDS) await writeCase(spec, kind);
+        for (const extra of spec.extraWriteKinds ?? []) await writeCase(spec, extra.kind, extra);
+      }
+    }
     // ca "scope" và "expired" là của cả khu vực, không theo màn: chỉ chạy khi không lọc theo màn (hoặc khi chọn nhóm đó rõ ràng)
     if (inGroup("scope") && (screenTokens.length === 0 || groupTokens.includes("scope"))) for (const kind of KINDS) await scopeCase(role, landing, kind);
     if (inGroup("expired") && (screenTokens.length === 0 || groupTokens.includes("expired"))) {

@@ -211,7 +211,7 @@ export function resetErrorDedupe(): void {
 
 /**
  * Màn tự hiện khối lỗi trong trang (kèm nút Thử lại) nên không cần thông báo nổi trùng cho 403 và mất mạng.
- * Khớp theo đường dẫn hiện tại; các loại lỗi khác (hạn mức, 401) vẫn báo toàn cục.
+ * Khớp theo đường dẫn hiện tại và chỉ cho lỗi ĐỌC (GET); các loại lỗi khác (hạn mức, 401) và mọi lỗi ghi vẫn báo toàn cục.
  */
 export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos"];
 
@@ -248,7 +248,9 @@ export function reportApiError(err: unknown): void {
   const retryable = err.method === "GET" && (kind === "network" || kind === "server");
   // 5xx của thao tác GHI để màn hình tự hiện (toast tại chỗ); 5xx của thao tác ĐỌC được báo toàn cục kèm nút Thử lại.
   if (!GLOBAL_KINDS.includes(kind) && !(kind === "server" && retryable)) return;
+  // Khối lỗi trong trang chỉ thay cho lỗi ĐỌC; lỗi GHI trên màn đó (ví dụ PayOS) vẫn báo toàn cục như mọi màn khác.
+  const inline = err.method === "GET" && (kind === "forbidden" || kind === "network" || kind === "server") && INLINE_ERROR_ROUTES.includes(currentRoute());
   err.reported = true;
-  if ((kind === "forbidden" || kind === "network" || kind === "server") && INLINE_ERROR_ROUTES.includes(currentRoute())) return;
+  if (inline) return;
   handler?.({ kind, error: err, canRetry: retryable });
 }
