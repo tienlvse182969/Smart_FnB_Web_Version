@@ -20,4 +20,9 @@ export type Branding = {
    * nhận diện riêng — xem `theme/index.ts#buildTenantTheme`.
    */
   isCustom: boolean;
+  /**
+   * `isCustom` chia hai (quyết định 28): `lookCustom` = màu khác mặc định hoặc có logo. `isCustom && lookCustom === false` nghĩa là CHỈ đổi
+   * tên hiển thị: áp tên, màu và logo vẫn theo giao diện nền tảng. `undefined` (mock, bản lưu cũ) = coi như bằng `isCustom`.
+   */
+  lookCustom?: boolean;
 };

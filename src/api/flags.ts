@@ -1,4 +1,4 @@
-/**
+ /**
  * Cờ theo TỪNG MODULE: `VITE_API_<MODULE>=real|mock`.
  * Mặc định: module BE đã có và web đã nối → real; còn lại → mock. In bảng ra console ở chế độ dev.
  * Đổi cờ không đòi sửa màn hình vì màn hình chỉ gọi interface của module.
@@ -33,13 +33,13 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   menu: "real",
   options: "real",
   branch_options: "real",
-  branding: "mock",
+  branding: "real",
   account: "real",
   stations: "real",
   order: "mock",
   ai: "mock",
   admin: "real",
-  payos: "mock",
+  payos: "real",
 };
 
 /** Ghi chú cho bảng cờ: vì sao module đang ở chế độ đó. */
@@ -51,13 +51,13 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
   options: "real (OW-03): CRUD nhóm/tuỳ chọn, mặc định, xem trạng thái theo chi nhánh và gắn nhóm vào món; cần deploy BE và migration mới",
   branch_options: "real (5.7c): Manager bật/tắt tuỳ chọn tại chi nhánh qua GET/PATCH /manager/menu-options; chi nhánh lấy từ JWT",
-  branding: "mock — BE có endpoint, chờ giai đoạn 6",
-  account: "real cho Owner quản Manager qua /employees (xem, mời, khoá, đặt lại mật khẩu, chuyển chi nhánh); Owner xem nhân viên thật; Manager quản nhân viên còn mock",
+  branding: "real (6.4, OW-07): GET/PUT/DELETE restaurant-chains/{id}/branding + POST …/branding/logo (multipart); BE chưa có isCustom/version (#39) và chưa chặn theo gói (#33) nên web tự suy và tự khoá; mock = VITE_API_BRANDING=mock",
+  account: "real MỘT PHẦN (5.3): Manager qua /employees (list, khoá, đặt lại mật khẩu, chuyển chi nhánh); tạo Manager chờ BE #23; Cashier/Barista là mock chờ BE #24",
   stations: "real (5.5): GET/POST /stations; đổi tên, ngừng dùng, sửa máy in chờ BE (#27); ghép/thu hồi thiết bị ở 5.6",
   order: "mock — BE chưa có (BM-04..06), chờ giai đoạn 7",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
-  admin: "real (hồ sơ, doanh nghiệp, gói, danh sách gói công khai và nộp hồ sơ)",
-  payos: "mock — BE chưa có (OW-06), chờ giai đoạn 6",
+  admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
+  payos: "real (6.5): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT cần PAYOS_MASTER_KEY trên BE; chưa có trạng thái Lỗi (#40)",
 };
 
 type Env = Record<string, string | undefined>;

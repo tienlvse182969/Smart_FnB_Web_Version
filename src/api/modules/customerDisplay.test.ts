@@ -1,12 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  connectCustomerDisplay,
   createCustomerDisplayPairing,
   DisplayApiError,
   getCustomerDisplayContext,
   resolveDisplayAsset,
 } from "./customerDisplay";
 
-afterEach(() => vi.unstubAllGlobals());
+const socketListeners = new Map<string, (...args: unknown[]) => void>();
+const socket = {
+  on: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
+    socketListeners.set(event, listener);
+    return socket;
+  }),
+  emit: vi.fn(),
+};
+
+vi.mock("socket.io-client", () => ({ io: vi.fn(() => socket) }));
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  socketListeners.clear();
+  vi.clearAllMocks();
+});
 
 describe("customer display API", () => {
   it("creates a customer-display pairing code", async () => {
@@ -37,5 +53,13 @@ describe("customer display API", () => {
     const resolved = new URL(resolveDisplayAsset("/uploads/branding/logo.png")!);
     expect(resolved.pathname).toBe("/uploads/branding/logo.png");
     expect(["http:", "https:"]).toContain(resolved.protocol);
+  });
+
+  it("requests the latest station snapshot after every socket connection", () => {
+    connectCustomerDisplay("screen-token", vi.fn(), vi.fn());
+
+    socketListeners.get("connect")?.();
+
+    expect(socket.emit).toHaveBeenCalledWith("station:sync");
   });
 });

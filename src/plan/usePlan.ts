@@ -47,7 +47,8 @@ export function describePlan(plan: PlanInfo | null, loading = false): PlanView {
     tierLabel: plan ? PLAN_TIER_LABEL[plan.tier] : null,
     planName: plan?.planName ?? null,
     status: plan?.status ?? null,
-    isExpired: !!plan && plan.status !== "active",
+    // status null (real: BE chưa trả) không phải hết hạn: không khoá giao diện, BE vẫn chặn khi thật sự hết hạn (BR-09).
+    isExpired: !!plan && plan.status !== null && plan.status !== "active",
     expiresAt: plan?.expiresAt ?? null,
     limits: plan?.limits ?? [],
     limitOf,

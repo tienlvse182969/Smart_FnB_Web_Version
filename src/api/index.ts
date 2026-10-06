@@ -18,7 +18,7 @@ export { isIpv4, isMac, validateStationInput } from "./modules/stations/rules";
 export { orderApi, type OrderApi, type ListOrdersParams } from "./modules/order";
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";
-export { payosApi, type PayosApi, type PayosLinkStatus } from "./modules/payos";
+export { payosApi, type PayosApi, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "./modules/payos";
 
 export {
   ApiError,

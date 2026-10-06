@@ -20,6 +20,7 @@ await tab.blockWrites(SESSION_ALLOW);
 
 const RAW = /Internal server error|Forbidden|Unauthorized|Failed to fetch|NetworkError|statusCode|You do not have permission|subscription is read-only|\{"|\[object|undefined|TypeError/i;
 const results = [];
+let scriptError = null;
 
 const spaGo = async (to) => {
   await q(`(() => { history.pushState({}, "", ${J(to)}); dispatchEvent(new PopStateEvent("popstate")); })()`);
@@ -182,6 +183,69 @@ const screens = [
     } },
   { id: "owner/menu", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
   { id: "owner/menu/categories", role: "owner", route: "/owner/menu/categories", from: "/owner/plan", read: /\/menu\/categories/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()), write: switchWrite(".ant-table-tbody > tr.ant-table-row") },
+  // 6.4: nhận diện thương hiệu (branding = real). Màn đọc nhận diện từ store (nạp ở bước vào khu vực, như owner/branches); ghi = Lưu đổi tên
+  // (PUT /restaurant-chains/{id}/branding). Chỉ nhận lỗi giả, không bao giờ tới BE.
+  { id: "owner/branding", role: "owner", route: "/owner/branding", from: "/owner/plan", read: /\/branding$/, storeBased: true,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="branding-save"]')`)) && (await noErrorUi()),
+    write: async () => {
+      const set = await q(`(() => { const el = document.querySelector('[data-testid="branding-name"]'); if (!el) return false; const input = el.matches("input") ? el : el.querySelector("input"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, input.value + " X"); input.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
+      if (!set) return { skipped: "không thấy ô tên nhận diện" };
+      await sleep(300);
+      const clicked = await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+      if (!clicked) return { skipped: "nút Lưu nhận diện khoá" };
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="branding-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
+  // 6.6: Gói của tôi (plan = real). Màn đọc gói từ store (nạp cùng phạm vi bằng GET /restaurant-chains khi vào khu vực, như owner/branding),
+  // không có request đọc riêng và không có thao tác ghi; lỗi đọc gói do ca `scope` (màn lỗi nạp khu vực có Thử lại) kiểm.
+  { id: "owner/plan", role: "owner", route: "/owner/plan", from: "/owner/reports", read: /\/restaurant-chains$/, storeBased: true,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="myplan-name"]')`)) && (await noErrorUi()) },
+  // 6.5: liên kết PayOS (payos = real). Đọc = GET …/payos-channel (màn có khối lỗi riêng kèm Thử lại); ghi = nhập 3 khoá GIẢ rồi Lưu
+  // (PUT …/payos-channel). Chỉ nhận lỗi giả, không bao giờ tới BE, khoá giả không phải khoá thật. Thêm ca 503 như BE khi thiếu PAYOS_MASTER_KEY.
+  { id: "owner/payos", ownRetry: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
+    extraWriteKinds: [{ kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." }],
+    write: async () => {
+      const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
+      if (!(await setKey("payos-clientId", "test-client-id-khong-that"))) return { skipped: "không thấy ô khoá PayOS" };
+      await setKey("payos-apiKey", "test-api-key-khong-that");
+      await setKey("payos-checksumKey", "test-checksum-key-khong-that");
+      await sleep(300);
+      const clicked = await q(`(() => { const b = document.querySelector('[data-testid="payos-save"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+      if (!clicked) return { skipped: "nút Lưu PayOS khoá (gói hết hạn)" };
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="payos-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } },
+  // 6.6: thao tác ghi thứ hai của màn PayOS — Gỡ liên kết (DELETE …/payos-channel). Nút chỉ có khi đã liên kết nên bước chuẩn bị tạm tắt lỗi giả,
+  // cho PUT nhận trả lời giả thành công (`fulfillWrites`, request KHÔNG tới BE) để UI sang "Đã liên kết", rồi bật lại lỗi giả cho DELETE.
+  // Chỉ chạy phần ghi (`writeOnly`); phần đọc đã có ở `owner/payos`.
+  { id: "owner/payos (gỡ liên kết)", writeOnly: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
+    write: async () => {
+      const armed = tab.fault;
+      tab.setFault(null);
+      tab.fulfillBody = J({ configured: true, id: "00000000-0000-0000-0000-000000000000", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" });
+      tab.fulfillWrites = true;
+      const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await setKey("payos-clientId", "test-client-id-khong-that");
+      await setKey("payos-apiKey", "test-api-key-khong-that");
+      await setKey("payos-checksumKey", "test-checksum-key-khong-that");
+      await sleep(300);
+      await q(`document.querySelector('[data-testid="payos-save"]')?.click()`);
+      await sleep(1800);
+      tab.fulfillWrites = false;
+      tab.fulfillBody = undefined;
+      await clearNotices();
+      const linked = await q(`document.querySelector('[data-testid="payos-unlink"]') !== null`);
+      tab.blockedWrites.length = 0;
+      tab.fault = armed ? { ...armed, hits: 0 } : null;
+      tab.faultLog = [];
+      if (!linked) return { skipped: "không sang được trạng thái Đã liên kết (trả lời giả)" };
+      await q(`document.querySelector('[data-testid="payos-unlink"]').click()`);
+      await clickConfirm();
+      await sleep(2200);
+      return { ok: true, kind: "modal", after: undefined };
+    } },
   // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
   { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
@@ -334,7 +398,7 @@ async function readCase(spec, kind) {
 }
 
 // --- ca ghi ------------------------------------------------------------------------------------------------------
-async function writeCase(spec, kind) {
+async function writeCase(spec, kind, extra) {
   try {
     await spaGo(spec.from);
     await sleep(700);
@@ -345,7 +409,7 @@ async function writeCase(spec, kind) {
     await clearNotices();
     tab.blockedWrites.length = 0;
     tab.caseName = `${spec.id}|${kind}`;
-    tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/ });
+    tab.setFault(kind === "401" ? { kind: "401", match: /^$/, times: 1 } : { kind, match: /^$/, ...(extra?.body && { body: extra.body }) });
     const out = await spec.write();
     const s = await snap();
     const attempted = tab.blockedWrites.length;
@@ -365,6 +429,8 @@ async function writeCase(spec, kind) {
     const { problems, texts } = judgeError(s);
     // 5.8c: lỗi GHI không có nút Thử lại (người dùng tự bấm lại thao tác)
     if (s.retry) problems.push("WRITE_HAS_RETRY");
+    // Ca có câu mong đợi riêng (ví dụ 503 thiếu PAYOS_MASTER_KEY): thông báo phải đúng câu tiếng Việt, không lộ câu thô của BE.
+    if (extra?.expect && !texts.some((t) => t.includes(extra.expect))) problems.push("WRONG_TEXT");
     // khôi phục trạng thái
     if (typeof out.before === "number" && typeof out.after === "number" && out.before !== out.after) problems.push("NOT_RESTORED");
     if (typeof out.before === "string" && out.before !== out.after) problems.push("NOT_RESTORED");
@@ -480,8 +546,13 @@ try {
     if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0) continue;
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
-    if (inGroup("read")) for (const spec of mine) for (const kind of KINDS) await readCase(spec, kind);
-    if (inGroup("write")) for (const spec of mine.filter((s) => s.write)) for (const kind of KINDS) await writeCase(spec, kind);
+    if (inGroup("read")) for (const spec of mine.filter((s) => !s.writeOnly)) for (const kind of KINDS) await readCase(spec, kind);
+    if (inGroup("write")) {
+      for (const spec of mine.filter((s) => s.write)) {
+        for (const kind of KINDS) await writeCase(spec, kind);
+        for (const extra of spec.extraWriteKinds ?? []) await writeCase(spec, extra.kind, extra);
+      }
+    }
     // ca "scope" và "expired" là của cả khu vực, không theo màn: chỉ chạy khi không lọc theo màn (hoặc khi chọn nhóm đó rõ ràng)
     if (inGroup("scope") && (screenTokens.length === 0 || groupTokens.includes("scope"))) for (const kind of KINDS) await scopeCase(role, landing, kind);
     if (inGroup("expired") && (screenTokens.length === 0 || groupTokens.includes("expired"))) {
@@ -491,11 +562,18 @@ try {
     }
   }
 } catch (e) {
+  scriptError = e;
   console.log("ERROR", e.stack ?? e.message);
 }
 const writes = tab.blockedWrites.length;
 console.log("FAULTS-RESULT " + J(results));
 const bad = results.filter((r) => r.verdict === "Lỗi").length;
 console.log(`[faults] ${results.length - bad}/${results.length} ca Đạt, ${bad} ca Lỗi; request ghi ghi nhận lần chạy cuối: ${writes}`);
+// Danh sách ca trượt (không chỉ dòng tổng) để biết ca nào, bước nào mà không phải lục lại log.
+if (bad > 0) {
+  console.log("[faults] CÁC CA TRƯỢT:");
+  for (const r of results.filter((x) => x.verdict === "Lỗi")) console.log(`   ✗ ${r.screen} | ${r.op} | ${r.kind} | ${r.problems.join(",")}${r.detail ? " | " + r.detail.slice(0, 200) : ""}`);
+}
+if (scriptError) console.log(`[faults] SCRIPT BỊ NGẮT GIỮA CHỪNG sau ${results.length} ca (chưa chạy hết): ${(scriptError.message ?? String(scriptError)).slice(0, 200)}`);
 await closeTab(tab);
 process.exit(0);

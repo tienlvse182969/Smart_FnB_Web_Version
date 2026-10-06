@@ -16,6 +16,7 @@ export const BACKEND_MESSAGES: [status: number, message: string, source: string]
   [400, "Invalid report date", "branch-manager/manager-reports.service.ts:129"],
   [400, "Logo must be a valid JPEG, PNG, or WebP image", "branding/branding.service.ts:167"],
   [400, "Logo must not exceed 5 MB", "branding/branding.service.ts:163"],
+  [413, "File too large", "branding/branding.controller.ts:79 (Multer limits.fileSize)"],
   [400, "Pairing code is invalid, used, or expired", "counter-operations/stations.service.ts:124"],
   [400, "Pairing code was already consumed", "counter-operations/stations.service.ts:144"],
   [400, "Printer address is required for WiFi or Bluetooth", "counter-operations/stations.service.ts:52"],

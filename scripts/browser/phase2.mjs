@@ -6,6 +6,8 @@ import { cli, newTab, closeTab, check, results, sleep, SESSION_ALLOW } from "./c
 
 const only = cli().only?.[0] ?? cli().positional; // --only=<nhóm> (brand|plan|errors|ai|refresh|flip|login) hoặc đối số trần như cũ
 const want = (g) => (only ? only === g : g !== "flip");
+// Chạy trên dev server cờ mock (`--mode=mock`/AUTH_MODE=mock): nhận diện mock có doanh nghiệp A màu cam. Real (mặc định): nhận diện lấy từ BE (6.4).
+const MOCK_RUN = cli().mode === "mock" || process.env.AUTH_MODE === "mock";
 const text = (t) => t.text();
 
 async function freshOwner(tab, role = "owner") {
@@ -41,7 +43,8 @@ try {
 
     await tab.scenario({ profile: "A", tier: "ADVANCED" });
     const orange = await tab.cssVar("--brand-primary");
-    check("owner (ADVANCED, mock A) thấy màu thương hiệu riêng", orange !== "#0a0a0a", orange);
+    if (MOCK_RUN) check("owner (ADVANCED, mock A) thấy màu thương hiệu riêng", orange !== "#0a0a0a", orange);
+    else console.log("SKIP  owner thấy màu thương hiệu riêng: real lấy nhận diện từ BE (chưa tuỳ biến → màu nền tảng); phase6 kiểm");
 
     await tab.logout();
     await tab.waitFor(`location.pathname === "/login"`, 10000, "về /login");
@@ -53,7 +56,11 @@ try {
   }
 
   // ---------------------------------------------------------------- đổi nhận diện giữa 2 doanh nghiệp mock
-  if (want("brand")) {
+  // Khối này đổi doanh nghiệp A↔B bằng panel mock nên cần nhận diện MOCK (cờ branding = mock, 6.4 đã đổi mặc định sang real): chạy
+  // trên dev server cờ mock với `--mode=mock --only=brand` (AUTH_MODE=mock). Chế độ real bỏ qua khối này; nhận diện real do phase6 kiểm.
+  if (want("brand") && !MOCK_RUN) {
+    console.log("SKIP  khối brand cần dev server cờ mock (VITE_API_BRANDING=mock …) và --mode=mock; nhận diện real do phase6 --only=branding kiểm");
+  } else if (want("brand")) {
     await freshOwner(tab);
     const screens = ["Tổng quan", "Chi nhánh", "Menu toàn chuỗi", "Tài khoản quản lý", "Nhận diện"];
     const snap = async (label) => {
@@ -104,7 +111,8 @@ try {
     await freshOwner(tab);
     const locked = async (label) => {
       await toMenu(tab, label);
-      return tab.eval(`!!document.querySelector('[data-testid="feature-lock"]')`);
+      // Thẻ khoá cả màn (AI) hoặc ghi chú khoá của màn Nhận diện (6.4: màn hiện nhưng khoá ô và nút, quyết định 24).
+      return tab.eval(`!!document.querySelector('[data-testid="feature-lock"], [data-testid="branding-plan-lock"]')`);
     };
     const lockedCompare = async () => {
       await toMenu(tab, "Tổng quan");

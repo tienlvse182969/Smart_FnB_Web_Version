@@ -102,7 +102,8 @@ async function parseBody(res: Response): Promise<unknown> {
 
 async function send(path: string, init: RequestInit, token: string | null): Promise<Response> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  // multipart (FormData): để trình duyệt tự đặt Content-Type kèm boundary; đặt tay sẽ làm hỏng phần thân.
+  if (!(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   try {
@@ -182,7 +183,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 async function requestOnce<T>(path: string, options: RequestOptions): Promise<T> {
   const { method = "GET", body, anonymous = false } = options;
   const init: RequestInit = { method };
-  if (body !== undefined) init.body = JSON.stringify(body);
+  if (body !== undefined) init.body = body instanceof FormData ? body : JSON.stringify(body);
 
   const token = anonymous ? null : getAccessToken();
   let res = await send(path, init, token);

@@ -45,9 +45,12 @@ export interface PlanInfo {
   tier: PlanTier;
   /** Tên gói do Admin đặt. */
   planName: string;
-  status: PlanStatus;
-  /** Ngày hết hạn (ISO) — null nếu chưa biết. */
+  /** Trạng thái gói; `null` = máy chủ chưa trả (real, api-contract-plan #38) — KHÔNG coi là hết hạn, BE vẫn chặn thật. */
+  status: PlanStatus | null;
+  /** Ngày hết hạn (ISO) — null nếu chưa biết (real: BE chưa trả, #38). */
   expiresAt: string | null;
+  /** Real: BE không trả gói đang hoạt động (`subscription = null`: hết hạn, tạm ngưng hoặc chưa có) — quyết định 38. */
+  noActivePlan?: boolean;
   limits: PlanLimit[];
   features: Record<FeatureKey, PlanFeature>;
   /** CHỜ BE: tới khi BE trả cờ tính năng/hạn dùng thì `features`, `tier`, `expiresAt`, `status` là mock. */

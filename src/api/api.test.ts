@@ -21,11 +21,11 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan/admin/menu/options/account/stations = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "account", "stations", "branch_options"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["branding", "order", "ai", "payos"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["order", "ai"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });
@@ -203,12 +203,20 @@ describe("lỗi API thống nhất", () => {
     setApiErrorHandler(handler);
     const route = vi.spyOn(window, "location", "get");
     route.mockReturnValue({ ...window.location, pathname: "/owner/reports" } as Location);
-    reportApiError(new ApiError(403, "no"));
-    reportApiError(new ApiError(0, "mạng"));
+    const read = (status: number, message: string) => Object.assign(new ApiError(status, message), { method: "GET" });
+    reportApiError(read(403, "no"));
+    reportApiError(read(0, "mạng"));
     expect(handler).not.toHaveBeenCalled();
     // hạn mức vẫn báo toàn cục ở mọi màn
     reportApiError(new ApiError(409, "x", [], "PLAN_LIMIT_REACHED"));
     expect(handler).toHaveBeenCalledTimes(1);
+    // lỗi GHI trên màn có khối lỗi riêng (PayOS, 6.5) vẫn báo toàn cục: khối lỗi trong trang chỉ thay cho lỗi đọc
+    route.mockReturnValue({ ...window.location, pathname: "/owner/payos" } as Location);
+    reportApiError(read(403, "đọc"));
+    expect(handler).toHaveBeenCalledTimes(1);
+    reportApiError(Object.assign(new ApiError(403, "ghi"), { method: "PUT" }));
+    reportApiError(Object.assign(new ApiError(0, "ghi mạng"), { method: "PUT" }));
+    expect(handler).toHaveBeenCalledTimes(3);
     route.mockRestore();
     setApiErrorHandler(null);
   });

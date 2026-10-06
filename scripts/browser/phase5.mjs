@@ -267,6 +267,8 @@ try {
     if (!FULL) await tab.scenario({ profile: "A", tier: "ADVANCED" });
     await tab.clickMenu("Nhân viên");
     await sleep(1200);
+    // Dòng hạn mức nạp sau danh sách ("Đang tải hạn mức…"): chờ nó có số rồi mới chấm (chập chờn 6.7 do đọc quá sớm).
+    await tab.waitFor(`/Đã dùng \\d+\\/\\d+ tài khoản/.test(${tid("staff-quota")}?.innerText ?? "")`, 10000, "dòng hạn mức nhân viên có số").catch(() => {});
     check("Manager: màn Nhân viên không hiện mật khẩu nào", !SECRET.test(await pageText()));
     check("Nhân viên (mock): dòng hạn mức KHÔNG có nhãn '(số liệu mẫu)' (số liệu của mock là số liệu thật của mock)", !/số liệu mẫu/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
     check("Nhân viên (mock): không có banner 'dữ liệu mẫu' và có dòng hạn mức 'Đã dùng X/Y tài khoản'", !(await has("staff-mock-banner")) && /Đã dùng \d+\/\d+ tài khoản/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
@@ -405,6 +407,8 @@ try {
     check("Khoá một người khi đủ hạn mức: quota giảm 1 và nút Thêm mở lại", (await quotaUsed()) === cap - 1 && (await q(`${tid("staff-add")}.disabled`)) === false, `${await quotaUsed()}/${cap}`);
     await createStaffUI("Chỗ Cuối", "chocuoi@mock.local", "", "");
     await dismissModals();
+    // Số "Đã dùng" cập nhật sau khi đóng hộp thoại: chờ về đủ hạn mức rồi mới chấm (chập chờn 6.7 do đọc quá sớm).
+    for (let i = 0; i < 40 && (await quotaUsed()) !== cap; i++) await sleep(150);
     check("Tạo thêm được 1 người sau khi khoá → lại đủ hạn mức", (await quotaUsed()) === cap && (await q(`${tid("staff-add")}.disabled`)) === true);
     // đủ hạn mức → mở khoá bị chặn
     const unlockDisabled = await q(`(() => { const r = [...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].find((x) => x.innerText.includes("Nhân Viên Thử")); const b = [...r.querySelectorAll("button")].find((x) => x.textContent.includes("Mở khoá")); return b ? b.disabled : null })()`);

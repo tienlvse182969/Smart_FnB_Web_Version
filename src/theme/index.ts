@@ -91,6 +91,8 @@ export interface ResolveBrandInput {
  */
 export function resolveBrand({ branding, platformOnly, brandingEnabled }: ResolveBrandInput): BrandTokens {
   if (platformOnly || !brandingEnabled || !branding || !branding.isCustom) return PLATFORM_BRAND_TOKENS;
+  // Chỉ đổi tên hiển thị (quyết định 28): áp tên, màu/logo vẫn là của nền tảng.
+  if (branding.lookCustom === false) return { ...PLATFORM_BRAND_TOKENS, displayName: branding.displayName.trim() || PLATFORM_BRAND.displayName };
   return {
     primary: branding.primaryColor,
     primaryContrast: pickReadableTextColor(branding.primaryColor),
