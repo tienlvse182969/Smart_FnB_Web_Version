@@ -12,6 +12,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
+      TZ: Asia/Ho_Chi_Minh
       VERCEL_ORG_ID: team_kxHBaIOy4fc4sxo6JiwgSmka
       VERCEL_PROJECT_ID: prj_PQIC5CYVctoCAtY4jxw0IbNZWgt5
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
