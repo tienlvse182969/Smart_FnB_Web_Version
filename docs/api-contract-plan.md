@@ -243,6 +243,42 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 | `GET /manager/orders` (`:147`), `GET /manager/orders/:id` (`:157`) | query `search, orderCode, callNumber, from, to (placedAt, ISO có múi giờ), status, paymentStatus, paymentMethod, type, page, limit` → `{items, total, page, limit}`; chi tiết có `items[].selectedOptions` (ảnh chụp giá lúc bán), `payments`, `audit` | đọc. **Chưa có**: danh sách Cần xử lý riêng (chỉ có sự kiện socket), huỷ đơn đã trả (BM-06), hoàn tiền |
 | `GET /manager/audit-logs` (`:167`) | `entityId?, page, limit` → `{items[BranchAuditLog], total…}` | đọc |
 
+### Tình trạng cuối GĐ6 (chốt 6.7, 2026-10-06; BE `91867ae`) — mỗi mục một dòng
+
+> Tổng hợp từ các bảng trên; không mục nào đổi so với đối chiếu `91867ae` (6.3c) ngoài những dòng đã ghi. Cột cuối là việc web đang làm thay thế.
+
+| # | Trạng thái BE | Web đang làm gì thay thế |
+|---|---|---|
+| 1 | Chưa (không có tiến trình gửi `email_outbox`) | Có trang `/setup-password` (5.2); chưa có email thật nên link chưa tới người dùng |
+| 12–14 | **Đã làm** (nhóm/tuỳ chọn Owner, gắn nhóm, `isActive`) | Real từ 6.3 (`options=real`), lưu từng thao tác |
+| 15 | Một phần (`is_default` có ở DB, API không trả/nhận) | Ô `isDefault` khoá "chờ BE #15" ở real |
+| 16 | Chưa (menu không trả `optionGroups`) | Đọc cấu hình từng món N+1, tối đa 4 request song song |
+| 17 | **Đã làm** (`allowBatching`) | Real từ 6.3d, một nguồn `MenuItem.allowBatching` |
+| 19 | Chưa (menu chi nhánh vẫn lọc ẩn món Owner tắt) | Dòng "Owner đã tắt" chỉ kiểm ở mock |
+| 20 | Đã làm, khác đề xuất (`PATCH /manager/menu-options/:id/availability`) | Module `branchOptions` real (5.7c) |
+| 21 | Chưa (`priceDelta` không bắt số nguyên) | Web tự bắt giá số nguyên (BR-19) |
+| 22 | **Xấu hơn** (`remainingPortions` còn, thêm đặt/hoàn suất) | Web không gửi/đọc `remainingPortions` |
+| 23, 24 | Chưa / Một phần, lệch (mật khẩu do Manager gõ) | Owner tạo Manager khoá ở real; Cashier/Barista của Manager là mock + banner "dữ liệu mẫu" |
+| 25 | Chưa (payload `setupPath` cũ) | Web đọc token từ link, xoá khỏi URL |
+| 26 | Chưa (đếm cả tài khoản khoá, mở khoá không kiểm hạn mức) | Web tính theo đặc tả 13.1 ở mock; real hiện số của BE; BE vẫn chặn thật |
+| 27 | Chưa (không PATCH quầy) | Đổi tên, ngừng dùng, sửa máy in khoá "chờ BE #27" |
+| 28 | Một phần (thiếu `GET /display-devices`) | Danh sách màn hình gọi số là mock |
+| 29 | Chưa (`maxTables` bắt buộc) | Web giữ `maxTables` theo JSON BE |
+| 30 | Chưa (không có cờ AI, không `tier`) | Hai cờ đọc thật; cờ AI và cấp suy từ MÃ gói; "Gói của tôi" ghi "chờ BE #30" cho AI |
+| 31 | Chưa (hết hạn trả 403 không mã) | Web nhận diện theo câu "subscription is read-only" |
+| 32 | Chưa (seed chỉ `DEMO_OPERATIONS`, `STARTER`) | Landing đọc giá từ cấu hình mock chung |
+| 33 | Chưa (BE chỉ `select` hai cờ, không chặn) | Web tự khoá theo cờ (màn Nhận diện khoá khi gói không có) |
+| 34 | Chưa (tạo quầy trùng tên trả 500) | Web báo trùng trước khi gửi |
+| 35 | Chưa (seed không có đơn đã trả) | Số liệu báo cáo demo 0 đồng; `phase5` real có 1 SKIP |
+| 36 | Chưa | Giữ thông báo ghép hiện có |
+| 37 | Chưa (`UpdateBranchMenuItemDto` vẫn nhận `isEnabled`) | Web chỉ gửi `{isAvailable}` |
+| **38** | **Chưa** (không `status`/`expiresAt`; Owner chỉ thấy `subscription = null` khi hết hạn; Manager 403) | Owner: "Chưa có dữ liệu từ máy chủ (chờ BE #38)", khối "Không có gói đang hoạt động" khi null; Manager lấy trạng thái từ mock nên không tự khoá |
+| 39 | Chưa (`isCustom`, `version`, vai đọc, chặn gói, giới hạn logo/tên rộng hơn đặc tả) | Web suy `isCustom`, tách `lookCustom` (chỉ đổi tên áp tên), nạp lại khi điều hướng, giữ luật đặc tả |
+| 40 | Chưa (không kiểm khoá, không che ••••, không Đang kiểm tra/Lỗi, webhook chung) | Hai trạng thái thật; không hiện khoá che; 503 `PAYOS_MASTER_KEY` có câu tiếng Việt; Lỗi chỉ ở mock |
+| 41 | Không thêm | — |
+| 42 | **Mới** (seed chạy mỗi lần khởi động, ghi đè dữ liệu mẫu) | Kiểm lại sau mỗi lần BE khởi động; không dựa vào dữ liệu demo đã sửa |
+| QR PayOS hết hạn | Một phần (hạn 10 phút; thiếu huỷ QR và "Kiểm tra lại") | Chưa có màn (thuộc GĐ7+) |
+
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
 | Chỗ lệch | Đặc tả / quyết định | BE |

@@ -166,7 +166,6 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | order | `VITE_API_ORDER` | mock | BE chưa có (BM-04..06) — giai đoạn 7 |
 | ai | `VITE_API_AI` | mock | BE chưa có (OW-09) — giai đoạn 9 |
 | admin | `VITE_API_ADMIN` | **real** | hồ sơ + doanh nghiệp + gói (3.2, 3.3); mapper bỏ ví (BR-07); nộp hồ sơ công khai real. Còn chờ BE: xem `docs/api-contract-plan.md` mục 7 |
-| payos | `VITE_API_PAYOS` | mock | BE chưa có (OW-06) — giai đoạn 6 |
 
 Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh báo. Mỗi giai đoạn sau tự viết `real.ts` rồi đổi mặc định.
 
@@ -191,10 +190,10 @@ Module chưa có `real.ts` mà bật cờ `real` thì rơi về mock kèm cảnh
 | `/owner/branches` | OW-01 | `branchApi` real; nút thêm báo sớm hết hạn mức |
 | `/owner/menu` | OW-02, OW-04 | real: lọc danh mục/trạng thái/tìm kiếm phía server, thêm/sửa món (SKU, ảnh URL), bật/tắt cấp chuỗi, gán chi nhánh, xoá |
 | `/owner/menu/categories` | OW-02 | real: thêm, sửa, ẩn/hiện, đổi thứ tự (displayOrder), xoá (409 còn món) |
-| `/owner/menu/options` | OW-03 | `OptionGroups.tsx` — nhóm + tuỳ chọn (mock, chờ BE); trạng thái chi nhánh chỉ xem |
+| `/owner/menu/options` | OW-03 | `OptionGroups.tsx` — nhóm + tuỳ chọn, real từ 6.3 (lưu từng thao tác; ô `isDefault` khoá chờ #15); panel trạng thái chi nhánh ẩn ở real |
 | `/owner/accounts` | OW-05 | real (`accountApi`, `/employees`): Manager list/khoá/đặt lại/chuyển chi nhánh, mọi thao tác ghi có hộp xác nhận; tạo Manager khoá chờ BE #23; tab Thu ngân & Pha chế chỉ xem, dữ liệu mock (#24) |
 | `/owner/payos` | OW-06 | `PayosLink.tsx` (real từ 6.5: nhập 3 khoá một chiều, gỡ liên kết có xác nhận) |
-| `/owner/branding` | OW-07 | mock (`brandingApi`); khoá từ Cơ bản; Branding.tsx mới chỉ đổi chữ/màu preview |
+| `/owner/branding` | OW-07 | `Branding.tsx`, real từ 6.4 (GET/PUT/DELETE + tải logo multipart); khoá toàn bộ khi gói không có nhận diện |
 | `/owner/ai` | OW-09 | mock (`aiApi`), đọc bộ đơn mock; khoá nếu không phải Nâng cao |
 | `/owner/plan` | OW-10 | `MyPlan.tsx` (6.6: tên gói, hạn mức, tính năng; chỉ xem) |
 | `/manager/dashboard` | BM-03 | placeholder |
@@ -218,7 +217,7 @@ CM-02 (hồ sơ, đổi mật khẩu) là drawer/modal trong `RoleShell`, không
 
 | Chỗ | Xử lý ở |
 |---|---|
-| Panel dev đổi doanh nghiệp/gói/hết hạn/lỗi chỉ có ở `vite dev`; mock auth đăng nhập bằng email `*@mock.local` (mật khẩu ở `auth/mock.ts`) | — |
+| Panel dev (`dev/MockPanel.tsx`) chỉ có ở `vite dev` (`App.tsx:55` `import.meta.env.DEV`); mock auth đăng nhập bằng email `*@mock.local` (mật khẩu ở `auth/mock.ts`). **6.7:** giao diện panel KHÔNG có trong bản build (quét `dist/`), nhưng logic đọc ghi đè từ localStorage `fnb.mock.scenario` (`api/mock/scenario.ts:16-38`) còn trong bản build và `plan/real.ts` vẫn đọc `getScenario().tier/expired`: ai đặt khoá đó bằng DevTools thì giao diện của chính họ đổi cấp/chế độ chỉ đọc (BE vẫn chặn thật). Đề xuất sửa (GĐ7): đọc kịch bản chỉ khi `import.meta.env.DEV` | GĐ7 |
 | `branchApi` mock chỉ trả chi nhánh của doanh nghiệp mock, nên auth real + branch mock lệch ID (chỉ ghép cùng chế độ) | ghi nhận |
 | Landing: nội dung đã sang v9 (3.3); bảng giá VẪN đọc từ cấu hình mock chung (`api/publicPlans.ts`). BE `dfe8100` đã có `GET /public/service-plans` nhưng chỉ có 2 gói giá 0 (`DEMO_OPERATIONS`, `STARTER`), chưa có BASIC/STANDARD/ADVANCED giá thật nên chưa chuyển sang đọc BE | chờ BE seed 3 gói (mục 7 #32) |
 | Form đăng ký (GU-01): đã bỏ ô số chi nhánh dự kiến, chưa có ô chọn gói | chờ BE (mục 7 #8, #9) |
@@ -282,10 +281,11 @@ Báo cáo đầy đủ đã gửi nhóm BE. Tóm tắt những gì ảnh hưởn
 | 3 | Admin nối API thật (`adminApi` real); gói 3 tier; Landing đọc giá từ API | ✅ phần web xong trên `feat/v9-admin` (3.2 hồ sơ + doanh nghiệp, 3.3 gói + Landing + form). Còn chờ BE: email, bỏ ví khỏi response, endpoint công khai danh sách gói, tier/cờ tính năng |
 | 4 | Owner menu: 4.2 danh mục + món real ✅ (`feat/v9-menu`); 4.3 nhóm tuỳ chọn (OW-03, mock) ✅; 4.4 chốt 4.3 ✅ (xác nhận tắt mặc định, mock lưu qua F5, thứ tự lưu form món). Chờ BE: api-contract-plan #12–17 | ✅ phần web xong trên `feat/v9-menu` |
 | 5 | Manager (khảo sát 5.1 ✅, Khánh đã duyệt 10 đề xuất). Chia: **5.2** trang đặt mật khẩu + gỡ mật khẩu cứng ✅ (`feat/v9-manager`); **5.3** Owner `ManagerAccounts` real ✅; **5.5** quầy + máy in ✅ (làm trước vì app Android cần quầy để bán); **5.6** thiết bị (ghép màn hình khách và màn hình gọi số bằng mã 6 số, thu hồi) ✅; **5.4** Cashier/Barista của Manager (mock, chờ BE #24) ✅; **5.7** làm lại `BranchMenu` (món real, tuỳ chọn theo chi nhánh mock); **5.8** chốt. **Thứ tự mới: 5.5 → 5.6 → 5.4 → 5.7 → 5.8** | 5.2 ✅ · 5.3 ✅ · 5.3b ✅ (khớp BE `dfe8100`) · 5.5 ✅ · 5.6 ✅ · 5.4 ✅ · 5.7b ✅ · 5.7c ✅ · 5.7d ✅ · 5.8a ✅ · 5.8b ✅ · 5.8c ✅ · 5.8d ✅ · 5.8e ✅ (chốt) — **GĐ5 ✅ xong phần web trên `feat/v9-manager`**; kết quả chốt và tóm tắt ở mục 9 |
-| 6 | Owner: OW-03 tuỳ chọn real, liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10). Nhánh `feat/v9-owner`, bắt đầu từ `f701bb8`. Chia 6.1, 6.2a, 6.2b, 6.3–6.7 và quyết định ở mục 8b | 6.1 ✅ (`e2fcdf1`, `2fe85c7`, `37f220f`) · 6.2a ✅ (`8b627f6`, `0793a42`, `ac940a1`, `c38e964`) · 6.2b ✅ (`a1dbba7`, `aa55732`, `dd48fb9`, `f3c5b6f`, `9e61140`) · 6.3 ✅ (`07ecedc`, `1c250b1`, `664bd03`, `b3df17e`, `9474fa7`) · 6.3b ✅ (đọc BE `91867ae`, không commit) · 6.3c ✅ (`231f5a9`) · 6.3d ✅ (`d8d4275`, `a1f02ac`, `b63d940`, `d63ad12`) · 6.4 ✅ (`987bf2d`, `00810cf`, `f930f45`, commit docs) · 6.5 ✅ (`29fb9d9`, `3a9860c`, `a366f78`, `00e8ef8`, `3afb12c` docs) · 6.6 ✅ (`61d610d`, `146eb39`, `22ed9cf`, commit docs) |
-| 7 | Manager: tra cứu đơn, báo cáo chi nhánh, đơn Cần xử lý, xác nhận thủ công, huỷ đơn đã trả | |
-| 8 | Màn hình gọi số trên TV | |
-| 9 | Báo cáo đa chi nhánh, trợ lý AI (real), chỉ đọc khi hết hạn khớp BE | |
+| 6 | Owner: OW-03 tuỳ chọn real, liên kết PayOS, nhận diện (`brandingApi` real, preset, tương phản, preview), gói của tôi (OW-10). Nhánh `feat/v9-owner`, bắt đầu từ `f701bb8`. Chia 6.1, 6.2a, 6.2b, 6.3–6.7 và quyết định ở mục 8b | 6.1 ✅ (`e2fcdf1`, `2fe85c7`, `37f220f`) · 6.2a ✅ (`8b627f6`, `0793a42`, `ac940a1`, `c38e964`) · 6.2b ✅ (`a1dbba7`, `aa55732`, `dd48fb9`, `f3c5b6f`, `9e61140`) · 6.3 ✅ (`07ecedc`, `1c250b1`, `664bd03`, `b3df17e`, `9474fa7`) · 6.3b ✅ (đọc BE `91867ae`, không commit) · 6.3c ✅ (`231f5a9`) · 6.3d ✅ (`d8d4275`, `a1f02ac`, `b63d940`, `d63ad12`) · 6.4 ✅ (`987bf2d`, `00810cf`, `f930f45`, commit docs) · 6.5 ✅ (`29fb9d9`, `3a9860c`, `a366f78`, `00e8ef8`, `3afb12c` docs) · 6.6 ✅ (`61d610d`, `146eb39`, `22ed9cf`, `d99c6e9` docs) · 6.7 ✅ (`0326164`, commit docs chốt) — **GĐ6 xong, kết quả ở mục 10** |
+| 6.7 | Chốt GĐ6 (xem mục 10) | ✅ |
+| 7 | Manager xử lý đơn hàng: tra cứu đơn (BM-04), đơn Cần xử lý (BM-05), xác nhận thanh toán thủ công, huỷ đơn đã trả (BM-06), báo cáo chi nhánh; đối chiếu đặc tả BM-xx và lịch tuần 7. AI không thuộc GĐ7 (QĐ 43) | lượt tiếp theo: 7.0 khảo sát, chỉ đọc |
+| 8 | Màn hình gọi số (trang web trên tablet/TV ở khu nhận món, không đăng nhập, ghép chi nhánh bằng mã 6 số do Manager nhập). Nhóm có thể đổi sang nhân viên bưng món theo phiếu số: chốt với nhóm TRƯỚC khi bắt đầu | |
+| 9 | Báo cáo đa chi nhánh, trợ lý AI (OW-09, real), chế độ chỉ đọc khi gói hết hạn khớp BE | |
 
 ## 8b. Giai đoạn 6 (Owner) — kế hoạch và quyết định
 
@@ -350,6 +350,9 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 38 | BE không trả gói đang hoạt động (`subscription = null`, `branches.service.ts:203`: `getActivePlan` ném 403 khi hết hạn/tạm ngưng/chưa có rồi `.catch(() => null)`): hiện khối "Không có gói đang hoạt động" kèm câu ở quyết định 37; không phải lỗi, không toast, không Thử lại. Lỗi đọc thật (500, 403, mạng) do màn lỗi nạp khu vực (cùng `GET /restaurant-chains`) có nút Thử lại |
 | 39 | Không làm bảng so sánh các gói |
 | 40 | Chuỗi kiểm tra không nối ống (quy tắc làm việc 14). Lý do: ở 6.5 chuỗi có `| grep "Tests "` làm mất mã thoát, một commit vào khi 3 test trượt (đã sửa trước khi push) |
+| 41 | Lượt chốt không sửa mã ứng dụng. Ca trượt do mã ứng dụng (tái hiện ổn định) → dừng sửa, ghi báo cáo và tồn đọng (file:dòng, bước tái hiện). Ca trượt do script/chập chờn → sửa script trong commit riêng "test(browser): …", chạy lại 3 lần đạt cả 3 |
+| 42 | Panel dev (giả lập hết hạn, đổi gói, đổi doanh nghiệp mock, xoá dữ liệu mock…) không có mặt trong bản build production. Kiểm ở 6.7: giao diện panel KHÔNG lọt (xem mục 10); logic đọc ghi đè kịch bản từ localStorage còn lọt → tồn đọng |
+| 43 | Lộ trình sau GĐ6: **GĐ7** Manager xử lý đơn (tra cứu đơn, đơn Cần xử lý, xác nhận thanh toán thủ công, huỷ đơn đã trả, báo cáo chi nhánh; đối chiếu đặc tả BM-xx và lịch tuần 7). **GĐ8** màn hình gọi số (trang web mở trên tablet/TV ở khu nhận món, không đăng nhập, ghép với chi nhánh bằng mã 6 số do Manager nhập; nhóm có thể đổi sang phương án nhân viên bưng món theo phiếu số — PHẢI chốt với nhóm trước khi bắt đầu GĐ8). **GĐ9** báo cáo đa chi nhánh, trợ lý AI (OW-09), chế độ chỉ đọc khi gói hết hạn. AI KHÔNG thuộc GĐ7 |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -413,7 +416,7 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 
 **Chập chờn gặp ở lượt chốt** (script chạy lại 1 lần là đạt; không phải lỗi app):
 - phase4 real: 1/4 lần chạy ngắt giữa chừng (`document.querySelector(".ant-card")` còn null lúc thao tác, trang chưa vẽ xong); 2 lần chạy lại liên tiếp đều 20/20.
-- phase5 mock: 1/2 lượt trượt đúng 1 kiểm ("Đủ hạn mức: nút 'Thêm nhân viên' bị khoá", 110/111); chạy lại 111/111. Trước đó 3 lượt liền 111/111.
+- **[HẾT từ 6.7, `0326164`: script chờ dòng hạn mức có số; 3 lần liền 112/112]** phase5 mock: 1/2 lượt trượt đúng 1 kiểm ("Đủ hạn mức: nút 'Thêm nhân viên' bị khoá", 110/111); chạy lại 111/111. Trước đó 3 lượt liền 111/111.
 - Lần chạy đầu của lượt chốt (phase2, phase3, phase4 real) hỏng vì tôi sửa `.env.example` giữa lúc chạy (Vite theo dõi `.env*`); suy đoán, không chứng minh được; chạy lại sạch đạt hết. **Quy tắc: không sửa file `.env*` khi đang chạy kiểm trình duyệt.**
 - Một kiểm phase3 mock ("Đổi gói (hạ vượt hạn mức)") đòi câu tiếng Anh cũ của BE: lỗi **script** do dịch lỗi ở 5.8b; đã sửa kỳ vọng thành câu tiếng Việt.
 
@@ -426,9 +429,44 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 **Kết quả kiểm 6.4 (BE `91867ae`):** mock — `phase6 branding` 20/20, `phase2` brand 7/7, plan 16/16, flip 1/1, login 5/5, `phase5` đủ 112/112. Real — `phase6 branding` 16/16, `phase2` đủ 32/32 (2 SKIP: ca "owner thấy màu riêng" và khối `brand` là mock-only), `phase5` đủ 76/76 (1 SKIP đơn đã trả #35), `phase58-faults` `owner/branding` 8/8 và `scope` 12/12.
 
 **Chập chờn gặp ở GĐ6** (không phải lỗi app):
-- `phase58-faults --only=owner/branding` (6.4): 1 lần in "0/1 ca Đạt, 1 ca Lỗi" (lần chạy nền nối với `scope`, chỉ lưu dòng tổng nên không rõ ca nào); chạy lại 2 lần đều 8/8, chưa tái hiện, chưa rõ nguyên nhân.
-- `phase58-faults --only=owner/branches` (real): ở 6.2a có 1 lần 7/8 (bảng chỉ ghi 4 request thay vì 5). Ở 6.2b chạy lại 3 lần liên tiếp: **8/8 cả 3 lần**, mỗi lần 5 request ghi bị chặn (`POST /api/v1/restaurant-chains/{id}/branches`). Chưa tái hiện, chưa rõ nguyên nhân; không sửa script.
+- **[HẾT từ 6.7: không tái hiện ở 6.5–6.7; từ `3a9860c` script in tên ca trượt]** `phase58-faults --only=owner/branding` (6.4): 1 lần in "0/1 ca Đạt, 1 ca Lỗi" (lần chạy nền nối với `scope`, chỉ lưu dòng tổng nên không rõ ca nào); chạy lại 2 lần đều 8/8, chưa tái hiện, chưa rõ nguyên nhân.
+- **[HẾT từ 6.7: 8/8 ở mọi lần chạy từ 6.2b tới 6.7, kể cả lượt đủ 3 vai]** `phase58-faults --only=owner/branches` (real): ở 6.2a có 1 lần 7/8 (bảng chỉ ghi 4 request thay vì 5). Ở 6.2b chạy lại 3 lần liên tiếp: **8/8 cả 3 lần**, mỗi lần 5 request ghi bị chặn (`POST /api/v1/restaurant-chains/{id}/branches`). Chưa tái hiện, chưa rõ nguyên nhân; không sửa script.
 - `phase4 --mode=mock --only=owner` (6.2b): khi viết khối tuỳ chọn từng dòng gặp 5 kiểu trượt do **script** gõ/đọc trước khi mã ứng dụng xong (dòng thêm tuỳ chọn mới đóng chậm hơn 900 ms cố định nên dòng kế tiếp gõ vào dòng sắp đóng; đổi thứ tự nhóm/tuỳ chọn, xoá món và tắt mặc định chờ `sleep` cố định trong khi lệnh patch + nạp lại có độ trễ giả lập). Đã đổi sang **chờ điều kiện** (`addOptionUI`, `waitOptCodes`, `waitOrder`, các vòng chờ), sau đó 5/6 lần chạy 99/99, 1 lần ngắt vì `CDP timeout: Runtime.evaluate` (hạ tầng Chrome, chạy lại 99/99).
 - `phase4 --mode=real --only=owner` (6.3): 1 lần trượt kiểm cũ "Real · Món: lọc 'Đang bán' khớp BE" (0 hàng, ca chọn Select chờ `sleep` cố định, không thuộc tuỳ chọn); chạy lại 2 lần liên tiếp 29/29.
 - Chế độ `fulfillWrites` của `cdp.mjs` (6.3): bật tạm chỉ ở bước đổi chỗ để thấy đủ 2 lệnh patch; request vẫn KHÔNG rời trình duyệt (trả 200 `{}` ngay trong CDP). Mọi chỗ khác chặn bằng `BlockedByClient`.
 - Thông báo "Máy chủ gặp sự cố" (`duration: 0`) không tự tắt: ca giả lập lỗi BE phải đóng nó (`.ant-notification-notice-close`) trước các ca sau.
+- **Còn tái hiện (6.7, mock):** `phase4 --mode=mock --only=owner` 1 lần 98/99 ("Lỗi BE: lưu một dòng báo lỗi tiếng Việt…", ca đọc toast đúng lúc nó đổi nội dung), chạy lại 2 lần 99/99; `phase5 --mode=mock` 1 lần ngắt `CDP timeout: Runtime.evaluate` (hạ tầng Chrome, mục Chrome ở mục 8b). Chưa sửa (không tái hiện ổn định).
+- **Dễ nhầm (6.7):** `phase2 --mode=mock` KHÔNG kèm `--only` chạy cả khối `errors`/`refresh` — hai khối này tiêm lỗi ở CDP trên `GET …/menu/categories` real nên ở mock báo 5 FAIL giả (35/40). Ở mock chỉ chạy `--only=brand|plan|ai|login|flip` (cần `AUTH_MODE=mock`); `errors`, `refresh` chỉ chạy real.
+
+## 10. Chốt giai đoạn 6 — Owner (6.7, 2026-10-06)
+
+**Tóm tắt GĐ6 (Owner), nhánh `feat/v9-owner` (từ `f701bb8`):**
+1. **Real:** tuỳ chọn món Owner (OW-03, `options=real`, 6.3, kèm `allowBatching` 6.3d); nhận diện thương hiệu (OW-07, `branding=real`, 6.4; chỉ đổi tên được nhận ra và nạp lại khi điều hướng ở 6.5); liên kết PayOS (OW-06, `payos=real`, 6.5, khoá một chiều); "Gói của tôi" (OW-10, 6.6, dữ liệu thật từ `GET /restaurant-chains`, hạn dùng/trạng thái ghi "chờ BE #38").
+2. **Sửa:** Branches báo lỗi 2 lần (`e2fcdf1`, 6.1); nhãn "(số liệu mẫu)" ở màn Nhân viên (6.1); `reportApiError` chỉ thay lỗi ĐỌC bằng khối lỗi trong trang (6.5).
+3. **Chờ BE:** #15 (`isDefault`), #16, #22, #33 (chặn theo gói), #38 (trạng thái/hạn dùng gói cho Owner và Manager), #39 (`isCustom`, `version`, vai đọc nhận diện), #40 (PayOS: kiểm khoá, che khoá ••••, trạng thái Lỗi, webhook theo kênh), #42 (seed chạy mỗi lần khởi động ghi đè dữ liệu mẫu).
+4. **Kiểm thử:** vitest 360/360 (từ 266 ở GĐ5); `phase6.mjs` mới (khối `branding`, `payos`, `plan`); bộ giả lập lỗi mở rộng (`owner/payos` kèm 503, ca ghi "Gỡ liên kết", `owner/plan`); `chrome.mjs` tự mở lại khi Chrome sập lúc khởi động.
+
+**Các lượt (hash đầu → cuối):** 6.0 khảo sát (không commit) · 6.1 `e2fcdf1`→`37f220f` · 6.2a `8b627f6`→`c38e964` · 6.2b `a1dbba7`→`9e61140` · 6.3 `07ecedc`→`9474fa7` · 6.3b khảo sát BE `91867ae` · 6.3c `231f5a9` (build BE) · 6.3d `d8d4275`→`d63ad12` · 6.4 `987bf2d`→docs · 6.5 `29fb9d9`→`3afb12c` · 6.6 `61d610d`→`d99c6e9` · 6.7 `0326164` + commit docs chốt. Quyết định 1–43: mục 8b.
+
+**Bảng kết quả chốt** (BE local `91867ae`; backup mới nhất `~/backup-smartfnb-20261004-184610.sql` trước khi build `91867ae`; Vite 5173; mọi request ghi trên real bị chặn ở CDP):
+
+| Kiểm | Mock | Real |
+|---|---|---|
+| `pnpm tsc --noEmit && lint && build && test` | — | vitest **360/360** (28 file) |
+| phase2 | `brand` 7/7, `plan` 16/16, `ai` 3/3, `login` 5/5, `flip` 1/1 (`errors`, `refresh` chỉ real) | **32/32** (2 SKIP: ca "owner thấy màu riêng" và khối `brand` là mock-only) |
+| phase3 | **47/47** | **15/15** (1 SKIP: gia hạn trên dữ liệu thật, cần `ALLOW_REAL_RENEW=1`) |
+| phase4 | `owner` **99/99**, `manager` **2/2** | `owner` **31/31**, `manager` **2/2** |
+| phase5 | **112/112** (3 lần liền sau sửa script) | **76/76** (1 SKIP: BE không có đơn đã trả 7 ngày gần nhất) |
+| phase6 | **47/47** (branding 24, payos 15, plan 8) | **37/37** (branding 16, payos 10, plan 11) |
+| phase58-forms | — | **16/16** |
+| phase58-faults (admin, owner, manager) | — | **148/148** (admin 33, owner 82, manager 33; gồm `scope`, `expired`) |
+
+**Bảng request ghi bị chặn (real, tổng hợp; mọi dòng là ca có chủ đích, không request nào tới BE):** phase3: 1× `POST registration-applications` (ca gửi hồ sơ công khai); phase4 owner: 11 (option-groups POST/PATCH/DELETE, options POST/PATCH 4×/DELETE, items option-groups PUT, items PATCH); phase5: 9 (employees status/reset-password/branch, admin service-plans POST/PATCH, stations POST, pair-calling-display POST, branches menu items PATCH, manager menu-options availability PATCH); phase6: 8 (branding PUT 2×, logo POST 2×, DELETE 1×, payos-channel PUT 2×, DELETE 1×); phase58-forms: 1× `POST menu/items`; phase58-faults: 80 (15 dòng, mỗi màn 5× theo 500/403/mạng/401 + 503 PayOS); phase2, phase4 manager: 0.
+
+**Panel dev và bản build (QĐ 42):** `MockPanel` chỉ gắn khi `import.meta.env.DEV` (`App.tsx:55`), bảng cờ in console cũng chỉ ở dev (`api/flags.ts:100`). Quét `dist/` (17 chuỗi: `mock-panel`, `mock-profile`, `mock-tier`, `mock-expired`, `mock-payos-error`, `mock-clear`, `mock-failure`, `mock-pair`, "Hết hạn (chỉ đọc)", "giả lập trạng thái Lỗi", "Xoá dữ liệu mock đã lưu", "Lỗi giả lập", `MockPanel`, `setScenario`, `console.table`…): **0 khớp giao diện panel**. Còn trong build: các khoá lưu trữ mock (`fnb.mock.scenario`, `fnb.mock.failure`, `fnb.mock.session`, `smartfnb:mock:*`) — xem tồn đọng.
+
+**Chập chờn/sửa script ở 6.7:** phase5 mock "dòng hạn mức nhân viên" đọc khi còn "Đang tải hạn mức…" → script chờ có số (`0326164`, 3 lần liền 112/112); phase4 owner mock 1 lần 98/99 và phase5 mock 1 lần `CDP timeout` — chạy lại đạt, chưa sửa (mục chập chờn ở trên). Không có ca trượt do mã ứng dụng.
+
+**Tồn đọng chuyển sang GĐ7:** #15, #16, #22, #33, #38, #39, #40, #42 (tất cả chờ BE, xem `docs/api-contract-plan.md`); đọc kịch bản mock từ localStorage còn trong bản build (`api/mock/scenario.ts:16-38`, `plan/real.ts` đọc `getScenario()`); Manager ở real không tự khoá khi gói hết hạn (#38); mock Cashier/Barista của Manager (#23, #24); danh sách màn hình gọi số (#28).
+
+**Lượt tiếp theo: 7.0** — mở GĐ7, khảo sát chỉ đọc (đặc tả BM-xx, luồng đơn, endpoint đơn hàng của Manager ở BE `91867ae`), tách nhánh mới chờ Khánh duyệt.
