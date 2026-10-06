@@ -212,6 +212,36 @@ const screens = [
       await sleep(2200);
       return { ok: true, kind: "drawer", saveEnabled: await q(`(() => { const b = document.querySelector('[data-testid="payos-save"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
     } },
+  // 6.6: thao tác ghi thứ hai của màn PayOS — Gỡ liên kết (DELETE …/payos-channel). Nút chỉ có khi đã liên kết nên bước chuẩn bị tạm tắt lỗi giả,
+  // cho PUT nhận trả lời giả thành công (`fulfillWrites`, request KHÔNG tới BE) để UI sang "Đã liên kết", rồi bật lại lỗi giả cho DELETE.
+  // Chỉ chạy phần ghi (`writeOnly`); phần đọc đã có ở `owner/payos`.
+  { id: "owner/payos (gỡ liên kết)", writeOnly: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
+    loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
+    write: async () => {
+      const armed = tab.fault;
+      tab.setFault(null);
+      tab.fulfillBody = J({ configured: true, id: "00000000-0000-0000-0000-000000000000", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" });
+      tab.fulfillWrites = true;
+      const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await setKey("payos-clientId", "test-client-id-khong-that");
+      await setKey("payos-apiKey", "test-api-key-khong-that");
+      await setKey("payos-checksumKey", "test-checksum-key-khong-that");
+      await sleep(300);
+      await q(`document.querySelector('[data-testid="payos-save"]')?.click()`);
+      await sleep(1800);
+      tab.fulfillWrites = false;
+      tab.fulfillBody = undefined;
+      await clearNotices();
+      const linked = await q(`document.querySelector('[data-testid="payos-unlink"]') !== null`);
+      tab.blockedWrites.length = 0;
+      tab.fault = armed ? { ...armed, hits: 0 } : null;
+      tab.faultLog = [];
+      if (!linked) return { skipped: "không sang được trạng thái Đã liên kết (trả lời giả)" };
+      await q(`document.querySelector('[data-testid="payos-unlink"]').click()`);
+      await clickConfirm();
+      await sleep(2200);
+      return { ok: true, kind: "modal", after: undefined };
+    } },
   // 6.3: tuỳ chọn món của Owner (options = real). Đọc = GET option-groups; ghi = tắt một tuỳ chọn đang bật (PATCH …/options/{id} {isActive:false}, không hộp xác nhận vì không mặc định).
   { id: "owner/options", role: "owner", route: "/owner/menu/options", from: "/owner/plan", read: /\/menu\/option-groups$/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
@@ -512,7 +542,7 @@ try {
     if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0) continue;
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
-    if (inGroup("read")) for (const spec of mine) for (const kind of KINDS) await readCase(spec, kind);
+    if (inGroup("read")) for (const spec of mine.filter((s) => !s.writeOnly)) for (const kind of KINDS) await readCase(spec, kind);
     if (inGroup("write")) {
       for (const spec of mine.filter((s) => s.write)) {
         for (const kind of KINDS) await writeCase(spec, kind);
