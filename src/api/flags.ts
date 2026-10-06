@@ -39,7 +39,7 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   order: "mock",
   ai: "mock",
   admin: "real",
-  payos: "mock",
+  payos: "real",
 };
 
 /** Ghi chú cho bảng cờ: vì sao module đang ở chế độ đó. */
@@ -57,7 +57,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   order: "mock — BE chưa có (BM-04..06), chờ giai đoạn 7",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
   admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
-  payos: "mock — BE chưa có (OW-06), chờ giai đoạn 6",
+  payos: "real (6.5): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT cần PAYOS_MASTER_KEY trên BE; chưa có trạng thái Lỗi (#40)",
 };
 
 type Env = Record<string, string | undefined>;

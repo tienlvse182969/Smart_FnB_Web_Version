@@ -37,6 +37,7 @@ import OptionGroups from "../roles/owner/OptionGroups";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
 import AiAssistant from "../roles/owner/AiAssistant";
+import PayosLink from "../roles/owner/PayosLink";
 import ManagerDashboard from "../roles/branch/ManagerDashboard";
 import BranchInfo from "../roles/branch/BranchInfo";
 import BranchMenu from "../roles/branch/BranchMenu";
@@ -94,7 +95,7 @@ export const ownerRoutes: RouteDef[] = [
     label: "Liên kết PayOS",
     icon: <CreditCard size={18} />,
     code: "OW-06",
-    element: placeholder("OW-06", "Liên kết PayOS"),
+    element: <PayosLink />,
   },
   { path: "branding", label: "Nhận diện", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
   { path: "ai", label: "Trợ lý số liệu", icon: <Bot size={18} />, code: "OW-09", element: <AiAssistant /> },

@@ -85,6 +85,20 @@ export function classifyApiError(err: unknown): ApiErrorKind {
 export const SERVER_ERROR_TEXT = "Máy chủ đang gặp sự cố, thử lại sau ít phút.";
 export const GENERIC_ERROR_TEXT = "Không thực hiện được yêu cầu. Kiểm tra lại thông tin rồi thử lại.";
 
+/**
+ * 5xx có câu riêng (quyết định 34): BE trả 503 khi lưu khoá PayOS mà máy chủ chưa có khoá mã hoá (`payos-cipher.service.ts:35`) hoặc khoá
+ * đã lưu hỏng (`:21`). Các 5xx khác vẫn là `SERVER_ERROR_TEXT`. Câu trả về KHÔNG chứa giá trị khoá người dùng nhập.
+ */
+export const PAYOS_MASTER_KEY_TEXT = "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống.";
+export const PAYOS_STORED_KEY_TEXT = "Khoá PayOS đã lưu không đọc được. Nhập lại đủ 3 khoá để lưu lại.";
+const SERVER_TEXT: [RegExp, string][] = [
+  [/PAYOS_MASTER_KEY is not configured/i, PAYOS_MASTER_KEY_TEXT],
+  [/stored payos credentials are invalid/i, PAYOS_STORED_KEY_TEXT],
+];
+function serverErrorText(err: ApiError): string {
+  return SERVER_TEXT.find(([re]) => re.test(err.message ?? ""))?.[1] ?? SERVER_ERROR_TEXT;
+}
+
 /** Có dấu tiếng Việt = câu do web hoặc BE đã Việt hoá, giữ nguyên. */
 const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
 
@@ -162,7 +176,7 @@ export function describeApiError(err: unknown): string {
       if (isReadOnlyError(err)) return READ_ONLY_TEXT;
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? translateBackendMessage(err) : ""}`.trim();
     default:
-      if (err instanceof ApiError) return err.status >= 500 ? SERVER_ERROR_TEXT : translateBackendMessage(err);
+      if (err instanceof ApiError) return err.status >= 500 ? serverErrorText(err) : translateBackendMessage(err);
       return err instanceof Error && HAS_VIETNAMESE.test(err.message) ? err.message : "Có lỗi xảy ra. Thử lại sau.";
   }
 }
@@ -199,7 +213,7 @@ export function resetErrorDedupe(): void {
  * Màn tự hiện khối lỗi trong trang (kèm nút Thử lại) nên không cần thông báo nổi trùng cho 403 và mất mạng.
  * Khớp theo đường dẫn hiện tại; các loại lỗi khác (hạn mức, 401) vẫn báo toàn cục.
  */
-export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info"];
+export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos"];
 
 export interface ApiErrorEvent {
   kind: ApiErrorKind;
