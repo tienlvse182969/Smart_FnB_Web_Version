@@ -20,6 +20,7 @@ await tab.blockWrites(SESSION_ALLOW);
 
 const RAW = /Internal server error|Forbidden|Unauthorized|Failed to fetch|NetworkError|statusCode|You do not have permission|subscription is read-only|\{"|\[object|undefined|TypeError/i;
 const results = [];
+let scriptError = null;
 
 const spaGo = async (to) => {
   await q(`(() => { history.pushState({}, "", ${J(to)}); dispatchEvent(new PopStateEvent("popstate")); })()`);
@@ -504,11 +505,18 @@ try {
     }
   }
 } catch (e) {
+  scriptError = e;
   console.log("ERROR", e.stack ?? e.message);
 }
 const writes = tab.blockedWrites.length;
 console.log("FAULTS-RESULT " + J(results));
 const bad = results.filter((r) => r.verdict === "Lỗi").length;
 console.log(`[faults] ${results.length - bad}/${results.length} ca Đạt, ${bad} ca Lỗi; request ghi ghi nhận lần chạy cuối: ${writes}`);
+// Danh sách ca trượt (không chỉ dòng tổng) để biết ca nào, bước nào mà không phải lục lại log.
+if (bad > 0) {
+  console.log("[faults] CÁC CA TRƯỢT:");
+  for (const r of results.filter((x) => x.verdict === "Lỗi")) console.log(`   ✗ ${r.screen} | ${r.op} | ${r.kind} | ${r.problems.join(",")}${r.detail ? " | " + r.detail.slice(0, 200) : ""}`);
+}
+if (scriptError) console.log(`[faults] SCRIPT BỊ NGẮT GIỮA CHỪNG sau ${results.length} ca (chưa chạy hết): ${(scriptError.message ?? String(scriptError)).slice(0, 200)}`);
 await closeTab(tab);
 process.exit(0);
