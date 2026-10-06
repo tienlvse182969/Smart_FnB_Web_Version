@@ -94,6 +94,9 @@ export function connectCustomerDisplay(
       onUpdate(event.data as CustomerDisplaySnapshot & { stationId: string; version: number });
     }
   });
+  // A display may miss events between the HTTP context request and joining the room,
+  // or while only this screen is offline. Always ask the server for the latest version.
+  socket.on("connect", () => socket.emit("station:sync"));
   socket.on("disconnect", (reason) => {
     if (reason === "io server disconnect") onRevoked();
   });
