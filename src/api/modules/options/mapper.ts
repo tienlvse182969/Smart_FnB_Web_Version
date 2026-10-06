@@ -1,7 +1,7 @@
 /**
  * Ánh xạ nhóm tuỳ chọn của BE (`optionGroupSelect`, `menu.service.ts:66-82`; `optionSelect` ngay trên đó) sang kiểu web theo WHITELIST:
  * trường lạ (`chainId`, `createdAt`, `_count`…) không được chép sang. `priceDelta` là Decimal nên JSON ra CHUỖI ("5000.00") → `parseAmount`.
- * BE không có `isDefault` (#15): real để `undefined`.
+ * `isDefault` có trong response của BE sau migration OW-03.
  */
 import { parseAmount } from "../../../lib/reportFormat";
 import type { OptionGroup, OptionItem } from "../../../types";
@@ -13,6 +13,7 @@ export interface RawOption {
   priceDelta: string | number;
   displayOrder: number;
   isActive: boolean;
+  isDefault?: boolean;
 }
 
 export interface RawOptionGroup {
@@ -38,6 +39,7 @@ export function mapOption(raw: RawOption): OptionItem {
     priceDelta: parseAmount(raw.priceDelta),
     displayOrder: raw.displayOrder,
     isActive: raw.isActive,
+    isDefault: raw.isDefault,
   };
 }
 

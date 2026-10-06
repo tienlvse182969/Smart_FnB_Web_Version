@@ -39,7 +39,7 @@ export function syncSelectionRule(rule: SelectionRule, changed: SelectionRuleFie
 /** Trường của riêng một nhóm (không có tuỳ chọn) — thứ BE nhận ở `POST/PATCH option-groups` (`menu.dto.ts:236-284`). */
 export type GroupFields = Pick<OptionGroupInput, "name" | "code" | "isRequired" | "minSelections" | "maxSelections" | "displayOrder">;
 
-/** Trường của riêng một tuỳ chọn — thứ BE nhận ở `POST/PATCH …/options` (`menu.dto.ts:295-335`); `isDefault` BE chưa có (#15), chỉ mock nhận. */
+/** Trường của riêng một tuỳ chọn — thứ BE nhận ở `POST/PATCH …/options` (`menu.dto.ts`). */
 export type OptionFields = { name: string; code: string; priceDelta: number; displayOrder?: number };
 
 /** Lỗi trường của một tuỳ chọn khi tạo/sửa riêng lẻ. Rỗng = hợp lệ. */

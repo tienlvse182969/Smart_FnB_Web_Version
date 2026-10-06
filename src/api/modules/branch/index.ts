@@ -2,10 +2,17 @@
 import type {
   ApiBranch,
   ApiBranchDetail,
+  ApiBranchArea,
+  ApiBranchAreaInput,
+  ApiBranchAreaStatus,
   ApiBranchStatus,
   ApiChain,
   ApiPlan,
   ApiQuota,
+  ApiHourInput,
+  ApiOperatingHour,
+  ApiSpecialHour,
+  ApiSpecialHourInput,
   CreateBranchInput,
   UpdateBranchInput,
 } from "../../../types";
@@ -23,6 +30,16 @@ export interface BranchApi {
   createBranch(chainId: string, input: CreateBranchInput): Promise<ApiBranch>;
   updateBranch(branchId: string, input: UpdateBranchInput): Promise<ApiBranch>;
   updateBranchStatus(branchId: string, status: ApiBranchStatus): Promise<ApiBranch>;
+  archiveBranch(branchId: string): Promise<void>;
+  listOperatingHours(branchId: string): Promise<ApiOperatingHour[]>;
+  saveOperatingHour(branchId: string, dayOfWeek: number, input: ApiHourInput): Promise<ApiOperatingHour>;
+  listSpecialHours(branchId: string): Promise<ApiSpecialHour[]>;
+  saveSpecialHour(branchId: string, date: string, input: ApiSpecialHourInput): Promise<ApiSpecialHour>;
+  deleteSpecialHour(branchId: string, date: string): Promise<void>;
+  listAreas(branchId: string): Promise<ApiBranchArea[]>;
+  createArea(branchId: string, input: ApiBranchAreaInput): Promise<ApiBranchArea>;
+  updateArea(branchId: string, areaId: string, input: Partial<ApiBranchAreaInput>): Promise<ApiBranchArea>;
+  updateAreaStatus(branchId: string, areaId: string, status: ApiBranchAreaStatus): Promise<ApiBranchArea>;
 }
 
 export const branchApi = defineApi<BranchApi>("branch", { real: branchReal, mock: branchMock });

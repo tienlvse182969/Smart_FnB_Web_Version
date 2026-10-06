@@ -274,14 +274,38 @@ describe("adminReal — gói dịch vụ khớp DTO của BE dfe8100", () => {
   const respond = (body: unknown) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
   const input = { code: "PRO", name: "Pro", monthlyPrice: 500000, maxBranches: 5, maxAccounts: 30, brandingEnabled: true, multiBranchComparisonEnabled: false, isActive: true };
 
-  it("tạo gói: POST kèm hai cờ bắt buộc và maxTables = giá trị nhỏ nhất BE chấp nhận (không hiện trên form)", async () => {
+  it("đọc gói công khai: GET anonymous và bổ sung isActive=true cho model web", async () => {
+    const { isActive: _isActive, ...publicPlan } = input;
+    const fetchMock = respond([{ ...publicPlan, id: "p1", description: null, monthlyPrice: "500000.00", maxTables: 1 }]);
+    vi.stubGlobal("fetch", fetchMock);
+    const plans = await adminReal.listPublicPlans();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toMatch(/\/public\/service-plans$/);
+    expect(init.method).toBe("GET");
+    expect(new Headers(init.headers).has("Authorization")).toBe(false);
+    expect(plans[0]).toMatchObject({ id: "p1", isActive: true, brandingEnabled: true });
+    vi.unstubAllGlobals();
+  });
+
+  it("tạo gói: POST bỏ isActive, kèm hai cờ bắt buộc và maxTables = giá trị nhỏ nhất BE chấp nhận", async () => {
     const fetchMock = respond({ ...input, id: "p1", description: null, monthlyPrice: "500000.00", maxTables: 1 });
     vi.stubGlobal("fetch", fetchMock);
     const plan = await adminReal.createPlan(input);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toMatch(/\/admin\/service-plans$/);
     expect(init.method).toBe("POST");
-    expect(JSON.parse(String(init.body))).toMatchObject({ ...input, maxTables: MIN_MAX_TABLES });
+    const body = JSON.parse(String(init.body));
+    expect(body).not.toHaveProperty("isActive");
+    expect(body).toMatchObject({
+      code: input.code,
+      name: input.name,
+      monthlyPrice: input.monthlyPrice,
+      maxBranches: input.maxBranches,
+      maxAccounts: input.maxAccounts,
+      brandingEnabled: input.brandingEnabled,
+      multiBranchComparisonEnabled: input.multiBranchComparisonEnabled,
+      maxTables: MIN_MAX_TABLES,
+    });
     expect(MIN_MAX_TABLES).toBe(1);
     expect(plan).toMatchObject({ brandingEnabled: true, multiBranchComparisonEnabled: false });
     vi.unstubAllGlobals();

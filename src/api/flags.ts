@@ -49,14 +49,14 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   report: "real; BE chưa đếm đơn quầy (lọc COMPLETED) — chờ BE",
   plan: "real cho hạn mức; tier, cờ tính năng, hạn dùng là mock — chờ BE",
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
-  options: "real (6.3, OW-03): CRUD nhóm/tuỳ chọn + gắn nhóm vào món qua BE `0083289`; isDefault (#15), allowBatching (#17) và trạng thái tuỳ chọn theo chi nhánh chưa có nên ô bị khoá/ẩn; mock = VITE_API_OPTIONS=mock",
+  options: "real (OW-03): CRUD nhóm/tuỳ chọn, mặc định, xem trạng thái theo chi nhánh và gắn nhóm vào món; cần deploy BE và migration mới",
   branch_options: "real (5.7c): Manager bật/tắt tuỳ chọn tại chi nhánh qua GET/PATCH /manager/menu-options; chi nhánh lấy từ JWT",
   branding: "mock — BE có endpoint, chờ giai đoạn 6",
-  account: "real MỘT PHẦN (5.3): Manager qua /employees (list, khoá, đặt lại mật khẩu, chuyển chi nhánh); tạo Manager chờ BE #23; Cashier/Barista là mock chờ BE #24",
+  account: "real cho Owner quản Manager qua /employees (xem, mời, khoá, đặt lại mật khẩu, chuyển chi nhánh); Owner xem nhân viên thật; Manager quản nhân viên còn mock",
   stations: "real (5.5): GET/POST /stations; đổi tên, ngừng dùng, sửa máy in chờ BE (#27); ghép/thu hồi thiết bị ở 5.6",
   order: "mock — BE chưa có (BM-04..06), chờ giai đoạn 7",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
-  admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
+  admin: "real (hồ sơ, doanh nghiệp, gói, danh sách gói công khai và nộp hồ sơ)",
   payos: "mock — BE chưa có (OW-06), chờ giai đoạn 6",
 };
 

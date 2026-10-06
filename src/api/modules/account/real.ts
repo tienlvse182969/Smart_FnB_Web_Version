@@ -1,13 +1,12 @@
 /**
  * Bản real của module account — CHỈ phần Manager (OW-05), qua `/employees` của BE (role OWNER, employees.controller.ts).
  * Owner XEM Cashier/Barista cũng bằng `/employees` (OW-05). Phần Manager quản Cashier/Barista KHÔNG có endpoint ở BE
- * (api-contract-plan #24) nên chuyển rõ ràng sang mock; tạo Manager cũng chờ BE (#23: `POST /auth/managers` bắt buộc mật khẩu,
- * web không còn mật khẩu).
+ * (api-contract-plan #24) nên chuyển rõ ràng sang mock. Tạo Manager qua lời mời không cần chủ chuỗi đặt mật khẩu.
  */
 import { ApiError, request } from "../../http/client";
 import { accountMock } from "./mock";
 import type { StaffAccount } from "../../../types";
-import { mapManagerPage, mapStaff, type RawEmployeePage } from "./mapper";
+import { mapManager, mapManagerPage, mapStaff, type RawEmployee, type RawEmployeePage } from "./mapper";
 import type { AccountApi } from "./index";
 
 /** Khoá tài khoản = `SUSPENDED` (BE: mọi trạng thái khác ACTIVE đều khoá và thu hồi phiên; INACTIVE dành cho chưa kích hoạt). */
@@ -37,9 +36,12 @@ export const accountReal: AccountApi = {
     await request(`/employees/${accountId}/branch`, { method: "PATCH", body: { branchId } });
   },
 
-  async createManager() {
-    // CHỜ BE #23: POST /auth/managers bắt buộc `password`. Màn hình khoá nút ở chế độ real; đây là chốt chặn thứ hai.
-    throw new ApiError(501, "Chờ BE gửi email thay vì đặt mật khẩu (api-contract-plan #23).");
+  async createManager(_chainId, branchId, name, email) {
+    const raw = await request<{ account: RawEmployee; expiresAt: string }>("/employees/managers", {
+      method: "POST",
+      body: { branchId, name: name.trim(), email: email.trim() },
+    });
+    return { account: mapManager(raw.account), expiresAt: raw.expiresAt };
   },
 
   // --- Cashier/Barista: Owner XEM thật (OW-05: Owner chỉ xem; `GET /employees?role=…` mở cho OWNER) --------------------

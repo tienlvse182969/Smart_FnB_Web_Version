@@ -105,6 +105,11 @@ export const adminReal: AdminApi = {
     return { ownerId: raw.ownerId, expiresAt: raw.expiresAt };
   },
 
+  async listPublicPlans() {
+    const rows = await request<Array<Omit<RawPlan, "isActive">>>("/public/service-plans", { anonymous: true });
+    return rows.map((raw) => mapPlan({ ...raw, isActive: true }));
+  },
+
   async listPlans() {
     return (await request<RawPlan[]>("/admin/service-plans")).map(mapPlan);
   },
@@ -112,7 +117,9 @@ export const adminReal: AdminApi = {
   async createPlan(input) {
     // `maxTables`: trường v7, chờ BE gỡ (api-contract-plan #29). BE bắt buộc và `@Min(1)` (platform-admin.dto.ts, CreateServicePlanDto)
     // nên gửi giá trị nhỏ nhất BE chấp nhận; KHÔNG hiện trên form. Hai cờ gói là bắt buộc khi tạo.
-    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...input, maxTables: MIN_MAX_TABLES } }));
+    // CreateServicePlanDto chưa nhận `isActive` và BE bật forbidNonWhitelisted. Trạng thái tạo mới mặc định là active.
+    const { isActive: _isActive, ...createInput } = input;
+    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...createInput, maxTables: MIN_MAX_TABLES } }));
   },
 
   async updatePlan(id, input) {

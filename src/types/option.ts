@@ -14,7 +14,7 @@ export type OptionItem = {
   displayOrder: number;
   /** Cờ kinh doanh cấp chuỗi (OW-04): tắt thì mọi chi nhánh không bán tuỳ chọn này. */
   isActive: boolean;
-  /** Tuỳ chọn mặc định (đặc tả 12.2). CHỜ BE: schema chưa có cột này (api-contract-plan.md mục 7 #15). `undefined` ở real (`capabilities.isDefault` = false). */
+  /** Tuỳ chọn mặc định (đặc tả 12.2). */
   isDefault?: boolean;
 };
 
@@ -41,7 +41,7 @@ export type OptionInput = {
   code: string;
   priceDelta: number;
   isActive: boolean;
-  /** Bỏ trống/`undefined` = không mặc định; real không gửi (BE chưa có, #15). */
+  /** Bỏ trống/`undefined` = không mặc định. */
   isDefault?: boolean;
 };
 

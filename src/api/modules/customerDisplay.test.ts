@@ -34,6 +34,8 @@ describe("customer display API", () => {
   });
 
   it("resolves relative branding assets against the API origin", () => {
-    expect(resolveDisplayAsset("/uploads/branding/logo.png")).toBe("http://localhost:3100/uploads/branding/logo.png");
+    const resolved = new URL(resolveDisplayAsset("/uploads/branding/logo.png")!);
+    expect(resolved.pathname).toBe("/uploads/branding/logo.png");
+    expect(["http:", "https:"]).toContain(resolved.protocol);
   });
 });

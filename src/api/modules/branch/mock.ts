@@ -1,6 +1,9 @@
 import type {
   ApiBranch,
   ApiBranchDetail,
+  ApiBranchArea,
+  ApiOperatingHour,
+  ApiSpecialHour,
   ApiBranchStatus,
   ApiChain,
   ApiPlan,
@@ -19,6 +22,10 @@ import type { BranchApi } from "./index";
 const created = new Map<string, ApiBranch[]>();
 const statusOverride = new Map<string, ApiBranchStatus>();
 const patched = new Map<string, Partial<ApiBranch>>();
+const archived = new Set<string>();
+const hoursByBranch = new Map<string, ApiOperatingHour[]>();
+const specialByBranch = new Map<string, ApiSpecialHour[]>();
+const areasByBranch = new Map<string, ApiBranchArea[]>();
 
 function chainIdsForScenario(): string[] {
   return [profileOf(getScenario().profile).chainId];
@@ -28,7 +35,7 @@ function branchesOfChain(chainId: string): ApiBranch[] {
   const profile = profileOf(getScenario().profile);
   const base = chainId === profile.chainId ? profile.branches.map((s, i) => toApiBranch(profile, s, i)) : [];
   const extra = created.get(`${profile.id}:${chainId}`) ?? [];
-  return [...base, ...extra].map((b) => ({
+  return [...base, ...extra].filter((b) => !archived.has(b.id)).map((b) => ({
     ...b,
     ...patched.get(b.id),
     status: statusOverride.get(b.id) ?? b.status,
@@ -104,9 +111,9 @@ export const branchMock: BranchApi = {
     await mockDelay();
     return {
       ...findBranch(branchId),
-      operatingHours: [1, 2, 3, 4, 5, 6, 0].map((d) => ({ dayOfWeek: d, openTime: "07:00", closeTime: "22:00" })),
-      specialHours: [],
-      areas: [],
+      operatingHours: await this.listOperatingHours(branchId),
+      specialHours: await this.listSpecialHours(branchId),
+      areas: await this.listAreas(branchId),
     };
   },
 
@@ -166,5 +173,72 @@ export const branchMock: BranchApi = {
     const current = findBranch(branchId);
     statusOverride.set(branchId, status);
     return { ...current, status };
+  },
+
+  async archiveBranch(branchId) {
+    await mockDelay();
+    findBranch(branchId);
+    archived.add(branchId);
+  },
+
+  async listOperatingHours(branchId) {
+    await mockDelay();
+    findBranch(branchId);
+    return hoursByBranch.get(branchId) ?? [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({ dayOfWeek, openTime: "07:00", closeTime: "22:00", isClosed: false }));
+  },
+
+  async saveOperatingHour(branchId, dayOfWeek, input) {
+    const current = await this.listOperatingHours(branchId);
+    const next = { dayOfWeek, isClosed: input.isClosed, openTime: input.isClosed ? null : input.openTime ?? null, closeTime: input.isClosed ? null : input.closeTime ?? null };
+    hoursByBranch.set(branchId, [...current.filter((h) => h.dayOfWeek !== dayOfWeek), next].sort((a, b) => a.dayOfWeek - b.dayOfWeek));
+    return next;
+  },
+
+  async listSpecialHours(branchId) {
+    await mockDelay();
+    findBranch(branchId);
+    return specialByBranch.get(branchId) ?? [];
+  },
+
+  async saveSpecialHour(branchId, date, input) {
+    const current = await this.listSpecialHours(branchId);
+    const next = { date, isClosed: input.isClosed, openTime: input.isClosed ? null : input.openTime ?? null, closeTime: input.isClosed ? null : input.closeTime ?? null, note: input.note ?? null };
+    specialByBranch.set(branchId, [...current.filter((h) => h.date.slice(0, 10) !== date), next]);
+    return next;
+  },
+
+  async deleteSpecialHour(branchId, date) {
+    specialByBranch.set(branchId, (await this.listSpecialHours(branchId)).filter((h) => h.date.slice(0, 10) !== date));
+  },
+
+  async listAreas(branchId) {
+    await mockDelay();
+    findBranch(branchId);
+    return areasByBranch.get(branchId) ?? [];
+  },
+
+  async createArea(branchId, input) {
+    const current = await this.listAreas(branchId);
+    const next: ApiBranchArea = { ...input, id: genId("mock-area"), branchId, status: "ACTIVE" };
+    areasByBranch.set(branchId, [...current, next]);
+    return next;
+  },
+
+  async updateArea(branchId, areaId, input) {
+    const current = await this.listAreas(branchId);
+    const found = current.find((area) => area.id === areaId);
+    if (!found) throw new ApiError(404, "Khu vực không tồn tại");
+    const next = { ...found, ...input };
+    areasByBranch.set(branchId, current.map((area) => area.id === areaId ? next : area));
+    return next;
+  },
+
+  async updateAreaStatus(branchId, areaId, status) {
+    const current = await this.listAreas(branchId);
+    const found = current.find((area) => area.id === areaId);
+    if (!found) throw new ApiError(404, "Khu vực không tồn tại");
+    const next = { ...found, status };
+    areasByBranch.set(branchId, current.map((area) => area.id === areaId ? next : area));
+    return next;
   },
 };
