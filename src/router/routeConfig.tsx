@@ -38,6 +38,7 @@ import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
 import AiAssistant from "../roles/owner/AiAssistant";
 import PayosLink from "../roles/owner/PayosLink";
+import MyPlan from "../roles/owner/MyPlan";
 import ManagerDashboard from "../roles/branch/ManagerDashboard";
 import BranchInfo from "../roles/branch/BranchInfo";
 import BranchMenu from "../roles/branch/BranchMenu";
@@ -104,7 +105,7 @@ export const ownerRoutes: RouteDef[] = [
     label: "Gói của tôi",
     icon: <ScrollText size={18} />,
     code: "OW-10",
-    element: placeholder("OW-10", "Xem gói dịch vụ và hạn mức"),
+    element: <MyPlan />,
   },
 ];
 
