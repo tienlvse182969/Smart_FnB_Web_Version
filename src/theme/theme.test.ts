@@ -92,6 +92,19 @@ describe("resolveBrand — hai họ màu tách biệt", () => {
     expect(resolveBrand({ branding: null, platformOnly: false, brandingEnabled: true })).toBe(PLATFORM_BRAND_TOKENS);
   });
 
+  it("CHỈ đổi tên (isCustom, lookCustom=false, quyết định 28) → áp tên hiển thị, màu và logo vẫn của nền tảng", () => {
+    const brand = resolveBrand({ branding: { ...custom, displayName: "  Quán Mới  ", logoUrl: undefined, lookCustom: false }, platformOnly: false, brandingEnabled: true });
+    expect(brand.displayName).toBe("Quán Mới");
+    expect(brand.primary).toBe(PLATFORM_BRAND_TOKENS.primary);
+    expect(brand.accent).toBe(PLATFORM_BRAND_TOKENS.accent);
+    expect(brand.logo).toBeUndefined();
+    expect(brand.custom).toBe(false);
+    // Admin / trang công khai vẫn không bị áp cả tên
+    expect(resolveBrand({ branding: { ...custom, lookCustom: false }, platformOnly: true, brandingEnabled: true })).toBe(PLATFORM_BRAND_TOKENS);
+    // lookCustom true hoặc không có → áp cả màu như trước
+    expect(resolveBrand({ branding: { ...custom, lookCustom: true }, platformOnly: false, brandingEnabled: true }).primary).toBe(custom.primaryColor);
+  });
+
   it("nhận diện nền tảng: primary đạt tương phản với primaryContrast", () => {
     expect(meetsWcagAA(PLATFORM_BRAND_TOKENS.primary, PLATFORM_BRAND_TOKENS.primaryContrast)).toBe(true);
   });

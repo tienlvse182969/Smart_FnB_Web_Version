@@ -21,12 +21,35 @@ if (!chrome) {
 }
 
 const port = process.env.CDP_PORT ?? "9333";
-const profile = mkdtempSync(join(tmpdir(), "fnb-chrome-"));
-const child = spawn(
-  chrome,
-  [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--headless=new", "--no-first-run", "--disable-gpu", "--window-size=1440,900", "about:blank"],
-  { stdio: "ignore" },
-);
-console.log(`Chrome (pid ${child.pid}) đang nghe CDP ở cổng ${port}. Ctrl+C để dừng.`);
-child.on("exit", () => process.exit(0));
-process.on("SIGINT", () => child.kill());
+// Trên một số máy Chrome headless đôi khi sập ngay lúc khởi động (log: "Network service crashed", thoát mã -1; gặp ở 2026-10-06, khoảng
+// một nửa số lần mở). Nên tự mở lại tới khi Chrome sống quá STABLE_MS; hết số lần thử thì mới thoát.
+const MAX_ATTEMPTS = Number(process.env.CHROME_ATTEMPTS ?? 12);
+const STABLE_MS = 6000;
+let child = null;
+let stopping = false;
+function launch(attempt) {
+  const profile = mkdtempSync(join(tmpdir(), "fnb-chrome-"));
+  const startedAt = Date.now();
+  child = spawn(
+    chrome,
+    // CHROME_ARGS: cờ thêm, cách nhau bằng dấu cách. Máy bị Chrome sập khởi động ổn định hơn với
+    // CHROME_ARGS="--no-sandbox --disable-gpu-sandbox --disable-software-rasterizer" (chỉ dùng cho Chrome kiểm thử mở trang dev cục bộ).
+    [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--headless=${process.env.CHROME_HEADLESS ?? "new"}`, "--no-first-run", "--disable-gpu", "--window-size=1440,900", ...(process.env.CHROME_ARGS?.split(" ").filter(Boolean) ?? []), "about:blank"],
+    { stdio: "ignore" },
+  );
+  console.log(`Chrome (pid ${child.pid}) đang nghe CDP ở cổng ${port} (lần mở ${attempt}). Ctrl+C để dừng.`);
+  child.on("exit", (code) => {
+    if (stopping) process.exit(0);
+    if (Date.now() - startedAt < STABLE_MS && attempt < MAX_ATTEMPTS) {
+      console.log(`Chrome sập khi khởi động (mã ${code}), mở lại…`);
+      setTimeout(() => launch(attempt + 1), 500);
+    } else {
+      process.exit(0);
+    }
+  });
+}
+launch(1);
+process.on("SIGINT", () => {
+  stopping = true;
+  child?.kill();
+});

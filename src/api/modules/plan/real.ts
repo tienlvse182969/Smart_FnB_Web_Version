@@ -35,8 +35,12 @@ export const planReal: PlanApi = {
       tier,
       // Tên gói thật nếu BE có; không thì tên của cấp.
       planName: realPlan?.name ?? PLAN_TIER_LABEL[tier],
-      status: base.status,
-      expiresAt: base.expiresAt,
+      // BE KHÔNG trả trạng thái và ngày hết hạn (#38): không lấy giá trị mock ở real (quyết định 36). Chỉ ô "Hết hạn" của panel dev
+      // (ghi đè tường minh, như `tier`) mới đổi `status` để thử chế độ chỉ đọc; ngày hết hạn luôn null.
+      status: getScenario().expired ? "expired" : null,
+      expiresAt: null,
+      // Chuỗi đã đọc được mà `subscription = null` (`branches.service.ts:203`: `getActivePlan` ném 403 khi hết hạn/tạm ngưng/chưa có, rồi `.catch(() => null)`).
+      noActivePlan: !!chain && chain.subscription === null,
       limits,
       features,
       // Hai cờ là thật khi BE trả; cờ AI vẫn suy từ mã nên cả khối ghi "real" chỉ khi có cờ BE.

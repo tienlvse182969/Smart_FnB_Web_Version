@@ -15,7 +15,9 @@ import {
 } from "../api";
 import { clearPersistedAccounts } from "../api/modules/account/persist";
 import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
+import { clearPersistedBranding } from "../api/modules/branding/persist";
 import { clearPersistedOptions } from "../api/modules/options/persist";
+import { clearPersistedPayos, isPayosErrorSimulated, setPayosErrorSimulated } from "../api/modules/payos/persist";
 import { createMockPairingCode } from "../api/modules/stations/pairingMock";
 import { useAppStore } from "../store";
 import { palette } from "../theme";
@@ -34,6 +36,7 @@ export default function MockPanel() {
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<MockFailureKind | "none">(mockControl.failure?.kind ?? "none");
   // Mã ghép giả: mô phỏng màn hình tự sinh mã 6 số (hết hạn sau 5 phút) để thử màn Quầy khi chưa có thiết bị thật.
+  const [payosError, setPayosError] = useState(isPayosErrorSimulated());
   const [pairKind, setPairKind] = useState<"CUSTOMER_DISPLAY" | "CALLING_DISPLAY">("CUSTOMER_DISPLAY");
   const [pairCode, setPairCode] = useState<{ code: string; expiresAt: string; expired: boolean } | null>(null);
 
@@ -109,6 +112,18 @@ export default function MockPanel() {
             />
             Hết hạn (chỉ đọc)
           </label>
+          <label style={{ ...field, gridAutoFlow: "column", justifyContent: "start", alignItems: "center", gap: 6 }}>
+            <input
+              data-testid="mock-payos-error"
+              type="checkbox"
+              checked={payosError}
+              onChange={(e) => {
+                setPayosError(e.target.checked);
+                setPayosErrorSimulated(e.target.checked);
+              }}
+            />
+            PayOS: giả lập trạng thái Lỗi (cần tải lại màn)
+          </label>
           <label style={field}>
             Lỗi giả lập (mọi lời gọi mock)
             <select
@@ -172,6 +187,8 @@ export default function MockPanel() {
               clearPersistedOptions();
               clearPersistedBranchOptions();
               clearPersistedAccounts();
+              clearPersistedBranding();
+              clearPersistedPayos();
               window.location.reload();
             }}
           >

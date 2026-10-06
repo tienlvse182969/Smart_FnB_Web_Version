@@ -44,6 +44,9 @@ describe("400 validate theo từng ô", () => {
       ["categoryId must be a UUID", "Danh mục không hợp lệ"],
       ["printerConnection must be one of the following values: NONE, WIFI, BLUETOOTH", "Kiểu kết nối máy in chọn giá trị không hợp lệ"],
       ["openTime must match /^\\d{2}:\\d{2}$/ regular expression", "Giờ mở cửa sai định dạng"],
+      ["primaryColor must be a hexadecimal color", "Màu chủ đạo không phải mã màu hợp lệ"],
+      ["displayName must be shorter than or equal to 150 characters", "Tên hiển thị tối đa 150 ký tự"],
+      ["logoUrl must be a URL address", "Logo (URL) không phải địa chỉ URL hợp lệ"],
     ];
     for (const [raw, vi] of cases) expect(translateValidationMessage(raw).text, raw).toBe(vi);
   });

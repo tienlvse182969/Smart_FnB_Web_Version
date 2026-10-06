@@ -13,6 +13,7 @@ import {
   planApi,
   setSessionExpiredHandler,
 } from "../../api";
+import { applyChainName } from "../../api/modules/branding/mapper";
 import { broadcast } from "../broadcast";
 import { toUiBranch } from "../branchMapping";
 import type { AppState, ScopeStatus, SliceCreator } from "../types";
@@ -54,6 +55,7 @@ function emptySession(): Partial<AppState> {
   return {
     currentUser: null,
     tenantBranding: null,
+    brandingFetchedAt: 0,
     scopeStatus: "idle",
     scopeError: null,
     chainId: null,
@@ -107,7 +109,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
           // Chỉ áp lại theme cho tab của ĐÚNG doanh nghiệp vừa đổi nhận diện.
           if (chainId && currentUser?.tenantId === msg.tenantId) {
             brandingApi.getBranding(chainId).then((branding) => {
-              set({ tenantBranding: branding });
+              set({ tenantBranding: applyChainName(branding, get().chainName), brandingFetchedAt: Date.now() });
             });
           }
         }
@@ -143,6 +145,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
         chainName: null,
         plan: null,
         tenantBranding: null,
+        brandingFetchedAt: 0,
         apiBranches: [],
         branches: [],
         currentBranchId: null,
@@ -201,7 +204,9 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       ]);
 
       set({
-        tenantBranding,
+        // Tên chuỗi (`chainName`) cần cho phần "tên hiển thị khác tên chuỗi" của isCustom (quyết định 28).
+        tenantBranding: applyChainName(tenantBranding, chainName),
+        brandingFetchedAt: Date.now(),
         plan,
         scopeStatus: "ready",
         scopeError: null,
