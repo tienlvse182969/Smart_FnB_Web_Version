@@ -16,7 +16,7 @@ export function loadPersistedBranding(chainId: string): Branding | null {
     if (!raw) return null;
     const data = JSON.parse(raw) as Partial<Branding>;
     if (!data || typeof data.primaryColor !== "string" || typeof data.accentColor !== "string" || typeof data.displayName !== "string") return null;
-    return { tenantId: chainId, displayName: data.displayName, logoUrl: data.logoUrl, primaryColor: data.primaryColor, accentColor: data.accentColor, isCustom: data.isCustom === true };
+    return { tenantId: chainId, displayName: data.displayName, logoUrl: data.logoUrl, primaryColor: data.primaryColor, accentColor: data.accentColor, isCustom: data.isCustom === true, ...(typeof data.lookCustom === "boolean" && { lookCustom: data.lookCustom }) };
   } catch {
     return null;
   }

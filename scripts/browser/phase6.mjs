@@ -218,6 +218,48 @@ try {
     await sleep(1000);
     check("F5 sau khôi phục: vẫn mặc định (không hiện lại bản cũ)", lower(await brandVar()) === PLATFORM_PRIMARY && /theme mặc định/.test(await statusText()));
 
+    // CHỈ đổi tên (quyết định 28): áp tên ngay, màu vẫn của nền tảng
+    await setName("Quán Chỉ Tên");
+    await clickTid("branding-save");
+    await waitToast("Đã lưu nhận diện");
+    await sleep(700);
+    const siderText = await q(`document.querySelector(".ant-layout-sider")?.innerText ?? ""`);
+    check("Chỉ đổi tên: tên mới áp ngay trên thanh bên, màu chủ đạo VẪN của nền tảng, trạng thái 'nhận diện riêng'", siderText.includes("Quán Chỉ Tên") && lower(await brandVar()) === PLATFORM_PRIMARY && /nhận diện riêng/.test(await statusText()), `${(await brandVar())} | ${siderText.slice(0, 60).replace(/\s+/g, " ")}`);
+
+    // Nạp lại khi điều hướng (quyết định 29): Manager ở tab KHÁC thấy nhận diện Owner vừa lưu khi chuyển trang. Đồng hồ của tab Manager được
+    // đẩy lên 61 giây (ghi đè Date.now trong trang) để vượt khoảng 60 giây mà không phải chờ; chặn 60 giây/lỗi im lặng đã có test đơn vị.
+    const tabB = await newTab("about:blank", "mock");
+    try {
+      await tabB.goto("/login");
+      await tabB.login("manager");
+      await tabB.waitFor(`location.pathname.startsWith("/manager")`, 20000, "Manager vào được");
+      await tabB.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell Manager");
+      await sleep(900);
+      const mgrBefore = await tabB.cssVar("--brand-primary");
+      const mgrSider = await tabB.eval(`document.querySelector(".ant-layout-sider")?.innerText ?? ""`);
+      check("Manager (tab khác) đăng nhập: thấy tên chỉ-đổi-tên của Owner, màu vẫn của nền tảng", lower(mgrBefore) === PLATFORM_PRIMARY && mgrSider.includes("Quán Chỉ Tên"), `${mgrBefore}`);
+      // Tab Owner không phát BroadcastChannel nữa: giả lập Manager ở MÁY KHÁC (không có kênh liên tab), chỉ học được qua nạp lại khi điều hướng.
+      await q(`BroadcastChannel.prototype.postMessage = () => {}`);
+      await clickPreset(6);
+      await clickTid("branding-save");
+      await waitToast("Đã lưu nhận diện");
+      await sleep(600);
+      const blue = await presetColor(6);
+      await sleep(800);
+      check("Trước khi điều hướng: Manager chưa đổi màu (chưa nạp lại)", lower(await tabB.cssVar("--brand-primary")) === PLATFORM_PRIMARY);
+      await tabB.eval(`(() => { const real = Date.now; Date.now = () => real() + 61000; })()`);
+      await tabB.eval(`(() => { history.pushState({}, "", "/manager/staff"); dispatchEvent(new PopStateEvent("popstate")); })()`);
+      await sleep(1800);
+      check("Manager chuyển trang sau khi Owner lưu (quá 60 giây): thấy màu nhận diện mới, không có thông báo lỗi", lower(await tabB.cssVar("--brand-primary")) === lower(blue) && !/lỗi|sự cố/i.test(await tabB.eval(`[...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map((e) => e.textContent).join(" | ")`)), `${await tabB.cssVar("--brand-primary")} (mong ${blue})`);
+    } finally {
+      await closeTab(tabB);
+    }
+    await freshLoginKeepStorage("owner");
+    await tab.scenario({ profile: "A", tier: "STANDARD" });
+    await spaGo("/owner/branding");
+    await tab.waitFor(`document.querySelector('[data-testid="branding-save"]')`, 15000, "màn Nhận diện");
+    await sleep(500);
+
     // Gói Cơ bản: khoá toàn bộ
     await tab.scenario({ profile: "A", tier: "BASIC" });
     await sleep(900);

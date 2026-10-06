@@ -36,7 +36,8 @@ export function absoluteLogoUrl(logoUrl: string | null | undefined, origin: stri
 }
 
 export function mapBranding(raw: RawBranding, origin?: string): Branding {
-  const isCustom =
+  // Mới biết phần "giao diện" (màu, logo); phần tên cần tên chuỗi nên do `applyChainName` bổ sung (quyết định 28).
+  const lookCustom =
     !!raw.logoUrl ||
     !same(raw.primaryColor, BE_DEFAULT_BRANDING.primaryColor) ||
     !same(raw.secondaryColor ?? BE_DEFAULT_BRANDING.secondaryColor, BE_DEFAULT_BRANDING.secondaryColor) ||
@@ -47,6 +48,19 @@ export function mapBranding(raw: RawBranding, origin?: string): Branding {
     logoUrl: absoluteLogoUrl(raw.logoUrl, origin),
     primaryColor: raw.primaryColor,
     accentColor: raw.accentColor,
-    isCustom,
+    isCustom: lookCustom,
+    lookCustom,
   };
+}
+
+/**
+ * Quyết định 28: nhận diện đã tuỳ biến = màu khác mặc định BE HOẶC có logo HOẶC tên hiển thị (đã trim) khác tên chuỗi.
+ * Tên chuỗi lấy từ dữ liệu khu vực đã nạp (`chainName` ở `store/slices/auth.ts` `loadScope`, từ `GET /restaurant-chains` hoặc chi nhánh);
+ * chưa biết tên chuỗi (null) thì không xét phần tên. BE không trả `isCustom` (#39).
+ */
+export function applyChainName(branding: Branding | null, chainName: string | null | undefined): Branding | null {
+  if (!branding) return branding;
+  const lookCustom = branding.lookCustom ?? branding.isCustom;
+  const nameCustom = !!chainName && branding.displayName.trim() !== "" && branding.displayName.trim() !== chainName.trim();
+  return { ...branding, lookCustom, isCustom: lookCustom || nameCustom };
 }

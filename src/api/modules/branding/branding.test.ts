@@ -4,7 +4,7 @@ import { mockControl } from "../../mock/control";
 import { setScenario } from "../../mock/scenario";
 import { branchMock } from "../branch/mock";
 import { BE_DEFAULT_BRANDING, BRAND_COLOR_PRESETS } from "../../../theme";
-import { absoluteLogoUrl, mapBranding, serverOrigin, type RawBranding } from "./mapper";
+import { absoluteLogoUrl, applyChainName, mapBranding, serverOrigin, type RawBranding } from "./mapper";
 import { resetMockStates } from "../../mock/store";
 import { brandingMock } from "./mock";
 import { BRANDING_STORAGE_PREFIX, clearPersistedBranding } from "./persist";
@@ -65,9 +65,40 @@ describe("mapper nhận diện (branding.service.ts:21-25, 114)", () => {
 
   it("whitelist: chỉ giữ trường web cần", () => {
     const b = mapBranding({ ...raw({ logoUrl: "/uploads/branding/a.png" }), id: "x", createdAt: "y" } as RawBranding, "http://localhost:3100");
-    expect(Object.keys(b).sort()).toEqual(["accentColor", "displayName", "isCustom", "logoUrl", "primaryColor", "tenantId"]);
+    expect(Object.keys(b).sort()).toEqual(["accentColor", "displayName", "isCustom", "logoUrl", "lookCustom", "primaryColor", "tenantId"]);
     expect(b.logoUrl).toBe("http://localhost:3100/uploads/branding/a.png");
     expect(b.tenantId).toBe("c1");
+  });
+});
+
+describe("applyChainName — isCustom gồm cả tên hiển thị (quyết định 28)", () => {
+  const base = () => mapBranding(raw({ displayName: "Chuỗi Demo" })); // mặc định BE, tên = tên chuỗi
+
+  it("CHỈ đổi tên (màu, logo mặc định) → isCustom true nhưng lookCustom false", () => {
+    const b = applyChainName(mapBranding(raw({ displayName: "Quán Mới" })), "Chuỗi Demo");
+    expect(b).toMatchObject({ isCustom: true, lookCustom: false, displayName: "Quán Mới" });
+  });
+
+  it("tên trùng tên chuỗi sau khi trim → không tuỳ biến; tên rỗng cũng không", () => {
+    expect(applyChainName(mapBranding(raw({ displayName: "  Chuỗi Demo " })), "Chuỗi Demo")?.isCustom).toBe(false);
+    expect(applyChainName(mapBranding(raw({ displayName: "Chuỗi Demo" })), " Chuỗi Demo  ")?.isCustom).toBe(false);
+    expect(applyChainName(mapBranding(raw({ displayName: "   " })), "Chuỗi Demo")?.isCustom).toBe(false);
+    expect(applyChainName(base(), "Chuỗi Demo")?.lookCustom).toBe(false);
+  });
+
+  it("chưa biết tên chuỗi (null/undefined) → không xét phần tên", () => {
+    expect(applyChainName(mapBranding(raw({ displayName: "Quán Mới" })), null)?.isCustom).toBe(false);
+    expect(applyChainName(mapBranding(raw({ displayName: "Quán Mới" })), undefined)?.isCustom).toBe(false);
+  });
+
+  it("màu hoặc logo khác mặc định → lookCustom true (áp cả màu), dù tên trùng", () => {
+    expect(applyChainName(mapBranding(raw({ primaryColor: RED })), "Chuỗi Demo")).toMatchObject({ isCustom: true, lookCustom: true });
+    expect(applyChainName(mapBranding(raw({ logoUrl: "/uploads/branding/a.png" })), "Chuỗi Demo")).toMatchObject({ isCustom: true, lookCustom: true });
+  });
+
+  it("bản mock/bản lưu cũ không có lookCustom → coi bằng isCustom; null giữ nguyên", () => {
+    expect(applyChainName({ tenantId: "c", displayName: "A", primaryColor: BLUE, accentColor: GREEN, isCustom: true }, "A")).toMatchObject({ isCustom: true, lookCustom: true });
+    expect(applyChainName(null, "A")).toBeNull();
   });
 });
 

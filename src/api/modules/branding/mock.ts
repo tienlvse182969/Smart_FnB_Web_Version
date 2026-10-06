@@ -1,5 +1,5 @@
 import type { Branding } from "../../../types";
-import { createDefaultBranding } from "../../../theme";
+import { PLATFORM_BRAND, createDefaultBranding } from "../../../theme";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockFeature, assertMockWritable } from "../../mock/guards";
@@ -9,8 +9,7 @@ import type { BrandingApi } from "./index";
 import { loadPersistedBranding, savePersistedBranding } from "./persist";
 import { validateBrandingFields } from "./validate";
 
-/** ChainState đã thử nạp nhận diện từ localStorage (gắn theo đối tượng: `resetMockStates` tạo ChainState mới thì nạp lại, như tải lại trang). */
-const loadedFromStorage = new WeakSet<object>();
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** Mock giữ logo dạng data URL (không có máy chủ lưu tệp). */
 const readAsDataUrl = (file: File): Promise<string> =>
@@ -29,12 +28,10 @@ export const brandingMock: BrandingApi = {
     if (!mockPlanBase().features.branding.enabled) {
       return createDefaultBranding(chainId, state.profile.name);
     }
-    // Nhận diện đã lưu qua F5 (chỉ khi cờ branding = mock): nạp một lần vào ChainState rồi dùng bản trong bộ nhớ.
-    if (!loadedFromStorage.has(state)) {
-      loadedFromStorage.add(state);
-      const saved = loadPersistedBranding(chainId);
-      if (saved) state.branding = saved;
-    }
+    // Nhận diện đã lưu (chỉ khi cờ branding = mock) là "máy chủ" của mock: đọc lại từ localStorage MỖI lần, nên một tab khác của cùng trình duyệt
+    // lưu xong thì tab này thấy ở lần nạp kế tiếp (như BE thật), và nó sống qua F5.
+    const saved = loadPersistedBranding(chainId);
+    if (saved) state.branding = saved;
     return { ...state.branding };
   },
 
@@ -53,6 +50,8 @@ export const brandingMock: BrandingApi = {
       isCustom: true,
     };
     if (input.logoFile) next.logoUrl = await readAsDataUrl(input.logoFile);
+    // Như real (`mapBranding`): phần "giao diện" tuỳ biến = có logo hoặc màu khác mặc định nền tảng; chỉ đổi tên thì lookCustom = false.
+    next.lookCustom = !!next.logoUrl || !same(next.primaryColor, PLATFORM_BRAND.primary) || !same(next.accentColor, PLATFORM_BRAND.accent);
     state.branding = next;
     savePersistedBranding(chainId, next);
     return { ...next };

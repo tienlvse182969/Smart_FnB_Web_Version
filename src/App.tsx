@@ -22,6 +22,13 @@ export default function App() {
     bootstrap();
   }, [bootstrap]);
 
+  // Điều hướng sang route khác: nạp lại nhận diện (tối đa 1 lần mỗi 60 giây, lỗi im lặng, Admin và trang công khai không nạp) để Manager và
+  // các tài khoản khác thấy nhận diện Owner vừa đổi mà không cần đăng nhập lại (quyết định 29).
+  const refreshBrandingOnNavigate = useAppStore((s) => s.refreshBrandingOnNavigate);
+  useEffect(() => {
+    void refreshBrandingOnNavigate(pathname);
+  }, [pathname, refreshBrandingOnNavigate]);
+
   // Chưa đăng nhập (trang đăng nhập, landing), Platform Admin và các trang công khai (/setup-password) luôn dùng nhận diện
   // nền tảng (CC-04, BR-44); không tenant nào áp màu lên được.
   const brand = useMemo(
