@@ -16,10 +16,13 @@ export interface MockScenario {
 const KEY = "fnb.mock.scenario";
 const DEFAULT: MockScenario = { profile: "A", tier: null, expired: false };
 
-let current: MockScenario = load();
+let current: MockScenario = loadScenario();
 const listeners = new Set<() => void>();
 
-function load(): MockScenario {
+/** Đọc kịch bản đã lưu — chỉ ở dev; production luôn trả mặc định (quyết định 47). */
+export function loadScenario(): MockScenario {
+  // `import.meta.env.DEV` viết thẳng tại chỗ để bản build bỏ hẳn nhánh đọc storage (quyết định 47).
+  if (!import.meta.env.DEV) return { ...DEFAULT };
   try {
     const raw = localStorage.getItem(KEY);
     return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<MockScenario>) } : { ...DEFAULT };
@@ -34,10 +37,12 @@ export function getScenario(): MockScenario {
 
 export function setScenario(patch: Partial<MockScenario>): void {
   current = { ...current, ...patch };
-  try {
-    localStorage.setItem(KEY, JSON.stringify(current));
-  } catch {
-    // ignore
+  if (import.meta.env.DEV) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(current));
+    } catch {
+      // ignore
+    }
   }
   listeners.forEach((fn) => fn());
 }

@@ -39,6 +39,7 @@ export function savePersistedPayos(chainId: string, value: PersistedPayos | null
 }
 
 export function isPayosErrorSimulated(): boolean {
+  if (!import.meta.env.DEV) return false; // production bỏ qua cờ giả lập (quyết định 47)
   try {
     return localStorage.getItem(PAYOS_ERROR_FLAG_KEY) === "1";
   } catch {
@@ -47,6 +48,7 @@ export function isPayosErrorSimulated(): boolean {
 }
 
 export function setPayosErrorSimulated(on: boolean): void {
+  if (!import.meta.env.DEV) return;
   try {
     if (on) localStorage.setItem(PAYOS_ERROR_FLAG_KEY, "1");
     else localStorage.removeItem(PAYOS_ERROR_FLAG_KEY);
