@@ -404,6 +404,10 @@ try {
       await sleep(300);
     };
     const payosStatus = () => q(`${tid("payos-status")}?.innerText ?? ""`);
+    const planTextOf = (id) => q(`${tid(id)}?.innerText ?? ""`);
+    // Phản hồi BE `de4f55c` (payos-channel.service.ts:29-45, dto/payos-channel.dto.ts:22-41): kênh đã liên kết / bị PayOS từ chối khi tạo QR.
+    const BE_LINKED = { configured: true, id: "00000000-0000-0000-0000-000000000000", status: "LINKED", clientIdLast4: "03eb", apiKeyLast4: "1f86", lastError: null, lastVerifiedAt: "2026-10-06T07:30:00.000Z", createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-06T07:30:00.000Z" };
+    const BE_ERROR = { ...BE_LINKED, status: "ERROR", lastError: "Invalid signature from PayOS (lastError thô, KHÔNG được hiện)" };
     const waitStatus = async (re, ms = 6000) => {
       for (let i = 0; i < ms / 100; i++) {
         const t = await payosStatus();
@@ -458,7 +462,10 @@ try {
       check("Mock · Lưu: 'Đang kiểm tra' chớp qua rồi 'Đã liên kết'", sawVerifying && /Đã liên kết/.test(linkedText), `thấy Đang kiểm tra=${sawVerifying}; cuối=${linkedText}`);
       const vals = await Promise.all(KEY_IDS.map(keyVal));
       check("Mock · Sau khi lưu thành công: 3 ô khoá TRỐNG; hiện ngày liên kết/cập nhật; có nút Gỡ liên kết", vals.every((v) => v === "") && (await has("payos-dates")) && (await has("payos-unlink")), J(vals.map((v) => v.length)));
+      const maskTexts = [await planTextOf("payos-mask-clientId"), await planTextOf("payos-mask-apiKey"), await planTextOf("payos-verified")];
+      check("Mock · Đã liên kết: khoá che 'Client ID ••••that', 'API key ••••that' (không có checksum key) và 'Xác minh gần nhất: dd/MM/yyyy HH:mm'", maskTexts[0] === "Client ID ••••that" && maskTexts[1] === "API key ••••that" && !(await has("payos-mask-checksumKey")) && /^Xác minh gần nhất: \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(maskTexts[2]), J(maskTexts));
       check("Mock · Quét localStorage/sessionStorage: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
+      check("Mock · Khoá lưu ở storage chỉ là 4 ký tự cuối (clientIdLast4/apiKeyLast4 ≤ 4 ký tự), không có checksum", await q(`(() => { const k = Object.keys(localStorage).find((x) => x.startsWith("smartfnb:mock:payos:v1:")); if (!k) return false; const d = JSON.parse(localStorage.getItem(k)); return d.clientIdLast4.length <= 4 && d.apiKeyLast4.length <= 4 && !("checksumKey" in d) && !/checksum/i.test(JSON.stringify(d)); })()`));
 
       // F5 giữ trạng thái
       await tab.goto("/owner/payos");
@@ -473,6 +480,13 @@ try {
       check("Mock · Cập nhật khoá: nhập thiếu → chặn (phải nhập lại đủ 3), vẫn Đã liên kết", (await has("payos-apiKey-error")) && (await has("payos-checksumKey-error")) && /Đã liên kết/.test(await payosStatus()));
       await fillAll();
       await clickTid("payos-save");
+      // Đang kiểm tra khoá nút Lưu và Gỡ (quyết định 51): đọc ngay lúc thấy trạng thái "Đang kiểm tra".
+      let lockWhileVerifying = null;
+      for (let i = 0; i < 40 && lockWhileVerifying === null; i++) {
+        if (/Đang kiểm tra/.test(await payosStatus())) lockWhileVerifying = await q(`({ unlink: ${tid("payos-unlink")}?.disabled === true, saveLoading: /loading/.test(${tid("payos-save")}?.className ?? "") })`);
+        else await sleep(30);
+      }
+      check("Mock · Đang kiểm tra: nút Gỡ liên kết khoá và nút Lưu ở trạng thái đang tải (không gửi hai lần)", !!lockWhileVerifying && lockWhileVerifying.unlink && lockWhileVerifying.saveLoading, J(lockWhileVerifying));
       await waitToast("Đã cập nhật khoá PayOS");
       check("Mock · Cập nhật đủ 3 khoá: báo 'Đã cập nhật khoá PayOS', ô trống lại", (await Promise.all(KEY_IDS.map(keyVal))).every((v) => v === "") && /Đã liên kết/.test(await payosStatus()));
       await dismissAll();
@@ -494,7 +508,7 @@ try {
       await tab.openMockPanel();
       await tab.setCheckbox("mock-payos-error", true);
       await gotoPayos();
-      check("Mock · Panel giả lập Lỗi: trạng thái 'Lỗi' + nhắc nhập lại đủ 3 khoá", /^Lỗi$/.test((await payosStatus()).trim()) && /Nhập lại đủ 3 khoá để liên kết lại/.test(await q(`document.body.innerText`)), await payosStatus());
+      check("Mock · Panel giả lập Lỗi: trạng thái 'Lỗi' + câu 'PayOS từ chối khi tạo QR gần nhất. Kiểm tra lại khoá và lưu lại.' (không có tiếng Anh thô)", /^Lỗi$/.test((await payosStatus()).trim()) && (await planTextOf("payos-error-note")) === "PayOS từ chối khi tạo QR gần nhất. Kiểm tra lại khoá và lưu lại." && !/Invalid|signature|lastError|rejected/i.test(await q(`document.body.innerText`)), `${await payosStatus()} | ${await planTextOf("payos-error-note")}`);
       await tab.setCheckbox("mock-payos-error", false);
       await gotoPayos();
       check("Mock · Tắt giả lập Lỗi: về 'Đã liên kết'", /Đã liên kết/.test(await payosStatus()));
@@ -543,7 +557,8 @@ try {
 
       // gỡ liên kết thật cần BE đã liên kết; nếu BE chưa liên kết, dùng trả lời giả (fulfillWrites) để UI sang 'Đã liên kết' mà request vẫn không tới BE
       tab.caseName = "payos: Lưu rồi Gỡ (trả lời giả)";
-      tab.fulfillBody = J({ configured: true, id: "00000000-0000-0000-0000-000000000000", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" });
+      // TRẢ LỜI GIẢ #1 (fulfillWrites): PUT nhận phản hồi đúng dạng BE `de4f55c` (LINKED, 4 ký tự cuối, lastVerifiedAt); request KHÔNG tới BE.
+      tab.fulfillBody = J(BE_LINKED);
       tab.fulfillWrites = true;
       w = await writesOf(async () => {
         await fillAll();
@@ -552,6 +567,8 @@ try {
       }, 600);
       const afterSave = { status: await payosStatus(), vals: await Promise.all(KEY_IDS.map(keyVal)) };
       check("Real · (trả lời giả) Lưu thành công: 'Đã liên kết', 3 ô khoá TRỐNG", /Đã liên kết/.test(afterSave.status) && afterSave.vals.every((v) => v === ""), J({ status: afterSave.status, lens: afterSave.vals.map((v) => v.length) }));
+      const realMasks = [await planTextOf("payos-mask-clientId"), await planTextOf("payos-mask-apiKey"), await planTextOf("payos-verified")];
+      check("Real · (trả lời giả) Khoá che từ phản hồi BE: 'Client ID ••••03eb', 'API key ••••1f86', 'Xác minh gần nhất: 06/10/2026 14:30' (07:30 UTC = giờ Việt Nam)", realMasks[0] === "Client ID ••••03eb" && realMasks[1] === "API key ••••1f86" && realMasks[2] === "Xác minh gần nhất: 06/10/2026 14:30", J(realMasks));
       tab.fulfillBody = J({ configured: false });
       w = await writesOf(async () => {
         await clickTid("payos-unlink");
@@ -564,6 +581,20 @@ try {
       check("Real · Ghi: Gỡ liên kết (sau xác nhận) → đúng 1 DELETE /payos-channel, không body", w.length === 1 && w[0].method === "DELETE" && w[0].rawPath === base && !w[0].raw, J(w.map((x) => ({ m: x.method, p: x.path }))));
       check("Real · Sau gỡ (trả lời giả): 'Chưa liên kết'", /Chưa liên kết/.test(await payosStatus()), await payosStatus());
       await dismissAll();
+
+      // TRẢ LỜI GIẢ #2 (readOverride, chỉ cho GET payos-channel; không tới BE): hiển thị Đã liên kết và Lỗi theo phản hồi đúng dạng BE.
+      tab.caseName = "payos: hiển thị theo phản hồi BE (readOverride)";
+      tab.readOverride = { match: /\/payos-channel$/, body: J(BE_LINKED) };
+      await gotoPayos();
+      const viewLinked = { status: await payosStatus(), client: await planTextOf("payos-mask-clientId"), api: await planTextOf("payos-mask-apiKey"), verified: await planTextOf("payos-verified"), note: await has("payos-error-note") };
+      check("Real · (trả lời giả GET) LINKED: 'Đã liên kết', khoá che ••••03eb/••••1f86, thời điểm xác minh, không có câu lỗi", /Đã liên kết/.test(viewLinked.status) && viewLinked.client === "Client ID ••••03eb" && viewLinked.api === "API key ••••1f86" && viewLinked.verified === "Xác minh gần nhất: 06/10/2026 14:30" && !viewLinked.note, J(viewLinked));
+      tab.readOverride = { match: /\/payos-channel$/, body: J(BE_ERROR) };
+      await gotoPayos();
+      const viewError = { status: (await payosStatus()).trim(), note: await planTextOf("payos-error-note"), page: await q(`document.body.innerText`) };
+      check("Real · (trả lời giả GET) ERROR: 'Lỗi' + câu 'PayOS từ chối khi tạo QR gần nhất. Kiểm tra lại khoá và lưu lại.', KHÔNG hiện nguyên văn lastError của PayOS", viewError.status === "Lỗi" && viewError.note === "PayOS từ chối khi tạo QR gần nhất. Kiểm tra lại khoá và lưu lại." && !/Invalid signature|lastError|thô/.test(viewError.page), J({ status: viewError.status, note: viewError.note }));
+      tab.readOverride = null;
+      await gotoPayos();
+      check("Real · Bỏ trả lời giả: lại 'Chưa liên kết' đúng trạng thái BE", /Chưa liên kết/.test(await payosStatus()), await payosStatus());
 
       check("Real · Quét localStorage/sessionStorage: không có khoá giả", (await storageHits()).length === 0, J(await storageHits()));
       const after = await readBe();

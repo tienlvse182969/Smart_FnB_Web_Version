@@ -97,7 +97,7 @@ class Tab {
   }
   /**
    * Giả lập lỗi cho module real (5.8a), TÁCH khỏi blockWrites nhưng dùng chung hàng đợi Fetch (gọi blockWrites trước).
-   * `fault = { kind: "500"|"503"|"403"|"network"|"401", match: RegExp, times?: number, refresh?: "fail" }`:
+   * `fault = { kind: "500"|"503"|"502"|"422"|"403"|"network"|"401" (+400/409 kèm body), match: RegExp, times?: number, refresh?: "fail" }`:
    *   - request ĐỌC (GET) có đường dẫn khớp `match` bị trả lỗi giả (Fetch.fulfillRequest) hoặc bị ngắt (network);
    *   - MỌI request ghi (trừ đăng nhập/làm mới/đăng xuất) cũng nhận lỗi giả và KHÔNG bao giờ tới BE (vẫn ghi vào blockedWrites);
    *   - `times` = chỉ giả lập N request đọc đầu rồi cho đi tiếp (ca 401: refresh thật chạy rồi request được gọi lại);
@@ -120,6 +120,9 @@ class Tab {
       500: { statusCode: 500, message: "Internal server error" },
       // 503: body do script truyền (`fault.body`), ví dụ { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" } như BE khi thiếu khoá mã hoá.
       503: fault?.body ?? { statusCode: 503, message: "Service Unavailable" },
+      // 422/502: body do script truyền, ví dụ BE `de4f55c` khi PayOS từ chối bộ khoá (422) hoặc tạm lỗi (502) lúc `PUT payos-channel`.
+      422: fault?.body ?? { statusCode: 422, message: "Unprocessable Entity", error: "Unprocessable Entity" },
+      502: fault?.body ?? { statusCode: 502, message: "Bad Gateway", error: "Bad Gateway" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
       401: { statusCode: 401, message: "Unauthorized" },
       // 409: body do script truyền (`fault.body`), ví dụ `PLAN_LIMIT_REACHED` kèm quota và gói gợi ý như BE.

@@ -204,7 +204,13 @@ const screens = [
   // (PUT …/payos-channel). Chỉ nhận lỗi giả, không bao giờ tới BE, khoá giả không phải khoá thật. Thêm ca 503 như BE khi thiếu PAYOS_MASTER_KEY.
   { id: "owner/payos", ownRetry: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
     loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
-    extraWriteKinds: [{ kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." }],
+    extraWriteKinds: [
+      { kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." },
+      // BE `de4f55c`: xác minh với PayOS khi lưu (payos-channel.service.ts:74): 422 PayOS từ chối (câu thô của PayOS), 502 PayOS tạm lỗi, 503 thiếu PAYOS_WEBHOOK_BASE_URL (:67-70). Quyết định 50.
+      { kind: "422", body: { statusCode: 422, message: "Invalid webhook url (câu thô của PayOS)", error: "Unprocessable Entity" }, expect: "PayOS không chấp nhận bộ khoá này. Kiểm tra lại Client ID, API key và Checksum key." },
+      { kind: "502", body: { statusCode: 502, message: "PayOS is temporarily unavailable", error: "Bad Gateway" }, expect: "Không kết nối được PayOS lúc này. Vui lòng thử lại sau ít phút." },
+      { kind: "503", body: { statusCode: 503, message: "PAYOS_WEBHOOK_BASE_URL is not configured" }, expect: "Máy chủ chưa sẵn sàng liên kết PayOS (thiếu địa chỉ nhận thông báo). Vui lòng liên hệ quản trị hệ thống." },
+    ],
     write: async () => {
       const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
       if (!(await setKey("payos-clientId", "test-client-id-khong-that"))) return { skipped: "không thấy ô khoá PayOS" };
