@@ -369,6 +369,13 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 57 | Lượt 6.11 đóng GĐ6 |
 | 58 | Ngày liên quan gói (`expiresAt`, banner chỉ đọc) hiển thị theo giờ Việt Nam bằng `formatDateVN`, như lượt 6.11 đã làm. Giá trị seed `2099-12-31T23:59:59.999Z` hiện 01/01/2100 là chấp nhận được (chỉ là dữ liệu seed: BE gia hạn bằng `addMonths` giữ nguyên giờ, không ép cuối ngày UTC, `platform-admin.service.ts:735-744`). Quyết định 56 giữ nguyên: không làm cảnh báo sắp hết hạn trong ứng dụng |
 | 59 | GĐ7 làm trên nhánh `feat/v9-orders` tách từ `feat/v9-owner` tại `878b382`, xếp chồng (PR sau PR GĐ6) |
+| 60 | Dữ liệu GĐ7: agent tạo đơn tiền mặt trên BE local qua API thu ngân/pha chế bằng `scripts/data/create-demo-orders.mjs` (chặn cứng chỉ chạy với localhost), sao lưu DB trước. Đơn QR/PayOS không tạo được khi BE local chưa có khoá PayOS → kiểm bằng mock và `readOverride`. #35 vẫn giữ để BE seed khi rảnh |
+| 61 | Danh sách đơn Manager luôn gửi `type=COUNTER_PICKUP` (đơn `DINE_IN` là dữ liệu v7, v9 bỏ bàn). Báo cáo: web không tự lọc lại số liệu `/manager/reports`; chỗ BE lẫn đơn v7 ghi ở #47 |
+| 62 | Xác nhận thủ công (BM-05): nút chỉ hiện cho thanh toán QR/chuyển khoản đang chờ (và "Lệch số tiền" khi BE có #44), KHÔNG cho tiền mặt. Lý do bắt buộc (3–500 ký tự theo DTO BE). Web chặn số tiền thực nhận nhỏ hơn tổng đơn, ghi câu theo BR-28 (nhận thiếu thì huỷ đơn và ghi khoản phải hoàn); nhận dư thì hiện "Phải trả lại khách X". BE chưa ép BR-28 → #44 |
+| 63 | Chi tiết đơn (BM-04): món, tuỳ chọn, giá lúc bán, người tạo, lịch sử thanh toán (kèm người xác nhận, lý do, số tiền thực nhận nếu có), lý do huỷ. Không làm khối xem audit log chung (đặc tả loại trừ "audit log dạng màn hình xem") |
+| 64 | "Cần xử lý" bản real trước #44: không giả lập trạng thái Cần xử lý. Chỉ hiện nhóm có thật: (a) đơn có thanh toán QR/chuyển khoản đang chờ, nhãn "Chờ thanh toán chuyển khoản"; (b) dòng món Hết món trong đơn đã trả, nếu BE có trạng thái này (có: `OrderItemStatus.OUT_OF_STOCK`). Không lấy thanh toán tiền mặt PENDING. Nhóm "Lệch số tiền" chỉ ở mock tới khi có #44. Cảnh báo Manager (đặc tả mục 4, "Nhận cảnh báo") làm bằng thông báo trong ứng dụng qua socket `manager.order.attention-required`, cùng lượt |
+| 65 | Huỷ đơn đã trả (BM-06) và đánh dấu "Đã hoàn" (BR-49): mock làm đủ luồng; real khoá nút ghi "Chờ BE hỗ trợ (#43)" như cách xử lý #23. Không trộn ghi mock vào dữ liệu real |
+| 66 | Lộ trình GĐ7: 7.0b dữ liệu → 7.1 tầng dữ liệu order real + màn danh sách (lọc, phân trang) → 7.2 trang chi tiết (QĐ 63) + realtime làm tươi → 7.3 báo cáo chi nhánh Manager (`/manager/reports`, cờ mới) → 7.4 xác nhận thủ công (QĐ 62) → 7.5 Cần xử lý + cảnh báo (QĐ 64) → 7.6 huỷ đơn đã trả (QĐ 65) → 7.7 chốt GĐ7 (~1 giờ) |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -556,4 +563,27 @@ Seed, compose, Dockerfile, entrypoint không đổi. `PAYOS_WEBHOOK_BASE_URL` tu
 
 BE `de4f55c`. Đã có cho Manager: `GET /manager/orders` (lọc `search`, `orderCode`, `callNumber`, `from`/`to` theo `placedAt`, `status`, `paymentStatus`, `paymentMethod`, `type`, `page`, `limit` ≤ 100; `manager-operations.service.ts:67-125`), `GET /manager/orders/:id` (dòng món, tuỳ chọn, giá lúc bán, người tạo, thanh toán, audit; `:127-175`), `GET /manager/reports` (BM-03; `manager-reports.service.ts`), `POST /payments/:paymentId/confirm` (Manager: `reason` 3–500 và `receivedAmount` bắt buộc với thanh toán không phải tiền mặt; `payments.controller.ts:91-117`, `payments.service.ts:165-215`). **Chưa có:** huỷ đơn đã thanh toán và trạng thái hoàn (BM-06, BR-49/50), trạng thái/danh sách "Cần xử lý" và "Lệch số tiền" (webhook lệch chỉ ghi sự kiện REJECTED, `payos-payment.service.ts:178-190`), nút "Kiểm tra lại", huỷ QR phía PayOS, xử lý tiền về sau khi đơn huỷ (BR-31, hiện 409). Chi tiết ở `docs/api-contract-plan.md` #43–#45. Kế hoạch lượt 7.x ở báo cáo 7.0, chờ Khánh duyệt.
 
-**Lượt tiếp theo:** GĐ7 đang khảo sát trên `feat/v9-orders` (7.0 xong). Chờ Khánh duyệt kế hoạch 7.1 trở đi và cách có dữ liệu đơn thật (tự tạo bằng POS hoặc nhờ BE seed, #35).
+### Lượt 7.0b (2026-10-08): dữ liệu đơn mẫu GĐ7 trên BE local
+
+- **Sao lưu trước khi ghi:** `C:\Users\KhanhNB\backup-smartfnb-20261008-124717.sql` (580.084 byte). Trước khi ghi: `pos_stations` 0 dòng, đơn `COUNTER_PICKUP` 0.
+- **Quầy:** BE local chưa có quầy nào; thu tiền mặt cần `stationId` quầy ACTIVE (`counter-operations.service.ts:420-425`). Khánh duyệt ngoại lệ: tạo ĐÚNG 1 quầy qua màn "Quầy và máy in" (cổng 5173 real, `manager.demo`, không chặn ghi): "Quầy 1", id `d1418f61-f6ff-4a91-819e-d7480ddb9d76`, chi nhánh Nguyễn Huệ, ACTIVE, không khai báo máy in. Request ghi duy nhất: `POST /stations` (mã trả về 201 theo mặc định NestJS; CDP lượt này không đọc mã trả về, trạng thái xác nhận bằng SELECT và bảng hiển thị).
+- **Cách chạy lại:** `DEMO_PASSWORD=<mật khẩu demo trong .env BE> node scripts/data/create-demo-orders.mjs` (host chỉ localhost; cần quầy ACTIVE; mỗi lần chạy tạo thêm 11 đơn mới và trừ suất, KHÔNG chạy lại nếu không cần). Suất còn lại sau lượt này: Cơm gà nướng 5, Canh chua cá 3, Trà đào 0, nên chạy lại cả bộ sẽ trượt ở lỗi hết suất.
+- **Trà đào hết suất (`remainingPortions = 0`)** và là món duy nhất có tuỳ chọn (Kích cỡ, Mức đường) nên các đơn dùng 2 món thường: **không có đơn nào có tuỳ chọn hoặc topping**. Kiểm hiển thị tuỳ chọn ở real chờ có món có tuỳ chọn bán được (cần BE tăng suất hoặc seed, không ghi từ web).
+- **Đơn Thảo Điền:** bỏ (không có tài khoản thu ngân demo; chỉ `waiter.thaodien`).
+- **Đơn đã tạo (Nguyễn Huệ, thu ngân `DEMO-CASHIER-01`, tiền mặt):**
+
+| STT | Mã đơn | Số gọi | Đơn / thanh toán | Tổng | Ghi chú |
+|---|---|---|---|---|---|
+| 1 | CTR-1791439018226-55E81C | 1 | SUBMITTED / PAID | 65.000 | khách đưa 100.000, thối 35.000 |
+| 2 | CTR-1791439018690-0F58FF | 2 | SUBMITTED / PAID | 280.000 | 3 dòng (Canh chua ×1, Cơm gà ×2 "ít cơm", Canh chua ×1 "ít cay") |
+| 3 | CTR-1791439018819-EFE3A1 | — | CONFIRMED / UNPAID | 65.000 | chưa trả |
+| 4 | CTR-1791439018854-76DF54 | 3 | DELIVERED / PAID | 140.000 | `barista.demo` start → complete → deliver |
+| 5 | CTR-1791439019324-AF0042 | — | CANCELLED / UNPAID | 75.000 | lý do "Khách đổi ý trước khi trả tiền" |
+| 6–11 | CTR-1791439019384-7DDB21, …450-51A44A, …514-FEBD4A, …580-1D39C7, …641-60E4C5, …718-C90DA1 | 4–9 | SUBMITTED / PAID | 65.000 / 75.000 / 130.000 / 65.000 / 75.000 / 65.000 | đơn giản |
+
+  Tổng đã trả 960.000 (9 đơn). Request ghi script đã gọi: `POST /cashier/checkout` ×11, `/cashier/orders/{id}/payments/cash` ×9, `/cashier/orders/{id}/cancel` ×1, `/barista/batches/start` ×1, `/barista/batches/complete` ×1, `/barista/orders/{id}/deliver` ×1; cộng 1 `POST /stations` — không có gì khác.
+- **Kiểm sau tạo (chỉ đọc):** `GET /manager/orders?type=COUNTER_PICKUP&limit=100` → 11 đơn, trạng thái khớp bảng; `limit=5&page=2` → 5 dòng, `total` 11; không lọc `type` → 54 (cộng 43 đơn `DINE_IN` Nguyễn Huệ). Chi tiết đơn 2 (`GET /manager/orders/:id`) có dòng món, `unitPrice`, `totalPrice`, `selectedOptions` (rỗng), `specialInstructions`, `createdByCashier`, `payments[].processedBy`, `cancelledBy`, `audit` (0 dòng); thanh toán KHÔNG trả `tenderedAmount`/`changeAmount` của tiền mặt (`manager-operations.service.ts` `paymentSelect`) → #48. `GET /manager/reports` (cả 30 ngày và hôm nay): doanh thu 960.000, 9 đơn, trung bình 106.666,67, món bán chạy Cơm gà 9 và Canh chua 5, thời gian pha trung bình 0,02 giây (2 đơn vị, do script làm tức thì), 1 đơn huỷ.
+- **Báo cáo và đơn v7:** 70 đơn `DINE_IN` có `paid_at` rỗng nên không vào doanh thu, nhưng vào mục "theo hình thức thanh toán" (37 CASH + 14 BANK_TRANSFER = 8.380.000, trong khi doanh thu 960.000) và "đơn theo giờ" → #47.
+- **#42 (seed ghi đè khi BE khởi động lại):** sau mỗi lần BE khởi động lại, kiểm quầy "Quầy 1" và 11 đơn còn không (`SELECT count(*) FROM pos_stations`, đơn `COUNTER_PICKUP`); suất món có thể bị seed đặt lại.
+
+**Lượt tiếp theo: 7.1** — tầng dữ liệu `order` real (`GET /manager/orders` luôn kèm `type=COUNTER_PICKUP`, `GET /manager/orders/:id`) và màn Tra cứu đơn có lọc và phân trang (QĐ 61, 66).
