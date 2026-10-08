@@ -57,7 +57,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   order: "mock — BE chưa có (BM-04..06), chờ giai đoạn 7",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
   admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
-  payos: "real (6.5): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT cần PAYOS_MASTER_KEY trên BE; chưa có trạng thái Lỗi (#40)",
+  payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
 };
 
 type Env = Record<string, string | undefined>;

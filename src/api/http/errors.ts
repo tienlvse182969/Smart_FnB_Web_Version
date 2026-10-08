@@ -91,11 +91,20 @@ export const GENERIC_ERROR_TEXT = "Không thực hiện được yêu cầu. Ki�
  */
 export const PAYOS_MASTER_KEY_TEXT = "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống.";
 export const PAYOS_STORED_KEY_TEXT = "Khoá PayOS đã lưu không đọc được. Nhập lại đủ 3 khoá để lưu lại.";
+/** 503 khi `PAYOS_WEBHOOK_BASE_URL` chưa đặt (`payos-channel.service.ts:67-70`, BE `de4f55c`). Quyết định 50. */
+export const PAYOS_WEBHOOK_URL_TEXT = "Máy chủ chưa sẵn sàng liên kết PayOS (thiếu địa chỉ nhận thông báo). Vui lòng liên hệ quản trị hệ thống.";
+/** 422 khi lưu khoá: PayOS từ chối bộ khoá hoặc địa chỉ webhook (`payos-channel.service.ts:89`). KHÔNG hiện câu thô của PayOS. Quyết định 50. */
+export const PAYOS_VERIFY_REJECTED_TEXT = "PayOS không chấp nhận bộ khoá này. Kiểm tra lại Client ID, API key và Checksum key.";
+/** 502 khi lưu khoá: PayOS tạm không phản hồi (`payos-channel.service.ts:88`). Quyết định 50. */
+export const PAYOS_UNREACHABLE_TEXT = "Không kết nối được PayOS lúc này. Vui lòng thử lại sau ít phút.";
 const SERVER_TEXT: [RegExp, string][] = [
   [/PAYOS_MASTER_KEY is not configured/i, PAYOS_MASTER_KEY_TEXT],
+  [/PAYOS_WEBHOOK_BASE_URL is not configured/i, PAYOS_WEBHOOK_URL_TEXT],
   [/stored payos credentials are invalid/i, PAYOS_STORED_KEY_TEXT],
 ];
 function serverErrorText(err: ApiError): string {
+  // 502 của PayOS đã được `payos/real.ts` đổi sang câu tiếng Việt cố định (message BE là câu thô, đổi theo PayOS).
+  if (err.message === PAYOS_UNREACHABLE_TEXT) return err.message;
   return SERVER_TEXT.find(([re]) => re.test(err.message ?? ""))?.[1] ?? SERVER_ERROR_TEXT;
 }
 
