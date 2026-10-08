@@ -125,6 +125,7 @@ const BACKEND_TEXT: [RegExp, string][] = [
   // 413 do Multer (`FileInterceptor` limits.fileSize, branding.controller.ts:79) trả "File too large" trước khi tới service.
   [/file too large|payload too large/i, "Tệp quá lớn (máy chủ nhận tối đa 5 MB; web giới hạn logo 1 MB)."],
   [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],
+  [/^from must be earlier than to$/i, "Ngày bắt đầu phải trước ngày kết thúc."],
   [/invalid report date|use valid yyyy-mm-dd|report range must contain|reporting range cannot exceed|from must be earlier/i, "Khoảng ngày báo cáo không hợp lệ (từ 1 đến 366 ngày, từ ngày phải trước đến ngày)."],
   [/unknown chain timezone/i, "Múi giờ của chuỗi không hợp lệ."],
   [/provide at least one field/i, "Chưa có thay đổi nào để lưu."],
@@ -222,7 +223,7 @@ export function resetErrorDedupe(): void {
  * Màn tự hiện khối lỗi trong trang (kèm nút Thử lại) nên không cần thông báo nổi trùng cho 403 và mất mạng.
  * Khớp theo đường dẫn hiện tại và chỉ cho lỗi ĐỌC (GET); các loại lỗi khác (hạn mức, 401) và mọi lỗi ghi vẫn báo toàn cục.
  */
-export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos"];
+export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos", "/manager/orders"];
 
 export interface ApiErrorEvent {
   kind: ApiErrorKind;

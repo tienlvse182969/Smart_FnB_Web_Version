@@ -1,25 +1,26 @@
 /**
- * Module order — tra cứu đơn (BM-04), đơn Cần xử lý (BM-05), huỷ đơn đã thanh toán (BM-06). Mock; BE chưa có.
- * Cũng là nguồn dữ liệu của trợ lý AI mock và báo cáo mock.
+ * Module order — tra cứu đơn của Branch Manager (BM-04). Real từ GĐ7 (7.1): `GET /manager/orders`, `GET /manager/orders/:id`.
+ * Xác nhận thủ công (BM-05), Cần xử lý, huỷ đơn đã trả (BM-06) thêm ở 7.4–7.6 (BE còn thiếu: api-contract-plan #43–#45).
+ * Mock vẫn là nguồn đơn của trợ lý AI mock và báo cáo mock (qua `getBranchOrders`, không qua module này).
  */
-import type { Order, OrderStatus } from "../../../types";
+import type { OrderDetail, OrderPage, OrderQuery } from "../../../types";
 import { defineApi } from "../../define";
 import { orderMock } from "./mock";
+import { orderReal } from "./real";
 
-export interface ListOrdersParams {
+/** Phạm vi của người gọi. Real: BE lấy chi nhánh từ token nên không gửi đi; mock dùng để tách dữ liệu theo chi nhánh. */
+export interface OrderScope {
   chainId: string;
-  /** Bỏ trống = mọi chi nhánh của chuỗi (Owner). Manager luôn bị giới hạn ở chi nhánh mình (BR-02). */
-  branchId?: string;
-  /** ISO. */
-  from?: string;
-  to?: string;
-  statuses?: OrderStatus[];
+  branchId: string;
 }
 
 export interface OrderApi {
-  listOrders(params: ListOrdersParams): Promise<Order[]>;
-  getOrder(chainId: string, branchId: string, orderId: string): Promise<Order>;
+  /**
+   * Đơn quầy của chi nhánh, mới nhất trước (BE không có tham số sắp xếp), phân trang. Lỗi: 400 tham số sai, 403 không phải Manager.
+   */
+  listOrders(scope: OrderScope, query: OrderQuery): Promise<OrderPage>;
+  /** Chi tiết một đơn trong chi nhánh; id không thuộc chi nhánh → 404. */
+  getOrder(scope: OrderScope, orderId: string): Promise<OrderDetail>;
 }
 
-// CHỜ BE: BM-04..06 chưa có endpoint. Bản real viết ở giai đoạn 7.
-export const orderApi = defineApi<OrderApi>("order", { mock: orderMock });
+export const orderApi = defineApi<OrderApi>("order", { real: orderReal, mock: orderMock });

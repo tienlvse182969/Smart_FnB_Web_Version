@@ -91,6 +91,11 @@ export const FIELD_LABELS: Record<string, string> = {
   limit: "Số dòng mỗi trang",
   role: "Vai trò",
   status: "Trạng thái",
+  callNumber: "Số gọi",
+  orderCode: "Mã đơn",
+  paymentStatus: "Trạng thái thanh toán",
+  paymentMethod: "Hình thức thanh toán",
+  type: "Loại đơn",
   from: "Từ ngày",
   to: "Đến ngày",
 };
