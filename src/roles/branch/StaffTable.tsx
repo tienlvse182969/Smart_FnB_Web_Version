@@ -1,4 +1,4 @@
-import { App, Card, Drawer, Input, Select, Table, Tag } from "antd";
+import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
 import { KeyRound, Lock, Pencil, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STAFF_ROLE_LABEL, type AccountQuota, type AccountStatus, type StaffEmployee, type StaffInput, type StaffRole } from "../../types";
@@ -13,6 +13,10 @@ import { palette } from "../../theme";
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chờ đặt mật khẩu" };
 
 /**
+ * (6.11, #38: ở real, dòng hạn mức "Đã dùng X/Y" lấy từ GÓI THẬT của BE qua `plan.limits`, không còn nhãn "(số liệu mẫu)"; danh sách nhân viên
+ * vẫn là mock nên banner "Dữ liệu mẫu" còn. Đạt hạn mức → nút Thêm khoá (`ActionButton consumes="accounts"`, câu quyết định 54); chưa tải được
+ * gói → dòng "Chưa tải được hạn mức gói" + Thử lại nhỏ, KHÔNG chặn màn, quyết định 53.)
+ *
  * BM-01: Branch Manager quản Cashier/Barista của CHI NHÁNH MÌNH (BR-05, BR-02). MOCK — BE chưa có endpoint (api-contract-plan #24),
  * và Manager bị 403 ở `/employees`, nên màn này KHÔNG gọi BE và hiện banner "Dữ liệu mẫu". Không có mật khẩu: tài khoản mới nhận
  * email đặt mật khẩu một lần. Hạn mức theo gói (13.1): đếm cả doanh nghiệp, tài khoản khoá không tính; tạo mới và mở khoá đều bị
@@ -25,6 +29,8 @@ export default function StaffTable() {
   const branches = useAppStore((s) => s.branches);
   const branchName = branches.find((b) => b.id === branchId)?.name ?? "";
   const sampleOnly = modeOf("account") === "real";
+  const plan = useAppStore((s) => s.plan);
+  const reloadPlan = useAppStore((s) => s.reloadPlan);
 
   const [items, setItems] = useState<StaffEmployee[]>([]);
   const [quota, setQuota] = useState<AccountQuota | null>(null);
@@ -38,7 +44,11 @@ export default function StaffTable() {
     if (!chainId || !branchId) return;
     setLoading(true);
     try {
-      const [page, q] = await Promise.all([accountApi.listStaff(chainId, branchId, { role, search }), accountApi.getAccountQuota(chainId)]);
+      // Real: số "Đã dùng X/Y" lấy từ GÓI THẬT của BE (`plan.limits`, quyết định 54), không từ mock; danh sách nhân viên vẫn là mock (#24).
+      const [page, q] = await Promise.all([
+        accountApi.listStaff(chainId, branchId, { role, search }),
+        sampleOnly ? Promise.resolve(null) : accountApi.getAccountQuota(chainId),
+      ]);
       setItems(page.items);
       setQuota(q);
     } catch (err) {
@@ -46,7 +56,7 @@ export default function StaffTable() {
     } finally {
       setLoading(false);
     }
-  }, [chainId, branchId, role, search, message]);
+  }, [chainId, branchId, role, search, message, sampleOnly]);
 
   useEffect(() => {
     void load();
@@ -120,7 +130,11 @@ export default function StaffTable() {
     });
   };
 
-  const limitReached = quota?.limit != null && quota.used >= quota.limit;
+  // Số liệu hạn mức: real = gói thật của BE; mock = mock tài khoản. Real mà chưa tải được gói → dòng báo lỗi nhỏ + Thử lại (quyết định 53).
+  const planAccounts = plan?.limits.find((l) => l.resource === "accounts");
+  const shown: AccountQuota | null = sampleOnly ? (planAccounts ? { used: planAccounts.used, limit: planAccounts.limit } : null) : quota;
+  const limitReached = shown?.limit != null && shown.used >= shown.limit;
+  const planUnavailable = sampleOnly && plan?.subscriptionUnavailable === true;
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
@@ -139,11 +153,21 @@ export default function StaffTable() {
         </div>
       )}
       <div data-testid="staff-quota" style={{ fontSize: 13, marginBottom: 14, color: limitReached ? palette.error.text : palette.textMuted }}>
-        {quota ? (
+        {planUnavailable ? (
+          // Lỗi đọc gói KHÔNG chặn màn (quyết định 53): nút Thêm vẫn bấm được, BE chặn thật nếu vượt hạn mức; không toast.
           <>
-            Đã dùng <b>{quota.used}{quota.limit != null ? `/${quota.limit}` : ""}</b> tài khoản của gói{sampleOnly ? " (số liệu mẫu)" : ""}
+            <span data-testid="staff-quota-unavailable">Chưa tải được hạn mức gói</span>{" "}
+            <Button size="small" type="link" data-testid="staff-quota-retry" onClick={() => void reloadPlan()} style={{ padding: 0, height: "auto" }}>
+              Thử lại
+            </Button>
+          </>
+        ) : shown ? (
+          <>
+            Đã dùng <b>{shown.used}{shown.limit != null ? `/${shown.limit}` : ""}</b> tài khoản của gói
             {limitReached ? " — đã đủ hạn mức, không tạo mới hay mở khoá thêm được." : "."}
           </>
+        ) : sampleOnly && plan?.noActivePlan ? (
+          "Chuỗi chưa có gói đang hoạt động."
         ) : (
           "Đang tải hạn mức…"
         )}
