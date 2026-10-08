@@ -285,6 +285,7 @@ const screens = [
       return { ok: true, before, after: await first(), kind: "row" };
     } },
   { id: "manager/branch-info", ownRetry: true, role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
+  { id: "manager/orders", ownRetry: true, role: "manager", route: "/manager/orders", from: "/manager/dashboard", read: /\/manager\/orders(\?|$)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()) },
   { id: "manager/menu (tuỳ chọn)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/manager\/menu-options/, afterNav: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(1500); },
     loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-option-row"]').length`)) > 0 && (await noErrorUi()),
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(700); return switchWrite('[data-testid="branch-option-row"][data-owner-disabled="false"]')(); } },

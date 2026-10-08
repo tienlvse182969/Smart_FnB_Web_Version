@@ -6,6 +6,7 @@
 import type { Order, OrderDetail, OrderDetailLine, OrderLine, OrderPage, OrderPaymentRecord, OrderQuery, OrderSummary } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
+import { hashString } from "../../mock/prng";
 import { getBranchOrders } from "../../mock/store";
 import type { OrderApi } from "./index";
 
@@ -133,7 +134,8 @@ function toSummary(order: Order): OrderSummary {
   const paid = order.paymentStatus === "paid" || order.refund !== undefined;
   return {
     id: order.id,
-    orderCode: `CTR-${order.id.replace(/[^0-9A-Za-z]/g, "").slice(-12).toUpperCase()}`,
+    // Mã đơn mock suy từ id nhưng không chứa chữ của id (id kịch bản có chữ như "preparing"), để dễ phân biệt với nhãn trạng thái.
+    orderCode: `CTR-${String(hashString(order.id)).padStart(10, "0")}`,
     callNumber: order.callNumber,
     placedAt: order.createdAt,
     paidAt: paid ? order.createdAt : null,
