@@ -3,7 +3,9 @@ import { Alert, Button, Card, Descriptions, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ApiError, describeApiError, orderApi } from "../../api";
+import { ApiError, describeApiError, modeOf, orderApi } from "../../api";
+import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
+import RealtimeBadge from "../../components/RealtimeBadge";
 import { orderItemStatusInfo, orderPaymentInfo, orderStatusInfo, paymentMethodInfo, paymentStatusInfo } from "../../api/modules/order/codes";
 import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
@@ -160,12 +162,19 @@ export default function OrderDetail() {
     };
   }, [load, nonce]);
 
+  // Tự làm tươi qua socket (quyết định 74): chỉ khi sự kiện thuộc đơn này (hoặc payload không nêu đơn nào); tải lại bằng GET.
+  const realtimeOn = modeOf("order") === "real" && !!branchId && !!orderId;
+  const realtime = useOrderRealtime(() => void load(true), { orderId, enabled: realtimeOn });
+
   const back = () => navigate(`${LIST_PATH}${from}`);
 
   const backButton = (
-    <Button icon={<ArrowLeft size={15} />} onClick={back} data-testid="order-detail-back">
-      Quay lại
-    </Button>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+      {realtimeOn && <RealtimeBadge status={realtime} />}
+      <Button icon={<ArrowLeft size={15} />} onClick={back} data-testid="order-detail-back">
+        Quay lại
+      </Button>
+    </span>
   );
 
   if (!branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;

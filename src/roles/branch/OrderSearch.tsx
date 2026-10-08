@@ -4,7 +4,9 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { Search, X } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { describeApiError, orderApi } from "../../api";
+import { describeApiError, modeOf, orderApi } from "../../api";
+import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
+import RealtimeBadge from "../../components/RealtimeBadge";
 import { orderPaymentInfo, orderStatusInfo, paymentMethodInfo, ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER } from "../../api/modules/order/codes";
 import { ORDER_PAGE_SIZES } from "../../api/modules/order/query";
 import { SectionTitle } from "../../components/bits";
@@ -105,28 +107,45 @@ export default function OrderSearch() {
   );
 
   const query = useMemo(() => toOrderQuery(filters), [filters]);
-  useEffect(() => {
-    if (!chainId || !branchId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    orderApi
-      .listOrders({ chainId, branchId }, query)
-      .then((page) => {
-        if (cancelled) return;
+  const seq = useRef(0);
+  /** `silent` = làm tươi do socket: không bật vòng quay, không xoá dữ liệu cũ, lỗi thì giữ nguyên bảng đang hiện. */
+  const load = useCallback(
+    async (silent: boolean) => {
+      if (!chainId || !branchId) return;
+      const mine = ++seq.current;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const page = await orderApi.listOrders({ chainId, branchId }, query);
+        if (mine !== seq.current) return;
         // Trang vượt quá số trang hiện có (URL cũ, dữ liệu vừa đổi): về trang cuối.
         if (page.items.length === 0 && page.total > 0 && query.page > 1) {
           setParams(filtersToSearch({ ...filtersRef.current, page: Math.max(1, Math.ceil(page.total / page.limit)) }), { replace: true });
           return;
         }
         setData(page);
-      })
-      .catch((err) => !cancelled && setError(describeApiError(err)))
-      .finally(() => !cancelled && setLoading(false));
+        setError(null);
+        setLoading(false);
+      } catch (err) {
+        if (mine !== seq.current) return;
+        setLoading(false);
+        if (!silent) setError(describeApiError(err));
+      }
+    },
+    [chainId, branchId, query, setParams],
+  );
+  useEffect(() => {
+    void load(false);
     return () => {
-      cancelled = true;
+      seq.current++;
     };
-  }, [chainId, branchId, query, nonce, setParams]);
+  }, [load, nonce]);
+
+  // Tự làm tươi qua socket (quyết định 74): tải lại đúng trang đang xem, giữ bộ lọc; bảng không nhảy trang.
+  const realtimeOn = modeOf("order") === "real" && !!branchId;
+  const realtime = useOrderRealtime(() => void load(true), { enabled: realtimeOn });
 
   const submitText = () => apply({ callNumber: cleanCallNumber(callInput), orderCode: cleanOrderCode(codeInput) });
   const clearAll = () => {
@@ -139,7 +158,7 @@ export default function OrderSearch() {
 
   return (
     <>
-      <SectionTitle title="Tra cứu đơn" sub="Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán (BM-04)" />
+      <SectionTitle title="Tra cứu đơn" sub="Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán (BM-04)" extra={realtimeOn ? <RealtimeBadge status={realtime} /> : undefined} />
       <Card style={{ borderRadius: 14, marginBottom: 16 }} styles={{ body: { padding: 16 } }} data-testid="order-filters">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <RangePicker
