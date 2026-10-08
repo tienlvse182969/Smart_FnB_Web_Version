@@ -13,6 +13,7 @@ import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import type { OrderPage, OrderSummary } from "../../types";
 import { Chip } from "../admin/adminUi";
+import type { OrderDetailLocationState } from "./OrderDetail";
 import { cleanCallNumber, cleanOrderCode, filtersToSearch, hasExtraFilters, isDefaultFilters, parseFilters, toOrderQuery, type OrderFilters } from "./orderFilters";
 
 const { RangePicker } = DatePicker;
@@ -25,13 +26,14 @@ function methodsOf(order: OrderSummary): string {
   return labels.length ? labels.join(", ") : "—";
 }
 
-const columns: ColumnsType<OrderSummary> = [
+/** `search` = chuỗi truy vấn đang lọc (có dấu `?` hoặc rỗng), truyền sang chi tiết để "Quay lại" giữ đúng bộ lọc và trang. */
+const buildColumns = (search: string): ColumnsType<OrderSummary> => [
   {
     title: "Số gọi",
     dataIndex: "callNumber",
     width: 90,
     render: (v: number | null, o) => (
-      <Link to={`/manager/orders/${o.id}`} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600 }}>
+      <Link to={`/manager/orders/${o.id}`} state={{ from: search } satisfies OrderDetailLocationState} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600 }}>
         {v ?? "—"}
       </Link>
     ),
@@ -72,6 +74,11 @@ export default function OrderSearch() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => parseFilters(params), [params]);
+  const search = useMemo(() => {
+    const text = filtersToSearch(filters).toString();
+    return text ? `?${text}` : "";
+  }, [filters]);
+  const columns = useMemo(() => buildColumns(search), [search]);
 
   const [callInput, setCallInput] = useState(filters.callNumber);
   const [codeInput, setCodeInput] = useState(filters.orderCode);
@@ -227,7 +234,7 @@ export default function OrderSearch() {
             scroll={{ x: 1000 }}
             locale={{ emptyText }}
             onRow={(order) => ({
-              onClick: () => navigate(`/manager/orders/${order.id}`),
+              onClick: () => navigate(`/manager/orders/${order.id}`, { state: { from: search } satisfies OrderDetailLocationState }),
               style: { cursor: "pointer" },
             })}
             pagination={{

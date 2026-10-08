@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, describeApiError } from "../../http/errors";
+import { ApiError, describeApiError, isInlineErrorRoute } from "../../http/errors";
 import { mockControl } from "../../mock/control";
 import { resetMockStates } from "../../mock/store";
 import { setScenario } from "../../mock/scenario";
@@ -151,7 +151,7 @@ describe("mapper phản hồi BE", () => {
         {
           id: "i1",
           itemName: "Trà đào",
-          unitPrice: "35000",
+          unitPrice: "50000",
           quantity: 2,
           totalPrice: "100000",
           status: "QUEUED",
@@ -165,12 +165,57 @@ describe("mapper phản hồi BE", () => {
       ],
     });
     expect(d).toMatchObject({ subtotal: 100000, cancellationReason: "Khách đổi ý", cancelledBy: "M1" });
-    expect(d.lines[0]).toMatchObject({ name: "Trà đào", unitPrice: 35000, quantity: 2, total: 100000, status: "QUEUED", note: "ít đá" });
+    expect(d.lines[0]).toMatchObject({ name: "Trà đào", unitPrice: 50000, quantity: 2, total: 100000, status: "QUEUED", note: "ít đá" });
     expect(d.lines[0].options).toEqual([
       { groupName: "Kích cỡ", name: "L", priceDelta: 10000 },
       { groupName: null, name: "Trân châu", priceDelta: 5000 },
     ]);
     expect(mapOrderDetail(undefined).lines).toEqual([]);
+  });
+
+  it("chi tiết: khoản xác nhận thủ công giữ người xác nhận, lý do, số tiền thực nhận, mã giao dịch, thời điểm", () => {
+    const d = mapOrderDetail({
+      ...rawOrder,
+      payments: [
+        {
+          id: "p9",
+          paymentCode: "PAY-9",
+          method: "BANK_TRANSFER",
+          status: "SUCCESS",
+          amount: "75000.00",
+          receivedAmount: "80000",
+          transactionRef: "FT123",
+          confirmationReason: "Webhook không về",
+          confirmedAt: "2026-10-08T06:10:00.000Z",
+          paidAt: "2026-10-08T06:10:00.000Z",
+          createdAt: "2026-10-08T06:00:00.000Z",
+          failureReason: null,
+          processedBy: { employeeCode: "DEMO-MANAGER-01", firstName: "Bình", lastName: "Quản lý" },
+        },
+      ],
+    });
+    expect(d.payments[0]).toEqual({
+      id: "p9",
+      paymentCode: "PAY-9",
+      method: "BANK_TRANSFER",
+      status: "SUCCESS",
+      amount: 75000,
+      receivedAmount: 80000,
+      transactionRef: "FT123",
+      confirmationReason: "Webhook không về",
+      confirmedAt: "2026-10-08T06:10:00.000Z",
+      paidAt: "2026-10-08T06:10:00.000Z",
+      createdAt: "2026-10-08T06:00:00.000Z",
+      failureReason: null,
+      processedBy: "Bình Quản lý",
+    });
+  });
+
+  it("chi tiết: đơn huỷ giữ thời điểm huỷ; không có station/tiền khách đưa (BE chưa trả)", () => {
+    const d = mapOrderDetail({ ...rawOrder, status: "CANCELLED", cancelledAt: "2026-10-08T06:30:00.000Z", cancellationReason: "Khách đổi ý", cancelledBy: { employeeCode: "M1", firstName: "Bình", lastName: "Quản lý" } });
+    expect(d).toMatchObject({ cancelledAt: "2026-10-08T06:30:00.000Z", cancellationReason: "Khách đổi ý", cancelledBy: "Bình Quản lý" });
+    expect(d.payments[0]).not.toHaveProperty("tenderedAmount");
+    expect(d).not.toHaveProperty("station");
   });
 
   it("họ tên: thiếu tên thì dùng mã nhân viên", () => {
@@ -258,6 +303,17 @@ describe("orderReal — đúng endpoint /manager/orders", () => {
   });
 });
 
+describe("khối lỗi trong trang cho tra cứu đơn", () => {
+  it("khớp danh sách và mọi trang chi tiết, không khớp màn khác", () => {
+    expect(isInlineErrorRoute("/manager/orders")).toBe(true);
+    expect(isInlineErrorRoute("/manager/orders/3c2bb72d-f56a-41f6-a617-c5d3cf4c7c85")).toBe(true);
+    expect(isInlineErrorRoute("/manager/orders/needs-attention")).toBe(true);
+    expect(isInlineErrorRoute("/manager/staff")).toBe(false);
+    expect(isInlineErrorRoute("/manager/ordersx")).toBe(false);
+    expect(isInlineErrorRoute("/owner/reports")).toBe(true);
+  });
+});
+
 describe("lỗi 400 của tra cứu đơn → tiếng Việt", () => {
   it("from ≥ to", () => {
     expect(describeApiError(new ApiError(400, "from must be earlier than to"))).toBe("Ngày bắt đầu phải trước ngày kết thúc.");
@@ -322,6 +378,25 @@ describe("orderMock — cùng hình dạng BE", () => {
     expect((await orderMock.listOrders(scope, { page: 1, limit: 100, orderCode: code.toLowerCase() })).items.map((o) => o.id)).toContain(call900.items[0].id);
     const nothing = await orderMock.listOrders(scope, { page: 1, limit: 20, from: "2000-01-01T00:00:00.000+07:00", to: "2000-01-02T00:00:00.000+07:00" });
     expect(nothing).toMatchObject({ items: [], total: 0 });
+  });
+
+  it("chi tiết: đơn xác nhận thủ công, đơn nhiều khoản, đơn tuỳ chọn có đơn giá đã gồm giá cộng thêm", async () => {
+    const all = await orderMock.listOrders(scope, { page: 1, limit: 100 });
+    const idOf = (suffix: string) => all.items.find((o) => o.id.endsWith(suffix))!.id;
+    const manual = await orderMock.getOrder(scope, idOf("scn-manual"));
+    expect(manual.payments).toHaveLength(1);
+    expect(manual.payments[0]).toMatchObject({ method: "BANK_TRANSFER", status: "SUCCESS", processedBy: "Quản lý mẫu", transactionRef: "FT26100812345", receivedAmount: 80000, amount: 75000 });
+    expect(manual.payments[0].confirmationReason).toMatch(/webhook không về/i);
+    const multi = await orderMock.getOrder(scope, idOf("scn-multi"));
+    expect(multi.payments.map((p) => `${p.method}/${p.status}`)).toEqual(["BANK_TRANSFER/PENDING", "CASH/SUCCESS"]);
+    expect(multi.lines).toHaveLength(2);
+    const opt = await orderMock.getOrder(scope, idOf("scn-options"));
+    expect(opt.lines[0]).toMatchObject({ unitPrice: 50000, quantity: 2, total: 100000, note: "ít đá" });
+    expect(opt.lines[0].options.reduce((s, o) => s + o.priceDelta, 0)).toBe(15000);
+    const cancelled = (await orderMock.listOrders(scope, { page: 1, limit: 100, status: "CANCELLED" })).items[0];
+    const cd = await orderMock.getOrder(scope, cancelled.id);
+    expect(cd.cancelledBy).toBeTruthy();
+    expect(cd.cancelledAt).toBeTruthy();
   });
 
   it("chi tiết: id lạ → 404", async () => {

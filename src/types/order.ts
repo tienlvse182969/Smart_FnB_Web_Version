@@ -127,7 +127,7 @@ export type OrderDetailOption = {
 export type OrderDetailLine = {
   id: string;
   name: string;
-  /** Giá lúc bán của món (chưa gồm tuỳ chọn). */
+  /** Đơn giá lúc bán của một suất, ĐÃ gồm giá cộng thêm của tuỳ chọn (BE `priceCartItem`); giá món gốc = unitPrice − Σ priceDelta. */
   unitPrice: number;
   quantity: number;
   options: OrderDetailOption[];

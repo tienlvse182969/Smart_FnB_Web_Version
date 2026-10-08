@@ -45,6 +45,7 @@ import BranchMenu from "../roles/branch/BranchMenu";
 import StaffTable from "../roles/branch/StaffTable";
 import Stations from "../roles/branch/Stations";
 import OrderSearch from "../roles/branch/OrderSearch";
+import OrderDetail from "../roles/branch/OrderDetail";
 
 export type WebRole = "admin" | "owner" | "manager";
 
@@ -142,7 +143,7 @@ export const managerRoutes: RouteDef[] = [
     icon: <Receipt size={18} />,
     code: "BM-04 · BM-06",
     nav: false,
-    element: placeholder("BM-04 · BM-06", "Chi tiết đơn và huỷ đơn đã thanh toán"),
+    element: <OrderDetail />,
   },
 ];
 

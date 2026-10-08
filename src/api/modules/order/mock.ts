@@ -12,6 +12,8 @@ import type { OrderApi } from "./index";
 
 const CASHIER = "Thu ngân mẫu";
 const MANAGER = "Quản lý mẫu";
+const MANUAL_SUFFIX = "scn-manual";
+const MULTI_SUFFIX = "scn-multi";
 
 const ORDER_STATUS_OF: Record<Order["status"], string> = {
   pendingPayment: "CONFIRMED",
@@ -103,6 +105,31 @@ function scenarioOrders(chainId: string, branchId: string, now: Date): Order[] {
       ],
       total: 100000,
     },
+    {
+      ...base,
+      id: `${branchId}-${MANUAL_SUFFIX}`,
+      callNumber: 904,
+      createdAt: at(45),
+      status: "completed",
+      paymentMethod: "qr",
+      paymentStatus: "paid",
+      lines: [{ id: "s5", menuItemId: "m-scn-5", name: "Canh chua cá", unitPrice: 75000, quantity: 1, options: [], status: "done", lineTotal: 75000 }],
+      total: 75000,
+    },
+    {
+      ...base,
+      id: `${branchId}-${MULTI_SUFFIX}`,
+      callNumber: 905,
+      createdAt: at(50),
+      status: "completed",
+      paymentMethod: "cash",
+      paymentStatus: "paid",
+      lines: [
+        { id: "s6", menuItemId: "m-scn-6", name: "Cơm gà nướng", unitPrice: 65000, quantity: 1, options: [], status: "done", lineTotal: 65000 },
+        { id: "s7", menuItemId: "m-scn-7", name: "Canh chua cá", unitPrice: 75000, quantity: 2, options: [], status: "done", lineTotal: 150000 },
+      ],
+      total: 215000,
+    },
   ];
 }
 
@@ -110,23 +137,30 @@ function paymentOf(order: Order, paid: boolean, processedBy: string): OrderPayme
   const pending = order.paymentStatus === "awaitingTransfer" || order.paymentStatus === "amountMismatch";
   if (!paid && !pending && order.paymentStatus !== "initiated") return [];
   const method = order.paymentMethod === "cash" ? "CASH" : "BANK_TRANSFER";
-  return [
-    {
-      id: `${order.id}-pay`,
-      paymentCode: `PAY-${order.id.slice(-8).toUpperCase()}`,
-      method,
-      status: paid ? "SUCCESS" : "PENDING",
-      amount: order.total,
-      receivedAmount: null,
-      transactionRef: null,
-      confirmationReason: null,
-      confirmedAt: paid ? order.createdAt : null,
-      paidAt: paid ? order.createdAt : null,
-      createdAt: order.createdAt,
-      failureReason: null,
-      processedBy,
-    },
-  ];
+  const record: OrderPaymentRecord = {
+    id: `${order.id}-pay`,
+    paymentCode: `PAY-${order.id.slice(-8).toUpperCase()}`,
+    method,
+    status: paid ? "SUCCESS" : "PENDING",
+    amount: order.total,
+    receivedAmount: null,
+    transactionRef: null,
+    confirmationReason: null,
+    confirmedAt: paid ? order.createdAt : null,
+    paidAt: paid ? order.createdAt : null,
+    createdAt: order.createdAt,
+    failureReason: null,
+    processedBy,
+  };
+  // Đơn xác nhận thủ công (BM-05): Manager xác nhận, có lý do, số tiền thực nhận và mã giao dịch.
+  if (order.id.endsWith(MANUAL_SUFFIX)) {
+    return [{ ...record, receivedAmount: order.total + 5000, transactionRef: "FT26100812345", confirmationReason: "Khách chìa màn hình chuyển khoản thành công, webhook không về", processedBy: MANAGER }];
+  }
+  // Đơn nhiều khoản: một QR bị bỏ (còn chờ) rồi thu tiền mặt.
+  if (order.id.endsWith(MULTI_SUFFIX)) {
+    return [{ ...record, id: `${record.id}-qr`, paymentCode: `${record.paymentCode}-QR`, method: "BANK_TRANSFER", status: "PENDING", confirmedAt: null, paidAt: null }, record];
+  }
+  return [record];
 }
 
 function toSummary(order: Order): OrderSummary {
@@ -153,12 +187,13 @@ function toLine(line: OrderLine, delivered: boolean): OrderDetailLine {
   return {
     id: line.id,
     name: line.name,
-    unitPrice: line.unitPrice,
+    // Như BE: đơn giá lúc bán ĐÃ gồm giá cộng thêm của tuỳ chọn (`counter-operations.service.ts` `priceCartItem`).
+    unitPrice: line.unitPrice + line.options.reduce((sum, o) => sum + o.priceDelta, 0),
     quantity: line.quantity,
     options: line.options.map((o) => ({ groupName: o.groupName, name: o.optionName, priceDelta: o.priceDelta })),
     total: line.lineTotal,
     status: delivered && line.status === "done" ? "DELIVERED" : LINE_STATUS_OF[line.status],
-    note: null,
+    note: line.id === "s3" ? "ít đá" : null,
     cancellationReason: null,
   };
 }
