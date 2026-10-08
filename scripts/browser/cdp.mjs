@@ -124,6 +124,8 @@ class Tab {
       422: fault?.body ?? { statusCode: 422, message: "Unprocessable Entity", error: "Unprocessable Entity" },
       502: fault?.body ?? { statusCode: 502, message: "Bad Gateway", error: "Bad Gateway" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
+      // 404: body do script truyền, mặc định như BE khi chi tiết đơn không có trong chi nhánh (manager-operations.service.ts).
+      404: fault?.body ?? { statusCode: 404, message: "Order not found in your branch", error: "Not Found" },
       401: { statusCode: 401, message: "Unauthorized" },
       // 409: body do script truyền (`fault.body`), ví dụ `PLAN_LIMIT_REACHED` kèm quota và gói gợi ý như BE.
       409: fault?.body ?? { statusCode: 409, message: "Conflict", error: "Conflict" },

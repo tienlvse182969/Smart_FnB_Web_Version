@@ -3,7 +3,7 @@
 // Chỉ ĐỌC: mọi request ghi bị chặn ở CDP (cdp.mjs: blockWrites + setFault); request ghi chỉ nhận lỗi giả, không bao giờ tới BE.
 // Chỉ POST /auth/login, /auth/refresh, /auth/logout đi thật. KHÔNG sửa mã ứng dụng: script chỉ quan sát và chấm.
 // Mỗi ca in một dòng `CASE màn | thao tác | loại lỗi | Đạt/Lỗi | mã lỗi` và cuối cùng một bảng JSON `FAULTS-RESULT`.
-import { cli, newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
+import { accounts, cli, newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 // --only=<mục>[,<mục>…]: vai (admin|owner|manager), nhóm (read|write|scope|expired) hoặc một phần id màn (ví dụ owner/reports,
 // manager/menu). Không cờ (hoặc `all`) = chạy hết. --mode=real là mặc định và duy nhất (giả lập lỗi chỉ có ý nghĩa với module real).
@@ -110,6 +110,15 @@ const switchWrite = (scope, { confirm = true } = {}) => async () => {
   await q(`document.querySelectorAll("[data-fault-target]").forEach((e) => e.removeAttribute("data-fault-target"))`);
   return { before, after, kind: "switch" };
 };
+
+// Id một đơn thật của chi nhánh Manager (GET chỉ đọc) cho màn chi tiết đơn.
+const DETAIL_ID = await (async () => {
+  const [email, password] = accounts("real").manager;
+  const base = "http://localhost:3100/api/v1";
+  const login = await (await fetch(`${base}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
+  const list = await (await fetch(`${base}/manager/orders?type=COUNTER_PICKUP&limit=1`, { headers: { Authorization: `Bearer ${login.accessToken}` } })).json();
+  return list.items?.[0]?.id ?? "00000000-0000-4000-8000-000000000000";
+})();
 
 // --- định nghĩa màn ----------------------------------------------------------------------------------------------
 const screens = [
@@ -286,6 +295,8 @@ const screens = [
     } },
   { id: "manager/branch-info", ownRetry: true, role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
   { id: "manager/orders", ownRetry: true, role: "manager", route: "/manager/orders", from: "/manager/dashboard", read: /\/manager\/orders(\?|$)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()) },
+  // Chi tiết đơn (7.2): id một đơn thật của chi nhánh (đọc bằng GET lúc khởi động). Ngoài 500/403/mạng/401 còn ca 404 (`notFound`).
+  { id: "manager/order-detail", ownRetry: true, notFound: true, role: "manager", route: `/manager/orders/${DETAIL_ID}`, from: "/manager/orders", read: new RegExp(`/manager/orders/${DETAIL_ID}$`), loaded: async () => (await q(`!!document.querySelector('[data-testid="order-detail"]')`)) && (await noErrorUi()) },
   { id: "manager/menu (tuỳ chọn)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/manager\/menu-options/, afterNav: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(1500); },
     loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-option-row"]').length`)) > 0 && (await noErrorUi()),
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(700); return switchWrite('[data-testid="branch-option-row"][data-owner-disabled="false"]')(); } },
@@ -401,6 +412,41 @@ async function readCase(spec, kind) {
     tab.setFault(null);
     await clearNotices();
     await closeOverlays();
+  }
+}
+
+/** Ca 404 của màn chi tiết: khối "Không tìm thấy đơn" (không phải lỗi), không toast, không tiếng Anh thô, không nút Thử lại; hết giả lập thì nạp lại được. */
+async function notFoundCase(spec) {
+  try {
+    await spaGo(spec.from);
+    await sleep(900);
+    await clearNotices();
+    tab.setFault({ kind: "404", match: spec.read });
+    await spaGo(spec.route);
+    await sleep(2300);
+    const s = await snap();
+    const hits = tab.faultLog.length;
+    const block = await q(`document.querySelector('[data-testid="order-detail-notfound"]')?.innerText.replace(/\\s+/g, " ").trim() ?? ""`);
+    tab.setFault(null);
+    const problems = [];
+    if (hits === 0) problems.push("NO_REQUEST");
+    if (!/Không tìm thấy đơn/.test(block)) problems.push("NO_NOTFOUND_BLOCK");
+    if (RAW.test(block) || RAW.test(s.notices.join(" "))) problems.push("RAW_TEXT");
+    if (s.notices.length) problems.push("TOAST");
+    if (s.retry) problems.push("UNEXPECTED_RETRY");
+    if (!(s.sider && s.bodyLen > 60)) problems.push("BLANK");
+    await spaGo(spec.from);
+    await sleep(700);
+    await spaGo(spec.route);
+    await sleep(2300);
+    if (!(await spec.loaded())) problems.push("NO_RECOVERY");
+    record(spec.id, "đọc", "404", problems, `"${block}" retry=${s.retry} toast=${s.notices.length}`);
+  } catch (e) {
+    tab.setFault(null);
+    record(spec.id, "đọc", "404", ["SCRIPT"], e.message);
+  } finally {
+    tab.setFault(null);
+    await clearNotices();
   }
 }
 
@@ -608,7 +654,12 @@ try {
     if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0 && !wantsPlanRead) continue;
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
-    if (inGroup("read")) for (const spec of mine.filter((s) => !s.writeOnly)) for (const kind of KINDS) await readCase(spec, kind);
+    if (inGroup("read")) {
+      for (const spec of mine.filter((s) => !s.writeOnly)) {
+        for (const kind of KINDS) await readCase(spec, kind);
+        if (spec.notFound) await notFoundCase(spec);
+      }
+    }
     // 6.11: đọc gói của Manager (không chặn khu vực, không toast). Chạy khi không lọc theo màn hoặc khi gọi tên "manager/subscription".
     if (role === "manager" && inGroup("read") && (screenTokens.length === 0 || screenTokens.some((t) => "manager/subscription".includes(t)))) {
       for (const kind of KINDS) await managerPlanCase(kind);
