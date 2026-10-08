@@ -44,6 +44,7 @@ import BranchInfo from "../roles/branch/BranchInfo";
 import BranchMenu from "../roles/branch/BranchMenu";
 import StaffTable from "../roles/branch/StaffTable";
 import Stations from "../roles/branch/Stations";
+import OrderSearch from "../roles/branch/OrderSearch";
 
 export type WebRole = "admin" | "owner" | "manager";
 
@@ -126,7 +127,7 @@ export const managerRoutes: RouteDef[] = [
     label: "Tra cứu đơn",
     icon: <ClipboardList size={18} />,
     code: "BM-04",
-    element: placeholder("BM-04", "Tra cứu đơn"),
+    element: <OrderSearch />,
   },
   {
     path: "orders/needs-attention",
