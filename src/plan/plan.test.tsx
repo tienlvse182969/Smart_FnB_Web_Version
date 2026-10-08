@@ -183,4 +183,14 @@ describe("chế độ chỉ đọc", () => {
     setPlan(makePlan("ADVANCED", { status: "expired" }));
     expect(render(<ReadOnlyBanner />).getByTestId("read-only-banner").textContent).toContain("chỉ đọc");
   });
+
+  it("banner ghi ngày hết hạn dd/MM/yyyy giờ Việt Nam; gói tạm ngưng có câu riêng (quyết định 52)", () => {
+    // 2026-12-01T00:00:00Z = 07:00 ngày 01/12/2026 giờ Việt Nam
+    setPlan(makePlan("ADVANCED", { status: "expired", expiresAt: "2026-12-01T00:00:00.000Z" }));
+    const expired = render(<ReadOnlyBanner />);
+    expect(expired.getByTestId("read-only-banner").textContent).toContain("Gói đã hết hạn từ 01/12/2026");
+    expired.unmount();
+    setPlan(makePlan("ADVANCED", { status: "suspended" }));
+    expect(render(<ReadOnlyBanner />).getByTestId("read-only-banner").textContent).toContain("tạm ngưng");
+  });
 });
