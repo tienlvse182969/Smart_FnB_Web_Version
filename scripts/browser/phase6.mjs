@@ -613,7 +613,9 @@ try {
     };
     const upgradeButtons = () => q(`[...document.querySelectorAll("button, a")].filter((el) => /gia hạn|đổi gói|nâng cấp|nâng gói|thanh toán/i.test(el.textContent)).length`);
     const featureState = (key) => q(`${tid("myplan-feature-" + key)}?.getAttribute("data-enabled")`);
-    const PENDING = "Chưa có dữ liệu từ máy chủ (chờ BE #38)";
+    // Ngày hết hạn quy về giờ Việt Nam, dd/MM/yyyy (quyết định 52): 2099-12-31T23:59:59.999Z (UTC) → 01/01/2100.
+    const vnDate = (iso) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso));
+    const STATUS_VI = { ACTIVE: "Đang hoạt động", SUSPENDED: "Tạm ngưng", EXPIRED: "Đã hết hạn" };
     const CONTACT = "Liên hệ quản trị nền tảng để đổi gói hoặc gia hạn.";
 
     if (!REAL) {
@@ -652,9 +654,19 @@ try {
       const warnOk = await Promise.all(["branches", "accounts"].map(async (r) => (await has("myplan-limit-warn-" + r)) === (quota(r).used >= quota(r).limit)));
       check("Real · Nhãn cảnh báo hạn mức đúng (chỉ khi dùng ≥ tối đa)", warnOk.every(Boolean), J(warnOk));
       check("Real · Tính năng khớp cờ BE (nhận diện, so sánh); Trợ lý AI ghi 'chưa có dữ liệu' (BE chưa trả cờ AI)", (await featureState("branding")) === String(sub.plan.brandingEnabled) && (await featureState("multiBranchCompare")) === String(sub.plan.multiBranchComparisonEnabled) && (await featureState("aiAssistant")) === "unknown", `BE ${sub.plan.brandingEnabled}/${sub.plan.multiBranchComparisonEnabled}`);
-      check("Real · Trạng thái và ngày hết hạn ghi đúng câu 'Chưa có dữ liệu từ máy chủ (chờ BE #38)' (không dùng giá trị mock)", (await planText("myplan-status")) === PENDING && (await planText("myplan-expiry")) === PENDING, `${await planText("myplan-status")} | ${await planText("myplan-expiry")}`);
+      check(`Real · Trạng thái và hạn dùng THẬT từ BE (${sub.status}, ${sub.expiresAt}): '${STATUS_VI[sub.status]}', ${vnDate(sub.expiresAt)} (giờ Việt Nam); không còn câu 'chờ BE #38'`, (await planText("myplan-status")) === STATUS_VI[sub.status] && (await planText("myplan-expiry")) === vnDate(sub.expiresAt) && !/chờ BE #38/.test(await q(`document.body.innerText`)), `${await planText("myplan-status")} | ${await planText("myplan-expiry")}`);
       check("Real · Có câu liên hệ quản trị; không có nút gia hạn/đổi gói/nâng cấp", (await planText("myplan-contact")) === CONTACT && (await upgradeButtons()) === 0);
       check("Real · Gói thật không bị đọc thành hết hạn: không có banner chỉ đọc", !(await has("read-only-banner")));
+
+      // TRẢ LỜI GIẢ (readOverride, chỉ GET /restaurant-chains; không tới BE): gói EXPIRED và SUSPENDED đúng dạng BE `de4f55c` → nhãn đúng, chế độ chỉ đọc bật (banner).
+      for (const raw of ["EXPIRED", "SUSPENDED"]) {
+        tab.readOverride = { match: /\/api\/v1\/restaurant-chains$/, body: J(be.chains.map((c) => ({ ...c, subscription: { ...c.subscription, status: raw } }))) };
+        await tab.goto("/owner/plan");
+        await tab.waitFor(`document.querySelector('[data-testid="myplan-status"]')`, 20000, `màn Gói của tôi (${raw})`);
+        await sleep(600);
+        const view = { status: await planText("myplan-status"), banner: await planText("read-only-banner"), none: await has("myplan-none"), toasts: await toasts() };
+        check(`Real · (trả lời giả GET) ${raw}: nhãn '${STATUS_VI[raw]}', banner chỉ đọc bật, không phải khối 'không có gói', không toast lỗi`, view.status === STATUS_VI[raw] && /chế độ chỉ đọc/.test(view.banner) && !view.none && !/lỗi|sự cố/i.test(view.toasts), J({ status: view.status, banner: view.banner.slice(0, 60) }));
+      }
 
       // subscription null: trả lời giả cho GET /restaurant-chains (không tới BE), đúng dạng BE (subscription: null)
       tab.readOverride = { match: /\/api\/v1\/restaurant-chains$/, body: J(be.chains.map((c) => ({ ...c, subscription: null }))) };

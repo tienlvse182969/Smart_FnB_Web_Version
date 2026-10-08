@@ -1009,8 +1009,54 @@ try {
     check("Real · Manager · Nhân viên: 0 toast lỗi", (await toasts()) === "", await toasts());
     check("Real · Manager · Nhân viên: 0 request ghi bị chặn ở CDP", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
     check("Real · Manager · Nhân viên: bảng có dữ liệu mẫu và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
+    // 6.11 (#38): dòng hạn mức lấy từ GÓI THẬT (GET /restaurant-chains/:id/subscription), không còn nhãn '(số liệu mẫu)'; danh sách vẫn mẫu nên banner còn.
+    const meBe = await beGet("/auth/me", "manager");
+    const subBe = (await beGet(`/restaurant-chains/${meBe.chainId}/subscription`, "manager")).subscription;
+    const accBe = subBe.quotas.find((x) => x.resource === "accounts");
     const realQuotaText = await q(`${tid("staff-quota")}?.innerText ?? ""`);
-    check("Real · Manager · Nhân viên: dòng hạn mức có nhãn '(số liệu mẫu)' ngay sau 'tài khoản của gói' (chờ #38)", /Đã dùng \d+\/\d+ tài khoản của gói \(số liệu mẫu\)/.test(realQuotaText), realQuotaText.replace(/\s+/g, " ").slice(0, 80));
+    check(`Real · Manager · Nhân viên: dòng hạn mức khớp BE 'Đã dùng ${accBe.used}/${accBe.limit} tài khoản của gói', KHÔNG còn '(số liệu mẫu)'`, realQuotaText.includes(`Đã dùng ${accBe.used}/${accBe.limit} tài khoản của gói`) && !/số liệu mẫu/.test(realQuotaText), realQuotaText.replace(/\s+/g, " ").slice(0, 90));
+    check("Real · Manager · Nhân viên: chưa đạt hạn mức → nút 'Thêm nhân viên' mở", accBe.used < accBe.limit && (await q(`${tid("staff-add")}.disabled`)) === false, `${accBe.used}/${accBe.limit}`);
+    const reqSub = tab.requests.filter((r) => r.method === "GET" && /\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/.test(new URL(r.url).pathname)).length;
+    check("Real · Manager: đã gọi GET /restaurant-chains/:id/subscription khi nạp khu vực", reqSub >= 1, `${reqSub} request`);
+
+    // TRẢ LỜI GIẢ (readOverride, chỉ GET …/subscription; không tới BE): đạt hạn mức tài khoản → nút Thêm khoá, ghi đúng câu quyết định 54.
+    const subMatch = /\/api\/v1\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/;
+    const fullSub = { subscription: { ...subBe, quotas: subBe.quotas.map((x) => (x.resource === "accounts" ? { ...x, used: x.limit, remaining: 0 } : x)) } };
+    tab.readOverride = { match: subMatch, body: J(fullSub) };
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelector('[data-testid="staff-add"]')`, 20000, "màn Nhân viên (đạt hạn mức)");
+    await sleep(800);
+    // Nút bị khoá không bắn sự kiện chuột: rê vào phần tử bọc `action-guard` CỦA nút Thêm (không phải guard đầu tiên của trang).
+    // Dùng chuột THẬT qua CDP (sự kiện giả không kích hoạt Tooltip của antd).
+    const guardBox = await q(`(() => { const w = document.querySelector('[data-testid="staff-add"]')?.closest('[data-testid="action-guard"]'); if (!w) return null; const r = w.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    if (guardBox) {
+      await tab.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5 });
+      await tab.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: guardBox.x, y: guardBox.y });
+    }
+    await sleep(900);
+    const fullView = { disabled: await q(`${tid("staff-add")}.disabled`), line: await q(`${tid("staff-quota")}?.innerText ?? ""`), tip: await q(`[...document.querySelectorAll(".ant-tooltip")].map((e) => e.textContent).join(" | ")`) }; // antd 6: nội dung nằm trong .ant-tooltip (không còn .ant-tooltip-inner)
+    check("Real · (trả lời giả GET) đạt hạn mức tài khoản: nút Thêm khoá, dòng báo 'đã đủ hạn mức', tooltip 'Đã dùng hết tài khoản của gói. Liên hệ chủ chuỗi để nâng gói.'", fullView.disabled === true && /đã đủ hạn mức/.test(fullView.line) && fullView.tip.includes("Đã dùng hết tài khoản của gói. Liên hệ chủ chuỗi để nâng gói."), J({ d: fullView.disabled, tip: fullView.tip.slice(0, 90) }));
+    tab.readOverride = null;
+
+    // TIÊM LỖI (CDP) cho GET …/subscription: khu vực VẪN nạp, dòng 'Chưa tải được hạn mức gói' + Thử lại nhỏ, nút Thêm vẫn bấm được, không toast; bỏ lỗi rồi Thử lại → có số.
+    tab.blockedWrites.length = 0;
+    tab.setFault({ kind: "500", match: /\/subscription$/ });
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelector('[data-testid="staff-quota"]')`, 20000, "màn Nhân viên (gói lỗi)");
+    await sleep(1200);
+    const errView = { sider: await q(`!!document.querySelector(".ant-layout-sider")`), line: await q(`${tid("staff-quota")}?.innerText ?? ""`), retry: await has("staff-quota-retry"), disabled: await q(`${tid("staff-add")}.disabled`), toasts: await toasts() };
+    check("Real · (tiêm lỗi 500) GET …/subscription lỗi: khu vực vẫn nạp xong, dòng 'Chưa tải được hạn mức gói' + nút Thử lại, nút Thêm vẫn bấm được, không toast", errView.sider && /Chưa tải được hạn mức gói/.test(errView.line) && errView.retry && errView.disabled === false && errView.toasts === "", J({ line: errView.line.slice(0, 40), toasts: errView.toasts }));
+    await clickTid("staff-add");
+    await sleep(700);
+    check("Real · (tiêm lỗi 500) Bấm 'Thêm nhân viên' vẫn mở được hộp nhập (BE chặn thật nếu vượt)", await q(`!!document.querySelector(".ant-drawer-open, .ant-drawer-content")`));
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+    await sleep(500);
+    tab.setFault(null);
+    await clickTid("staff-quota-retry");
+    await sleep(1500);
+    const retried = await q(`${tid("staff-quota")}?.innerText ?? ""`);
+    check("Real · Bỏ lỗi rồi bấm Thử lại: dòng hạn mức có số thật lại, hết 'Chưa tải được'", retried.includes(`Đã dùng ${accBe.used}/${accBe.limit}`) && !/Chưa tải được/.test(retried), retried.replace(/\s+/g, " ").slice(0, 70));
+    check("Real · Manager · khối gói: 0 request ghi bị chặn", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
     }
 
     if (FULL) {

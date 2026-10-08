@@ -455,6 +455,60 @@ async function writeCase(spec, kind, extra) {
   }
 }
 
+// --- ca đọc gói của Manager (6.11, #38, quyết định 53) -----------------------------------------------------------
+// Manager đọc gói bằng GET /restaurant-chains/:id/subscription khi nạp khu vực. Lỗi đọc KHÔNG được chặn khu vực và KHÔNG có toast (khác các ca đọc
+// thường, nên không dùng `readCase`/`judgeError`): màn Nhân viên ghi "Chưa tải được hạn mức gói" kèm nút Thử lại nhỏ, nút Thêm vẫn bấm được.
+// Riêng 401: refresh thật chạy rồi gọi lại nên phải có số ngay, không lỗi.
+async function managerPlanCase(kind) {
+  const id = "manager/subscription (gói)";
+  try {
+    await clearNotices();
+    tab.setFault(kind === "401" ? { kind: "401", match: /\/subscription$/, times: 1 } : { kind, match: /\/subscription$/ });
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelector('[data-testid="staff-quota"]')`, 25000, "màn Nhân viên");
+    await sleep(2200);
+    const view = await q(`(() => {
+      const t = (id) => document.querySelector('[data-testid="' + id + '"]');
+      return {
+        sider: !!document.querySelector(".ant-layout-sider"),
+        line: t("staff-quota")?.innerText ?? "",
+        retry: !!t("staff-quota-retry"),
+        addDisabled: t("staff-add")?.disabled ?? null,
+        notices: [...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map((e) => e.innerText.replace(/\\s+/g, " ").trim()),
+        alerts: [...document.querySelectorAll(".ant-alert-error")].length,
+        path: location.pathname,
+      };
+    })()`);
+    const hits = tab.faultLog.length;
+    tab.setFault(null);
+    const problems = [];
+    if (hits === 0) problems.push("NO_REQUEST");
+    if (!view.sider || !view.path.startsWith("/manager")) problems.push("AREA_BLOCKED");
+    if (view.notices.length > 0 || view.alerts > 0) problems.push("UNEXPECTED_MESSAGE");
+    if (view.notices.some((t) => RAW.test(t))) problems.push("RAW_TEXT");
+    if (view.addDisabled !== false) problems.push("ADD_LOCKED");
+    let detail = `hits=${hits} dòng="${view.line.replace(/\s+/g, " ").slice(0, 60)}" retry=${view.retry}`;
+    if (kind === "401") {
+      if (!/Đã dùng \d+\/\d+ tài khoản của gói/.test(view.line)) problems.push("NO_NUMBERS_AFTER_REFRESH");
+      if (view.retry) problems.push("ERROR_SHOWN_AFTER_SUCCESSFUL_REFRESH");
+    } else {
+      if (!/Chưa tải được hạn mức gói/.test(view.line) || !view.retry) problems.push("NO_UNAVAILABLE_LINE");
+      await q(`document.querySelector('[data-testid="staff-quota-retry"]')?.click()`);
+      await sleep(1800);
+      const after = await q(`document.querySelector('[data-testid="staff-quota"]')?.innerText ?? ""`);
+      if (!/Đã dùng \d+\/\d+ tài khoản của gói/.test(after) || /Chưa tải được/.test(after)) problems.push("RETRY_NOLOAD");
+      detail += ` sau Thử lại="${after.replace(/\s+/g, " ").slice(0, 40)}"`;
+    }
+    record(id, "đọc", kind, problems, detail);
+  } catch (e) {
+    tab.setFault(null);
+    record(id, "đọc", kind, ["SCRIPT"], e.message);
+  } finally {
+    tab.setFault(null);
+    await clearNotices();
+  }
+}
+
 // --- ca scope (nạp khu vực sau khi F5) ---------------------------------------------------------------------------
 async function scopeCase(role, route, kind) {
   const id = `${role} (nạp khu vực sau F5)`;
@@ -549,10 +603,15 @@ const matchesScreen = (s) => screenTokens.length === 0 || screenTokens.some((t) 
 try {
   for (const role of ROLES) {
     const mine = screens.filter((s) => s.role === role && matchesScreen(s));
-    if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0) continue;
+    const wantsPlanRead = role === "manager" && screenTokens.some((t) => "manager/subscription".includes(t));
+    if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0 && !wantsPlanRead) continue;
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
     if (inGroup("read")) for (const spec of mine.filter((s) => !s.writeOnly)) for (const kind of KINDS) await readCase(spec, kind);
+    // 6.11: đọc gói của Manager (không chặn khu vực, không toast). Chạy khi không lọc theo màn hoặc khi gọi tên "manager/subscription".
+    if (role === "manager" && inGroup("read") && (screenTokens.length === 0 || screenTokens.some((t) => "manager/subscription".includes(t)))) {
+      for (const kind of KINDS) await managerPlanCase(kind);
+    }
     if (inGroup("write")) {
       for (const spec of mine.filter((s) => s.write)) {
         for (const kind of KINDS) await writeCase(spec, kind);
