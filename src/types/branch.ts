@@ -88,6 +88,18 @@ export interface ApiQuota {
   remaining: number;
 }
 
+/**
+ * Gói đang dùng của một chuỗi, BE `de4f55c` (`plan-quota.service.ts` `getSubscriptionSnapshot`): `GET /restaurant-chains` (Owner, trường
+ * `subscription`) và `GET /restaurant-chains/:chainId/subscription` (Owner, Manager, bọc trong `{ subscription }`). `status` là enum
+ * `BusinessSubscriptionStatus` (`ACTIVE` | `SUSPENDED` | `EXPIRED`; BE tự đổi `ACTIVE` quá hạn thành `EXPIRED`). BE cũ không có `status`/`expiresAt`.
+ */
+export interface ApiSubscription {
+  status?: string;
+  expiresAt?: string;
+  plan: ApiPlan;
+  quotas: ApiQuota[];
+}
+
 export interface ApiChain {
   id: string;
   code: string;
@@ -104,7 +116,7 @@ export interface ApiChain {
   createdAt: string;
   updatedAt: string;
   _count: { branches: number };
-  subscription: { plan: ApiPlan; quotas: ApiQuota[] } | null;
+  subscription: ApiSubscription | null;
 }
 
 export interface CreateBranchInput {

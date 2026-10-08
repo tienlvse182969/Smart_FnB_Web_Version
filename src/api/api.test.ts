@@ -404,10 +404,13 @@ describe("gói (plan)", () => {
     setScenario({ tier: null });
   });
 
-  it("bản real không có chuỗi (Manager): hạn mức rỗng, vẫn có cờ để khoá giao diện", async () => {
+  it("bản real không có chuỗi (Manager) mà BE không đọc được: hạn mức rỗng, vẫn có cờ để khoá giao diện, không ném lỗi", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     const plan = await planReal.getPlan("c");
+    vi.unstubAllGlobals();
     expect(plan.limits).toEqual([]);
     expect(plan.source.limits).toBe("mock");
+    expect(plan.subscriptionUnavailable).toBe(true);
     expect(plan.features.aiAssistant.requiredTier).toBe("ADVANCED");
   });
 });

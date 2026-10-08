@@ -5,7 +5,8 @@
  * chặn đọc thì màn hình sẽ nhận lỗi từ BE.
  */
 import { describePlan, usePlan } from "./usePlan";
-import type { PlanInfo, QuotaResource } from "../types";
+import { useAppStore } from "../store";
+import type { PlanInfo, QuotaResource, RoleKey } from "../types";
 
 export interface WriteGuard {
   /** true = chỉ đọc (hết hạn/tạm ngưng). */
@@ -18,17 +19,23 @@ export interface WriteGuard {
 
 export const READ_ONLY_REASON = "Gói đã hết hạn — doanh nghiệp đang ở chế độ chỉ đọc. Liên hệ quản trị nền tảng để gia hạn.";
 
-export function limitReason(resource: QuotaResource, planName: string | null): string {
-  const what = resource === "branches" ? "chi nhánh" : "tài khoản";
-  return `Đã dùng hết hạn mức ${what}${planName ? ` của gói ${planName}` : ""}. Nâng gói để thêm.`;
+/**
+ * Lý do khoá nút tạo mới khi đạt hạn mức. Tài khoản (quyết định 54): Manager → "…Liên hệ chủ chuỗi để nâng gói.", vai khác (Owner) →
+ * "…Liên hệ quản trị nền tảng để nâng gói." (BR-10: chỉ Admin đổi gói). Chi nhánh (chỉ Owner tạo) giữ câu cũ.
+ */
+export function limitReason(resource: QuotaResource, planName: string | null, role?: RoleKey | null): string {
+  if (resource === "accounts") {
+    return `Đã dùng hết tài khoản của gói. Liên hệ ${role === "manager" ? "chủ chuỗi" : "quản trị nền tảng"} để nâng gói.`;
+  }
+  return `Đã dùng hết hạn mức chi nhánh${planName ? ` của gói ${planName}` : ""}. Nâng gói để thêm.`;
 }
 
 /** Phần thuần: tính trạng thái chặn từ `PlanInfo`; `resource` = hạn mức cần kiểm cho thao tác tạo mới. */
-export function computeWriteGuard(plan: PlanInfo | null, resource?: QuotaResource): WriteGuard {
+export function computeWriteGuard(plan: PlanInfo | null, resource?: QuotaResource, role?: RoleKey | null): WriteGuard {
   const view = describePlan(plan);
   if (view.isExpired) return { readOnly: true, disabled: true, reason: READ_ONLY_REASON };
   if (resource && view.isLimitReached(resource)) {
-    return { readOnly: false, disabled: true, reason: limitReason(resource, view.planName) };
+    return { readOnly: false, disabled: true, reason: limitReason(resource, view.planName, role) };
   }
   return { readOnly: false, disabled: false, reason: null };
 }
@@ -39,5 +46,6 @@ export function useReadOnly(): boolean {
 
 /** Cho các điều khiển không phải nút (Switch, Popconfirm…): có bị chặn ghi không, và vì sao. */
 export function useWriteGuard(resource?: QuotaResource): WriteGuard {
-  return computeWriteGuard(usePlan().plan, resource);
+  const role = useAppStore((s) => s.currentUser?.role ?? null);
+  return computeWriteGuard(usePlan().plan, resource, role);
 }

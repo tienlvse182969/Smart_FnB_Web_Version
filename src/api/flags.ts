@@ -47,7 +47,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   auth: "real; đổi mật khẩu chờ BE (chưa có endpoint cho người đã đăng nhập)",
   branch: "real",
   report: "real; BE chưa đếm đơn quầy (lọc COMPLETED) — chờ BE",
-  plan: "real cho hạn mức; tier, cờ tính năng, hạn dùng là mock — chờ BE",
+  plan: "real (#38, BE de4f55c): trạng thái, hạn dùng, hạn mức, cờ nhận diện/so sánh; cấp gói và cờ AI suy từ mã gói (#30)",
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
   options: "real (6.3, OW-03): CRUD nhóm/tuỳ chọn + gắn nhóm vào món qua BE `0083289`; isDefault (#15), allowBatching (#17) và trạng thái tuỳ chọn theo chi nhánh chưa có nên ô bị khoá/ẩn; mock = VITE_API_OPTIONS=mock",
   branch_options: "real (5.7c): Manager bật/tắt tuỳ chọn tại chi nhánh qua GET/PATCH /manager/menu-options; chi nhánh lấy từ JWT",

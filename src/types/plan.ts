@@ -49,6 +49,11 @@ export interface PlanInfo {
   status: PlanStatus | null;
   /** Ngày hết hạn (ISO) — null nếu chưa biết (real: BE chưa trả, #38). */
   expiresAt: string | null;
+  /**
+   * Chỉ Manager (real): lỗi khi đọc `GET /restaurant-chains/:chainId/subscription` (quyết định 53). KHÔNG chặn khu vực làm việc; `limits` rỗng,
+   * `status` và `expiresAt` null, cờ tính năng suy như trước. Màn hiện "Chưa tải được hạn mức gói" kèm nút Thử lại nhỏ.
+   */
+  subscriptionUnavailable?: boolean;
   /** Real: BE không trả gói đang hoạt động (`subscription = null`: hết hạn, tạm ngưng hoặc chưa có) — quyết định 38. */
   noActivePlan?: boolean;
   limits: PlanLimit[];
