@@ -272,12 +272,27 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 | 35 | Chưa (seed không có đơn đã trả) | Số liệu báo cáo demo 0 đồng; `phase5` real có 1 SKIP |
 | 36 | Chưa | Giữ thông báo ghép hiện có |
 | 37 | Chưa (`UpdateBranchMenuItemDto` vẫn nhận `isEnabled`) | Web chỉ gửi `{isAvailable}` |
-| **38** | **Chưa** (không `status`/`expiresAt`; Owner chỉ thấy `subscription = null` khi hết hạn; Manager 403) | Owner: "Chưa có dữ liệu từ máy chủ (chờ BE #38)", khối "Không có gói đang hoạt động" khi null; Manager lấy trạng thái từ mock nên không tự khoá |
+| **38** | **Đã làm ở `de4f55c` (6.9, xem bảng "Tình trạng theo BE `de4f55c`" ngay dưới; cột này là trạng thái lúc chốt 6.7):** Chưa (không `status`/`expiresAt`; Owner chỉ thấy `subscription = null` khi hết hạn; Manager 403) | Owner: "Chưa có dữ liệu từ máy chủ (chờ BE #38)", khối "Không có gói đang hoạt động" khi null; Manager lấy trạng thái từ mock nên không tự khoá |
 | 39 | Chưa (`isCustom`, `version`, vai đọc, chặn gói, giới hạn logo/tên rộng hơn đặc tả) | Web suy `isCustom`, tách `lookCustom` (chỉ đổi tên áp tên), nạp lại khi điều hướng, giữ luật đặc tả |
-| 40 | Chưa (không kiểm khoá, không che ••••, không Đang kiểm tra/Lỗi, webhook chung) | Hai trạng thái thật; không hiện khoá che; 503 `PAYOS_MASTER_KEY` có câu tiếng Việt; Lỗi chỉ ở mock |
+| 40 | **Đã làm ở `de4f55c` (6.9, xem bảng dưới); lúc chốt 6.7:** Chưa (không kiểm khoá, không che ••••, không Đang kiểm tra/Lỗi, webhook chung) | Hai trạng thái thật; không hiện khoá che; 503 `PAYOS_MASTER_KEY` có câu tiếng Việt; Lỗi chỉ ở mock |
 | 41 | Không thêm | — |
 | 42 | **Mới** (seed chạy mỗi lần khởi động, ghi đè dữ liệu mẫu) | Kiểm lại sau mỗi lần BE khởi động; không dựa vào dữ liệu demo đã sửa |
 | QR PayOS hết hạn | Một phần (hạn 10 phút; thiếu huỷ QR và "Kiểm tra lại") | Chưa có màn (thuộc GĐ7+) |
+
+### Tình trạng theo BE `de4f55c` (build local 2026-10-08; đối chiếu bằng đọc mã + GET thật)
+
+> BE `de4f55c` = `91867ae` + 5 commit (Vũ Hà Gia Bảo, Le Van Tien; 2026-10-04 → 06): `05b142f`, `dd1e561`, `bcac8f5`, `b804462` (màn hình khách của thu ngân — việc bên mobile: `stations.controller.ts`, `stations.service.ts`, `realtime.gateway.ts`, `jwt-auth.guard.ts`, cột `pos_stations.cart_snapshot`) và `de4f55c` `feat: expose subscriptions and verify PayOS channels` (25 file; trả lời #38 và #40). Migration mới (3, đã áp, tổng 24/24): `20260921113144_init` (trùng nội dung byte-by-byte với `20260923092955_align_order_item_audit_foreign_keys` đã áp: bỏ rồi tạo lại 2 khoá ngoại `order_items` `SET NULL`; timestamp cũ bất thường, kết quả không đổi), `20261004180000_add_customer_display_snapshot` (thêm cột JSONB null), `20261006140000_payos_channel_verification` (enum `PayosChannelStatus`, 6 cột mới ở `payos_channels`, bảng `payos_channel_audit_logs`). Không migration nào phá huỷ. Seed, compose, Dockerfile, entrypoint **không đổi** so với `91867ae`. Mọi mục # không có trong bảng này là **không đổi so với `91867ae`**.
+
+| # | `91867ae` | `de4f55c` | Ghi chú (file:dòng, BE) |
+|---|---|---|---|
+| 38 | Chưa | **Đã làm** (thiếu cờ AI/`tier` → #30) | `GET /restaurant-chains/:chainId/subscription` cho OWNER và MANAGER (`chain-subscription.controller.ts:16-17, 24-34`; Manager chỉ đọc chuỗi của chi nhánh mình, `branch-access.service.ts` `assertCanReadChain`). Snapshot `{status, expiresAt, plan, quotas}` (`plan-quota.service.ts` `getSubscriptionSnapshot`): gói hết hạn/tạm ngưng vẫn trả; `ACTIVE` mà quá hạn tự thành `EXPIRED`; không có gói → `null`. `GET /restaurant-chains` (`branches.service.ts`) dùng snapshot này nên không còn `null` khi hết hạn. Đã kiểm GET thật: Owner 200 và Manager 200, `status ACTIVE`, `expiresAt 2099-12-31`; `GET /restaurant-chains` của Manager vẫn 403 |
+| 40 (a) kiểm khoá | Chưa | **Đã làm** | `PUT` gọi `confirmWebhook` tới `api-merchant.payos.vn/confirm-webhook` (`payos-channel.service.ts:74`, `payos-api.service.ts:32-43`); PayOS từ chối → 422, tạm lỗi → 502, KHÔNG lưu khoá (`:76-89`) |
+| 40 (b) che khoá | Chưa | **Đã làm** | `clientIdLast4`, `apiKeyLast4` (`dto/payos-channel.dto.ts:30-32`; lưu `slice(-4)` ở `payos-channel.service.ts:99-100`) |
+| 40 (c) trạng thái | Chưa | **Đã làm** | `status` `LINKED`/`ERROR`, `lastError`, `lastVerifiedAt` (`dto/payos-channel.dto.ts:27-36`); `ERROR` đặt khi PayOS từ chối lúc tạo QR (`payos-payment.service.ts:106`), `LINKED` khi tạo QR được (`:100`). Chưa có "Đang kiểm tra" (xác minh chạy đồng bộ trong `PUT`) |
+| 40 (d) webhook theo kênh | Chưa | **Đã làm** | `POST /webhooks/payos/:webhookCode` (`payos-webhook.controller.ts:15`), UUID `webhook_code` mỗi kênh. **Route cũ `/webhooks/payos` đã bỏ — báo nhóm mobile/PayOS** |
+| 40 (e) audit log | Chưa rõ | **Đã làm** | bảng `payos_channel_audit_logs` (tạo, cập nhật, gỡ, xác minh thất bại: `payos-channel.service.ts:77-87, 122-131, 143-152`) |
+| Biến môi trường | — | **Mới** | `PAYOS_WEBHOOK_BASE_URL`: TUỲ CHỌN khi khởi động (rỗng được, chỉ kiểm khi có giá trị phải là URL HTTP(S) tuyệt đối: `environment.validation.ts:26-28, 95-97`); thiếu thì `PUT` payos-channel trả 503 "PAYOS_WEBHOOK_BASE_URL is not configured" (`payos-channel.service.ts:67-70`). Cần URL công khai để PayOS gọi được. `PAYOS_MASTER_KEY` vẫn như cũ. BE local KHÔNG đặt cả hai (quyết định GĐ6) nên `PUT` thật vẫn 503 |
+| Màn hình khách thu ngân | — | **Mới (mobile)** | `pos_stations.cart_snapshot`, đồng bộ lại sau khi kết nối lại (`realtime.gateway.ts`); web không dùng |
 
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
