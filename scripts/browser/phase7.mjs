@@ -16,7 +16,9 @@ const REAL = MODE === "real";
 // Khối `detail` (trang chi tiết đơn, 7.2): mock + real (chỉ đọc). Khối `realtime` (tự làm tươi qua socket, 7.2): CHỈ real và CHỈ chạy khi
 // gọi tên `--only=realtime` — nó TẠO 2 đơn tiền mặt mới trên BE local bằng scripts/data/create-one-cash-order.mjs (request ghi đi từ Node,
 // KHÔNG qua trình duyệt; trình duyệt vẫn bị chặn ghi ở CDP), rồi đưa 1 đơn qua pha chế. Xem docs/BAN-GIAO.md, quyết định 75.
-const BLOCKS = ["orders", "detail", "realtime"];
+// Khối `report` (báo cáo chi nhánh của Manager, 7.3): mock + real (chỉ đọc). Khối `realtime-reconnect` (7.3, CHỈ real, KHÔNG tạo đơn): chặn
+// kết nối socket.io ở CDP cho tới khi hết lượt tự nối rồi bỏ chặn và bấm "Kết nối lại".
+const BLOCKS = ["orders", "detail", "report", "realtime-reconnect", "realtime"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -158,9 +160,12 @@ try {
       await q(`document.querySelector(".ant-pagination-item-2").click()`);
       await settle();
       check("Mock · Sang trang 2: URL page=2, 20 dòng", (await loc()) === "/manager/orders?page=2" && (await rowCount()) === 20 && total > 40, `${await loc()} · tổng ${total}`);
-      const page2 = (await rowTexts())[0];
+      // So theo MÃ ĐƠN của dòng đầu, không theo cả chữ trong dòng: dữ liệu mock suy từ "bây giờ" nên nhãn trạng thái của đơn hôm nay
+      // (Đang pha → Sẵn sàng → Hoàn tất theo tuổi đơn) có thể đổi giữa hai lần nạp.
+      const codeOf = (text) => (text.match(/CTR-\d+/) ?? [])[0];
+      const page2 = codeOf((await rowTexts())[0]);
       await reload();
-      check("Mock · F5 giữ nguyên trang 2 (cùng dòng đầu, trang 2 đang chọn)", (await loc()) === "/manager/orders?page=2" && (await rowTexts())[0] === page2 && (await q(`document.querySelector(".ant-pagination-item-active")?.innerText`)) === "2");
+      check("Mock · F5 giữ nguyên trang 2 (cùng dòng đầu, trang 2 đang chọn)", (await loc()) === "/manager/orders?page=2" && codeOf((await rowTexts())[0]) === page2 && (await q(`document.querySelector(".ant-pagination-item-active")?.innerText`)) === "2");
       check("Mock · Phân trang có ô chọn cỡ trang", (await q(`document.querySelectorAll(".ant-pagination-options .ant-select").length`)) === 1);
       await pickSelect(`document.querySelector(".ant-pagination-options .ant-select")`, "50 /*");
       await settle();
@@ -489,6 +494,216 @@ try {
       const detailCalls = tab.requests.filter((r) => r.method === "GET" && /\/manager\/orders\/[^?]+$/.test(r.url));
       check(`Real · ${detailCalls.length} GET /manager/orders/:id đều không có tham số lạ`, detailCalls.length >= 8 && detailCalls.every((r) => !new URL(r.url).search), String(detailCalls.length));
     }
+  }
+
+  // ---- report: báo cáo chi nhánh của Manager (BM-03, 7.3) -------------------------------------------------------------
+  if (want("report")) {
+    const reportReady = async () => {
+      await tab.waitFor(`(${tid("report-kpi-revenue")} && document.querySelector('[data-loading="false"]')) || ${tid("report-error")}`, 20000, "báo cáo nạp xong");
+      await sleep(300);
+    };
+    const goReport = async (search = "") => {
+      await spaGo("/manager/dashboard" + search);
+      await reportReady();
+    };
+    const tx = (id) => q(`${tid(id)}?.innerText.replace(/\\s+/g, " ").trim() ?? ""`);
+    const bars = (id) => q(`[...document.querySelectorAll('[data-testid="${id}"] [data-key]')].map((e) => [e.getAttribute("data-key"), Number(e.getAttribute("data-value"))])`);
+    const tableRows = (id) => q(`[...document.querySelectorAll('[data-testid="${id}"] tr.ant-table-row')].map((r) => [...r.querySelectorAll("td")].map((c) => c.innerText.replace(/\\s+/g, " ").trim()))`);
+    const money = (s) => Number(String(s).replace(/[^\d]/g, ""));
+    const firstMoney = (s) => money((String(s).match(/([\d.]+)\s*₫/) ?? [])[1] ?? "0");
+    const presetClick = (label) => q(`(() => { const l = [...${tid("report-preset")}.querySelectorAll("label")].find((x) => x.innerText.trim() === ${J(label)}); if (!l) return false; l.click(); return true })()`);
+    const prepText = (s) => (s === null ? "Chưa có dữ liệu" : s < 1 ? "Dưới 1 giây" : `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, "0")}`);
+    const reportCalls = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/reports\?/.test(r.url));
+    const today = vnDay();
+
+    if (!REAL) {
+      await goReport();
+      check("Mock · Báo cáo chi nhánh: không còn placeholder; có thẻ số, doanh thu, hình thức, giờ, món, topping, đơn huỷ", (await Promise.all(["report-kpi-revenue", "report-kpi-orders", "report-kpi-avg", "report-kpi-prep", "report-revenue-bars", "report-payments", "report-hours-bars", "report-top-items", "report-cancellations"].map(has))).every(Boolean) && !/Chưa có dữ liệu.*chờ báo cáo|chỉ mở cho tài khoản Chủ chuỗi/.test(await q(`document.body.innerText`)));
+      check("Mock · Mặc định 7 ngày: URL sạch, 7 cột doanh thu, 24 cột giờ, nút Làm mới", (await loc()) === "/manager/dashboard" && (await bars("report-revenue-bars")).length === 7 && (await bars("report-hours-bars")).length === 24 && (await has("report-refresh")));
+      check("Mock · Thẻ số: doanh thu ₫, số đơn, trung bình ₫, thời gian pha dạng phút:giây", /₫/.test(await tx("report-kpi-revenue")) && /\d/.test(await tx("report-kpi-orders")) && /₫/.test(await tx("report-kpi-avg")) && /\d+:\d{2}/.test(await tx("report-kpi-prep")), await tx("report-kpi-prep"));
+
+      await presetClick("Hôm nay");
+      await sleep(900);
+      await reportReady();
+      check("Mock · Chọn nhanh 'Hôm nay': URL from=to=hôm nay, 1 cột doanh thu", (await loc()) === `/manager/dashboard?from=${today}&to=${today}` && (await bars("report-revenue-bars")).length === 1, await loc());
+      await presetClick("30 ngày");
+      await sleep(900);
+      await reportReady();
+      check("Mock · Chọn nhanh '30 ngày': URL từ hôm nay − 29, 30 cột doanh thu", (await loc()) === `/manager/dashboard?from=${vnDayMinus(29)}&to=${today}` && (await bars("report-revenue-bars")).length === 30, await loc());
+      const rows30 = await tableRows("report-top-items");
+      const top30 = (await tableRows("report-top-toppings")).length;
+      check("Mock · 30 ngày: món bán chạy ≤ 10 dòng xếp theo số lượng giảm dần, có topping, có đơn huỷ nhiều lý do", rows30.length >= 1 && rows30.length <= 10 && J(rows30.map((r) => money(r[1]))) === J(rows30.map((r) => money(r[1])).sort((a, b) => b - a)) && top30 > 0, `${rows30.length} món · ${top30} topping`);
+      const reasons = (await tableRows("report-cancellations")).map((r) => r[4]);
+      check("Mock · Đơn huỷ có nhiều lý do khác nhau", new Set(reasons).size > 1, J([...new Set(reasons)]));
+
+      await tab.send("Page.reload");
+      await sleep(1200);
+      await tab.waitFor(`document.readyState === "complete"`, 20000, "tải lại trang");
+      await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 30000, "shell sau F5");
+      await reportReady();
+      check("Mock · F5 giữ nguyên khoảng 30 ngày", (await loc()) === `/manager/dashboard?from=${vnDayMinus(29)}&to=${today}` && (await bars("report-revenue-bars")).length === 30, await loc());
+
+      await goReport("");
+      await pickSelect(tid("report-granularity"), "Theo tuần");
+      await sleep(700);
+      await reportReady();
+      const weekBars = await bars("report-revenue-bars");
+      check("Mock · Kỳ 'Theo tuần': URL granularity=week; nhãn cột 'Tuần dd/MM'", (await loc()) === "/manager/dashboard?granularity=week" && weekBars.length >= 1 && (await q(`[...document.querySelectorAll('[data-testid="report-revenue-bars"] [data-key]')].every((e) => /Tuần \\d{2}\\/\\d{2}/.test(e.innerText))`)), await loc());
+      await goReport("?granularity=month");
+      check("Mock · Kỳ 'Theo tháng': nhãn cột MM/YYYY", await q(`[...document.querySelectorAll('[data-testid="report-revenue-bars"] [data-key]')].every((e) => /\\d{2}\\/\\d{4}/.test(e.innerText))`));
+
+      await goReport("?from=2000-01-01&to=2000-01-07");
+      check("Mock · Khoảng không có đơn: 'Chưa có đơn trong khoảng thời gian này'", (await tx("report-empty")) === "Chưa có đơn trong khoảng thời gian này" && !(await has("report-payments")));
+      await goReport("?from=abc&to=xyz&granularity=year");
+      check("Mock · URL hỏng: bỏ qua, về mặc định 7 ngày, không lỗi", (await bars("report-revenue-bars")).length === 7 && !(await has("report-error")) && (await toasts()) === "");
+
+      await goReport(`?from=${vnDayMinus(29)}&to=${today}`);
+      const link = await q(`document.querySelector('[data-testid="report-cancel-link"]')?.getAttribute("href") ?? ""`);
+      await q(`document.querySelector('[data-testid="report-cancel-link"]').click()`);
+      await tab.waitFor(`${tid("order-detail")}`, 15000, "chi tiết đơn huỷ");
+      check("Mock · Bấm đơn huỷ trong báo cáo: sang /manager/orders/:id, chi tiết hiện đơn đã huỷ có lý do", (await loc()) === link && /^\/manager\/orders\/.+/.test(link) && (await tx("order-detail-status")) === "Đã huỷ" && (await tx("order-detail-cancel-reason")) !== "—", link);
+      check("Mock · Không hiện mục hoàn tiền / chờ hoàn / 'sắp có' (QĐ 78, chờ #43)", !/hoàn tiền|chờ hoàn|sắp có/i.test(await q(`document.body.innerText`)));
+    } else {
+      const be = await readBe();
+      const beReport = async (from, to, g = "day") => (await be.get(`/manager/reports?from=${from}&to=${to}&granularity=${g}&limit=10`)).body;
+      const orders = (await be.get("/manager/orders?type=COUNTER_PICKUP&limit=100")).body.items;
+      const D = vnDay(new Date(orders.map((o) => o.placedAt).sort().at(-1)));
+      tab.requests.length = 0;
+
+      /** So số web hiển thị với số BE trả (web không tự tính lại). Trả {ok, rows} và in bảng. */
+      const compare = async (name, from, to, g = "day") => {
+        const r = await beReport(from, to, g);
+        await goReport(`?from=${from}&to=${to}${g === "day" ? "" : `&granularity=${g}`}`);
+        const rows = [];
+        const add = (field, web, beVal) => rows.push({ field, web: String(web), be: String(beVal), ok: String(web) === String(beVal) });
+        add("doanh thu", firstMoney(await tx("report-kpi-revenue")), Math.round(Number(r.summary.revenue)));
+        add("số đơn", money((await tx("report-kpi-orders")).replace(/^Số đơn/, "").replace(/đã thanh toán$/, "")), r.summary.orderCount);
+        add("trung bình/đơn", firstMoney(await tx("report-kpi-avg")), Math.round(Number(r.summary.averageOrderValue)));
+        add("thời gian pha", (await tx("report-kpi-prep")).replace(/^Thời gian pha trung bình/, "").replace(/\d+ suất.*$/, "").trim(), prepText(r.preparation.averageSeconds));
+        const wb = await bars("report-revenue-bars");
+        add("doanh thu theo kỳ (cột)", J(wb.map((b) => [b[0], b[1]])), J(r.revenue.map((b) => [b.bucket, Number(b.revenue)])));
+        const wh = await bars("report-hours-bars");
+        add("số đơn theo giờ (24 cột)", J(wh.map((b) => b[1])), J(r.ordersByHour.map((h) => h.orderCount)));
+        const pay = await tableRows("report-payments");
+        add("theo hình thức (hàng)", J(pay.map((p) => [p[0], money(p[1]), firstMoney(p[2]), firstMoney(p[3])])), J(r.payments.map((p) => [{ CASH: "Tiền mặt", BANK_TRANSFER: "Chuyển khoản (QR)" }[p.method] ?? `Khác (${p.method})`, p.paymentCount, Math.round(Number(p.settledAmount)), Math.round(Number(p.receivedAmount))])));
+        const items = await tableRows("report-top-items");
+        add("món bán chạy (hàng)", J(items.map((p) => [p[0], money(p[1]), firstMoney(p[2])])), J(r.topItems.map((p) => [p.name, p.quantity, Math.round(Number(p.lineRevenue))])));
+        const tops = await tableRows("report-top-toppings");
+        add("topping (hàng)", J(tops.map((p) => [p[0], money(p[1]), firstMoney(p[2])])), J(r.topToppings.map((p) => [p.name, p.quantity, Math.round(Number(p.additionalRevenue))])));
+        const canc = await tableRows("report-cancellations");
+        add("đơn huỷ (tổng / lý do)", J([await q(`(${tid("report-cancellations")}?.innerText.match(/(\\d[\\d.]*) đơn huỷ/) ?? [])[1] ?? "0"`), canc.map((c) => c[4])]), J([String(r.cancellations.total), r.cancellations.items.map((c) => c.reason ?? "—")]));
+        console.log(`   ── ${name}: ${from} → ${to} (${g}) — SỐ WEB cạnh SỐ BE ──`);
+        for (const row of rows) console.log(`   ${row.ok ? "=" : "≠"} ${row.field.padEnd(26)} web: ${row.web.slice(0, 90)}\n     ${"".padEnd(26)}  be: ${row.be.slice(0, 90)}`);
+        return { r, rows };
+      };
+
+      // Kỳ có đơn: ngày D (ngày có các đơn mẫu) — khớp từng mục.
+      const a = await compare("Ngày có đơn", D, D);
+      check(`Real · Ngày ${D}: web hiển thị ĐÚNG số BE ở mọi mục (doanh thu, số đơn, trung bình, pha, cột, giờ, hình thức, món, topping, đơn huỷ)`, a.rows.every((x) => x.ok), a.rows.filter((x) => !x.ok).map((x) => x.field).join(", "));
+      check("Real · Số liệu mẫu 7.0b: BE tính 11 đơn đã trả hôm đó (doanh thu 1.090.000) — web không lọc lại", a.r.summary.orderCount === 11 && Math.round(Number(a.r.summary.revenue)) === 1090000, J(a.r.summary));
+      // Số đơn theo giờ rơi đúng giờ VN của các đơn đã tạo: tính từ GET /manager/orders (không qua web).
+      const dayOrders = (await be.get(`/manager/orders?limit=100&from=${encodeURIComponent(`${D}T00:00:00.000+07:00`)}&to=${encodeURIComponent(`${D}T23:59:59.999+07:00`)}`)).body.items;
+      const byHour = Array.from({ length: 24 }, () => 0);
+      for (const o of dayOrders) byHour[Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false }).format(new Date(o.placedAt)))] += 1;
+      const webHours = (await bars("report-hours-bars")).map((b) => b[1]);
+      check("Real · Số đơn theo giờ: web = đếm giờ Việt Nam từ GET /manager/orders (placedAt đổi +07:00), không phải giờ UTC", J(webHours) === J(byHour) && webHours.some((n) => n > 0), `giờ có đơn: ${J(webHours.map((n, h) => (n ? `${h}h=${n}` : null)).filter(Boolean))}`);
+      const cancelRow = (await tableRows("report-cancellations")).find((r) => /Khách đổi ý trước khi trả tiền/.test(r[4]));
+      check("Real · Đơn huỷ 'Khách đổi ý trước khi trả tiền' hiện đúng lý do, tổng 75.000", !!cancelRow && /75\.000/.test(cancelRow[3]), J(cancelRow));
+      const href = await q(`document.querySelector('[data-testid="report-cancel-link"]')?.getAttribute("href") ?? ""`);
+      await q(`document.querySelector('[data-testid="report-cancel-link"]').click()`);
+      await tab.waitFor(`${tid("order-detail")}`, 15000, "chi tiết đơn huỷ");
+      check("Real · Bấm đơn huỷ: sang /manager/orders/:id, chi tiết có lý do 'Khách đổi ý trước khi trả tiền'", (await loc()) === href && (await tx("order-detail-cancel-reason")) === "Khách đổi ý trước khi trả tiền", href);
+
+      // Kỳ 30 ngày (mặc định của BE là 30 ngày; web gửi from/to tường minh).
+      const b = await compare("30 ngày", vnDayMinus(29), today);
+      check("Real · 30 ngày: web = BE ở mọi mục (kể cả mục hình thức thanh toán lẫn đơn v7, #47)", b.rows.every((x) => x.ok), b.rows.filter((x) => !x.ok).map((x) => x.field).join(", "));
+      console.log(`   #47: 30 ngày — doanh thu ${Math.round(Number(b.r.summary.revenue))} (${b.r.summary.orderCount} đơn) nhưng 'theo hình thức' cộng ${b.r.payments.reduce((s, p) => s + Math.round(Number(p.settledAmount)), 0)} ở ${b.r.payments.reduce((s, p) => s + p.paymentCount, 0)} khoản (có đơn DINE_IN v7); web hiện nguyên số BE.`);
+      const w = await compare("Theo tuần", vnDayMinus(29), today, "week");
+      check("Real · Theo tuần (BE gom, web không tự gộp): cột = bucket của BE", w.rows.every((x) => x.ok), w.rows.filter((x) => !x.ok).map((x) => x.field).join(", "));
+
+      // Hôm nay (sau khi máy khởi động lại: có thể chưa có đơn).
+      const t = await compare("Hôm nay", today, today);
+      const beEmpty = t.r.summary.orderCount === 0 && t.r.cancellations.total === 0 && t.r.ordersByHour.every((h) => h.orderCount === 0) && t.r.revenue.every((x) => Number(x.revenue) === 0);
+      check(
+        `Real · Hôm nay: web = BE${beEmpty ? " (chưa có đơn → 'Chưa có đơn trong khoảng thời gian này', 4 thẻ số = BE)" : ""}`,
+        beEmpty ? (await tx("report-empty")) === "Chưa có đơn trong khoảng thời gian này" && t.rows.slice(0, 4).every((x) => x.ok) : t.rows.every((x) => x.ok),
+        J(t.r.summary),
+      );
+
+      // Làm mới: đúng 1 GET, giữ khoảng thời gian.
+      await goReport(`?from=${D}&to=${D}`);
+      const before = reportCalls().length;
+      await clickTid("report-refresh");
+      await sleep(1800);
+      const last = new URL(reportCalls().at(-1).url);
+      check("Real · Làm mới: đúng 1 GET /manager/reports, giữ from/to/kỳ, URL không đổi", reportCalls().length === before + 1 && last.searchParams.get("from") === D && last.searchParams.get("to") === D && last.searchParams.get("granularity") === "day" && (await loc()) === `/manager/dashboard?from=${D}&to=${D}`, `${reportCalls().length - before} GET`);
+      const first = new URL(reportCalls()[0].url);
+      check("Real · Mẫu GET: from/to là NGÀY giờ Việt Nam (YYYY-MM-DD), granularity, limit=10", /^\d{4}-\d{2}-\d{2}$/.test(first.searchParams.get("from")) && first.searchParams.get("limit") === "10" && ["day", "week", "month"].includes(first.searchParams.get("granularity")), first.search);
+      console.log("   MẪU GET:", reportCalls()[0].url.replace(/^https?:\/\/[^/]+/, ""));
+
+      // Trả lời giả: báo cáo rỗng và thời gian pha 125 giây.
+      const emptyBody = { branch: { id: "b", name: "Smart F&B Nguyễn Huệ", timezone: "Asia/Ho_Chi_Minh" }, range: { from: D, to: D, timezone: "Asia/Ho_Chi_Minh", granularity: "day" }, summary: { revenue: "0", orderCount: 0, averageOrderValue: "0" }, revenue: [{ bucket: D, revenue: "0", orderCount: 0 }], payments: [], topItems: [], topOptions: [], topToppings: [], ordersByHour: Array.from({ length: 24 }, (_, hour) => ({ hour, orderCount: 0 })), preparation: { averageSeconds: null, completedUnits: 0 }, cancellations: { total: 0, limit: 10, items: [] } };
+      tab.readOverride = { match: /\/manager\/reports\?/, body: J(emptyBody) };
+      await goReport(`?from=${D}&to=${D}&x=1`);
+      check("Real · Trả lời giả: báo cáo rỗng → 'Chưa có đơn trong khoảng thời gian này', thẻ số 0, không lỗi", (await tx("report-empty")) === "Chưa có đơn trong khoảng thời gian này" && firstMoney(await tx("report-kpi-revenue")) === 0 && !(await has("report-error")) && (await toasts()) === "");
+      tab.readOverride = { match: /\/manager\/reports\?/, body: J({ ...(await beReport(D, D)), preparation: { averageSeconds: 125, completedUnits: 4 } }) };
+      await goReport(`?from=${D}&to=${D}&x=3`);
+      check("Real · Trả lời giả: thời gian pha 125 giây → '2:05'", /2:05/.test(await tx("report-kpi-prep")), await tx("report-kpi-prep"));
+      tab.readOverride = { match: /\/manager\/reports\?/, body: J({ ...(await beReport(D, D)), preparation: { averageSeconds: 0.02, completedUnits: 2 } }) };
+      await goReport(`?from=${D}&to=${D}&x=2`); // tham số lạ khác lần trước để màn gọi GET lại (cùng URL thì pushState không nạp lại)
+      check("Real · Trả lời giả: thời gian pha 0,02 giây → 'Dưới 1 giây'", /Dưới 1 giây/.test(await tx("report-kpi-prep")), await tx("report-kpi-prep"));
+      tab.readOverride = null;
+
+      check("Real · 0 request ghi từ trình duyệt trong khối report", (tab.writeLog ?? []).length === 0 && tab.blockedWrites.length === 0, `${(tab.writeLog ?? []).length}`);
+    }
+  }
+
+  // ---- realtime-reconnect: hết lượt tự nối → nút "Kết nối lại" (QĐ 80) — KHÔNG tạo đơn --------------------------------
+  if (want("realtime-reconnect") && REAL) {
+    const badge = () => q(`${tid("realtime-status")}?.getAttribute("data-status") ?? ""`);
+    const exhaustedFlag = () => q(`${tid("realtime-status")}?.getAttribute("data-exhausted") ?? ""`);
+    const waitFlag = async (fn, expected, ms) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        if ((await fn()) === expected) return Date.now() - t0;
+        await sleep(200);
+      }
+      return -1;
+    };
+    // Bộ ghi/chặn WebSocket của HARNESS (không phải mã ứng dụng): `Network.setBlockedURLs` chỉ chặn HTTP, không chặn WebSocket, nên khi
+    // `window.__blockSocket = true` thì WebSocket của socket.io được trỏ sang cổng không có ai nghe (nối thất bại ngay).
+    await tab.send("Page.addScriptToEvaluateOnNewDocument", {
+      source: `(() => { const Orig = window.WebSocket; window.__sockets = []; window.__blockSocket = false; window.WebSocket = function (...a) { const isIo = String(a[0]).includes("socket.io"); const target = isIo && window.__blockSocket ? "ws://127.0.0.1:9/chan" : a[0]; const s = new Orig(target, ...a.slice(1)); if (isIo) window.__sockets.push(s); return s; }; window.WebSocket.prototype = Orig.prototype; Object.assign(window.WebSocket, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 }); })()`,
+    });
+    await tab.goto("/manager/orders");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 30000, "shell");
+    await settle(20000);
+    check("Reconnect · Danh sách nạp xong, chỉ báo 'đã kết nối', chưa có nút", (await waitFlag(badge, "connected", 20000)) >= 0 && !(await has("realtime-reconnect")));
+    const listGets = () => listCalls().length;
+    const g0 = listGets();
+    // Chặn mọi kết nối socket.io mới ở CDP rồi cắt kết nối hiện tại: các lần tự nối đều thất bại cho tới khi hết lượt.
+    await tab.send("Network.setBlockedURLs", { urls: ["*socket.io*"] });
+    await q(`window.__blockSocket = true`);
+    await q(`(window.__sockets ?? []).forEach((s) => { try { s.close(); } catch {} })`);
+    const down = await waitFlag(badge, "disconnected", 10000);
+    check("Reconnect · Cắt kết nối: chỉ báo 'Mất kết nối cập nhật trực tiếp'; khi còn đang tự nối thì CHƯA có nút", down >= 0 && !(await has("realtime-reconnect")), `${down} ms · exhausted=${await exhaustedFlag()}`);
+    const t0 = Date.now();
+    const gaveUp = await waitFlag(exhaustedFlag, "true", 90000);
+    check(`Reconnect · Hết lượt tự nối (5 lần): chỉ báo giữ 'Mất kết nối' kèm nút 'Kết nối lại' (sau ${gaveUp} ms)`, gaveUp >= 0 && (await badge()) === "disconnected" && (await has("realtime-reconnect")), `${Date.now() - t0} ms`);
+    check("Reconnect · Không chặn màn (bảng vẫn dùng được), không toast", (await rowCount()) > 0 && (await toasts()) === "");
+    await sleep(3000);
+    check("Reconnect · Hết lượt thì dừng thử (không bão kết nối), chỉ báo không nhấp nháy", (await badge()) === "disconnected" && (await exhaustedFlag()) === "true");
+    // Bỏ chặn rồi bấm nút.
+    await tab.send("Network.setBlockedURLs", { urls: [] });
+    await q(`window.__blockSocket = false`);
+    const g1 = listGets();
+    await clickTid("realtime-reconnect");
+    const sawConnecting = (await badge()) === "connecting" || (await waitFlag(badge, "connecting", 1500)) >= 0;
+    const back = await waitFlag(badge, "connected", 30000);
+    await sleep(2200);
+    check(`Reconnect · Bấm 'Kết nối lại': về 'Đang kết nối' rồi 'Cập nhật trực tiếp' (${back} ms), nút biến mất`, (sawConnecting || back >= 0) && back >= 0 && !(await has("realtime-reconnect")) && (await exhaustedFlag()) === "false", `connecting=${sawConnecting}`);
+    check("Reconnect · Nối lại thành công: tải lại danh sách đúng 1 GET, không toast", listGets() - g1 === 1 && (await toasts()) === "", `${listGets() - g1} GET (trước khi cắt: ${g1 - g0} GET)`);
+    check("Reconnect · 0 request ghi từ trình duyệt, không tạo đơn", (tab.writeLog ?? []).length === 0 && tab.blockedWrites.length === 0);
   }
 
   // ---- realtime: tự làm tươi qua socket (quyết định 74, 75) — TẠO 2 đơn mới trên BE local --------------------------------

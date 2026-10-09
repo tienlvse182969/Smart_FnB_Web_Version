@@ -295,6 +295,8 @@ const screens = [
     } },
   { id: "manager/branch-info", ownRetry: true, role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
   { id: "manager/orders", ownRetry: true, role: "manager", route: "/manager/orders", from: "/manager/dashboard", read: /\/manager\/orders(\?|$)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()) },
+  // Báo cáo chi nhánh (7.3, BM-03): chính là trang đầu của Manager nên đi từ màn khác tới.
+  { id: "manager/reports", ownRetry: true, role: "manager", route: "/manager/dashboard", from: "/manager/branch-info", read: /\/manager\/reports(\?|$)/, loaded: async () => (await q(`!!document.querySelector('[data-testid="report-kpi-revenue"]')`)) && (await noErrorUi()) },
   // Chi tiết đơn (7.2): id một đơn thật của chi nhánh (đọc bằng GET lúc khởi động). Ngoài 500/403/mạng/401 còn ca 404 (`notFound`).
   { id: "manager/order-detail", ownRetry: true, notFound: true, role: "manager", route: `/manager/orders/${DETAIL_ID}`, from: "/manager/orders", read: new RegExp(`/manager/orders/${DETAIL_ID}$`), loaded: async () => (await q(`!!document.querySelector('[data-testid="order-detail"]')`)) && (await noErrorUi()) },
   { id: "manager/menu (tuỳ chọn)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/manager\/menu-options/, afterNav: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(1500); },
