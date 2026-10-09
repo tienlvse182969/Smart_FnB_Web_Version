@@ -163,13 +163,18 @@ function paymentOf(order: Order, paid: boolean, processedBy: string): OrderPayme
   return [record];
 }
 
+/** Mã đơn mock suy từ id (dùng chung với báo cáo chi nhánh mock để đơn huỷ dẫn đúng sang chi tiết). */
+export function mockOrderCode(id: string): string {
+  return `CTR-${String(hashString(id)).padStart(10, "0")}`;
+}
+
 function toSummary(order: Order): OrderSummary {
   // Đơn huỷ SAU khi trả vẫn PAID (5.5: huỷ đơn đã trả không đổi trạng thái thanh toán).
   const paid = order.paymentStatus === "paid" || order.refund !== undefined;
   return {
     id: order.id,
     // Mã đơn mock suy từ id nhưng không chứa chữ của id (id kịch bản có chữ như "preparing"), để dễ phân biệt với nhãn trạng thái.
-    orderCode: `CTR-${String(hashString(order.id)).padStart(10, "0")}`,
+    orderCode: mockOrderCode(order.id),
     callNumber: order.callNumber,
     placedAt: order.createdAt,
     paidAt: paid ? order.createdAt : null,

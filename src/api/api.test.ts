@@ -24,7 +24,7 @@ describe("cờ module", () => {
   it("mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos/order = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos", "order"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos", "order", "manager_report"] as const) expect(modes[m]).toBe("real");
     for (const m of ["ai"] as const) {
       expect(modes[m]).toBe("mock");
     }
