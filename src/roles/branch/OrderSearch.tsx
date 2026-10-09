@@ -158,7 +158,7 @@ export default function OrderSearch() {
 
   return (
     <>
-      <SectionTitle title="Tra cứu đơn" sub="Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán (BM-04)" extra={realtimeOn ? <RealtimeBadge status={realtime} /> : undefined} />
+      <SectionTitle title="Tra cứu đơn" sub="Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán (BM-04)" extra={realtimeOn ? <RealtimeBadge {...realtime} /> : undefined} />
       <Card style={{ borderRadius: 14, marginBottom: 16 }} styles={{ body: { padding: 16 } }} data-testid="order-filters">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <RangePicker

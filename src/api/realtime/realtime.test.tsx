@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { Socket } from "socket.io-client";
 import { clearTokens, setTokens } from "../http/client";
 import { createRefresher, isOrderEvent, isRelevantToOrder, orderIdsOf, ORDER_EVENT_TYPES } from "./orderRefresh";
-import { getRealtimeStatus, setSocketFactory, subscribeOperations, type OperationsEvent, type RealtimeStatus } from "./operations";
+import { MAX_AUTO_RECONNECTS, getRealtimeExhausted, getRealtimeStatus, reconnectOperations, setSocketFactory, subscribeOperations, type OperationsEvent, type RealtimeStatus } from "./operations";
 import { useOrderRealtime } from "./useOrderRealtime";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -133,9 +133,30 @@ describe("bộ làm tươi: gom, tab ẩn, nối lại, huỷ", () => {
   });
 });
 
+/** Bộ quản lý (`socket.io`) giả: nơi socket.io phát `reconnect_failed` khi hết `reconnectionAttempts`. */
+class FakeManager {
+  handlers = new Map<string, Set<() => void>>();
+  on(name: string, fn: () => void) {
+    if (!this.handlers.has(name)) this.handlers.set(name, new Set());
+    this.handlers.get(name)!.add(fn);
+    return this;
+  }
+  emit(name: string) {
+    for (const fn of this.handlers.get(name) ?? []) fn();
+  }
+  removeAllListeners() {
+    this.handlers.clear();
+    return this;
+  }
+  count() {
+    return [...this.handlers.values()].reduce((n, set) => n + set.size, 0);
+  }
+}
+
 /** Socket giả: ghi lại người nghe, cho phép phát sự kiện từ "máy chủ". */
 class FakeSocket {
   handlers = new Map<string, Set<(...args: never[]) => void>>();
+  io = new FakeManager();
   disconnected = false;
   removed = false;
   connectCalls = 0;
@@ -230,6 +251,66 @@ describe("kết nối socket dùng chung (operations.ts)", () => {
     expect(sockets).toHaveLength(0);
     off();
   });
+
+  it("giới hạn 5 lần tự nối lại; hết lượt (reconnect_failed) → 'disconnected' kèm exhausted, báo đúng 1 lần", () => {
+    const log: string[] = [];
+    const off = subscribeOperations({ onEvent: () => undefined, onStatus: (s, i) => log.push(`${s}${i.exhausted ? "!" : ""}`) });
+    const s = sockets[0];
+    expect(MAX_AUTO_RECONNECTS).toBe(5);
+    expect(s.options.reconnectionAttempts).toBe(5);
+    s.emitFromServer("operations.connected", {});
+    s.emitFromServer("disconnect", "transport close");
+    expect(getRealtimeExhausted()).toBe(false);
+    s.io.emit("reconnect_failed");
+    s.io.emit("reconnect_failed");
+    expect(getRealtimeExhausted()).toBe(true);
+    expect(getRealtimeStatus()).toBe("disconnected");
+    expect(log).toEqual(["connecting", "connected", "disconnected", "disconnected!"]);
+    off();
+    expect(getRealtimeExhausted()).toBe(false);
+  });
+
+  it("reconnectOperations: về 'connecting' ngay, làm mới phiên, mở socket mới; nối được thì báo reconnected; socket cũ đóng sạch", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ accessToken: "token-2", refreshToken: "refresh-2" }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const log: string[] = [];
+    const off = subscribeOperations({ onEvent: () => undefined, onStatus: (s, i) => log.push(`${s}${i.reconnected ? "*" : ""}${i.exhausted ? "!" : ""}`) });
+    const first = sockets[0];
+    first.emitFromServer("operations.connected", {});
+    first.emitFromServer("disconnect", "transport close");
+    first.io.emit("reconnect_failed");
+    expect(log.at(-1)).toBe("disconnected!");
+    reconnectOperations();
+    expect(getRealtimeStatus()).toBe("connecting");
+    expect(getRealtimeExhausted()).toBe(false);
+    expect(log.at(-1)).toBe("connecting");
+    expect(first.disconnected).toBe(true);
+    expect(first.listenerCount()).toBe(0);
+    expect(first.io.count()).toBe(0);
+    await waitFor(() => expect(sockets).toHaveLength(2));
+    const second = sockets[1];
+    expect((second.options.auth as (cb: (d: { token: string | null }) => void) => void)).toBeTypeOf("function");
+    second.emitFromServer("operations.connected", {});
+    expect(log.at(-1)).toBe("connected*");
+    expect(getRealtimeStatus()).toBe("connected");
+    off();
+    expect(second.disconnected).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("reconnectOperations khi phiên làm mới thất bại: vẫn mở socket mới, không ném lỗi", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("mạng")));
+    const off = subscribeOperations({ onEvent: () => undefined });
+    sockets[0].io.emit("reconnect_failed");
+    reconnectOperations();
+    await waitFor(() => expect(sockets).toHaveLength(2));
+    off();
+    vi.unstubAllGlobals();
+  });
+
+  it("reconnectOperations khi không còn người nghe: không làm gì", () => {
+    reconnectOperations();
+    expect(sockets).toHaveLength(0);
+  });
 });
 
 describe("useOrderRealtime", () => {
@@ -250,9 +331,19 @@ describe("useOrderRealtime", () => {
   });
 
   function Harness({ onRefresh, orderId, enabled = true, onStatus }: { onRefresh: () => void; orderId?: string; enabled?: boolean; onStatus?: (s: RealtimeStatus) => void }) {
-    const status = useOrderRealtime(onRefresh, { orderId, enabled });
+    const { status, exhausted, reconnect } = useOrderRealtime(onRefresh, { orderId, enabled });
     onStatus?.(status);
-    return <div data-testid="s">{status}</div>;
+    return (
+      <div>
+        <div data-testid="s">{status}</div>
+        <div data-testid="x">{String(exhausted)}</div>
+        {status === "disconnected" && exhausted && (
+          <button data-testid="reconnect" onClick={reconnect}>
+            Kết nối lại
+          </button>
+        )}
+      </div>
+    );
   }
 
   it("sự kiện đơn → onRefresh 1 lần sau khi gom 500 ms; sự kiện khác thì không", async () => {
@@ -312,6 +403,47 @@ describe("useOrderRealtime", () => {
     expect(s.listenerCount()).toBe(0);
     await sleep(800);
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("hết lượt tự nối → 'Mất kết nối' kèm nút; bấm nút → 'connecting', nối được thì tải lại đúng 1 lần, không toast", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ accessToken: "t2", refreshToken: "r2" }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const onRefresh = vi.fn();
+    const view = render(<Harness onRefresh={onRefresh} />);
+    const first = sockets[0];
+    act(() => first.emitFromServer("operations.connected", {}));
+    act(() => first.emitFromServer("disconnect", "transport close"));
+    expect(view.queryByTestId("reconnect")).toBeNull(); // còn đang tự nối: chưa có nút
+    act(() => first.io.emit("reconnect_failed"));
+    expect(view.getByTestId("s").textContent).toBe("disconnected");
+    expect(view.getByTestId("x").textContent).toBe("true");
+    fireEvent.click(view.getByTestId("reconnect"));
+    expect(view.getByTestId("s").textContent).toBe("connecting");
+    expect(view.getByTestId("x").textContent).toBe("false");
+    expect(view.queryByTestId("reconnect")).toBeNull();
+    await waitFor(() => expect(sockets).toHaveLength(2));
+    await sleep(700);
+    expect(onRefresh).not.toHaveBeenCalled(); // chưa nối được thì chưa tải
+    act(() => sockets[1].emitFromServer("operations.connected", {}));
+    expect(view.getByTestId("s").textContent).toBe("connected");
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    await sleep(700);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll(".ant-message-notice, .ant-notification-notice")).toHaveLength(0);
+    view.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it("nối lại thất bại tiếp: hết lượt lần nữa → nút hiện lại", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("mạng")));
+    const view = render(<Harness onRefresh={() => undefined} />);
+    act(() => sockets[0].io.emit("reconnect_failed"));
+    fireEvent.click(view.getByTestId("reconnect"));
+    await waitFor(() => expect(sockets).toHaveLength(2));
+    expect(view.queryByTestId("reconnect")).toBeNull();
+    act(() => sockets[1].io.emit("reconnect_failed"));
+    expect(view.getByTestId("reconnect")).toBeTruthy();
+    view.unmount();
+    vi.unstubAllGlobals();
   });
 
   it("enabled=false (mock): không mở socket", () => {

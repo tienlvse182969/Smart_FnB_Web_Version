@@ -27,11 +27,16 @@ export type RealtimeStatus = "connecting" | "connected" | "disconnected";
 
 export interface OperationsSubscriber {
   onEvent(event: OperationsEvent): void;
-  /** `reconnected` = true khi đây là lần nối lại sau một lần đã nối được (cần tải lại dữ liệu vì có thể bỏ lỡ sự kiện). */
-  onStatus?(status: RealtimeStatus, info: { reconnected: boolean }): void;
+  /**
+   * `reconnected` = true khi đây là lần nối lại sau một lần đã nối được (cần tải lại dữ liệu vì có thể bỏ lỡ sự kiện).
+   * `exhausted` = true khi đã hết số lần tự nối lại: socket không tự thử nữa, màn hiện nút "Kết nối lại" (`reconnectOperations`).
+   */
+  onStatus?(status: RealtimeStatus, info: { reconnected: boolean; exhausted: boolean }): void;
 }
 
-const MAX_SERVER_RETRIES = 5;
+/** Số lần tự nối lại tối đa (cả khi đường truyền rớt lẫn khi máy chủ ngắt); hết lượt thì chỉ báo "Mất kết nối" kèm nút "Kết nối lại". */
+export const MAX_AUTO_RECONNECTS = 5;
+const MAX_SERVER_RETRIES = MAX_AUTO_RECONNECTS;
 const SERVER_RETRY_DELAY_MS = 3000;
 
 type SocketFactory = (url: string, options: Record<string, unknown>) => Socket;
@@ -47,6 +52,7 @@ let socket: Socket | null = null;
 let status: RealtimeStatus = "disconnected";
 let everConnected = false;
 let serverRetries = 0;
+let exhausted = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Gốc (origin) của backend, suy từ `VITE_API_BASE_URL`. */
@@ -59,10 +65,23 @@ export function getRealtimeStatus(): RealtimeStatus {
   return status;
 }
 
+/** true = đã hết số lần tự nối lại (cần người dùng bấm "Kết nối lại"). */
+export function getRealtimeExhausted(): boolean {
+  return exhausted;
+}
+
 function setStatus(next: RealtimeStatus, reconnected = false): void {
   if (status === next && !reconnected) return;
   status = next;
-  for (const sub of [...subscribers]) sub.onStatus?.(next, { reconnected });
+  for (const sub of [...subscribers]) sub.onStatus?.(next, { reconnected, exhausted });
+}
+
+/** Báo hết lượt tự nối: trạng thái vẫn "disconnected" nên phải thông báo riêng cho người nghe. */
+function markExhausted(): void {
+  if (exhausted) return;
+  exhausted = true;
+  status = "disconnected"; // hết lượt tức là đã bỏ cuộc, dù lần thử cuối chưa kịp báo lỗi
+  for (const sub of [...subscribers]) sub.onStatus?.(status, { reconnected: false, exhausted: true });
 }
 
 function open(): void {
@@ -79,10 +98,14 @@ function open(): void {
     auth: (cb: (data: { token: string | null }) => void) => cb({ token: getAccessToken() }),
     transports: ["websocket", "polling"],
     reconnection: true,
+    reconnectionAttempts: MAX_AUTO_RECONNECTS,
   });
   socket = s;
+  // Hết `reconnectionAttempts` lần nối lại do rớt đường truyền: socket.io ngừng thử (sự kiện của Manager, không phải của socket).
+  s.io?.on("reconnect_failed", markExhausted);
   s.on("operations.connected", () => {
     serverRetries = 0;
+    exhausted = false;
     const reconnected = everConnected;
     everConnected = true;
     setStatus("connected", reconnected);
@@ -94,6 +117,7 @@ function open(): void {
   s.on("disconnect", (reason: string) => {
     setStatus("disconnected");
     // Máy chủ chủ động ngắt (token hết hạn → không còn xác thực được): socket.io không tự nối lại. Làm mới phiên rồi nối lại.
+    if (reason === "io server disconnect" && serverRetries >= MAX_SERVER_RETRIES) markExhausted();
     if (reason === "io server disconnect" && serverRetries < MAX_SERVER_RETRIES && subscribers.size > 0) {
       serverRetries++;
       retryTimer = setTimeout(() => {
@@ -119,7 +143,32 @@ function close(): void {
   socket = null;
   everConnected = false;
   serverRetries = 0;
+  exhausted = false;
   status = "disconnected";
+}
+
+/**
+ * Nút "Kết nối lại" (quyết định 80): thử lại từ đầu sau khi hết lượt tự nối. Báo "Đang kết nối" ngay, làm mới phiên (lỗi làm mới
+ * bị bỏ qua, không đăng xuất), rồi mở socket mới. Giữ `everConnected` nên nối lại thành công sẽ được báo `reconnected` (màn tải lại
+ * dữ liệu đúng 1 lần). Không có thông báo nổi nào.
+ */
+export function reconnectOperations(): void {
+  if (subscribers.size === 0) return;
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+  const old = socket;
+  old?.removeAllListeners();
+  old?.io?.removeAllListeners?.();
+  old?.disconnect();
+  socket = null;
+  exhausted = false;
+  serverRetries = 0;
+  setStatus("connecting");
+  void refreshSession(getAccessToken())
+    .catch(() => undefined)
+    .finally(() => {
+      if (subscribers.size > 0 && !socket) open();
+    });
 }
 
 /**
@@ -129,7 +178,7 @@ function close(): void {
 export function subscribeOperations(subscriber: OperationsSubscriber): () => void {
   subscribers.add(subscriber);
   if (subscribers.size === 1) open();
-  else subscriber.onStatus?.(status, { reconnected: false });
+  else subscriber.onStatus?.(status, { reconnected: false, exhausted });
   return () => {
     subscribers.delete(subscriber);
     if (subscribers.size === 0) close();

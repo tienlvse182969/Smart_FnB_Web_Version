@@ -170,7 +170,7 @@ export default function OrderDetail() {
 
   const backButton = (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-      {realtimeOn && <RealtimeBadge status={realtime} />}
+      {realtimeOn && <RealtimeBadge {...realtime} />}
       <Button icon={<ArrowLeft size={15} />} onClick={back} data-testid="order-detail-back">
         Quay lại
       </Button>
