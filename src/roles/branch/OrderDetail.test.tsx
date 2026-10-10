@@ -13,7 +13,6 @@ import OrderDetail from "./OrderDetail";
 
 mockControl.latency = [0, 0];
 mockControl.failure = null;
-vi.setConfig({ testTimeout: 20000 });
 
 vi.stubGlobal(
   "matchMedia",

@@ -13,8 +13,6 @@ import OrderSearch from "./OrderSearch";
 
 mockControl.latency = [0, 0];
 mockControl.failure = null;
-// Lần dựng bảng antd đầu tiên chậm khi cả bộ test chạy song song (đã gặp "timed out in 5000ms" ở lượt 7.2).
-vi.setConfig({ testTimeout: 20000 });
 
 // jsdom không có matchMedia/ResizeObserver mà bảng, ô chọn và bộ chọn ngày của antd cần.
 vi.stubGlobal(
