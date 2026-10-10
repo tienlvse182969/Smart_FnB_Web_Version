@@ -120,8 +120,78 @@ const DETAIL_ID = await (async () => {
   return list.items?.[0]?.id ?? "00000000-0000-4000-8000-000000000000";
 })();
 
+// Xác nhận chuyển khoản thủ công (7.4, BM-05): BE local chưa có khoản QR thật (chưa có khoá PayOS), nên chi tiết một đơn thật CHỜ THANH TOÁN
+// được thêm khoản QR PENDING bằng `tab.readOverride` (đúng dạng BE, chỉ GET, không tới BE) trong lúc ca chạy (setup/teardown).
+const CONFIRM_BASE = await (async () => {
+  const [email, password] = accounts("real").manager;
+  const base = "http://localhost:3100/api/v1";
+  const login = await (await fetch(`${base}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
+  const get = async (path) => (await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${login.accessToken}` } })).json();
+  const items = (await get("/manager/orders?type=COUNTER_PICKUP&limit=100")).items ?? [];
+  const order = items.find((o) => o.status === "CONFIRMED" && o.paymentStatus === "UNPAID");
+  if (!order) return null;
+  const detail = await get(`/manager/orders/${order.id}`);
+  const qr = {
+    id: "7e57ed00-0000-4000-8000-0000000000b1",
+    paymentCode: "PAY-FAKE-QR",
+    method: "BANK_TRANSFER",
+    provider: "PAYOS",
+    status: "PENDING",
+    amount: detail.totalAmount,
+    receivedAmount: null,
+    transactionRef: null,
+    confirmationReason: null,
+    confirmedAt: null,
+    paidAt: null,
+    createdAt: new Date().toISOString(),
+    failureReason: null,
+    processedBy: { id: "e-fake", employeeCode: "DEMO-CASHIER-01", firstName: "Lan", lastName: "Thu ngân" },
+  };
+  return { id: order.id, override: { match: new RegExp(`/api/v1/manager/orders/${order.id}$`), body: JSON.stringify({ ...detail, payments: [qr] }) } };
+})();
+
 // --- định nghĩa màn ----------------------------------------------------------------------------------------------
 const screens = [
+  // Hộp xác nhận chuyển khoản thủ công (BM-05): chỉ ca GHI (500, 403, mất mạng, 401). Ca đọc của chính trang này đã có ở `manager/order-detail`.
+  ...(CONFIRM_BASE
+    ? [
+        {
+          id: "manager/confirm-payment",
+          writeOnly: true,
+          role: "manager",
+          route: `/manager/orders/${CONFIRM_BASE.id}`,
+          from: "/manager/orders",
+          read: new RegExp(`/manager/orders/${CONFIRM_BASE.id}$`),
+          setup: async () => {
+            tab.readOverride = CONFIRM_BASE.override;
+          },
+          teardown: async () => {
+            tab.readOverride = null;
+          },
+          loaded: async () => (await q(`!!document.querySelector('[data-testid="order-confirm-open"]')`)) && (await noErrorUi()),
+          write: async () => {
+            const set = (id, v) =>
+              q(`(() => { const el = document.querySelector('[data-testid="${id}"]'); const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${J(v)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+            const click = (id) => q(`(() => { const el = document.querySelector('[data-testid="${id}"]'); if (!el || el.disabled) return false; el.click(); return true; })()`);
+            if (!(await click("order-confirm-open"))) return { skipped: "không có nút Xác nhận thủ công" };
+            await sleep(700);
+            await set("confirm-received", "999000");
+            await set("confirm-reason", "Khách chìa màn hình chuyển khoản, webhook không về");
+            await sleep(250);
+            await click("confirm-next");
+            await sleep(500);
+            if (!(await click("confirm-submit"))) return { skipped: "không sang được bước xem lại" };
+            await sleep(2200);
+            return {
+              ok: true,
+              kind: "modal",
+              after: await q(`(() => { const b = document.querySelector('[data-testid="confirm-submit"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`),
+            };
+          },
+        },
+      ]
+    : []),
   { id: "admin/overview", role: "admin", route: "/admin/overview", from: "/admin/plans", read: /\/admin\//, loaded: () => bodyHas(`/Doanh nghiệp thuê bao[\\s\\S]{0,40}\\d/`) },
   { id: "admin/tenants", role: "admin", route: "/admin/tenants", from: "/admin/plans", read: /\/admin\/businesses/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
@@ -457,6 +527,8 @@ async function writeCase(spec, kind, extra) {
   try {
     await spaGo(spec.from);
     await sleep(700);
+    // `setup`/`teardown`: màn cần dữ liệu đọc giả (readOverride) CHỈ trong lúc ca ghi chạy (ví dụ hộp xác nhận chuyển khoản, 7.4).
+    if (spec.setup) await spec.setup();
     await spaGo(spec.route);
     if (spec.afterNav) await spec.afterNav();
     await sleep(2200);
@@ -498,6 +570,7 @@ async function writeCase(spec, kind, extra) {
     record(spec.id, "ghi", kind, ["SCRIPT"], e.message);
   } finally {
     tab.setFault(null);
+    if (spec.teardown) await spec.teardown();
     await clearNotices();
     await closeOverlays();
     await closeOverlays();

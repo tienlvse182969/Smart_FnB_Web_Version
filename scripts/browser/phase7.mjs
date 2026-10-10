@@ -18,7 +18,10 @@ const REAL = MODE === "real";
 // KHÔNG qua trình duyệt; trình duyệt vẫn bị chặn ghi ở CDP), rồi đưa 1 đơn qua pha chế. Xem docs/BAN-GIAO.md, quyết định 75.
 // Khối `report` (báo cáo chi nhánh của Manager, 7.3): mock + real (chỉ đọc). Khối `realtime-reconnect` (7.3, CHỈ real, KHÔNG tạo đơn): chặn
 // kết nối socket.io ở CDP cho tới khi hết lượt tự nối rồi bỏ chặn và bấm "Kết nối lại".
-const BLOCKS = ["orders", "detail", "report", "realtime-reconnect", "realtime"];
+// Khối `confirm` (xác nhận chuyển khoản thủ công, BM-05, 7.4): mock + real. Real KHÔNG có request ghi nào tới BE: chi tiết đơn thật được
+// thêm khoản QR PENDING / AMOUNT_MISMATCH bằng `tab.readOverride` (đúng dạng BE), mọi POST xác nhận bị chặn (blockWrites), trả lời giả
+// (fulfillWrites) hoặc lỗi giả (setFault) ở CDP.
+const BLOCKS = ["orders", "detail", "confirm", "report", "realtime-reconnect", "realtime"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -128,7 +131,7 @@ try {
       await pickSelect(tid("order-payment"), "Chưa thanh toán");
       await settle();
       const unpaid = (await chips()).map((c) => c[1]);
-      check("Mock · Lọc 'Chưa thanh toán': mọi dòng là Khởi tạo / Chờ chuyển khoản / Đã huỷ", unpaid.length > 0 && unpaid.every((c) => ["Khởi tạo", "Chờ chuyển khoản", "Đã huỷ"].includes(c)), J([...new Set(unpaid)]));
+      check("Mock · Lọc 'Chưa thanh toán': mọi dòng là Khởi tạo / Chờ chuyển khoản / Lệch số tiền / Đã huỷ", unpaid.length > 0 && unpaid.every((c) => ["Khởi tạo", "Chờ chuyển khoản", "Lệch số tiền", "Đã huỷ"].includes(c)), J([...new Set(unpaid)]));
       await goOrders();
       await pickSelect(tid("order-method"), "Chuyển khoản (QR)");
       await settle();
@@ -497,6 +500,340 @@ try {
   }
 
   // ---- report: báo cáo chi nhánh của Manager (BM-03, 7.3) -------------------------------------------------------------
+  // ---- confirm: xác nhận chuyển khoản thủ công (BM-05, quyết định 82–89) --------------------------------------------------------
+  if (want("confirm")) {
+    const detailLoaded = () => tab.waitFor(`${tid("order-detail")} || ${tid("order-detail-notfound")} || ${tid("order-detail-error")}`, 15000, "trang chi tiết nạp xong");
+    const goDetail = async (id) => {
+      await spaGo("/manager/dashboard");
+      await spaGo("/manager/orders");
+      await settle();
+      await spaGo("/manager/orders/" + id);
+      await detailLoaded();
+      await sleep(500);
+    };
+    const t = (id) => q(`${tid(id)}?.innerText.replace(/\\s+/g, " ").trim() ?? ""`);
+    const setField = (id, value) =>
+      q(`(() => { const el = ${tid(id)}; const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    const btnState = (id) => q(`(() => { const el = ${tid(id)}; return el ? { disabled: el.disabled, loading: el.classList.contains("ant-btn-loading") } : null; })()`);
+    const openModal = async () => {
+      await clickTid("order-confirm-open");
+      await tab.waitFor(tid("confirm-step-form"), 8000, "hộp xác nhận mở");
+      await sleep(300);
+    };
+    const toReview = async ({ received, reason = "Khách chìa màn hình chuyển khoản", ref = "" }) => {
+      await openModal();
+      await setField("confirm-received", received);
+      await sleep(150);
+      await setField("confirm-reason", reason);
+      if (ref) await setField("confirm-ref", ref);
+      await sleep(250);
+      await clickTid("confirm-next");
+      await tab.waitFor(tid("confirm-step-review"), 8000, "bước xem lại");
+      await sleep(250);
+    };
+    const modalGone = () => q(`(() => { const el = ${tid("confirm-submit")} ?? ${tid("confirm-next")}; if (!el) return true; const w = el.closest(".ant-modal-wrap"); return !w || getComputedStyle(w).display === "none"; })()`);
+    const closeModal = async () => {
+      await clickTid("confirm-back");
+      await sleep(200);
+      await clickTid("confirm-cancel");
+      await tab.waitFor(`(() => { const el = ${tid("confirm-next")}; if (!el) return true; const w = el.closest(".ant-modal-wrap"); return !w || getComputedStyle(w).display === "none"; })()`, 5000, "hộp đóng").catch(() => undefined);
+      await sleep(300);
+    };
+    const hasBtn = () => has("order-confirm-open");
+    /** Đóng thông báo đang hiện để từng ca đọc đúng thông báo của chính nó (thông báo mất mạng antd sống lâu). */
+    const clearNotices = async () => {
+      await q(`document.querySelectorAll(".ant-notification-notice-close, .ant-message-notice-close").forEach((b) => b.click())`);
+      for (let i = 0; i < 30; i++) {
+        if ((await q(`document.querySelectorAll(".ant-message-notice, .ant-notification-notice").length`)) === 0) return;
+        await sleep(200);
+      }
+    };
+
+    if (!REAL) {
+      const idBySuffix = async (suffix) => {
+        await goOrders("?limit=100");
+        return q(`[...${ROWS}].map((r) => r.getAttribute("data-row-key")).find((k) => k.endsWith(${J(suffix)})) ?? null`);
+      };
+
+      // 1. QR chờ chuyển khoản: luồng đầy đủ.
+      const waiting = await idBySuffix("scn-qr-waiting");
+      await goDetail(waiting);
+      check("Mock · QR chờ chuyển khoản: có nút 'Xác nhận thủ công', trạng thái Chờ thanh toán / Chờ chuyển khoản", (await hasBtn()) && (await t("order-detail-status")) === "Chờ thanh toán" && (await t("order-detail-payment")) === "Chờ chuyển khoản");
+      await openModal();
+      check("Mock · Hộp: nêu mã đơn, số gọi chưa cấp, tổng đơn 75.000; ô lý do, số tiền, mã giao dịch (không bắt buộc)", /CTR-\d+/.test(await t("confirm-step-form")) && /75\.000/.test(await t("confirm-expected")) && (await has("confirm-reason")) && (await has("confirm-received")) && (await has("confirm-ref")));
+      await setField("confirm-reason", "Khách chìa màn hình");
+      await setField("confirm-received", "70000");
+      await sleep(200);
+      check("Mock · BR-28: nhận 70.000 < 75.000 → câu 'Nhận thiếu so với tổng đơn…', nút Tiếp tục khoá, KHÔNG có nút huỷ đơn", /Nhận thiếu so với tổng đơn\. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn\./.test(await t("confirm-short")) && (await btnState("confirm-next")).disabled === true && !/Huỷ đơn/.test(await q(`document.querySelector(".ant-modal")?.innerText ?? ""`)));
+      await setField("confirm-received", "75000");
+      await sleep(200);
+      check("Mock · Nhận đúng 75.000: không còn cảnh báo, Tiếp tục mở", !(await has("confirm-short")) && (await btnState("confirm-next")).disabled === false);
+      await setField("confirm-received", "80000");
+      await sleep(200);
+      check("Mock · Nhận 80.000: 'Phải trả lại khách 5.000'", /Phải trả lại khách 5\.000/.test(await t("confirm-change")), await t("confirm-change"));
+      await setField("confirm-reason", "ab");
+      await clickTid("confirm-next");
+      await sleep(300);
+      check("Mock · Lý do 2 ký tự: báo 'ít nhất 3', không sang bước xem lại", /ít nhất 3/.test(await t("confirm-reason-error")) && !(await has("confirm-step-review")), await t("confirm-reason-error"));
+      await setField("confirm-reason", "Khách chìa màn hình chuyển khoản, webhook không về");
+      await setField("confirm-ref", "FT26101000001");
+      await sleep(150);
+      await clickTid("confirm-next");
+      await tab.waitFor(tid("confirm-step-review"), 8000, "bước xem lại");
+      const review = await t("confirm-step-review");
+      check("Mock · Bước xem lại: mã đơn, tổng 75.000, nhận 80.000, trả lại 5.000, mã giao dịch, lý do; nhắc 'Chỉ xác nhận khi đã kiểm tra tiền…' (GĐ-04)", /CTR-\d+/.test(review) && /75\.000/.test(review) && /80\.000/.test(review) && /5\.000/.test(review) && /FT26101000001/.test(review) && /webhook không về/.test(review) && /Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán\./.test(review), review.slice(0, 200));
+      check("Mock · Ô nhập nằm trong .ant-modal-container (DirtyWatcher tự coi là form nhập dở)", await (async () => { await clickTid("confirm-back"); await sleep(200); const inside = await q(`!!${tid("confirm-reason")}?.closest(".ant-modal-container") && !${tid("confirm-reason")}?.closest(".ant-modal-confirm")`); await clickTid("confirm-next"); await tab.waitFor(tid("confirm-step-review"), 8000, "xem lại"); return inside; })());
+      // Bấm đúp nhanh: chỉ 1 lần xác nhận (lần 2 sẽ là 409 nếu lọt).
+      await q(`(() => { const b = ${tid("confirm-submit")}; b.click(); b.click(); })()`);
+      await tab.waitFor(`${tid("order-detail-status")}?.innerText.trim() === "Đã thanh toán"`, 8000, "đơn Đã thanh toán");
+      await sleep(400);
+      const msg = await toasts();
+      check("Mock · Thành công: hộp đóng, thông báo tiếng Việt, đơn Đã thanh toán, không toast 409 (bấm đúp chỉ gửi 1)", (await modalGone()) && /Đã xác nhận thanh toán thủ công/.test(msg) && !/đã được xác nhận hoặc/.test(msg), msg);
+      const pd = await t("order-pay-detail");
+      check("Mock · Lịch sử thanh toán: người xác nhận, lý do, số tiền thực nhận 80.000, mã giao dịch; có số gọi; hết nút", /Xác nhận thủ công bởi Quản lý mẫu: Khách chìa màn hình chuyển khoản, webhook không về/.test(pd) && /Số tiền thực nhận: 80\.000/.test(pd) && /Mã giao dịch: FT26101000001/.test(pd) && (await t("order-detail-call")) !== "—" && !(await hasBtn()), `${pd} · số gọi ${await t("order-detail-call")}`);
+
+      // 2. Lệch số tiền, nhận thiếu / dư.
+      const short = await idBySuffix("scn-mismatch-short");
+      await goDetail(short);
+      check("Mock · Lệch số tiền: nhãn 'Cần xử lý' / 'Lệch số tiền', khối cảnh báo nêu số nhận 70.000, lịch sử 'Số tiền nhận được'", (await t("order-detail-status")) === "Cần xử lý" && (await t("order-detail-payment")) === "Lệch số tiền" && /70\.000/.test(await t("order-detail-attention")) && /Số tiền nhận được: 70\.000/.test(await t("order-pay-detail")));
+      await openModal();
+      check("Mock · Lệch số tiền: ô số tiền điền sẵn số BE ghi nhận 70.000 (< 75.000) → bị chặn ngay, Tiếp tục khoá", (await q(`${tid("confirm-received")}.value`)).includes("70.000") && (await has("confirm-short")) && (await btnState("confirm-next")).disabled === true);
+      await closeModal();
+      const over = await idBySuffix("scn-mismatch-over");
+      await goDetail(over);
+      await toReview({ received: "70000", reason: "Khách chuyển dư 5.000, quán trả lại tiền mặt" });
+      check("Mock · Lệch số tiền (nhận dư): xem lại hiện 'Phải trả lại khách 5.000'", /5\.000/.test(await t("confirm-review-change")));
+      await clickTid("confirm-submit");
+      await tab.waitFor(`${tid("order-detail-status")}?.innerText.trim() === "Đã thanh toán"`, 8000, "đơn Đã thanh toán");
+      check("Mock · Lệch số tiền, nhận 70.000 ≥ 65.000: xác nhận được, số thực nhận 70.000 ở lịch sử", /Số tiền thực nhận: 70\.000/.test(await t("order-pay-detail")));
+
+      // 3. 409 (webhook về trước khi bấm).
+      const conflict = await idBySuffix("scn-qr-conflict");
+      await goDetail(conflict);
+      await toReview({ received: "70000" });
+      await clickTid("confirm-submit");
+      await tab.waitFor(`${tid("order-detail-status")}?.innerText.trim() === "Đã thanh toán"`, 8000, "đơn Đã thanh toán sau 409");
+      await sleep(400);
+      const m409 = await toasts();
+      check("Mock · 409 PAYMENT_ALREADY_SETTLED: câu tiếng Việt, không lộ mã, hộp đóng, chi tiết được GET lại (Đã thanh toán, không người xác nhận)", /đã được xác nhận hoặc không còn chờ xác nhận/.test(m409) && !/PAYMENT_ALREADY_SETTLED/.test(m409) && (await modalGone()) && !/Xác nhận thủ công bởi/.test(await t("order-pay-detail")), m409);
+
+      // 4. Không có nút.
+      for (const [suffix, why] of [["scn-cash-waiting", "tiền mặt"], ["scn-qr-failed", "khoản FAILED"], ["scn-cancelled-pending", "đơn đã huỷ"], ["scn-manual", "đã xác nhận trước đó"], ["scn-options", "đã trả"]]) {
+        const id = await idBySuffix(suffix);
+        await goDetail(id);
+        check(`Mock · Không có nút Xác nhận thủ công (${why})`, !(await hasBtn()), suffix);
+      }
+      const failedId = await idBySuffix("scn-qr-failed");
+      await goDetail(failedId);
+      check("Mock · Khoản FAILED hiện 'Khác (FAILED)' kèm lý do lỗi, không nút", /Khác \(FAILED\)/.test(await t("order-detail-payments")) && /PAYOS_EXPIRED/.test(await t("order-pay-detail")));
+
+      // 5. Danh sách: nhãn và lọc.
+      await goOrders("?status=REQUIRES_ATTENTION");
+      const attentionChips = await chips();
+      check("Mock · Lọc 'Cần xử lý' (status=REQUIRES_ATTENTION): có dòng, mọi dòng nhãn 'Cần xử lý' / 'Lệch số tiền'", attentionChips.length >= 1 && attentionChips.every((c) => c[0] === "Cần xử lý" && c[1] === "Lệch số tiền"), J(attentionChips.slice(0, 2)));
+      await goOrders();
+      const okPick = await pickSelect(tid("order-status"), "Cần xử lý");
+      await settle();
+      check("Mock · Ô lọc trạng thái có lựa chọn 'Cần xử lý' → URL status=REQUIRES_ATTENTION", okPick && (await loc()) === "/manager/orders?status=REQUIRES_ATTENTION", await loc());
+    } else {
+      // ---- real: chi tiết thật + trả lời giả (readOverride), POST bị chặn / trả lời giả / lỗi giả ở CDP --------------------------
+      const be = await readBe();
+      const list = (await be.get("/manager/orders?type=COUNTER_PICKUP&limit=100")).body.items;
+      const base = list.find((o) => o.status === "CONFIRMED" && o.paymentStatus === "UNPAID");
+      const paidOrder = list.find((o) => o.status === "SUBMITTED" && o.paymentStatus === "PAID");
+      const cancelledOrder = list.find((o) => o.status === "CANCELLED");
+      const baseDetail = (await be.get(`/manager/orders/${base.id}`)).body;
+      const total = Number(baseDetail.totalAmount);
+      const fmt = (n) => n.toLocaleString("vi-VN");
+      const FAKE = "7e57ed00-0000-4000-8000-0000000000a1";
+      const ME = { id: "e-fake", employeeCode: "DEMO-CASHIER-01", firstName: "Lan", lastName: "Thu ngân" };
+      const MGR = { id: "m-fake", employeeCode: "DEMO-MANAGER-01", firstName: "Bình", lastName: "Quản lý" };
+      const iso = new Date().toISOString();
+      const pay = (over = {}) => ({ id: FAKE, paymentCode: "PAY-FAKE-QR", method: "BANK_TRANSFER", provider: "PAYOS", status: "PENDING", amount: String(total), receivedAmount: null, transactionRef: null, confirmationReason: null, confirmedAt: null, paidAt: null, createdAt: iso, failureReason: null, processedBy: ME, ...over });
+      // Khớp tiền tố /api/v1: nếu không, F5 trên đường dẫn trang `/manager/orders/:id` cũng bị trả JSON giả.
+      const detailOverride = (orderOver, payments) => ({ match: new RegExp(`/api/v1/manager/orders/${base.id}$`), body: J({ ...baseDetail, ...orderOver, payments }) });
+      const pendingQr = () => detailOverride({}, [pay()]);
+      const confirmPosts = () => tab.blockedWrites.filter((w) => w.method === "POST" && /\/payments\/[0-9a-f-]{36}\/confirm$/.test(w.path));
+      const detailGets = () => tab.requests.filter((r) => r.method === "GET" && new RegExp(`/manager/orders/${base.id}$`).test(r.url)).length;
+      const beUnchanged = async () => {
+        const d = (await be.get(`/manager/orders/${base.id}`)).body;
+        return d.status === baseDetail.status && d.paymentStatus === baseDetail.paymentStatus && d.payments.length === baseDetail.payments.length && d.payments.every((p, i) => p.status === baseDetail.payments[i].status);
+      };
+      check(`Real · Đơn nền: ${base.orderCode} CONFIRMED/UNPAID, tổng ${fmt(total)}; BE hiện chưa có khoản QR (chưa có khoá PayOS) nên dùng trả lời giả`, baseDetail.status === "CONFIRMED" && baseDetail.payments.every((p) => p.method === "CASH"), J(baseDetail.payments.map((p) => `${p.method}/${p.status}`)));
+
+      // 0. Không override: đơn thật tiền mặt chờ / đã trả / đã huỷ → không nút.
+      tab.readOverride = null;
+      await goDetail(base.id);
+      check("Real · Đơn tiền mặt chờ thanh toán (thật): KHÔNG có nút Xác nhận thủ công (BM-05 chỉ cho chuyển khoản)", !(await hasBtn()) && (await t("order-detail-status")) === "Chờ thanh toán");
+      await goDetail(paidOrder.id);
+      check("Real · Đơn đã trả (thật): không nút", !(await hasBtn()));
+      await goDetail(cancelledOrder.id);
+      check("Real · Đơn đã huỷ (thật): không nút", !(await hasBtn()));
+      tab.readOverride = detailOverride({}, [pay({ status: "FAILED", failureReason: "PAYOS_EXPIRED" })]);
+      await goDetail(base.id);
+      check("Real · (trả lời giả) khoản QR FAILED: không nút, hiện 'Khác (FAILED)'", !(await hasBtn()) && /Khác \(FAILED\)/.test(await t("order-detail-payments")));
+      tab.readOverride = detailOverride({ status: "CANCELLED", paymentStatus: "UNPAID", cancelledAt: iso, cancellationReason: "Khách bỏ đi" }, [pay()]);
+      await goDetail(base.id);
+      check("Real · (trả lời giả) đơn đã huỷ còn khoản QR PENDING: không nút", !(await hasBtn()));
+
+      // 1. QR chờ + blockWrites: bấm thật tới hết hộp xác nhận, POST bị chặn ở CDP.
+      tab.readOverride = pendingQr();
+      await goDetail(base.id);
+      check("Real · (trả lời giả) QR PENDING: có nút; đơn Chờ thanh toán / Chờ chuyển khoản", (await hasBtn()) && (await t("order-detail-payment")) === "Chờ chuyển khoản");
+      await openModal();
+      check(`Real · Hộp nêu tổng đơn ${fmt(total)}`, (await t("confirm-expected")).includes(fmt(total)), await t("confirm-expected"));
+      await setField("confirm-reason", "Khách chìa màn hình chuyển khoản, webhook không về");
+      await setField("confirm-received", String(total - 5000));
+      await sleep(250);
+      check("Real · BR-28: nhận thiếu 5.000 → câu BR-28, Tiếp tục khoá", (await has("confirm-short")) && (await btnState("confirm-next")).disabled === true);
+      await setField("confirm-received", String(total + 5000));
+      await sleep(250);
+      check("Real · Nhận dư 5.000 → 'Phải trả lại khách 5.000'", /Phải trả lại khách 5\.000/.test(await t("confirm-change")));
+      await setField("confirm-ref", "FT-TEST-0001");
+      await sleep(150);
+      await clickTid("confirm-next");
+      await tab.waitFor(tid("confirm-step-review"), 8000, "xem lại");
+      check("Real · Ô nhập nằm trong .ant-modal-container (DirtyWatcher)", await q(`!!document.querySelector(".ant-modal-container") && !document.querySelector(".ant-modal-container")?.closest(".ant-modal-confirm")`));
+      tab.blockedWrites.length = 0;
+      tab.caseName = "confirm|blockWrites (chặn ở CDP)";
+      const getsBefore = detailGets();
+      await clickTid("confirm-submit");
+      await sleep(1800);
+      const posts = confirmPosts();
+      let body = null;
+      try {
+        body = JSON.parse(posts[0]?.body ?? "null");
+      } catch {
+        body = null;
+      }
+      check("Real · blockWrites: đúng 1 POST /payments/{id}/confirm, id là khoản trên màn", posts.length === 1 && posts[0].path.endsWith(`/payments/${FAKE}/confirm`), J(posts.map((p) => p.path)));
+      check("Real · Thân POST khớp ConfirmPaymentDto: đúng 3 ô reason, receivedAmount, transactionRef (số nguyên VND); không ô thừa (BE forbidNonWhitelisted)", body && J(Object.keys(body).sort()) === J(["reason", "receivedAmount", "transactionRef"]) && body.receivedAmount === total + 5000 && Number.isInteger(body.receivedAmount) && body.transactionRef === "FT-TEST-0001" && /webhook không về/.test(body.reason), J(body));
+      check("Real · Bị chặn: báo lỗi mạng tiếng Việt, hộp còn mở, nút gửi mở lại (không kẹt 'đang gửi'), không toast thành công", /kết nối/i.test(await toasts()) && !(await modalGone()) && (await btnState("confirm-submit")).loading === false && !/Đã xác nhận thanh toán/.test(await toasts()), await toasts());
+      check("Real · Dữ liệu BE không đổi sau khi chặn (GET đơn: vẫn CONFIRMED/UNPAID, cùng khoản); không GET lại vì lỗi mạng", (await beUnchanged()) && detailGets() === getsBefore, `${detailGets()} vs ${getsBefore}`);
+      await closeModal();
+
+      // 2. fulfillWrites thành công: trả lời giả 200 + GET lại thấy đơn đã trả.
+      await goDetail(base.id);
+      await toReview({ received: String(total + 5000), reason: "Khách chìa màn hình chuyển khoản, webhook không về", ref: "FT-TEST-0001" });
+      const now = new Date().toISOString();
+      tab.readOverride = detailOverride({ status: "SUBMITTED", paymentStatus: "PAID", callNumber: 77, paidAt: now, submittedAt: now }, [
+        pay({ status: "SUCCESS", receivedAmount: String(total + 5000), transactionRef: "FT-TEST-0001", confirmationReason: "Khách chìa màn hình chuyển khoản, webhook không về", confirmedAt: now, paidAt: now, processedBy: MGR }),
+      ]);
+      await clearNotices();
+      tab.blockedWrites.length = 0;
+      tab.caseName = "confirm|fulfillWrites 200 (trả lời giả)";
+      tab.fulfillWrites = true;
+      tab.fulfillBody = J({ id: FAKE, status: "SUCCESS", order: { id: base.id, status: "SUBMITTED" }, tracking: {} });
+      const getsBefore2 = detailGets();
+      await clickTid("confirm-submit");
+      await tab.waitFor(`${tid("order-detail-status")}?.innerText.trim() === "Đã thanh toán"`, 10000, "đơn Đã thanh toán sau GET lại");
+      tab.fulfillWrites = false;
+      await sleep(500);
+      const okToast = await toasts();
+      check("Real · fulfillWrites 200: 1 POST, thông báo tiếng Việt, hộp đóng, GET lại chi tiết (không vẽ từ phản hồi)", confirmPosts().length === 1 && /Đã xác nhận thanh toán thủ công/.test(okToast) && (await modalGone()) && detailGets() > getsBefore2, `${okToast} · GET ${getsBefore2}→${detailGets()}`);
+      const pdReal = await t("order-pay-detail");
+      check("Real · Sau GET lại: Đã thanh toán, số gọi 77, người xác nhận Bình Quản lý, lý do, số thực nhận, mã giao dịch; hết nút", (await t("order-detail-call")) === "77" && /Xác nhận thủ công bởi Bình Quản lý: Khách chìa màn hình chuyển khoản, webhook không về/.test(pdReal) && new RegExp(`Số tiền thực nhận: ${fmt(total + 5000).replace(/\./g, "\\.")}`).test(pdReal) && /FT-TEST-0001/.test(pdReal) && !(await hasBtn()), pdReal);
+
+      // 3. Bấm đúp nhanh → 1 POST.
+      tab.readOverride = pendingQr();
+      await goDetail(base.id);
+      await toReview({ received: String(total) });
+      tab.blockedWrites.length = 0;
+      tab.caseName = "confirm|fulfillWrites bấm đúp";
+      tab.fulfillWrites = true;
+      await q(`(() => { const b = ${tid("confirm-submit")}; b.click(); b.click(); })()`);
+      await sleep(1800);
+      tab.fulfillWrites = false;
+      check("Real · Bấm 'Xác nhận' 2 lần nhanh: chỉ 1 POST tới (CDP)", confirmPosts().length === 1, String(confirmPosts().length));
+      await closeModal();
+
+      // 4. Lỗi giả của BE: 409 ×2, 400, 403.
+      const faults = [
+        ["409 PAYMENT_ALREADY_SETTLED", "409", { statusCode: 409, message: "PAYMENT_ALREADY_SETTLED", error: "Conflict" }, /đã được xác nhận hoặc không còn chờ xác nhận/, true],
+        ["409 PAYMENT_AMOUNT_INSUFFICIENT", "409", { statusCode: 409, error: "PAYMENT_AMOUNT_INSUFFICIENT", message: "Số tiền thực nhận thấp hơn tổng tiền đơn hàng." }, /Nhận thiếu so với tổng đơn\. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn\./, true],
+        ["409 tiền mặt (Only bank transfers…)", "409", { statusCode: 409, message: "Only bank transfers can be confirmed manually", error: "Conflict" }, /Chỉ xác nhận thủ công được khoản chuyển khoản/, true],
+        ["400 theo ô", "400", { statusCode: 400, message: ["receivedAmount must not be less than 0.01", "property foo should not exist"], error: "Bad Request" }, /Số tiền thực nhận không được nhỏ hơn 0\.01/, false],
+        ["403", "403", undefined, /Bạn không đủ quyền thực hiện thao tác này/, false],
+      ];
+      for (const [label, kind, fbody, re, closes] of faults) {
+        tab.readOverride = pendingQr();
+        await goDetail(base.id);
+        await toReview({ received: String(total) });
+        await clearNotices();
+        tab.blockedWrites.length = 0;
+        tab.caseName = `confirm|setFault ${label}`;
+        const g0 = detailGets();
+        tab.setFault({ kind, match: /^$/, ...(fbody && { body: fbody }) });
+        await clickTid("confirm-submit");
+        await sleep(1600);
+        tab.setFault(null);
+        const tt = await toasts();
+        const english = /PAYMENT_|Only bank|should not exist|must not be/.test(tt);
+        const st = await btnState("confirm-submit");
+        check(
+          `Real · Lỗi giả ${label}: 1 POST bị giả lập, câu tiếng Việt, ${closes ? "hộp đóng + GET lại chi tiết" : "hộp còn mở, nút gửi mở lại"}`,
+          confirmPosts().length === 1 && re.test(tt) && !english && (closes ? (await modalGone()) && detailGets() > g0 : !(await modalGone()) && st?.loading === false && st?.disabled === false),
+          `${tt.slice(0, 120)} · GET ${g0}→${detailGets()}`,
+        );
+        if (!(await modalGone())) await closeModal();
+      }
+
+      // 5. Lệch số tiền (đúng dạng BE: REQUIRES_ATTENTION + AMOUNT_MISMATCH có receivedAmount).
+      tab.readOverride = detailOverride({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID" }, [pay({ status: "AMOUNT_MISMATCH", receivedAmount: String(total - 5000) })]);
+      await goDetail(base.id);
+      check("Real · (trả lời giả) Lệch số tiền: 'Cần xử lý' / 'Lệch số tiền', khối cảnh báo, số nhận được, có nút", (await t("order-detail-status")) === "Cần xử lý" && (await t("order-detail-payment")) === "Lệch số tiền" && (await has("order-detail-attention")) && /Số tiền nhận được/.test(await t("order-pay-detail")) && (await hasBtn()), `${await t("order-detail-status")} / ${await t("order-detail-payment")}`);
+      await openModal();
+      check("Real · Lệch số tiền: số BE ghi nhận điền sẵn, thiếu → bị chặn ngay", (await has("confirm-short")) && (await btnState("confirm-next")).disabled === true);
+      await closeModal();
+
+      // 6. Danh sách thật: lọc REQUIRES_ATTENTION trả 200 (0 kết quả là bình thường), nhãn ở ô lọc.
+      await clearNotices();
+      tab.readOverride = null;
+      tab.requests.length = 0;
+      await goOrders("?status=REQUIRES_ATTENTION");
+      const filtered = tab.requests.filter((r) => r.method === "GET" && /\/manager\/orders\?/.test(r.url) && /status=REQUIRES_ATTENTION/.test(r.url));
+      check("Real · Lọc status=REQUIRES_ATTENTION: BE trả 200 (không lỗi, không toast); 0 đơn là bình thường", filtered.length >= 1 && !(await has("order-error")) && (await toasts()) === "", `${filtered.length} request · ${await rowCount()} dòng · ${await totalText()}`);
+      await goOrders();
+      check("Real · Ô lọc trạng thái có 'Cần xử lý'", await pickSelect(tid("order-status"), "Cần xử lý"));
+      await settle();
+
+      // 7. Chế độ chỉ đọc (quyết định 85): gói hết hạn → nút khoá có tooltip, không mở được hộp.
+      let subPath = null;
+      for (const r of tab.requests) if (/\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/.test(new URL(r.url).pathname)) subPath = new URL(r.url).pathname.replace(/^\/api\/v1/, "");
+      if (!subPath) {
+        tab.requests.length = 0;
+        await tab.goto("/manager/dashboard");
+        await sleep(1500);
+        for (const r of tab.requests) if (/\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/.test(new URL(r.url).pathname)) subPath = new URL(r.url).pathname.replace(/^\/api\/v1/, "");
+      }
+      const subBe = (await be.get(subPath)).body;
+      tab.readOverride = [
+        { match: /\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/, body: J({ subscription: { ...subBe.subscription, status: "EXPIRED", expiresAt: "2020-01-01T00:00:00.000Z" } }) },
+        pendingQr(),
+      ];
+      await tab.goto(`/manager/orders/${base.id}`);
+      await tab.waitFor(`${tid("order-detail")} || ${tid("order-detail-notfound")} || ${tid("order-detail-error")}`, 30000, "chi tiết đơn sau F5 (gói hết hạn)").catch(async (e) => {
+        console.log(`   [chẩn đoán] ${await loc()} · ${(await q(`document.body.innerText`)).replace(/\s+/g, " ").slice(0, 300)}`);
+        throw e;
+      });
+      await sleep(900);
+      check("Real · (trả lời giả gói EXPIRED) chỉ đọc: có nút nhưng bị khoá, không mở được hộp", (await hasBtn()) && (await q(`${tid("order-confirm-open")}.disabled`)) === true);
+      tab.blockedWrites.length = 0;
+      await clickTid("order-confirm-open");
+      await sleep(400);
+      check("Real · Chỉ đọc: bấm nút khoá không mở hộp, không có request ghi", !(await has("confirm-step-form")) && tab.blockedWrites.length === 0);
+      tab.readOverride = null;
+      await tab.goto("/manager/dashboard");
+      await sleep(1200);
+
+      const confirmWrites = (tab.writeLog ?? []).filter((w) => /\/confirm$/.test(w.path));
+      check(`Real · Mọi request ghi của khối là POST /payments/{id}/confirm và đều bị chặn/giả lập ở CDP (${confirmWrites.length}); KHÔNG request nào tới BE`, (tab.writeLog ?? []).length === confirmWrites.length && confirmWrites.length >= 7 && (await beUnchanged()), `${(tab.writeLog ?? []).length} ghi, ${confirmWrites.length} confirm`);
+      tab.fulfillWrites = false;
+      tab.setFault(null);
+    }
+  }
+
   if (want("report")) {
     const reportReady = async () => {
       await tab.waitFor(`(${tid("report-kpi-revenue")} && document.querySelector('[data-loading="false"]')) || ${tid("report-error")}`, 20000, "báo cáo nạp xong");

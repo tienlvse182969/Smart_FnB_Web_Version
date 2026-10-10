@@ -179,8 +179,10 @@ class Tab {
       }
     })();
     // `readOverride = { match: RegExp, body: string }`: request ĐỌC (GET) khớp nhận 200 với body do script dựng (ví dụ phản hồi BE đã sửa
-    // `subscription: null`). Request vẫn KHÔNG tới BE. Tắt bằng `tab.readOverride = null`.
-    if (this.readOverride && method === "GET" && this.readOverride.match.test(path)) {
+    // `subscription: null`). Request vẫn KHÔNG tới BE. Tắt bằng `tab.readOverride = null`. Có thể là MẢNG các `{ match, body }`
+    // (7.4: vừa giả gói hết hạn vừa giả chi tiết đơn); phần tử khớp đầu tiên thắng.
+    const overrideHit = method === "GET" && this.readOverride ? [this.readOverride].flat().find((o) => o.match.test(path)) : null;
+    if (overrideHit) {
       void this.send("Fetch.fulfillRequest", {
         requestId: p.requestId,
         responseCode: 200,
@@ -189,7 +191,7 @@ class Tab {
           { name: "Access-Control-Allow-Origin", value: ORIGIN },
           { name: "Vary", value: "Origin" },
         ],
-        body: Buffer.from(this.readOverride.body).toString("base64"),
+        body: Buffer.from(overrideHit.body).toString("base64"),
       });
       return;
     }
