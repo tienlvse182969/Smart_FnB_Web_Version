@@ -96,6 +96,27 @@ export function flagTable(modes: Record<ApiModule, ApiMode> = MODES) {
   }));
 }
 
+/**
+ * Cờ TÍNH NĂNG của màn công khai (không phải module API; quyết định 91–92). Mặc định TẮT: route không đăng ký nên đường dẫn ra như route
+ * lạ (về trang chủ), không còn link nào trỏ tới. Bật bằng `VITE_FEATURE_<TÊN>=true` ở dòng lệnh/CI. Mã của nhóm vẫn nguyên, chỉ không nối vào router.
+ */
+export interface RouteFlags {
+  /** `/t/:token` — trang theo dõi đơn công khai ("thẻ rung ảo"); nhóm tạm hoãn 08–10/10. Env: `VITE_FEATURE_ORDER_TRACKING`. */
+  orderTracking: boolean;
+  /** `/display/customer` — màn hình phía khách bản web; đặc tả giao FE-M (repo mobile backscreen). Env: `VITE_FEATURE_WEB_CUSTOMER_DISPLAY`. */
+  webCustomerDisplay: boolean;
+}
+
+export function resolveRouteFlags(env: Env): RouteFlags {
+  const on = (name: string) => env[name]?.trim().toLowerCase() === "true";
+  return {
+    orderTracking: on("VITE_FEATURE_ORDER_TRACKING"),
+    webCustomerDisplay: on("VITE_FEATURE_WEB_CUSTOMER_DISPLAY"),
+  };
+}
+
+export const ROUTE_FLAGS: RouteFlags = resolveRouteFlags(import.meta.env as unknown as Env);
+
 let printed = false;
 
 /** In bảng cờ ra console, đúng một lần, chỉ khi chạy `vite dev`. */

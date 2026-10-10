@@ -8,6 +8,7 @@ import {
 } from "react-router-dom"
 import { App } from "antd"
 import { showApiError } from "../api"
+import { ROUTE_FLAGS, type RouteFlags } from "../api/flags"
 import LandingPage from "../components/landing/LandingPage"
 import LoginScreen from "../auth/LoginScreen"
 import SetupPasswordScreen from "../auth/SetupPasswordScreen"
@@ -75,7 +76,12 @@ function roleArea(role: WebRole): RouteObject {
   }
 }
 
-export const router = createBrowserRouter([
+/**
+ * Bảng route. `/t/:token` và `/display/customer` chỉ đăng ký khi cờ bật (quyết định 91–92, `api/flags.ts` `RouteFlags`); tắt thì
+ * đường dẫn rơi vào `*` như route lạ. Tách thành hàm để test cả hai trạng thái cờ.
+ */
+export function buildRoutes(flags: RouteFlags): RouteObject[] {
+  return [
   {
     path: "/",
     element: <LandingWrapper />,
@@ -89,7 +95,7 @@ export const router = createBrowserRouter([
     path: "/setup-password",
     element: <SetupPasswordScreen />,
   },
-  { path: "/t/:token", element: <OrderTrackingScreen /> },
+  ...(flags.orderTracking ? [{ path: "/t/:token", element: <OrderTrackingScreen /> }] : []),
   roleArea("admin"),
   roleArea("owner"),
   roleArea("manager"),
@@ -100,7 +106,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="call" replace /> },
       { path: "call", element: <CallScreen /> },
-      { path: "customer", element: <CustomerDisplayScreen /> },
+      ...(flags.webCustomerDisplay ? [{ path: "customer", element: <CustomerDisplayScreen /> }] : []),
       { path: "*", element: <Navigate to="/display/call" replace /> },
     ],
   },
@@ -112,4 +118,7 @@ export const router = createBrowserRouter([
     path: "*",
     element: <Navigate to="/" replace />,
   },
-])
+  ]
+}
+
+export const router = createBrowserRouter(buildRoutes(ROUTE_FLAGS))
