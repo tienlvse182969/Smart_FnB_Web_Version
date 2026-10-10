@@ -313,6 +313,40 @@ Rút từ khảo sát 5.1. Việc đã có ở trên không ghi lại: `email_ou
 
 Ghi chú: #35 (seed đơn quầy đã thanh toán) vẫn cần cho GĐ7 — DB hiện chỉ 70 đơn `DINE_IN` cũ (28 Thảo Điền, 42 + 1 chưa trả ở Nguyễn Huệ), không có đơn `COUNTER_PICKUP`, không có `payos`. Không thêm mục cho `expiresAt` của gói: BE `addMonths` giữ nguyên giờ, không ép cuối ngày UTC (`platform-admin.service.ts:735-744`); chỉ giá trị seed 2099 có đuôi 23:59:59.999Z.
 
+### Tình trạng theo BE `0348c38` (kéo mã 2026-10-10; container vẫn `de4f55c`, CHƯA build; chỉ đọc mã; chi tiết ở `docs/khao-sat-be-mobile-20261010.md`)
+
+> BE `0348c38` = `de4f55c` + 6 commit (Le Van Tien, Vũ Hà Gia Bảo, Dang Quan; 2026-10-06 → 10-09). 1 migration mới `20261008140000_order_tracking_and_payment_station` (chỉ thêm: `payments.station_id`, bảng `order_tracking_tokens`; **AN TOÀN**). Seed, enum, `/manager/*`, `payments`, `reports` không đổi. **Không có thay đổi phá vỡ với web.** Cột "nhánh chưa merge" = `origin/feat/cashier-barista-render-flow` (`a9eca53`, `e9b1c4a`, 2026-10-09).
+
+| # | `de4f55c` | `0348c38` (main) | Nhánh chưa merge | Chứng cứ |
+|---|---|---|---|---|
+| 1 email | Chưa | **Chưa** | **Xong** (Resend) | `email/email-outbox.service.ts` chỉ ở `a9eca53`; biến `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM` |
+| 15 `isDefault` | Một phần | **Xong** | — | `menu.service.ts:60, 263-297`, `menu.dto.ts:351-356` |
+| 23 Manager không mật khẩu | Chưa | **Xong (endpoint mới)** | — | `POST /employees/managers` (`employees.controller.ts:34-39`); thư chưa gửi ở main (#1) |
+| 24 CRUD Cashier/Barista | Một phần, lệch | **Một phần, lệch** | **Xong** (email, không mật khẩu) | `manager-staff.service.ts` ở `a9eca53` |
+| 25 link email | Chưa | **Một phần** | Một phần | `setupPath: '/setup-password'` (đường trang web) nhưng chưa là URL đầy đủ |
+| 28 `GET /display-devices` | Một phần | **Một phần** | — | thêm `GET /public/calling-display/context`; vẫn thiếu danh sách thiết bị |
+| 41 trạng thái tuỳ chọn theo chi nhánh cho Owner | Không thêm | **Có endpoint** | — | `GET …/option-groups/branch-states` (`chain-menu.controller.ts:114-123`); web chưa dùng |
+| 42 seed mỗi lần khởi động | Mới | **Còn nguyên** | — | seed không đổi; đã tái hiện 09/10 (đặt lại suất, thêm đơn `DINE_IN` mang ngày hôm nay) |
+| 43 huỷ đơn đã trả | Chưa | **Chưa** | Chưa | không có endpoint, không có cột hoàn |
+| 44 Cần xử lý / Lệch số tiền | Chưa | **Chưa** | **Xấu hơn** | nhánh: khoản lệch → `FAILED PAYOS_AMOUNT_MISMATCH` nên `confirm` (yêu cầu `PENDING`) từ chối (#54) |
+| 45 QR hết hạn / Kiểm tra lại / huỷ QR | Chưa | **Chưa** | **Một phần** | `POST /cashier/payments/:id/payos/recheck`, `…/payos/cancel`, hết hạn → `FAILED PAYOS_EXPIRED`; vẫn không có job, BR-31 chưa |
+| 46 Manager xác nhận CASH | Chưa | **Chưa** | Chưa | `payments.service.ts` không đổi |
+| 47 báo cáo lẫn đơn v7 | Chưa | **Chưa** | Chưa | `manager-reports.service.ts` không đổi |
+| 48 tiền khách đưa/thối | Chưa | **Chưa** | Chưa | `manager-operations.service.ts` không đổi |
+| 49, 50, 51 | Chưa | **Chưa** | Chưa | không đổi (thêm `calling.*` chỉ cho phòng màn gọi số) |
+| 52 quầy trong chi tiết | Chưa | **Một phần** | Một phần | `payments.station_id` có (chỉ khi tạo QR PayOS; tiền mặt chưa), chi tiết Manager vẫn không trả |
+| Các mục còn lại (#2–#14, #16–#22, #26, #27, #29–#40) | như cũ | **không đổi** | không đổi | module `platform-admin`, `users`, `auth`, `branches`, `branch-manager`, `reports` không đổi trong khoảng này |
+
+Việc mới sau khi kéo mã `0348c38` (7.3b):
+
+| # | Mức | Việc cần BE | Căn cứ đặc tả | Chặn demo tuần 10? |
+|---|---|---|---|---|
+| 53 | Trung bình | **Xác nhận thủ công không tạo tracking token, không tạo `PrintJob`, không phát `calling.order.queued`**: `POST /payments/:id/confirm` (`payments.service.ts`, không đổi) chỉ đưa đơn xuống pha. Đơn xác nhận thủ công vì thế không có QR theo dõi, không có phiếu in tự động, không lên màn gọi số. Đề nghị dùng chung một hàm "đã trả" với tiền mặt và webhook (`ensureForOrder`, tạo `PrintJob`, phát `calling.order.queued`) | BR-27 (`:709`), BM-05 (`:339`), 11.9 | Có, khi demo xác nhận thủ công |
+| 54 | **CAO** (chỉ khi `a9eca53` vào main) | **Khoản lệch số tiền thành `FAILED` thì Manager không xác nhận thủ công được**: `confirm` yêu cầu `PENDING`. BR-28 đòi: Cần xử lý, Manager xác nhận khi thực nhận ≥ tổng, nhận thiếu → huỷ đơn + khoản phải hoàn. Đề nghị giữ khoản ở trạng thái chờ + cờ "Lệch số tiền", hoặc cho `confirm` khoản `FAILED` có `PAYOS_AMOUNT_MISMATCH`; gộp với #44 | BR-28 (`:710`), BR-29 (`:711`) | Có |
+| 55 | Thấp | **`display:update` ghi `pos_stations.cart_snapshot` vào CSDL** (`realtime.gateway.ts`) trái BR-46 (server chỉ chuyển tiếp trước khi chốt). Chấp nhận như mở rộng hoặc ghi vào đặc tả | BR-46 (`:748`) | Không |
+
+Ghi chú: trang theo dõi đơn công khai (`GET /public/track/:token`, QR trên phiếu) **không có trong đặc tả v9**; cần Khánh/nhóm quyết giữ như mở rộng (và bổ sung đặc tả) hoặc bỏ. Việc báo nhóm mobile M1–M8 ở mục 7 của `docs/khao-sat-be-mobile-20261010.md`.
+
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
 | Chỗ lệch | Đặc tả / quyết định | BE |
