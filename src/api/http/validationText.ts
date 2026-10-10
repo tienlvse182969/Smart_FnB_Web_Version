@@ -69,6 +69,8 @@ export const FIELD_LABELS: Record<string, string> = {
   months: "Số tháng",
   subscriptionMonths: "Số tháng sử dụng",
   reason: "Lý do",
+  receivedAmount: "Số tiền thực nhận",
+  transactionRef: "Mã giao dịch",
   planId: "Gói dịch vụ",
   requestedPlanId: "Gói đăng ký",
   direction: "Hướng đổi gói",

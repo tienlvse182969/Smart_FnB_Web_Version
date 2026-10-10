@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Button, Card, Descriptions, Table } from "antd";
+import { Alert, App, Button, Card, Descriptions, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ApiError, describeApiError, modeOf, orderApi } from "../../api";
+import { ApiError, describeApiError, modeOf, orderApi, showApiError } from "../../api";
+import { confirmErrorInfo, confirmableTransfer } from "../../api/modules/order/manualConfirm";
+import ActionButton from "../../plan/ActionButton";
+import ConfirmTransferModal from "./ConfirmTransferModal";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
 import { orderItemStatusInfo, orderPaymentInfo, orderStatusInfo, paymentMethodInfo, paymentStatusInfo } from "../../api/modules/order/codes";
@@ -11,7 +14,7 @@ import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
-import type { OrderDetail as OrderDetailData, OrderDetailLine, OrderPaymentRecord } from "../../types";
+import type { ConfirmPaymentInput, OrderDetail as OrderDetailData, OrderDetailLine, OrderPaymentRecord } from "../../types";
 import { Chip } from "../admin/adminUi";
 
 /** Danh sách đặt `state.from` (chuỗi truy vấn đang lọc) khi mở chi tiết, để "Quay lại" về đúng bộ lọc và trang. */
@@ -90,6 +93,9 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
       if (p.confirmationReason) {
         bits.push(`Xác nhận thủ công${p.processedBy ? ` bởi ${p.processedBy}` : ""}: ${p.confirmationReason}`);
         if (p.receivedAmount !== null) bits.push(`Số tiền thực nhận: ${formatVnd(p.receivedAmount)}`);
+      } else if (p.status === "AMOUNT_MISMATCH" && p.receivedAmount !== null) {
+        // Khoản "Lệch số tiền" (BR-28): số BE ghi nhận từ webhook/Kiểm tra lại, chưa phải số Manager đã xác nhận.
+        bits.push(`Số tiền nhận được: ${formatVnd(p.receivedAmount)} (khác số cần nhận ${formatVnd(p.amount)})`);
       }
       if (p.transactionRef) bits.push(`Mã giao dịch: ${p.transactionRef}`);
       if (p.failureReason) bits.push(`Lý do lỗi: ${p.failureReason}`);
@@ -109,8 +115,8 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
 type LoadError = { kind: "notfound" } | { kind: "other"; text: string };
 
 /**
- * BM-04: chi tiết một đơn của chi nhánh (quyết định 63, 73). Real `GET /manager/orders/:id`. Chỉ đọc: chưa có nút hành động
- * (Xác nhận thủ công ở 7.4, Huỷ đơn đã trả ở 7.6). Không có khối audit log (đặc tả loại trừ), không hiện tiền khách đưa/tiền thối
+ * BM-04: chi tiết một đơn của chi nhánh (quyết định 63, 73). Real `GET /manager/orders/:id`. Hành động duy nhất: "Xác nhận thủ công"
+ * (BM-05, quyết định 82–85) cho khoản chuyển khoản chờ/lệch số tiền; Huỷ đơn đã trả ở 7.6. Không có khối audit log (đặc tả loại trừ), không hiện tiền khách đưa/tiền thối
  * (BE chưa trả, #48) và không hiện quầy (BE không trả quầy trong chi tiết đơn, #52).
  */
 export default function OrderDetail() {
@@ -120,6 +126,12 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as OrderDetailLocationState | null)?.from ?? "";
+  const { message } = App.useApp();
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  // Bấm đúp nhanh chỉ gửi 1 request (state cập nhật bất đồng bộ nên giữ thêm ref).
+  const inFlight = useRef(false);
 
   const [order, setOrder] = useState<OrderDetailData | null>(null);
   const [error, setError] = useState<LoadError | null>(null);
@@ -167,6 +179,31 @@ export default function OrderDetail() {
   const realtime = useOrderRealtime(() => void load(true), { orderId, enabled: realtimeOn });
 
   const back = () => navigate(`${LIST_PATH}${from}`);
+
+  /**
+   * Xác nhận thủ công (quyết định 84): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi);
+   * 409/404 → câu tiếng Việt, GET lại, đóng hộp; 400, 403, 5xx, mạng → báo và giữ hộp để sửa hoặc thử lại.
+   */
+  const submitConfirm = async (paymentId: string, input: ConfirmPaymentInput) => {
+    if (inFlight.current || !chainId || !branchId) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    try {
+      await orderApi.confirmPayment({ chainId, branchId }, paymentId, input);
+      setConfirmOpen(false);
+      message.success("Đã xác nhận thanh toán thủ công. Đơn chuyển sang Đã thanh toán và xuống pha chế.");
+      await load(true);
+    } catch (err) {
+      showApiError(message.error, err, "Không xác nhận được thanh toán. Thử lại sau.");
+      if (confirmErrorInfo(err).refresh) {
+        setConfirmOpen(false);
+        await load(true);
+      }
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  };
 
   const backButton = (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -229,6 +266,8 @@ export default function OrderDetail() {
   const status = orderStatusInfo(order.status);
   const payment = orderPaymentInfo(order);
   const cancelled = order.status === "CANCELLED";
+  const confirmable = confirmableTransfer(order);
+  const mismatch = order.payments.find((p) => p.status === "AMOUNT_MISMATCH");
 
   return (
     <div data-testid="order-detail">
@@ -265,6 +304,21 @@ export default function OrderDetail() {
           {order.note && <Descriptions.Item label="Ghi chú đơn">{order.note}</Descriptions.Item>}
         </Descriptions>
       </Card>
+
+      {order.status === "REQUIRES_ATTENTION" && !cancelled && (
+        <Alert
+          data-testid="order-detail-attention"
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Đơn cần xử lý"
+          description={
+            mismatch && mismatch.receivedAmount !== null
+              ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
+              : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán."
+          }
+        />
+      )}
 
       {cancelled && (
         <Alert
@@ -311,7 +365,18 @@ export default function OrderDetail() {
         </div>
       </Card>
 
-      <Card title="Lịch sử thanh toán" style={{ borderRadius: 14 }} styles={{ body: { padding: 0 } }}>
+      <Card
+        title="Lịch sử thanh toán"
+        style={{ borderRadius: 14 }}
+        styles={{ body: { padding: 0 } }}
+        extra={
+          confirmable && (
+            <ActionButton type="primary" data-testid="order-confirm-open" onClick={() => setConfirmOpen(true)}>
+              Xác nhận thủ công
+            </ActionButton>
+          )
+        }
+      >
         <Table<OrderPaymentRecord>
           data-testid="order-detail-payments"
           rowKey={(p) => p.id || p.paymentCode}
@@ -323,6 +388,17 @@ export default function OrderDetail() {
           locale={{ emptyText: "Chưa có khoản thanh toán" }}
         />
       </Card>
+
+      {confirmable && (
+        <ConfirmTransferModal
+          open={confirmOpen}
+          order={order}
+          payment={confirmable}
+          submitting={submitting}
+          onCancel={() => setConfirmOpen(false)}
+          onSubmit={(input) => void submitConfirm(confirmable.id, input)}
+        />
+      )}
     </div>
   );
 }

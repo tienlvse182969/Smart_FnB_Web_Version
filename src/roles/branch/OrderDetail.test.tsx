@@ -6,7 +6,7 @@ import { mockControl } from "../../api/mock/control";
 import { setScenario } from "../../api/mock/scenario";
 import { resetMockStates } from "../../api/mock/store";
 import { branchMock } from "../../api/modules/branch/mock";
-import { ApiError } from "../../api/http/errors";
+import { ApiError, describeApiError, setApiErrorHandler } from "../../api/http/errors";
 import { orderApi } from "../../api";
 import { useAppStore } from "../../store";
 import OrderDetail from "./OrderDetail";
@@ -169,5 +169,167 @@ describe("trang chi tiết đơn (BM-04, quyết định 73)", () => {
     await waitFor(() => expect(screen.getByTestId("order-detail-error")).toBeTruthy());
     expect(txt("order-detail-error")).toMatch(/không đủ quyền/i);
     expect(txt("order-detail-error")).not.toMatch(/permission/i);
+  });
+});
+
+describe("xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85)", () => {
+  const openBtn = () => screen.queryByTestId("order-confirm-open");
+  const type = (testId: string, value: string) => fireEvent.change(screen.getByTestId(testId), { target: { value } });
+  const waitDetail = () => waitFor(() => expect(screen.getByTestId("order-detail")).toBeTruthy());
+  /** Mở hộp ở đơn đã gắn kịch bản, điền lý do và số tiền, sang bước xem lại. */
+  const toReview = async (suffix: string, received: string, reason = "Khách chìa màn hình chuyển khoản") => {
+    mount(scn(suffix));
+    await waitDetail();
+    fireEvent.click(openBtn()!);
+    await waitFor(() => expect(screen.getByTestId("confirm-step-form")).toBeTruthy());
+    type("confirm-received", received);
+    type("confirm-reason", reason);
+    fireEvent.click(screen.getByTestId("confirm-next"));
+    await waitFor(() => expect(screen.getByTestId("confirm-step-review")).toBeTruthy());
+  };
+
+  it("nút hiện ở QR chờ và Lệch số tiền; không hiện ở tiền mặt, FAILED, đơn huỷ, đơn đã trả", async () => {
+    for (const [suffix, shown] of [
+      ["scn-qr-waiting", true],
+      ["scn-mismatch-short", true],
+      ["scn-mismatch-over", true],
+      ["scn-cash-waiting", false],
+      ["scn-qr-failed", false],
+      ["scn-cancelled-pending", false],
+      ["scn-manual", false],
+      ["scn-options", false],
+    ] as const) {
+      const view = mount(scn(suffix));
+      await waitDetail();
+      expect(!!openBtn(), suffix).toBe(shown);
+      view.unmount();
+    }
+  });
+
+  it("Lệch số tiền: nhãn 'Cần xử lý' / 'Lệch số tiền' và số nhận được ở lịch sử thanh toán", async () => {
+    mount(scn("scn-mismatch-short"));
+    await waitDetail();
+    expect(txt("order-detail-status")).toBe("Cần xử lý");
+    expect(txt("order-detail-payment")).toBe("Lệch số tiền");
+    expect(txt("order-detail-attention")).toMatch(/70\.000/);
+    expect(txt("order-detail-payments")).toContain("Lệch số tiền");
+    expect(txt("order-pay-detail")).toMatch(/Số tiền nhận được: 70\.000/);
+  });
+
+  it("BR-28: nhận thiếu → câu BR-28 và nút Tiếp tục bị khoá; bằng → bình thường; dư → 'Phải trả lại khách'", async () => {
+    mount(scn("scn-qr-waiting"));
+    await waitDetail();
+    fireEvent.click(openBtn()!);
+    await waitFor(() => expect(screen.getByTestId("confirm-received")).toBeTruthy());
+    type("confirm-reason", "Khách chìa màn hình");
+    type("confirm-received", "70000");
+    expect(txt("confirm-short")).toContain("Nhận thiếu so với tổng đơn. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn.");
+    expect((screen.getByTestId("confirm-next") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/Huỷ đơn/)).toBeNull();
+    type("confirm-received", "75000");
+    expect(screen.queryByTestId("confirm-short")).toBeNull();
+    expect((screen.getByTestId("confirm-next") as HTMLButtonElement).disabled).toBe(false);
+    type("confirm-received", "80000");
+    expect(txt("confirm-change")).toContain("Phải trả lại khách 5.000");
+  });
+
+  it("lý do dưới 3 ký tự không sang bước xem lại và báo lỗi tại ô", async () => {
+    mount(scn("scn-qr-waiting"));
+    await waitDetail();
+    fireEvent.click(openBtn()!);
+    await waitFor(() => expect(screen.getByTestId("confirm-received")).toBeTruthy());
+    type("confirm-received", "75000");
+    type("confirm-reason", "ab");
+    fireEvent.click(screen.getByTestId("confirm-next"));
+    await waitFor(() => expect(screen.getByTestId("confirm-reason-error")).toBeTruthy());
+    expect(txt("confirm-reason-error")).toMatch(/ít nhất 3/);
+    expect(screen.queryByTestId("confirm-step-review")).toBeNull();
+  });
+
+  it("bước xem lại: tóm tắt (mã đơn, tổng, số nhận, phần dư, lý do) và dòng nhắc kiểm tiền (GĐ-04)", async () => {
+    await toReview("scn-qr-waiting", "80000", "Khách chìa màn hình");
+    const modal = screen.getByTestId("confirm-step-review");
+    expect(modal.textContent).toMatch(/CTR-\d+/);
+    // formatVnd dùng khoảng trắng không ngắt trước ₫.
+    expect(txt("confirm-expected")).toMatch(/^75\.000\s₫$/);
+    expect(txt("confirm-review-received")).toMatch(/^80\.000\s₫$/);
+    expect(txt("confirm-review-change")).toMatch(/^5\.000\s₫$/);
+    expect(txt("confirm-review-reason")).toBe("Khách chìa màn hình");
+    expect(txt("confirm-reminder")).toContain("Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.");
+  });
+
+  it("thành công: đúng 1 request với thân đúng DTO, thông báo, GET lại; lịch sử có người xác nhận, lý do, số tiền thực nhận", async () => {
+    const spy = vi.spyOn(orderApi, "confirmPayment");
+    const get = vi.spyOn(orderApi, "getOrder");
+    await toReview("scn-qr-waiting", "80000", "  Khách chìa màn hình  ");
+    const before = get.mock.calls.length;
+    fireEvent.click(screen.getByTestId("confirm-submit"));
+    fireEvent.click(screen.getByTestId("confirm-submit"));
+    await waitFor(() => expect(txt("order-detail-status")).toBe("Đã thanh toán"));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][2]).toEqual({ reason: "Khách chìa màn hình", receivedAmount: 80000 });
+    expect(get.mock.calls.length).toBeGreaterThan(before);
+    await waitFor(() => expect(document.body.textContent).toMatch(/Đã xác nhận thanh toán thủ công/));
+    expect(openBtn()).toBeNull();
+    expect(txt("order-detail-call")).not.toBe("—");
+    expect(txt("order-pay-detail")).toMatch(/Xác nhận thủ công bởi Quản lý mẫu: Khách chìa màn hình/);
+    expect(txt("order-pay-detail")).toMatch(/Số tiền thực nhận: 80\.000/);
+  });
+
+  it("409 (webhook vừa về): câu tiếng Việt, GET lại, đóng hộp, đơn thành Đã thanh toán", async () => {
+    await toReview("scn-qr-conflict", "70000");
+    fireEvent.click(screen.getByTestId("confirm-submit"));
+    await waitFor(() => expect(txt("order-detail-status")).toBe("Đã thanh toán"));
+    await waitFor(() => expect(document.body.textContent).toMatch(/đã được xác nhận hoặc không còn chờ xác nhận/));
+    expect(document.body.textContent).not.toMatch(/PAYMENT_ALREADY_SETTLED/);
+    expect(screen.queryByTestId("confirm-submit")).toBeNull();
+  });
+
+  it("409 nhận thiếu từ BE: câu BR-28, GET lại, đóng hộp", async () => {
+    vi.spyOn(orderApi, "confirmPayment").mockRejectedValueOnce(new ApiError(409, "Số tiền thực nhận thấp hơn tổng tiền đơn hàng.", [], "PAYMENT_AMOUNT_INSUFFICIENT"));
+    const get = vi.spyOn(orderApi, "getOrder");
+    await toReview("scn-qr-waiting", "75000");
+    const before = get.mock.calls.length;
+    fireEvent.click(screen.getByTestId("confirm-submit"));
+    await waitFor(() => expect(document.body.textContent).toMatch(/Nhận thiếu so với tổng đơn\. Không xác nhận được/));
+    // Đơn vẫn chờ xác nhận nên hộp còn trong DOM (jsdom không chạy xong hiệu ứng đóng); điều quan sát được: đã GET lại chi tiết.
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("400 từ BE: lỗi theo ô bằng tiếng Việt, hộp còn mở để sửa", async () => {
+    vi.spyOn(orderApi, "confirmPayment").mockRejectedValueOnce(new ApiError(400, "receivedAmount must not be less than 0.01", ["receivedAmount must not be less than 0.01"]));
+    await toReview("scn-qr-waiting", "75000");
+    fireEvent.click(screen.getByTestId("confirm-submit"));
+    await waitFor(() => expect(document.body.textContent).toMatch(/Số tiền thực nhận không được nhỏ hơn 0\.01/));
+    expect(screen.getByTestId("confirm-submit")).toBeTruthy();
+    expect((screen.getByTestId("confirm-submit") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("403 (không đủ quyền): câu tiếng Việt, hộp còn mở", async () => {
+    // 403 do lớp API báo toàn cục (ApiErrorBridge, không gắn trong test): bắt qua handler và kiểm câu hiển thị.
+    const shown: string[] = [];
+    setApiErrorHandler((e) => shown.push(describeApiError(e.error)));
+    try {
+      vi.spyOn(orderApi, "confirmPayment").mockRejectedValueOnce(new ApiError(403, "Only MANAGER can manually confirm bank transfers"));
+      await toReview("scn-qr-waiting", "75000");
+      fireEvent.click(screen.getByTestId("confirm-submit"));
+      await waitFor(() => expect(shown).toEqual(["Bạn không đủ quyền thực hiện thao tác này."]));
+      expect(document.body.textContent).not.toMatch(/Only MANAGER/);
+      expect((screen.getByTestId("confirm-submit") as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      setApiErrorHandler(null);
+    }
+  });
+
+  it("gói hết hạn (chỉ đọc): nút khoá, không mở được hộp", async () => {
+    act(() =>
+      useAppStore.setState({
+        plan: { chainId: "c", tier: "STANDARD", planName: "Demo", status: "expired", expiresAt: "2020-01-01T00:00:00.000Z", limits: [], features: {}, source: { limits: "real", features: "real" } } as never,
+      }),
+    );
+    mount(scn("scn-qr-waiting"));
+    await waitDetail();
+    expect((openBtn() as HTMLButtonElement).disabled).toBe(true);
+    act(() => useAppStore.setState({ plan: null }));
   });
 });

@@ -4,15 +4,16 @@
  *
  * Map ĐỦ mọi giá trị enum của BE. Giá trị BE không có trong đặc tả (dữ liệu v7 hoặc trạng thái nháp của POS) hiện "Khác (<mã>)"
  * cho tới khi Khánh duyệt nhãn (BAN-GIAO, quyết định 70). Màu theo BR-42: đỏ cảnh báo, vàng đang chờ, xanh xong, xám vô hiệu.
- * "Cần xử lý" và "Lệch số tiền" KHÔNG suy ra ở đây: BE chưa có (#44).
+ * "Cần xử lý" (OrderStatus.REQUIRES_ATTENTION) và "Lệch số tiền" (PaymentStatus.AMOUNT_MISMATCH) là enum thật của BE từ `main` `d98b4c1`
+ * (migration `20261010090000_payment_mismatch_attention`, quyết định 88); không suy ra từ dữ liệu khác.
  */
 import type { StatusColorKey } from "../../../theme";
 
-export const ORDER_STATUS_CODES = ["PENDING", "SUBMITTED", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "DELIVERED", "CANCELLED"] as const;
+export const ORDER_STATUS_CODES = ["PENDING", "SUBMITTED", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "DELIVERED", "CANCELLED", "REQUIRES_ATTENTION"] as const;
 export const ORDER_PAYMENT_STATUS_CODES = ["UNPAID", "PARTIALLY_PAID", "PAID", "REFUNDED"] as const;
 export const ORDER_ITEM_STATUS_CODES = ["PENDING", "QUEUED", "CONFIRMED", "PREPARING", "READY", "SERVED", "DELIVERED", "OUT_OF_STOCK", "CANCELLED"] as const;
 export const PAYMENT_METHOD_CODES = ["CASH", "CARD", "BANK_TRANSFER", "E_WALLET", "OTHER"] as const;
-export const PAYMENT_STATUS_CODES = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] as const;
+export const PAYMENT_STATUS_CODES = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED", "AMOUNT_MISMATCH"] as const;
 
 export interface StatusInfo {
   label: string;
@@ -35,6 +36,8 @@ const ORDER_STATUS: Record<(typeof ORDER_STATUS_CODES)[number], StatusInfo> = {
   COMPLETED: known("Hoàn tất", "neutral"),
   DELIVERED: known("Hoàn tất", "neutral"),
   CANCELLED: known("Đã huỷ", "neutral"),
+  // Webhook/Kiểm tra lại báo số tiền khác tổng đơn (BR-28): đơn chờ Manager xử lý. Tông đỏ theo BR-42.
+  REQUIRES_ATTENTION: known("Cần xử lý", "error"),
 };
 
 export function orderStatusInfo(code: string): StatusInfo {
@@ -72,8 +75,8 @@ export function paymentMethodInfo(code: string): StatusInfo {
 }
 
 /**
- * Một khoản thanh toán (5.5). PENDING của tiền mặt = "Khởi tạo", của chuyển khoản = "Chờ chuyển khoản". FAILED, REFUNDED,
- * PARTIALLY_REFUNDED chưa có trong đặc tả (huỷ đơn đã trả không đổi trạng thái thanh toán, 5.5).
+ * Một khoản thanh toán (5.5). PENDING của tiền mặt = "Khởi tạo", của chuyển khoản = "Chờ chuyển khoản"; AMOUNT_MISMATCH = "Lệch số tiền"
+ * (BR-28). FAILED, REFUNDED, PARTIALLY_REFUNDED chưa có trong đặc tả (huỷ đơn đã trả không đổi trạng thái thanh toán, 5.5).
  */
 export function paymentStatusInfo(code: string, methodCode?: string): StatusInfo {
   switch (code) {
@@ -81,6 +84,8 @@ export function paymentStatusInfo(code: string, methodCode?: string): StatusInfo
       return known("Đã thanh toán", "success");
     case "PENDING":
       return methodCode === "CASH" ? known("Khởi tạo", "neutral") : known("Chờ chuyển khoản", "warning");
+    case "AMOUNT_MISMATCH":
+      return known("Lệch số tiền", "error");
     default:
       return other(code);
   }
@@ -101,6 +106,7 @@ export function orderPaymentInfo(order: {
       return known("Đã thanh toán", "success");
     case "UNPAID":
       if (order.status === "CANCELLED") return known("Đã huỷ", "neutral");
+      if (order.payments.some((p) => p.status === "AMOUNT_MISMATCH")) return known("Lệch số tiền", "error");
       if (order.payments.some((p) => p.status === "PENDING" && p.method !== "CASH")) return known("Chờ chuyển khoản", "warning");
       return known("Khởi tạo", "neutral");
     default:
@@ -116,6 +122,7 @@ export const ORDER_STATUS_FILTER: { value: string; label: string }[] = [
   { value: "READY", label: "Sẵn sàng" },
   { value: "DELIVERED", label: "Hoàn tất" },
   { value: "CANCELLED", label: "Đã huỷ" },
+  { value: "REQUIRES_ATTENTION", label: "Cần xử lý" },
 ];
 
 /** BE lọc theo `paymentStatus` của đơn: PAID hoặc UNPAID (UNPAID gồm Khởi tạo, Chờ chuyển khoản, Đã huỷ). */

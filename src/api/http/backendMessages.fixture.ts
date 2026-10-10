@@ -75,4 +75,12 @@ export const BACKEND_MESSAGES: [status: number, message: string, source: string]
   [409, "Service plan account limit has been reached", "users/users.service.ts:175"],
   [409, "Email, phone or employee code already exists", "branch-manager/manager-staff.service.ts:287"],
   [409, "Subscription is not active", "branch-manager/manager-staff.service.ts:126"],
+  // Xác nhận thủ công chuyển khoản (BE `d98b4c1`)
+  [409, "PAYMENT_ALREADY_SETTLED", "payments/counter-payment-settlement.service.ts:113"],
+  [409, "Only bank transfers can be confirmed manually", "payments/payments.service.ts:167"],
+  [409, "Order is no longer awaiting payment", "payments/counter-payment-settlement.service.ts:135"],
+  [409, "Payment changed concurrently; reload before retrying", "payments/payments.service.ts:183"],
+  [409, "Số tiền thực nhận thấp hơn tổng tiền đơn hàng.", "payments/counter-payment-settlement.service.ts:122 (error PAYMENT_AMOUNT_INSUFFICIENT)"],
+  [400, "A manual confirmation reason of 3 to 500 characters is required", "payments/payments.service.ts:151"],
+  [400, "Actual received amount is required", "payments/payments.service.ts:158"],
 ];

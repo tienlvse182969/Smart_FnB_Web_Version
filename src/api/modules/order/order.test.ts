@@ -37,7 +37,9 @@ describe("nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.
       "Hoàn tất",
       "Hoàn tất",
       "Đã huỷ",
+      "Cần xử lý",
     ]);
+    expect(orderStatusInfo("REQUIRES_ATTENTION")).toMatchObject({ label: "Cần xử lý", tone: "error", known: true });
     expect(orderStatusInfo("PENDING").known).toBe(false);
     expect(orderStatusInfo("DELIVERED")).toMatchObject({ known: true, tone: "neutral" });
     expect(orderStatusInfo("CONFIRMED").tone).toBe("warning");
@@ -68,6 +70,7 @@ describe("nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.
     expect(paymentStatusInfo("PENDING", "CASH").label).toBe("Khởi tạo");
     expect(paymentStatusInfo("PENDING", "BANK_TRANSFER")).toMatchObject({ label: "Chờ chuyển khoản", tone: "warning" });
     expect(PAYMENT_STATUS_CODES.filter((c) => !paymentStatusInfo(c, "CASH").known)).toEqual(["FAILED", "REFUNDED", "PARTIALLY_REFUNDED"]);
+    expect(paymentStatusInfo("AMOUNT_MISMATCH", "BANK_TRANSFER")).toMatchObject({ label: "Lệch số tiền", tone: "error", known: true });
   });
 
   it("thanh toán của cả đơn", () => {
@@ -77,6 +80,7 @@ describe("nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.
     expect(pay("CONFIRMED", "UNPAID", [{ method: "CASH", status: "PENDING" }])).toBe("Khởi tạo");
     expect(pay("CONFIRMED", "UNPAID", [{ method: "BANK_TRANSFER", status: "PENDING" }])).toBe("Chờ chuyển khoản");
     expect(pay("CANCELLED", "UNPAID")).toBe("Đã huỷ");
+    expect(pay("REQUIRES_ATTENTION", "UNPAID", [{ method: "BANK_TRANSFER", status: "AMOUNT_MISMATCH" }])).toBe("Lệch số tiền");
     for (const c of ORDER_PAYMENT_STATUS_CODES) expect(typeof pay("CONFIRMED", c)).toBe("string");
     expect(pay("CONFIRMED", "REFUNDED")).toBe("Khác (REFUNDED)");
     expect(pay("CONFIRMED", "PARTIALLY_PAID")).toBe("Khác (PARTIALLY_PAID)");
@@ -90,7 +94,7 @@ describe("nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.
   });
 
   it("ô lọc trạng thái đơn chỉ gồm giá trị có trong đặc tả và BE chấp nhận", () => {
-    expect(ORDER_STATUS_FILTER.map((o) => o.value)).toEqual(["CONFIRMED", "SUBMITTED", "PREPARING", "READY", "DELIVERED", "CANCELLED"]);
+    expect(ORDER_STATUS_FILTER.map((o) => o.value)).toEqual(["CONFIRMED", "SUBMITTED", "PREPARING", "READY", "DELIVERED", "CANCELLED", "REQUIRES_ATTENTION"]);
     for (const o of ORDER_STATUS_FILTER) expect(orderStatusInfo(o.value).known).toBe(true);
   });
 });
@@ -278,7 +282,7 @@ describe("khoảng ngày theo giờ Việt Nam và chuỗi truy vấn", () => {
 
 describe("orderReal — đúng endpoint /manager/orders", () => {
   afterEach(() => vi.unstubAllGlobals());
-  const respond = (body: unknown, status = 200) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
+  const respond = (body: unknown, status = 200) => vi.fn().mockImplementation(async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
 
   it("danh sách: chỉ GET, kèm type=COUNTER_PICKUP", async () => {
     const fetchMock = respond({ items: [], total: 0, page: 2, limit: 5 });
@@ -300,6 +304,40 @@ describe("orderReal — đúng endpoint /manager/orders", () => {
     expect(new URL(url).pathname).toMatch(/\/manager\/orders\/o1$/);
     expect(init.method).toBe("GET");
     expect(d.id).toBe("o1");
+  });
+
+  it("xác nhận thủ công: POST /payments/:id/confirm, thân đúng 3 ô của ConfirmPaymentDto, không gửi ô trống", async () => {
+    const fetchMock = respond({ id: "p1", status: "SUCCESS", order: {}, tracking: {} });
+    vi.stubGlobal("fetch", fetchMock);
+    await orderReal.confirmPayment({ chainId: "c", branchId: "b" }, "p1", { reason: "Khách chìa màn hình", receivedAmount: 75000 });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toMatch(/\/payments\/p1\/confirm$/);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ reason: "Khách chìa màn hình", receivedAmount: 75000 });
+    await orderReal.confirmPayment({ chainId: "c", branchId: "b" }, "p1", { reason: "abc", receivedAmount: 80000, transactionRef: "FT123" });
+    expect(JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string)).toEqual({ reason: "abc", receivedAmount: 80000, transactionRef: "FT123" });
+  });
+
+  it("xác nhận thủ công: 409 PAYMENT_ALREADY_SETTLED và PAYMENT_AMOUNT_INSUFFICIENT → câu tiếng Việt, lỗi ghi (POST)", async () => {
+    vi.stubGlobal("fetch", respond({ statusCode: 409, message: "PAYMENT_ALREADY_SETTLED", error: "Conflict" }, 409));
+    const settled = await orderReal.confirmPayment({ chainId: "c", branchId: "b" }, "p1", { reason: "abc", receivedAmount: 1 }).catch((e: unknown) => e);
+    expect(settled).toMatchObject({ status: 409, method: "POST" });
+    expect(describeApiError(settled)).toBe("Khoản này đã được xác nhận hoặc không còn chờ xác nhận. Đã tải lại đơn.");
+    vi.stubGlobal("fetch", respond({ statusCode: 409, error: "PAYMENT_AMOUNT_INSUFFICIENT", message: "Số tiền thực nhận thấp hơn tổng tiền đơn hàng." }, 409));
+    const short = await orderReal.confirmPayment({ chainId: "c", branchId: "b" }, "p1", { reason: "abc", receivedAmount: 1 }).catch((e: unknown) => e);
+    expect(short).toMatchObject({ status: 409, code: "PAYMENT_AMOUNT_INSUFFICIENT" });
+    expect(describeApiError(short)).toBe("Nhận thiếu so với tổng đơn. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn.");
+  });
+
+  it("xác nhận thủ công: 409 tiền mặt / đơn không còn chờ / 400 thiếu ô → không lộ tiếng Anh", async () => {
+    const run = async (status: number, body: unknown) => {
+      vi.stubGlobal("fetch", respond(body, status));
+      return describeApiError(await orderReal.confirmPayment({ chainId: "c", branchId: "b" }, "p1", { reason: "abc", receivedAmount: 1 }).catch((e: unknown) => e));
+    };
+    expect(await run(409, { statusCode: 409, message: "Only bank transfers can be confirmed manually", error: "Conflict" })).toBe("Chỉ xác nhận thủ công được khoản chuyển khoản, không xác nhận được tiền mặt.");
+    expect(await run(409, { statusCode: 409, message: "Order is no longer awaiting payment", error: "Conflict" })).toMatch(/không còn ở trạng thái chờ thanh toán/);
+    expect(await run(400, { statusCode: 400, message: ["receivedAmount must not be less than 0.01", "property foo should not exist"], error: "Bad Request" })).toMatch(/Số tiền thực nhận không được nhỏ hơn 0.01/);
+    expect(await run(400, { statusCode: 400, message: "A manual confirmation reason of 3 to 500 characters is required", error: "Bad Request" })).toBe("Lý do xác nhận phải từ 3 đến 500 ký tự.");
   });
 });
 
@@ -401,5 +439,64 @@ describe("orderMock — cùng hình dạng BE", () => {
 
   it("chi tiết: id lạ → 404", async () => {
     await expect(orderMock.getOrder(scope, "khong-co")).rejects.toMatchObject({ status: 404 });
+  });
+
+  describe("xác nhận thủ công (BM-05)", () => {
+    const find = async (suffix: string) => {
+      const all = await orderMock.listOrders(scope, { page: 1, limit: 100 });
+      return orderMock.getOrder(scope, all.items.find((o) => o.id.endsWith(suffix))!.id);
+    };
+
+    it("kịch bản: khoản chờ, lệch số tiền (kèm số nhận), FAILED, đơn Cần xử lý lọc được", async () => {
+      const waiting = await find("scn-qr-waiting");
+      expect(waiting.payments.map((p) => `${p.method}/${p.status}`)).toEqual(["BANK_TRANSFER/PENDING"]);
+      const short = await find("scn-mismatch-short");
+      expect(short).toMatchObject({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID", total: 75000 });
+      expect(short.payments[0]).toMatchObject({ status: "AMOUNT_MISMATCH", receivedAmount: 70000, amount: 75000 });
+      expect((await find("scn-mismatch-over")).payments[0]).toMatchObject({ status: "AMOUNT_MISMATCH", receivedAmount: 70000, amount: 65000 });
+      expect((await find("scn-qr-failed")).payments[0]).toMatchObject({ status: "FAILED", failureReason: "PAYOS_EXPIRED" });
+      const attention = await orderMock.listOrders(scope, { page: 1, limit: 100, status: "REQUIRES_ATTENTION" });
+      expect(attention.items.length).toBeGreaterThanOrEqual(2);
+      expect(attention.items.every((o) => o.status === "REQUIRES_ATTENTION")).toBe(true);
+    });
+
+    it("nhận đủ: khoản SUCCESS kèm người xác nhận, lý do, số nhận; đơn Đã thanh toán có số gọi; GET lại thấy ngay", async () => {
+      const order = await find("scn-qr-waiting");
+      await orderMock.confirmPayment(scope, order.payments[0].id, { reason: "  Khách chìa màn hình  ", receivedAmount: 75000, transactionRef: "FT999" });
+      const after = await orderMock.getOrder(scope, order.id);
+      expect(after).toMatchObject({ status: "SUBMITTED", paymentStatus: "PAID" });
+      expect(after.callNumber).not.toBeNull();
+      expect(after.payments[0]).toMatchObject({ status: "SUCCESS", receivedAmount: 75000, confirmationReason: "Khách chìa màn hình", transactionRef: "FT999", processedBy: "Quản lý mẫu" });
+      // Bấm lần hai: 409 PAYMENT_ALREADY_SETTLED
+      await expect(orderMock.confirmPayment(scope, order.payments[0].id, { reason: "abc", receivedAmount: 75000 })).rejects.toMatchObject({ status: 409, message: "PAYMENT_ALREADY_SETTLED" });
+    });
+
+    it("nhận thiếu → 409 PAYMENT_AMOUNT_INSUFFICIENT, không đổi gì; nhận dư vẫn được", async () => {
+      const short = await find("scn-mismatch-short");
+      await expect(orderMock.confirmPayment(scope, short.payments[0].id, { reason: "abc", receivedAmount: 70000 })).rejects.toMatchObject({ status: 409, code: "PAYMENT_AMOUNT_INSUFFICIENT" });
+      expect((await orderMock.getOrder(scope, short.id)).status).toBe("REQUIRES_ATTENTION");
+      const over = await find("scn-mismatch-over");
+      await orderMock.confirmPayment(scope, over.payments[0].id, { reason: "Nhận dư 5.000", receivedAmount: 70000 });
+      expect((await orderMock.getOrder(scope, over.id)).payments[0]).toMatchObject({ status: "SUCCESS", receivedAmount: 70000 });
+    });
+
+    it("tiền mặt → 409; lý do ngắn hoặc thiếu số tiền → 400; khoản không có → 404; đơn huỷ → 409", async () => {
+      const cash = await find("scn-cash-waiting");
+      await expect(orderMock.confirmPayment(scope, cash.payments[0].id, { reason: "abc", receivedAmount: 65000 })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/Only bank transfers/) });
+      const waiting = await find("scn-qr-waiting");
+      await expect(orderMock.confirmPayment(scope, waiting.payments[0].id, { reason: "ab", receivedAmount: 75000 })).rejects.toMatchObject({ status: 400 });
+      await expect(orderMock.confirmPayment(scope, waiting.payments[0].id, { reason: "abc", receivedAmount: 0 })).rejects.toMatchObject({ status: 400 });
+      await expect(orderMock.confirmPayment(scope, "khong-co", { reason: "abc", receivedAmount: 1 })).rejects.toMatchObject({ status: 404 });
+      const cancelled = await find("scn-cancelled-pending");
+      await expect(orderMock.confirmPayment(scope, cancelled.payments[0].id, { reason: "abc", receivedAmount: 65000 })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/no longer awaiting/) });
+    });
+
+    it("kịch bản xung đột: webhook về trước → 409 PAYMENT_ALREADY_SETTLED và đơn đã trả không có người xác nhận", async () => {
+      const order = await find("scn-qr-conflict");
+      await expect(orderMock.confirmPayment(scope, order.payments[0].id, { reason: "abc", receivedAmount: 70000 })).rejects.toMatchObject({ status: 409, message: "PAYMENT_ALREADY_SETTLED" });
+      const after = await orderMock.getOrder(scope, order.id);
+      expect(after).toMatchObject({ status: "SUBMITTED", paymentStatus: "PAID" });
+      expect(after.payments[0].confirmationReason).toBeNull();
+    });
   });
 });

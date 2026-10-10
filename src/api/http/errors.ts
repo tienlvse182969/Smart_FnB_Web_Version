@@ -111,6 +111,9 @@ function serverErrorText(err: ApiError): string {
 /** Có dấu tiếng Việt = câu do web hoặc BE đã Việt hoá, giữ nguyên. */
 const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
 
+/** BR-28: nhận thiếu so với tổng đơn (409 `PAYMENT_AMOUNT_INSUFFICIENT` của BE, hoặc web tự chặn ở hộp xác nhận thủ công). Huỷ đơn thuộc 7.6. */
+export const PAYMENT_AMOUNT_INSUFFICIENT_TEXT = "Nhận thiếu so với tổng đơn. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn.";
+
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
   [/invalid email or password/i, "Email hoặc mật khẩu không đúng."],
@@ -149,6 +152,14 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/pairing code/i, "Mã ghép không đúng, đã hết hạn hoặc đã được dùng."],
   [/already uses this service plan/i, "Doanh nghiệp đang dùng gói này rồi."],
   [/target plan price is (higher|lower)/i, "Hướng đổi gói không khớp với giá gói mới."],
+  // Xác nhận thủ công chuyển khoản (BM-05, BE `d98b4c1`: `payments.service.ts`, `counter-payment-settlement.service.ts`; quyết định 89).
+  [/PAYMENT_ALREADY_SETTLED/, "Khoản này đã được xác nhận hoặc không còn chờ xác nhận. Đã tải lại đơn."],
+  [/PAYMENT_AMOUNT_INSUFFICIENT|thực nhận thấp hơn tổng/i, PAYMENT_AMOUNT_INSUFFICIENT_TEXT],
+  [/only bank transfers can be confirmed manually/i, "Chỉ xác nhận thủ công được khoản chuyển khoản, không xác nhận được tiền mặt."],
+  [/order is no longer awaiting payment/i, "Đơn không còn ở trạng thái chờ thanh toán (có thể đã huỷ hoặc đã trả)."],
+  [/payment changed concurrently/i, "Khoản thanh toán vừa được cập nhật ở nơi khác. Tải lại rồi thử lại."],
+  [/manual confirmation reason/i, "Lý do xác nhận phải từ 3 đến 500 ký tự."],
+  [/actual received amount is required/i, "Chưa nhập số tiền thực nhận."],
   [/not found/i, "Không tìm thấy dữ liệu cần thao tác (có thể đã bị xoá)."],
   [/already exists|already used|duplicate|in use/i, "Dữ liệu bị trùng hoặc đang được dùng ở nơi khác."],
   [/should not be empty|must be|is required|must contain|invalid/i, "Thông tin nhập chưa hợp lệ. Kiểm tra lại rồi thử lại."],
@@ -161,6 +172,8 @@ export function translateBackendMessage(err: ApiError): string {
   if (err.status === 400 && err.details.length > 0) {
     return err.details.every((d) => HAS_VIETNAMESE.test(d)) ? err.details.join("; ") : summarizeValidation(err.details);
   }
+  // BE gửi câu tiếng Việt ngắn kèm mã `PAYMENT_AMOUNT_INSUFFICIENT`; web dùng câu BR-28 đầy đủ (cùng câu ô nhập đã hiện trước khi gửi).
+  if (err.code === "PAYMENT_AMOUNT_INSUFFICIENT") return PAYMENT_AMOUNT_INSUFFICIENT_TEXT;
   if (HAS_VIETNAMESE.test(message)) return message;
   const hit = BACKEND_TEXT.find(([re]) => re.test(message));
   if (hit) return hit[1];

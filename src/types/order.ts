@@ -99,6 +99,16 @@ export type OrderPaymentRecord = {
   processedBy: string | null;
 };
 
+/**
+ * Thân `POST /payments/:paymentId/confirm` (BE `ConfirmPaymentDto`, `payments/dto/payment.dto.ts:41-70`; `forbidNonWhitelisted` nên không
+ * gửi ô nào khác): lý do 3–500 ký tự (đã trim), số tiền thực nhận (VND, > 0), mã giao dịch ngân hàng tối đa 255 ký tự (tuỳ chọn).
+ */
+export type ConfirmPaymentInput = {
+  reason: string;
+  receivedAmount: number;
+  transactionRef?: string;
+};
+
 /** Một dòng của danh sách tra cứu. */
 export type OrderSummary = {
   id: string;
