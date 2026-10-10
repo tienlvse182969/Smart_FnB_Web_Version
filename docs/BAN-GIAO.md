@@ -31,7 +31,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | Stack BE | NestJS + Prisma + PostgreSQL, chạy Docker |
 | BE local | `http://localhost:3100`, prefix `/api/v1`, Swagger `/api/docs`, JSON `/api/docs-json`. **Từ 2026-10-10 (lượt 7.3e): container `smart-fnb-api` ĐANG CHẠY `d98b4c1` (= `main`, merge PR #3 của `feat/cashier-barista-render-flow`: `a9eca53`, `e9b1c4a`, `06d8c54`), healthy, 0 lần khởi động lại, migration 26/26 (đã áp `20261010090000_payment_mismatch_attention`, chỉ thêm 2 giá trị enum), `docker-compose.yml:15` đã `NODE_ENV: development` nên `docker-compose.override.yml` ĐÃ XOÁ (không còn tệp chưa theo dõi nào ngoài `prisma/smart-fnb.dbml`). `EMAIL_*` chưa đặt ở `.env` local (không gửi thư thật). Sao lưu trước build: `~/backup-smartfnb-20261010-145206.sql` (630.014 byte). Chi tiết ở mục 7.3e. Trước đó (7.3d): container `smart-fnb-api` chạy `0348c38` (healthy, 0 lần khởi động lại), migration 25/25 (đã áp `20261008140000_order_tracking_and_payment_station`, chỉ thêm), CHẠY VỚI `docker-compose.override.yml` chưa theo dõi (`NODE_ENV: development`) vì `docker-compose.yml:13` ở `main` ép `NODE_ENV: production` làm API sập (#56). `main` vẫn `0348c38`; các bản sửa #1, #24, #45, #53, #54 và sửa compose nằm ở nhánh `feat/cashier-barista-render-flow` `06d8c54`, CHƯA vào main nên CHƯA có trong container. Sao lưu: `~/backup-smartfnb-20261010-110143.sql` (625.465 byte, trước khi kéo) và `~/backup-smartfnb-20261010-142802.sql` (628.570 byte, sau khi build lần 1 sập, trước build lần 2). Chi tiết ở mục 7.3d và `docs/khao-sat-be-mobile-20261010.md`.** **Mã nguồn BE local ở `de4f55c` từ 2026-10-08** (build ở lượt 6.9, chi tiết ở mục 10; backup trước đó `~/backup-smartfnb-20261006-140119.sql`, 533.985 byte, 54 bảng); trước đó ở `91867ae` từ 2026-10-05 (pull và build 2026-10-04/05, chi tiết ở cuối dòng này); trước đó ở `0083289` (pull ngày 2026-10-03, **không có backup trước khi pull**; backup gần nhất là 2026-10-02, bản `dfe8100`, `~/backup-smartfnb-20261002-222344.sql`). **Đã build lại và chạy `0083289` ngày 2026-10-03 (~21:01)** sau khi sao lưu bằng `pg_dump` tại `~/backup-smartfnb-20261003-210016.sql` (353 KB, 53 bảng). Container tự `migrate deploy` + `db seed`: đã áp `20261003000000_branch_manager` (chỉ **thêm** 2 cột `payments`, bảng `branch_audit_logs`, 2 index; không xoá gì), `prisma migrate status` báo "Database schema is up to date" (20/20), không migration lỗi. Seed không đổi (vẫn 2 gói giá 0). Trước đó: mã nguồn pull ngày 2026-10-03 **không có backup**; backup trước nữa là 2026-10-02 (bản `dfe8100`, `~/backup-smartfnb-20261002-222344.sql`). Kiểm GET bằng Manager thật: `/manager/menu-options` 200 (4 tuỳ chọn, 2 nhóm, shape khớp `manager-operations.service.ts:182-202`), `/manager/staff`, `/manager/orders`, `/manager/reports`, `/manager/audit-logs` 200, `GET /restaurant-chains` 403. Dùng BE local, không dùng Render. **BE `91867ae` (build 2026-10-05 ~18:10):** sao lưu trước khi pull bằng `docker exec smart-fnb-postgres pg_dump -U smartfnb -d smart_fnb` tại `~/backup-smartfnb-20261004-184610.sql` (454.286 byte, 54 bảng); `git pull --ff-only` (1 commit `feat: complete cashier and barista v9.1 flows`); build bằng `docker compose up -d --build api` (chỉ container `smart-fnb-api` tạo lại, Postgres giữ nguyên); container tự `migrate deploy` áp `20261004160000_add_v91_menu_defaults_and_batching` (thêm `menu_items.allow_batching`, `menu_options.is_default`, không phá huỷ) → **21/21 migration, không lỗi**, seed chạy xong, healthcheck `healthy`. Kiểm SELECT: 2 cột có mặt (NOT NULL, default `true`/`false`); `is_default` đúng cho M và 100% đường. Kiểm GET: `menu/items` có `allowBatching`, `option-groups` vẫn KHÔNG có `isDefault`, `/manager/menu-options` như cũ |
 | Tài khoản demo | Đọc từ `.env` của BE. **Không in mật khẩu ra báo cáo hay log** |
-| Nhánh hiện tại | `feat/v9-manager` (từ `feat/v9-menu`). Chuỗi PR: `main` ← `feat/v9-foundation` ← `feat/v9-admin` ← `feat/v9-menu` ← `feat/v9-manager` (mỗi PR lấy nhánh trước làm base) |
+| Nhánh hiện tại | **`feat/v9-orders`** (đã merge `origin/main` `1fa44d9` ở 7.4b, QĐ 90). Không còn chuỗi PR xếp chồng: MỘT PR `feat/v9-orders` → `main` (soạn ở `docs/PR-v9-orders-to-main.md`, file gitignore). Các nhánh cũ (`feat/v9-foundation` … `feat/v9-owner`) đã nằm trong `feat/v9-orders` |
 | Chạy web real | Cổng **5173** (CORS của BE chỉ cho `localhost` 5173, 8443, 8081): `npx vite --port 5173` |
 
 ## 4. Quy tắc làm việc (bắt buộc)
@@ -400,6 +400,11 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 87 | Kiểm xác nhận thủ công trên real chỉ bằng `readOverride` (chi tiết đơn thật thêm khoản QR PENDING / AMOUNT_MISMATCH đúng dạng BE, `paymentSelect` ở `manager-operations.service.ts:10-25`) + `blockWrites`/`fulfillWrites`/`setFault`; KHÔNG request ghi nào tới BE. Khi có PayOS test và khoản QR thật thì bổ sung kiểm thật (ghi vào tồn đọng) |
 | 88 | `REQUIRES_ATTENTION` → "Cần xử lý" (tông đỏ, BR-42) trong `ORDER_STATUS_CODES`/`ORDER_STATUS`; `AMOUNT_MISMATCH` → "Lệch số tiền" (đỏ) trong `PAYMENT_STATUS_CODES`/`paymentStatusInfo`; đơn chưa trả có khoản lệch → "Lệch số tiền" ở cột Thanh toán; `REQUIRES_ATTENTION` thêm vào `ORDER_STATUS_FILTER`; mock bỏ ánh xạ `needsAttention → CONFIRMED` |
 | 89 | Hợp đồng `main` BE `d98b4c1`: `POST /payments/:paymentId/confirm`, role MANAGER, thân `{reason, receivedAmount, transactionRef?}`, phản hồi `{...payment, order, tracking}` (web bỏ qua). `BACKEND_TEXT` thêm: `PAYMENT_ALREADY_SETTLED`, `PAYMENT_AMOUNT_INSUFFICIENT`, "Only bank transfers can be confirmed manually" (đúng 3 câu của QĐ) **và 4 câu đi kèm cùng đường** để không rơi về câu chung: "Order is no longer awaiting payment", "Payment changed concurrently…", "A manual confirmation reason of 3 to 500 characters is required", "Actual received amount is required"; có trong `backendMessages.fixture.ts` (file:dòng BE) và test |
+| 90 | (7.4b, Khánh duyệt) Đồng bộ bằng `git merge --no-ff origin/main` vào `feat/v9-orders` (commit merge thường `4ff86aa`), sau đó MỘT PR `feat/v9-orders` → `main` thay cho chuỗi PR xếp chồng. Từ nay mọi thay đổi web vào `main` đi qua PR |
+| 91 | `/t/:token` (trang theo dõi đơn, "thẻ rung ảo") TẠM HOÃN theo quyết định nhóm 08–10/10: cờ `VITE_FEATURE_ORDER_TRACKING` (mặc định tắt, `api/flags.ts` `ROUTE_FLAGS`); route chỉ đăng ký khi bật (`router/index.tsx` `buildRoutes`), không có link nào trỏ tới; mã của nhóm giữ nguyên |
+| 92 | Màn hình phía khách bản web (`/display/customer`): đặc tả giao FE-M (repo mobile backscreen). Cờ riêng `VITE_FEATURE_WEB_CUSTOMER_DISPLAY` (mặc định tắt), giữ mã, chờ nhóm quyết định giữ bản nào |
+| 93 | Màn gọi số `/display/call` của main GIỮ NGUYÊN, là điểm bắt đầu GĐ8; lượt 7.4b chỉ đảm bảo build/test chạy và trang mở được (không sửa nghiệp vụ) |
+| 94 | Giải xung đột: giữ đủ tính năng cả hai phía; cờ module (`flags.ts`) giữ trạng thái của `feat/v9-orders` cho module có sẵn, main không thêm cờ module; hai bên cùng sửa một logic thì theo đặc tả v9, không rõ thì giữ bản `feat/v9-orders` và ghi bảng "cần nhóm xem". Lượt 7.4b: 0 xung đột văn bản |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -838,4 +843,58 @@ Không chạy `phase7 realtime` (tạo đơn) theo yêu cầu. Chạy lại theo
 
 **Nhờ BE (đánh tiếp từ #59):** #59 `confirm` không gọi `assertSubscriptionAllowsWrite` nên lệch với các thao tác ghi khác của Manager (QĐ 85); #60 `PAYMENT_ALREADY_SETTLED` đặt mã vào `message` còn `error` là "Conflict", khác `PAYMENT_AMOUNT_INSUFFICIENT` (mã ở `error`) — nên thống nhất mã ở `error`; #61 đơn đã huỷ do QR hết hạn mà tiền về muộn (6.11, BR-31): BE chưa có đường xác nhận để pha.
 
-**Lượt tiếp theo:** 7.5 (Cần xử lý + cảnh báo thời gian thực, QĐ 64: sự kiện `manager.order.attention-required` đã có `orderId`/`paymentId`/`expectedAmount`/`receivedAmount`, `orderRefresh.ts` đã tải đúng), rồi 7.6 huỷ đơn đã trả (cần #43). Trước đó: merge `main` web (13 commit) vào `feat/v9-orders` do Khánh quyết.
+**Lượt tiếp theo:** 7.5 (Cần xử lý + cảnh báo thời gian thực, QĐ 64: sự kiện `manager.order.attention-required` đã có `orderId`/`paymentId`/`expectedAmount`/`receivedAmount`, `orderRefresh.ts` đã tải đúng), rồi 7.6 huỷ đơn đã trả (cần #43). (Merge `main` đã làm ở 7.4b, xem dưới.)
+
+### Lượt 7.4b (2026-10-10): đồng bộ web với `main` (merge, không xung đột), ẩn 2 route
+
+Quyết định 90–94 ở mục 5. `origin/main` = `1fa44d9` (13 commit từ merge-base `15dbdec`: Gia Bảo — màn hình khách `b8de39b`, gọi lại trạng thái khi nối lại `135bd6a`, màn gọi số + trang theo dõi `1fa44d9`; Dang Quan — Owner BranchOperations/admin/owner `f352c93`, Vercel `9175b53`, CI timezone `23ebd35`, tiêu đề `13d16a0`, merge `83a0213`; BaoKhanh — merge PR #3–#7). Không có commit ngoài 13 commit đã biết. `package.json`: thêm `qrcode.react` 4.2.0 (lockfile khớp, `pnpm install --frozen-lockfile` đạt).
+
+**`main` gốc (worktree tạm ngoài repo, đã gỡ):** `pnpm install` đạt, **`tsc` đỏ** (cú pháp `orderTracking.ts:8` thiếu `;`, rồi 4 lỗi kiểu bị che), **`lint` đỏ** (cùng lỗi), build đạt, test 368/368. Tức main không qua chuỗi kiểm — lỗi có sẵn, không do merge.
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `4ff86aa` | merge `origin/main` `1fa44d9`; 0 xung đột văn bản (`flags.ts`, `api/index.ts`, `types/branch.ts` tự gộp, đã đọc: `flags.ts` chỉ đổi ghi chú options, `index.ts` thêm export `loadPublicPlans`, `branch.ts` thêm kiểu khu vực/giờ). Sửa NGOÀI xung đột để qua `tsc`/`lint` (đều là lỗi có sẵn của main): `orderTracking.ts:8` (thiếu `;`), `callingDisplay.ts:27-37` + `customerDisplay.ts:54-60` (ép kiểu cho toán tử `in`; hành vi như cũ), `CallScreen.tsx:118` (cleanup của effect trả Socket), `plan/tiers.test.ts:70-75` (`PublicPlan.tier` có thể null) | 532 |
+| `7c3fc3f` | `feat(flags)`: `RouteFlags`/`ROUTE_FLAGS` ở `api/flags.ts:103-118` (`VITE_FEATURE_ORDER_TRACKING`, `VITE_FEATURE_WEB_CUSTOMER_DISPLAY`, mặc định tắt), `buildRoutes(flags)` ở `router/index.tsx`, test `router/routeFlags.test.tsx` | 536 |
+| `ff0f5a2` | `test(browser)`: kỳ vọng theo hành vi mới của main (xem dưới) + `phase74b-main.mjs` | 536 |
+
+**Kết quả kiểm trình duyệt (real, CDP chặn ghi, cổng 5173, BE `d98b4c1`):**
+
+| Khối | Kết quả |
+|---|---|
+| phase2 | đạt (SKIP 2 ca mock-only đã biết) |
+| phase4 owner | lần 1 27/31 → sửa script → **31/31** |
+| phase4 manager | 2/2 |
+| phase5 | lần 1 81/84 → sửa script (+1 ca chập chờn) → **84/84** |
+| phase6 | 43/43 |
+| phase7 orders / detail / report / confirm / realtime-reconnect | 25/25 · 18/18 · 14/14 · 30/30 · 8/8 |
+| phase58-forms | 16/16 |
+| phase58-faults admin / owner / manager | 33/33 · 85/85 (81 + 4 ca `owner/options` chạy lại 8/8) · 54/54 (3 lần liền sau sửa script) |
+| `phase74b-main` (mới, phần của main) | 8/8 |
+
+KHÔNG chạy `phase7 realtime`. Mock: không chạy lại (merge không đổi mock; ba khối trượt đều là kỳ vọng real).
+
+**Phân loại ca trượt:**
+- *Do main đổi hành vi có chủ đích (kỳ vọng script lỗi thời, đã sửa script):* phase4 owner — module `options` real nay nhận `isDefault` và đọc trạng thái theo chi nhánh (`options/real.ts` `capabilities {isDefault:true, branchStates:true}`): ghi chú ★/"chờ BE #15"/`branch-states-note` không còn; tuỳ chọn mặc định khi tắt có hộp xác nhận (script chọn tuỳ chọn không mặc định). phase5 — tạo Manager real (`POST /employees/managers`, #23) nên nút Thêm mở; `createPlan` không còn gửi `isActive`. faults `owner/options` ghi — cùng lý do (tắt tuỳ chọn mặc định hỏi xác nhận, không phát request); script chọn dòng không mặc định.
+- *Do script chập chờn:* phase5 "Gửi lại email … không có request" trượt 1 lần, chạy lại đạt 84/84 (không tái hiện); faults `manager/stations` đọc ca đầu `NO_REQUEST`/`RETRY_REQUEST_COUNT` (3 ca ở lần nối tiếp, 1 ca ở lần riêng) → thêm thử lại đúng 1 lần trong `readCase` khi chưa có request khớp; 3 lần liền 54/54.
+- *Do merge:* không có.
+- *Hạ tầng:* `phase7 realtime-reconnect`, `phase58-forms`, `phase74b-main` thoát mã 127 kèm "Assertion failed … UV_HANDLE_CLOSING" sau dòng tổng (nhiễu libuv/Windows); 1 lần `CDP timeout: Runtime.evaluate` giữa faults stations (Chrome).
+
+**Phần của main (`phase74b-main`):** `/display/call` mở được (màn "Ghép màn hình với chi nhánh", mã `------` + "Failed to fetch" vì `POST /device-pairing/codes` bị CDP chặn; cần ghép bằng mã 6 số ở app Cashier/Manager, rồi `GET /public/calling-display/context` bằng device token + socket `/operations`); Owner "Giờ & khu vực" (BranchOperations) mở được, nạp bằng `GET /branches/:id`; `/t/:token` về trang chủ, `/display/customer` về `/display/call`; ManagerAccounts đạt phase5. Cảnh báo antd `Drawer width`/`Spin tip` deprecated ở BranchOperations (mã của main).
+
+**Bảng request ghi bị chặn (script in; tới BE: 0):** phase2 0; phase4 owner 11 (8 dòng); phase4 manager 0; phase5 9 (reset-password, branch, 2 service-plans, stations, pair-calling-display, menu item, menu-options); phase6 8; phase7 orders/detail/report/reconnect 0; confirm 8 (`POST payments/{id}/confirm`); forms 1; faults admin 15, owner 48, manager 20; `phase74b-main` 2 (`POST device-pairing/codes` do `/display/call` tự gọi).
+
+**Cần nhóm xem (ghi, không sửa):**
+
+| # | Chỗ | Vấn đề |
+|---|---|---|
+| 1 | `callingDisplay.ts`, `customerDisplay.ts`, `orderTracking.ts` | `fetch` thẳng, không qua `api/http/client` (không refresh token, không `reportApiError`) |
+| 2 | `CallScreen`, `CustomerDisplayScreen`, `OrderTrackingScreen` | hiện `reason.message` thô của BE → có thể tiếng Anh (luật web: không tiếng Anh thô) |
+| 3 | `BranchOperations.tsx` | nút Lưu/Xoá/Thêm là `Button`, không qua `ActionButton` → không khoá khi gói hết hạn; có `message.error` cho kiểm tra nhập tại chỗ (không phải lỗi API, chấp nhận) |
+| 4 | antd deprecated (`Drawer width`, `Spin tip`) | cảnh báo console ở BranchOperations |
+| 5 | `CLAUDE.md`/`AGENTS.md` (main) | thêm hướng dẫn GitNexus; không dùng được ở mọi môi trường |
+| 6 | formatter | main bỏ dấu `;` (oxfmt) ở `router/index.tsx`, `display/*`: diff lớn, không xung đột |
+| 7 | `.env.example` | main không đổi; BE thêm `EMAIL_*` (không đụng ở web) |
+
+**Tồn đọng:** kiểm `/display/call` ghép thiết bị thật và `/t/:token` với token thật (cờ tắt) — GĐ8. `docs/PR-v9-orders-to-main.md` soạn sẵn (gitignore).
+
+**Lượt tiếp theo:** Khánh mở PR `feat/v9-orders` → `main` (docs/PR-v9-orders-to-main.md); rồi 7.5.
