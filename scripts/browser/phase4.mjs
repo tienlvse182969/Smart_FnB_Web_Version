@@ -829,12 +829,14 @@ try {
     check("Real · Tuỳ chọn: số nhóm và tên khớp BE", list.length === gs.length && gs.every((g) => list.some((r) => r.includes(g.name) && r.includes(g.code))), `${list.length} (BE ${gs.length})`);
     check("Real · Tuỳ chọn: quy tắc chọn và số tuỳ chọn từng nhóm khớp BE", gs.every((g) => list.some((r) => r.includes(g.name) && r.includes(ruleOf(g)) && g.options.every((o) => r.includes(o.name)))), gs.map((g) => `${g.code}:${ruleOf(g)}`).join(" · "));
     check("Real · Tuỳ chọn: cột 'Số món' = _count.menuItems của BE (quyết định 18)", gs.every((g) => list.some((r) => r.includes(g.name) && new RegExp(`\\s${g._count.menuItems}\\s+Sửa\\s+Xoá$`).test(r.trim()))), gs.map((g) => `${g.code}:${g._count.menuItems}`).join(", "));
-    check("Real · Tuỳ chọn: không còn ghi chú 'lưu tạm' của mock, không có dấu ★ mặc định", !(await has("options-pending-note")) && !list.some((r) => r.includes("★")));
+    // Từ `main` (7.4b): module options real nhận/đọc `isDefault` (capabilities.isDefault) nên có thể có ★ mặc định; chỉ còn ghi chú 'lưu tạm' là sai.
+    check("Real · Tuỳ chọn: không còn ghi chú 'lưu tạm' của mock", !(await has("options-pending-note")));
     const g0 = gs[0];
     await expandGroup(g0.name);
-    check("Real · Tuỳ chọn: panel trạng thái theo chi nhánh bị ẩn (có ghi chú), không có ô chọn chi nhánh", (await has("branch-states-note")) && !(await q(`!!(${detailOf(g0.code)})?.querySelector(".ant-select")`)));
+    // Từ `main` (7.4b): `capabilities.branchStates` true → Owner đọc trạng thái theo chi nhánh qua GET …/option-groups/branch-states, không còn ghi chú ẩn.
+    check("Real · Tuỳ chọn: panel trạng thái theo chi nhánh hiện (không còn ghi chú ẩn)", !(await has("branch-states-note")));
     const defaultBoxes = await q(`[...(${detailOf(g0.code)}).querySelectorAll('[data-testid="opt-default"]')].map((el) => { const i = el.matches("input") ? el : el.querySelector("input"); return { disabled: i.disabled, checked: i.checked, text: el.closest("label")?.innerText ?? el.innerText } })`);
-    check("Real · Tuỳ chọn: ô 'Mặc định' bị khoá, ghi 'chờ BE #15'", defaultBoxes.length === g0.options.length && defaultBoxes.every((b) => b.disabled && !b.checked && /chờ BE #15/.test(b.text)), J(defaultBoxes));
+    check("Real · Tuỳ chọn: ô 'Mặc định' mở, số ô đang chọn khớp isDefault của BE, không còn chữ 'chờ BE #15'", defaultBoxes.length === g0.options.length && defaultBoxes.every((b) => !b.disabled && !/chờ BE #15/.test(b.text)) && defaultBoxes.filter((b) => b.checked).length === g0.options.filter((o) => o.isDefault).length, J(defaultBoxes));
     const o0 = g0.options.slice().sort((a, b) => a.displayOrder - b.displayOrder)[0];
     const o1 = g0.options.slice().sort((a, b) => a.displayOrder - b.displayOrder)[1];
     const optRowsNow = await optRows(g0.code);
@@ -902,11 +904,13 @@ try {
     await dismissAll();
 
     // --- bật/tắt tuỳ chọn: PATCH {isActive}
+    // Tuỳ chọn MẶC ĐỊNH khi tắt có hộp xác nhận (từ main, 7.4b) → chọn một tuỳ chọn không mặc định.
+    const oTog = g0.options.find((o) => !o.isDefault && o.isActive !== false) ?? o0;
     w = await writesOf(async () => {
-      await clickTid(`option-active-${g0.code}:${o0.code}`);
+      await clickTid(`option-active-${g0.code}:${oTog.code}`);
     });
     check("Real · Ghi: tắt tuỳ chọn → PATCH …/options/{id}, body CHỈ {isActive:false} (tuỳ chọn không mặc định nên không hỏi xác nhận)",
-      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options/${o0.id}` && keysOf(w[0].body) === keysOf({ isActive: 1 }) && w[0].body.isActive === false,
+      w.length === 1 && w[0].method === "PATCH" && w[0].rawPath === `${optionsBase}/option-groups/${g0.id}/options/${oTog.id}` && keysOf(w[0].body) === keysOf({ isActive: 1 }) && w[0].body.isActive === false,
       J(w.map((x) => ({ m: x.method, p: x.path, b: x.body }))));
     await dismissAll();
 

@@ -336,7 +336,8 @@ const screens = [
     write: async () => {
       await q(`document.querySelector(".ant-table-row-expand-icon-collapsed")?.click()`);
       await sleep(700);
-      return switchWrite('[data-testid^="group-detail-"]', { confirm: false })();
+      // Từ main (7.4b): tắt tuỳ chọn MẶC ĐỊNH có hộp xác nhận (không phát request ngay) → chỉ thao tác trên dòng không mặc định.
+      return switchWrite('[data-testid^="group-detail-"] [data-testid="option-row"]:not(:has([data-testid="opt-default"]:checked, [data-testid="opt-default"] input:checked))', { confirm: false })();
     } },
   // 6.3: gắn nhóm tuỳ chọn cho món (MenuTable, drawer) — PUT items/{id}/option-groups; món không đổi nên không có PATCH món. Chỉ nhận lỗi giả.
   { id: "owner/menu (gắn nhóm)", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
@@ -425,8 +426,20 @@ async function readCase(spec, kind) {
     await spaGo(spec.route);
     // KHÔNG chuyển tab trước khi chụp: toast thường (message) chỉ sống ~3 giây, chụp trễ sẽ tưởng là không có thông báo.
     await sleep(2300);
-    const s = await snap();
-    const hits = tab.faultLog.length;
+    let s = await snap();
+    let hits = tab.faultLog.length;
+    // Chập chờn đã gặp ở 7.4b (`manager/stations` ca đầu, ngay sau lượt đăng nhập/đo mốc): màn chưa kịp phát request đọc khi điều hướng
+    // trong app. Chưa có request nào khớp thì thử đúng MỘT lần nữa (đi ra rồi vào lại) trước khi kết luận NO_REQUEST.
+    if (hits === 0 && !spec.storeBased) {
+      await spaGo(spec.from);
+      await sleep(900);
+      await clearNotices();
+      tab.setFault(kind === "401" ? { kind: "401", match: spec.read, times: 1 } : { kind, match: spec.read });
+      await spaGo(spec.route);
+      await sleep(2300);
+      s = await snap();
+      hits = tab.faultLog.length;
+    }
     tab.setFault(null);
     if (spec.storeBased) {
       record(spec.id, "đọc", kind, [], `màn đọc từ store (nạp ở bước vào khu vực), request đọc không phát sinh khi chuyển màn: ${hits} request bị giả lập; kiểm ở ca 'scope'`);

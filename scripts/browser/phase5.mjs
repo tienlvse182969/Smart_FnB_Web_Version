@@ -806,7 +806,8 @@ try {
     check("Real · Manager: số dòng khớp GET /employees?role=MANAGER", list.length === beManagers.length && beManagers.length > 0, `${list.length} dòng (BE ${beManagers.length}, total ${be.managers.pagination.total})`);
     check("Real · Manager: tên và email từng dòng khớp BE", beManagers.every((e) => list.some((r) => r.includes(nameOf(e)) && r.includes(e.user.email))), beManagers.map(nameOf).join(", "));
     check("Real · Manager: tab hiện đúng tổng", (await pageText()).includes(`Branch Manager (${be.managers.pagination.total})`));
-    check("Real · Nút Thêm tài khoản bị khoá kèm chú thích 'chờ BE #23'", (await q(`${tid("create-manager")}.disabled`)) === true && /#23/.test(await q(`${tid("create-manager-note")}?.innerText ?? ""`)));
+    // Từ `main` (7.4b): BE đã có `POST /employees/managers` (#23) và web nối real → nút Thêm MỞ, không còn chú thích chờ BE.
+    check("Real · Nút Thêm tài khoản mở (BE có POST /employees/managers, #23), không còn chú thích 'chờ BE #23'", (await q(`${tid("create-manager")}.disabled`)) === false && !(await has("create-manager-note")));
     check("Real · Không hiện mật khẩu nào", !SECRET.test(await pageText()));
 
     // ---- bấm thật tới hết xác nhận; request ghi bị chặn ở CDP
@@ -953,7 +954,7 @@ try {
     await sleep(1800);
     const createWrite = tab.blockedWrites.find((w) => w.method === "POST" && /\/admin\/service-plans$/.test(w.path));
     const createBody = createWrite ? JSON.parse(createWrite.body ?? "null") : null;
-    const expectCreate = { name: "Gói Kiểm Thử", code: "GOI_KIEM_THU", monthlyPrice: 123000, maxBranches: 2, maxAccounts: 10, brandingEnabled: true, multiBranchComparisonEnabled: false, isActive: true, maxTables: 1 };
+    const expectCreate = { name: "Gói Kiểm Thử", code: "GOI_KIEM_THU", monthlyPrice: 123000, maxBranches: 2, maxAccounts: 10, brandingEnabled: true, multiBranchComparisonEnabled: false, maxTables: 1 }; // từ main (7.4b): không gửi `isActive` (CreateServicePlanDto không nhận, BE forbidNonWhitelisted)
     check(
       "Real · Gói: request định gửi = POST /admin/service-plans khớp CreateServicePlanDto (platform-admin.dto.ts:114-172: hai cờ bắt buộc, maxTables @Min(1) → 1)",
       !!createBody && J(Object.fromEntries(Object.entries(createBody).sort())) === J(Object.fromEntries(Object.entries(expectCreate).sort())),
