@@ -1,6 +1,6 @@
 /**
  * Module account — tài khoản Manager/Cashier/Barista (OW-05, BM-01).
- * - Manager (Owner quản): REAL qua `/employees` của BE (giai đoạn 5.3); tạo Manager chờ BE (#23).
+ * - Manager (Owner quản): REAL qua `/employees` của BE, gồm lời mời tạo tài khoản.
  * - Cashier/Barista: Owner XEM bằng real (`/employees`, 5.3b); Manager quản (liệt kê, tạo, sửa, khoá, gửi lại email) là MOCK
  *   (5.4), BE chưa có endpoint (api-contract-plan #24 — shape ở đó). Mock lưu qua F5 (`persist.ts`).
  * Mỗi tầng chỉ tạo tài khoản tầng ngay dưới: Owner tạo Manager, Manager tạo Cashier/Barista (BR-05).
@@ -26,7 +26,7 @@ export interface AccountApi {
   // --- Manager (Owner) ---------------------------------------------------------------------------------------------
   /** Phân trang/tìm kiếm/lọc phía server (BE `GET /employees?role=MANAGER`). */
   listManagers(chainId: string, query?: ManagerQuery): Promise<ManagerPage>;
-  /** Không có mật khẩu: tài khoản mới nhận email đặt mật khẩu một lần (như Admin duyệt hồ sơ). Real: chờ BE #23. */
+  /** Không có mật khẩu: tài khoản mới nhận email đặt mật khẩu một lần. */
   createManager(chainId: string, branchId: string, name: string, email: string): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
   /** Khoá/mở khoá (`PATCH /employees/{id}/status`); khoá thu hồi mọi phiên của Manager. */
   setManagerActive(accountId: string, active: boolean): Promise<void>;

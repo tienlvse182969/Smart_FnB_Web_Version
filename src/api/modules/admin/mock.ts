@@ -364,6 +364,11 @@ export const adminMock: AdminApi = {
     return { ownerId, expiresAt: new Date(Date.now() + DAY).toISOString() };
   },
 
+  async listPublicPlans() {
+    await mockDelay();
+    return plans.filter((p) => p.isActive).map((p) => ({ ...p }));
+  },
+
   async listPlans() {
     await mockDelay();
     return plans.map((p) => ({ ...p }));

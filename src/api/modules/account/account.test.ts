@@ -101,11 +101,12 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
     expect(call(fetchMock).url).toMatch(/\/employees\/e1\/branch$/);
   });
 
-  it("tạo Manager ở chế độ real bị từ chối 501 và KHÔNG gửi request nào (chờ BE #23)", async () => {
-    const fetchMock = respond({});
+  it("tạo Manager bằng lời mời qua POST /employees/managers", async () => {
+    const fetchMock = respond({ account: raw, expiresAt: "2026-10-07T00:00:00.000Z" });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(accountReal.createManager("c1", "b1", "A", "a@x.vn")).rejects.toMatchObject({ status: 501, message: expect.stringContaining("#23") });
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(accountReal.createManager("c1", "b1", " A ", " a@x.vn ")).resolves.toMatchObject({ expiresAt: "2026-10-07T00:00:00.000Z" });
+    expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "A", email: "a@x.vn" } });
+    expect(call(fetchMock).url).toMatch(/\/employees\/managers$/);
   });
 });
 

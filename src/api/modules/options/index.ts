@@ -13,7 +13,7 @@ import type { GroupFields, OptionFields } from "./rules";
 export type { OptionGroupInput } from "../../../types";
 export type { GroupFields, OptionFields } from "./rules";
 
-/** Việc mà bản đang chạy làm được. Mock: cả hai; real: không có gì (BE chưa trả/nhận `isDefault` #15, Owner chưa đọc được trạng thái theo chi nhánh). */
+/** Tính năng BE đang hỗ trợ. */
 export interface OptionsCapabilities {
   /** Tuỳ chọn mặc định (`isDefault`, #15). */
   isDefault: boolean;
@@ -23,7 +23,7 @@ export interface OptionsCapabilities {
 
 /** Trường được sửa của một nhóm (sửa từng phần). `isActive` = cờ kinh doanh cấp chuỗi (OW-04). */
 export type GroupPatch = Partial<GroupFields> & { isActive?: boolean };
-/** Trường được sửa của một tuỳ chọn (sửa từng phần). `isDefault` chỉ mock nhận. */
+/** Trường được sửa của một tuỳ chọn (sửa từng phần). */
 export type OptionPatch = Partial<OptionFields> & { isActive?: boolean; isDefault?: boolean };
 
 export interface OptionsApi {
@@ -40,7 +40,7 @@ export interface OptionsApi {
    * Mock: có `itemIds` thì lọc theo đó, không có thì trả mọi món có cấu hình.
    */
   listItemConfigs(chainId: string, itemIds?: string[]): Promise<ItemOptionConfig[]>;
-  /** Cờ còn bán của từng tuỳ chọn tại chi nhánh — chỉ mock (`capabilities.branchStates`); real ném lỗi "chưa hỗ trợ", không gọi BE. */
+  /** Cờ còn bán của từng tuỳ chọn tại chi nhánh — Owner chỉ đọc. */
   listBranchStates(chainId: string, branchId: string): Promise<BranchOptionState[]>;
 
   // --- ghi: mỗi hàm đúng 1 request ------------------------------------------------------------------------------------

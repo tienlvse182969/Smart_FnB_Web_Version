@@ -1,0 +1,39 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Ho_Chi_Minh
+      VERCEL_ORG_ID: team_kxHBaIOy4fc4sxo6JiwgSmka
+      VERCEL_PROJECT_ID: prj_PQIC5CYVctoCAtY4jxw0IbNZWgt5
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm test
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull Vercel configuration
+        run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token="$VERCEL_TOKEN"
+      - name: Build
+        run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token="$VERCEL_TOKEN"
+      - name: Deploy
+        run: vercel deploy --prebuilt ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token="$VERCEL_TOKEN"

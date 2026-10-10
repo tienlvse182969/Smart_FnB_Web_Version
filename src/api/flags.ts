@@ -1,4 +1,4 @@
-/**
+ /**
  * Cờ theo TỪNG MODULE: `VITE_API_<MODULE>=real|mock`.
  * Mặc định: module BE đã có và web đã nối → real; còn lại → mock. In bảng ra console ở chế độ dev.
  * Đổi cờ không đòi sửa màn hình vì màn hình chỉ gọi interface của module.
@@ -51,7 +51,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   report: "real; BE chưa đếm đơn quầy (lọc COMPLETED) — chờ BE",
   plan: "real (#38, BE de4f55c): trạng thái, hạn dùng, hạn mức, cờ nhận diện/so sánh; cấp gói và cờ AI suy từ mã gói (#30)",
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
-  options: "real (6.3, OW-03): CRUD nhóm/tuỳ chọn + gắn nhóm vào món qua BE `0083289`; isDefault (#15), allowBatching (#17) và trạng thái tuỳ chọn theo chi nhánh chưa có nên ô bị khoá/ẩn; mock = VITE_API_OPTIONS=mock",
+  options: "real (OW-03): CRUD nhóm/tuỳ chọn, mặc định, xem trạng thái theo chi nhánh và gắn nhóm vào món; cần deploy BE và migration mới",
   branch_options: "real (5.7c): Manager bật/tắt tuỳ chọn tại chi nhánh qua GET/PATCH /manager/menu-options; chi nhánh lấy từ JWT",
   branding: "real (6.4, OW-07): GET/PUT/DELETE restaurant-chains/{id}/branding + POST …/branding/logo (multipart); BE chưa có isCustom/version (#39) và chưa chặn theo gói (#33) nên web tự suy và tự khoá; mock = VITE_API_BRANDING=mock",
   account: "real MỘT PHẦN (5.3): Manager qua /employees (list, khoá, đặt lại mật khẩu, chuyển chi nhánh); tạo Manager chờ BE #23; Cashier/Barista là mock chờ BE #24",

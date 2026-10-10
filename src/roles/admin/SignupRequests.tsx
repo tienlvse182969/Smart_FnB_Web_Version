@@ -209,8 +209,7 @@ export default function SignupRequests() {
           onDone={async (updated) => {
             setRejecting(false);
             await afterReview(updated);
-            // BE chưa gửi email từ chối (TODO BE) nên không nói là đã gửi.
-            message.success(`Đã từ chối hồ sơ "${updated.businessName}"`);
+            message.success(`Đã từ chối hồ sơ "${updated.businessName}" và xếp email thông báo`);
           }}
         />
       )}

@@ -56,15 +56,40 @@ export interface ApiBranch {
 
 export interface ApiOperatingHour {
   dayOfWeek: number;
-  openTime: string;
-  closeTime: string;
-  isClosed?: boolean;
+  openTime: string | null;
+  closeTime: string | null;
+  isClosed: boolean;
 }
+
+export interface ApiSpecialHour {
+  date: string;
+  openTime: string | null;
+  closeTime: string | null;
+  isClosed: boolean;
+  note: string | null;
+}
+
+export type ApiBranchAreaType = "DINING" | "KITCHEN" | "BAR" | "CASHIER" | "PICKUP";
+export type ApiBranchAreaStatus = "ACTIVE" | "INACTIVE";
+
+export interface ApiBranchArea {
+  id: string;
+  branchId: string;
+  code: string;
+  name: string;
+  type: ApiBranchAreaType;
+  floor: number;
+  status: ApiBranchAreaStatus;
+}
+
+export type ApiHourInput = { isClosed: boolean; openTime?: string; closeTime?: string };
+export type ApiSpecialHourInput = ApiHourInput & { note?: string };
+export type ApiBranchAreaInput = Pick<ApiBranchArea, "code" | "name" | "type" | "floor">;
 
 export interface ApiBranchDetail extends ApiBranch {
   operatingHours: ApiOperatingHour[];
-  specialHours: unknown[];
-  areas: unknown[];
+  specialHours: ApiSpecialHour[];
+  areas: ApiBranchArea[];
 }
 
 export interface ApiPlan {

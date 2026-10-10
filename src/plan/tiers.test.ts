@@ -68,8 +68,11 @@ describe("một nguồn cấu hình gói mock", () => {
     const pub = getPublicPlans();
     expect(pub.map((p) => p.name)).toEqual(["Cơ bản", "Tiêu chuẩn", "Nâng cao"]);
     for (const p of pub) {
-      expect(p.maxBranches).toBe(MOCK_TIER_LIMITS[p.tier].branches);
-      expect(p.maxAccounts).toBe(MOCK_TIER_LIMITS[p.tier].accounts);
+      // `tier` có thể null với mã gói lạ (main, publicPlans.ts); gói của bảng giá mock luôn có cấp.
+      const tier = p.tier as keyof typeof MOCK_TIER_LIMITS;
+      expect(p.tier).not.toBeNull();
+      expect(p.maxBranches).toBe(MOCK_TIER_LIMITS[tier].branches);
+      expect(p.maxAccounts).toBe(MOCK_TIER_LIMITS[tier].accounts);
       expect(MOCK_PLAN_CATALOG.some((c) => c.code === p.code)).toBe(true);
     }
     expect(pub[2].features.aiAssistant).toBe(true);

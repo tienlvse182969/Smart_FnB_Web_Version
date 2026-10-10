@@ -361,7 +361,7 @@ function GroupDetail({
       )}
       <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>
         Mỗi thay đổi được lưu ngay. Giá cộng thêm là số nguyên đồng.
-        {!caps.isDefault && ' Tuỳ chọn "Mặc định" chờ BE (#15).'}
+        {!caps.isDefault && ' Tuỳ chọn "Mặc định" không được hỗ trợ ở chế độ này.'}
       </div>
     </div>
   );
@@ -462,7 +462,7 @@ function OptionRow({
             </Checkbox>
           ) : (
             <Checkbox data-testid="opt-default" checked={false} disabled>
-              Mặc định (chờ BE #15)
+              Mặc định (không hỗ trợ)
             </Checkbox>
           )}
           <Switch

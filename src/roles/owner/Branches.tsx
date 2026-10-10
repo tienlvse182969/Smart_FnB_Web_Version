@@ -9,15 +9,18 @@ import { usePlan } from "../../plan/usePlan";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
 import { palette } from "../../theme";
+import BranchOperations from "./BranchOperations";
 
 function BranchCard({
   b,
   code,
   onEdit,
+  onManage,
 }: {
   b: Branch;
   code: string;
   onEdit: () => void;
+  onManage: () => void;
 }) {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
@@ -54,6 +57,9 @@ function BranchCard({
         <ActionButton size="small" onClick={onEdit}>
           Sửa chi nhánh
         </ActionButton>
+        <ActionButton size="small" onClick={onManage}>
+          Giờ &amp; khu vực
+        </ActionButton>
       </div>
     </Card>
   );
@@ -69,7 +75,9 @@ export default function Branches() {
   const scopeError = useAppStore((s) => s.scopeError);
   const createBranch = useAppStore((s) => s.createBranch);
   const updateBranch = useAppStore((s) => s.updateBranch);
+  const loadScope = useAppStore((s) => s.loadScope);
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
+  const [managing, setManaging] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
@@ -104,6 +112,7 @@ export default function Branches() {
             b={b}
             code={codeById[b.id] ?? "—"}
             onEdit={() => setEditing(b)}
+            onManage={() => setManaging(b.id)}
           />
         ))}
       </div>
@@ -131,6 +140,7 @@ export default function Branches() {
           }
         }}
       />
+      <BranchOperations branchId={managing} onClose={() => setManaging(null)} onArchived={loadScope} />
     </div>
   );
 }

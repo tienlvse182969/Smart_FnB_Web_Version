@@ -53,4 +53,21 @@ export const branchReal: BranchApi = {
   createBranch,
   updateBranch,
   updateBranchStatus,
+  async archiveBranch(branchId) {
+    await request(`/branches/${branchId}`, { method: "DELETE" });
+  },
+  listOperatingHours: (branchId) => request(`/branches/${branchId}/operating-hours`),
+  saveOperatingHour: (branchId, dayOfWeek, input) =>
+    request(`/branches/${branchId}/operating-hours/${dayOfWeek}`, { method: "PUT", body: input }),
+  listSpecialHours: (branchId) => request(`/branches/${branchId}/special-hours`),
+  saveSpecialHour: (branchId, date, input) =>
+    request(`/branches/${branchId}/special-hours/${date}`, { method: "PUT", body: input }),
+  async deleteSpecialHour(branchId, date) {
+    await request(`/branches/${branchId}/special-hours/${date}`, { method: "DELETE" });
+  },
+  listAreas: (branchId) => request(`/branches/${branchId}/areas`),
+  createArea: (branchId, input) => request(`/branches/${branchId}/areas`, { method: "POST", body: input }),
+  updateArea: (branchId, areaId, input) => request(`/branches/${branchId}/areas/${areaId}`, { method: "PATCH", body: input }),
+  updateAreaStatus: (branchId, areaId, status) =>
+    request(`/branches/${branchId}/areas/${areaId}/status`, { method: "PATCH", body: { status } }),
 };

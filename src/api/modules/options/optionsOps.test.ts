@@ -16,13 +16,12 @@ mockControl.failure = null;
 
 type Call = { path: string; method: string; body: Record<string, unknown> | undefined };
 
-const rawOption = { id: "o1", code: "L", name: "Size L", priceDelta: "5000.00", displayOrder: 2, isActive: true, createdAt: "x", groupId: "g1" };
+const rawOption = { id: "o1", code: "L", name: "Size L", priceDelta: "5000.00", displayOrder: 2, isActive: true, isDefault: false, createdAt: "x", groupId: "g1" };
 const rawGroup = { id: "g1", chainId: "c1", code: "SIZE", name: "Size", isRequired: true, minSelections: 1, maxSelections: 1, displayOrder: 1, isActive: true, createdAt: "x", options: [rawOption], _count: { menuItems: 3 } };
 
 describe("mapper nhóm tuỳ chọn (menu.service.ts:66-82)", () => {
-  it('priceDelta "5000.00" → 5000; whitelist; isDefault là undefined', () => {
-    expect(mapOption(rawOption)).toEqual({ id: "o1", name: "Size L", code: "L", priceDelta: 5000, displayOrder: 2, isActive: true });
-    expect(mapOption(rawOption).isDefault).toBeUndefined();
+  it('priceDelta "5000.00" → 5000; whitelist; giữ isDefault', () => {
+    expect(mapOption(rawOption)).toEqual({ id: "o1", name: "Size L", code: "L", priceDelta: 5000, displayOrder: 2, isActive: true, isDefault: false });
     const g = mapGroup(rawGroup);
     expect(Object.keys(g).sort()).toEqual(["code", "displayOrder", "id", "isActive", "isRequired", "maxSelections", "menuItemCount", "minSelections", "name", "options"]);
     expect(g.options[0].priceDelta).toBe(5000);
@@ -51,8 +50,8 @@ describe("real options — fetch giả, không gọi BE", () => {
       body: init.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined,
     }));
 
-  it("capabilities real đều false", () => {
-    expect(optionsReal.capabilities).toEqual({ isDefault: false, branchStates: false });
+  it("capabilities real hỗ trợ mặc định", () => {
+    expect(optionsReal.capabilities).toEqual({ isDefault: true, branchStates: true });
     expect(optionsMock.capabilities).toEqual({ isDefault: true, branchStates: true });
   });
 
@@ -61,6 +60,12 @@ describe("real options — fetch giả, không gọi BE", () => {
     const groups = await optionsReal.listGroups("c1");
     expect(calls(fn)).toEqual([{ path: "/restaurant-chains/c1/menu/option-groups", method: "GET", body: undefined }]);
     expect(groups[0].options[0].priceDelta).toBe(5000);
+  });
+
+  it("listBranchStates: đọc trạng thái option theo chi nhánh", async () => {
+    const fn = stub([{ branchId: "b1", optionId: "o1", isAvailable: false }]);
+    await expect(optionsReal.listBranchStates("c1", "b1")).resolves.toEqual([{ branchId: "b1", optionId: "o1", isAvailable: false }]);
+    expect(calls(fn)[0]).toMatchObject({ path: "/restaurant-chains/c1/menu/option-groups/branch-states", method: "GET" });
   });
 
   it("addGroup: POST option-groups đúng CreateMenuOptionGroupDto (menu.dto.ts:236-284), không gửi isActive/options", async () => {
@@ -96,11 +101,11 @@ describe("real options — fetch giả, không gọi BE", () => {
     expect(created.priceDelta).toBe(5000);
   });
 
-  it("patchOption: PATCH …/options/:id, KHÔNG gửi isDefault (BE forbidNonWhitelisted)", async () => {
+  it("patchOption: PATCH …/options/:id có isDefault", async () => {
     const fn = stub(rawOption);
     await optionsReal.patchOption("c1", "g1", "o1", { isActive: false, priceDelta: 7000, isDefault: true });
     expect(calls(fn)).toEqual([
-      { path: "/restaurant-chains/c1/menu/option-groups/g1/options/o1", method: "PATCH", body: { priceDelta: 7000, isActive: false } },
+      { path: "/restaurant-chains/c1/menu/option-groups/g1/options/o1", method: "PATCH", body: { priceDelta: 7000, isActive: false, isDefault: true } },
     ]);
   });
 
@@ -147,12 +152,12 @@ describe("real options — fetch giả, không gọi BE", () => {
     await expect(optionsReal.listItemConfigs("c1")).rejects.toThrow();
   });
 
-  it("listBranchStates (chỉ mock): ném lỗi 'chưa hỗ trợ', không gọi BE; không còn setItemNoBatch (cờ là allowBatching của món)", async () => {
+  it("listBranchStates gọi BE; cờ allowBatching vẫn thuộc món", async () => {
     const fn = stub([]);
-    await expect(optionsReal.listBranchStates("c1", "b1")).rejects.toThrow(/Chưa hỗ trợ/);
+    await expect(optionsReal.listBranchStates("c1", "b1")).resolves.toEqual([]);
     expect("setItemNoBatch" in optionsReal).toBe(false);
     expect("setItemNoBatch" in optionsMock).toBe(false);
-    expect(fn).not.toHaveBeenCalled();
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("giao diện không còn hàm cũ gửi/nhận cả nhóm", () => {

@@ -27,7 +27,7 @@ export interface AdminApi {
   listRegistrations(query?: PageQuery & { status?: RegistrationStatus }): Promise<Paginated<RegistrationApplication>>;
   getRegistration(id: string): Promise<RegistrationDetail>;
   approveRegistration(id: string, input: ApproveRegistrationInput): Promise<RegistrationDetail>;
-  /** `reason` bắt buộc (BR-04). BE chưa gửi email từ chối (TODO BE). */
+  /** `reason` bắt buộc (BR-04). BE xếp email từ chối vào outbox; worker gửi mail vẫn đang chờ BE. */
   rejectRegistration(id: string, reason: string): Promise<RegistrationDetail>;
   /** GU-01 — công khai, chưa đăng nhập. */
   submitRegistration(input: SubmitRegistrationInput): Promise<RegistrationApplication>;
@@ -44,6 +44,8 @@ export interface AdminApi {
   resetOwnerPassword(ownerId: string): Promise<OwnerPasswordResetResult>;
 
   // PA-04 — gói (giai đoạn 3.3 làm đầy đủ; tối thiểu ở đây để duyệt hồ sơ và đổi gói chọn được gói)
+  /** Danh sách gói đang bán cho landing/form đăng ký; endpoint công khai, không gắn Bearer. */
+  listPublicPlans(): Promise<ServicePlan[]>;
   listPlans(): Promise<ServicePlan[]>;
   createPlan(input: ServicePlanInput): Promise<ServicePlan>;
   updatePlan(id: string, input: Partial<ServicePlanInput>): Promise<ServicePlan>;

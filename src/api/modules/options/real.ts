@@ -1,13 +1,13 @@
 /**
  * Bản REAL của module options — BE role OWNER, `chain-menu.controller.ts:114-205, 329-345`. Đã bật mặc định từ 6.3.
- * KHÔNG import `api/mock/*` và KHÔNG dùng localStorage: `isDefault` BE chưa trả/nhận (#15, một phần) nên real không đọc, không ghi
- * (quyết định GĐ6 số 1); `capabilities` đều false. Cờ "không gom món" không thuộc module này: là `MenuItem.allowBatching` (#17, quyết định 22).
- * Body CHỈ gồm trường nằm trong DTO của BE: `forbidNonWhitelisted` (`app.setup.ts:21-22`) trả 400 nếu gửi trường lạ (như `isDefault`).
+ * KHÔNG import `api/mock/*` và KHÔNG dùng localStorage. Cờ "không gom món" thuộc MenuItem.allowBatching.
+ * Body CHỈ gồm trường nằm trong DTO của BE: `forbidNonWhitelisted` trả 400 nếu gửi trường lạ.
  */
 import { mapWithLimit } from "../../../lib/concurrency";
 import { ApiError } from "../../http/errors";
 import { request } from "../../http/client";
 import { mapGroup, mapOption, type RawOption, type RawOptionGroup } from "./mapper";
+import type { BranchOptionState } from "../../../types";
 import { validateGroupFields, validateGroupPatch, validateOptionFields } from "./rules";
 import type { OptionsApi } from "./index";
 
@@ -25,10 +25,8 @@ function assertValid(errors: string[]): void {
   if (errors.length) throw new ApiError(400, errors[0], errors);
 }
 
-const unsupported = (what: string) => new Error(`Chưa hỗ trợ ở chế độ real: ${what}.`);
-
 export const optionsReal: OptionsApi = {
-  capabilities: { isDefault: false, branchStates: false },
+  capabilities: { isDefault: true, branchStates: true },
 
   async listGroups(chainId) {
     return (await request<RawOptionGroup[]>(`${base(chainId)}/option-groups`)).map(mapGroup);
@@ -47,8 +45,8 @@ export const optionsReal: OptionsApi = {
     return itemIds.flatMap((menuItemId, i) => (lists[i].length ? [{ menuItemId, groupIds: lists[i].map((g) => g.id) }] : []));
   },
 
-  async listBranchStates() {
-    throw unsupported("Owner chưa đọc được trạng thái tuỳ chọn theo chi nhánh");
+  async listBranchStates(chainId, branchId) {
+    return request<BranchOptionState[]>(`${base(chainId)}/option-groups/branch-states?${new URLSearchParams({ branchId })}`);
   },
 
   async addGroup(chainId, fields) {
@@ -86,15 +84,14 @@ export const optionsReal: OptionsApi = {
 
   async addOption(chainId, groupId, fields) {
     assertValid(validateOptionFields(fields));
-    // CreateMenuOptionDto (menu.dto.ts:295-335): code, name, priceDelta, displayOrder. Không có `isActive` khi tạo, không có `isDefault`.
+    // Tạo option trước; cờ mặc định được bật qua PATCH sau khi tạo.
     const body = defined({ code: fields.code, name: fields.name.trim(), priceDelta: fields.priceDelta, displayOrder: fields.displayOrder });
     return mapOption(await request<RawOption>(`${base(chainId)}/option-groups/${groupId}/options`, { method: "POST", body }));
   },
 
   async patchOption(chainId, groupId, optionId, patch) {
     assertValid(validateOptionFields(patch));
-    // UpdateMenuOptionDto = Partial(CreateMenuOptionDto) + isActive (menu.dto.ts:336-343). `isDefault` cố ý KHÔNG gửi.
-    const body = defined({ code: patch.code, name: patch.name?.trim(), priceDelta: patch.priceDelta, displayOrder: patch.displayOrder, isActive: patch.isActive });
+    const body = defined({ code: patch.code, name: patch.name?.trim(), priceDelta: patch.priceDelta, displayOrder: patch.displayOrder, isActive: patch.isActive, isDefault: patch.isDefault });
     return mapOption(await request<RawOption>(`${base(chainId)}/option-groups/${groupId}/options/${optionId}`, { method: "PATCH", body }));
   },
 

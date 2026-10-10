@@ -3,7 +3,7 @@ import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
-import { accountApi, modeOf, showApiError } from "../../api";
+import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt đ�
 
 /**
  * OW-05: Owner quản Branch Manager — danh sách phân trang/tìm kiếm/lọc, khoá/mở khoá, gửi lại email đặt mật khẩu,
- * chuyển chi nhánh (BE `/employees`, real). Mọi thao tác ghi đều qua hộp xác nhận. Tạo Manager chờ BE (#23) ở chế độ real.
+ * chuyển chi nhánh (BE `/employees`, real). Tạo Manager qua lời mời email, không đặt mật khẩu hộ.
  * Cashier/Barista: Owner chỉ XEM (OW-05), đọc thật `GET /employees?role=CASHIER|BARISTA`.
  */
 export default function ManagerAccounts() {
@@ -25,7 +25,6 @@ export default function ManagerAccounts() {
   const branches = useAppStore((s) => s.branches);
   const writeGuard = useWriteGuard();
   const tenantId = currentUser?.tenantId ?? null;
-  const realManagers = modeOf("account") === "real";
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -149,16 +148,11 @@ export default function ManagerAccounts() {
         title="Tài khoản quản lý"
         sub="Một chi nhánh có thể có nhiều Branch Manager để trực ca — không phải một người làm cả ngày"
         extra={
-          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" disabled={realManagers} data-testid="create-manager" onClick={() => setAdding(true)}>
+          <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
             Thêm tài khoản
           </ActionButton>
         }
       />
-      {realManagers && (
-        <div data-testid="create-manager-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-          Chờ BE gửi email thay vì đặt mật khẩu (api-contract-plan #23) — chưa tạo được Manager ở chế độ này.
-        </div>
-      )}
       <Tabs
         items={[
           {
@@ -315,7 +309,7 @@ export default function ManagerAccounts() {
         branches={branches}
         onClose={() => setAdding(false)}
         onSave={async (name, email, branchId) => {
-          if (!tenantId) return;
+          if (!tenantId) return false;
           try {
             const { account: acc, expiresAt } = await accountApi.createManager(tenantId, branchId, name, email);
             setAdding(false);
@@ -328,8 +322,10 @@ export default function ManagerAccounts() {
               ),
             });
             await loadManagers();
+            return true;
           } catch (err) {
             showApiError(message.error, err, "Không tạo được — có thể đã vượt hạn mức gói");
+            return false;
           }
         }}
       />
@@ -346,12 +342,13 @@ function AddAccountDrawer({
   open: boolean;
   branches: { id: string; name: string }[];
   onClose: () => void;
-  onSave: (name: string, email: string, branchId: string) => void;
+  onSave: (name: string, email: string, branchId: string) => Promise<boolean>;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [branchId, setBranchId] = useState(branches[0]?.id);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) setBranchId(branches[0]?.id);
@@ -362,13 +359,18 @@ function AddAccountDrawer({
     setEmail("");
   };
 
-  const save = () => {
+  const save = async () => {
+    if (saving) return;
     if (!name.trim() || !email.trim() || !branchId) {
       message.error("Nhập tên, email và chọn chi nhánh");
       return;
     }
-    onSave(name.trim(), email.trim(), branchId);
-    reset();
+    setSaving(true);
+    try {
+      if (await onSave(name.trim(), email.trim(), branchId)) reset();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -390,7 +392,7 @@ function AddAccountDrawer({
       <Field label="Chi nhánh được gán">
         <Select value={branchId} onChange={setBranchId} style={{ width: "100%" }} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
       </Field>
-      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={save}>
+      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={() => void save()} loading={saving}>
         Tạo tài khoản
       </ActionButton>
     </Drawer>

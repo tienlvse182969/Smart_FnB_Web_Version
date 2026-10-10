@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { adminApi, showApiError } from "../../api";
+import { adminApi, loadPublicPlans, showApiError, type PublicPlan } from "../../api";
 import { palette } from "../../theme";
 
 type FormValues = {
@@ -10,6 +10,7 @@ type FormValues = {
   representativeName: string;
   representativeEmail: string;
   representativePhone: string;
+  requestedPlanId: string;
 };
 
 const initialValues: FormValues = {
@@ -19,6 +20,7 @@ const initialValues: FormValues = {
   representativeName: "",
   representativeEmail: "",
   representativePhone: "",
+  requestedPlanId: "",
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +30,25 @@ export default function SignupForm() {
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [plans, setPlans] = useState<PublicPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
+
+  const loadPlans = useCallback(async (force = false) => {
+    setPlansLoading(true);
+    setPlansError(null);
+    try {
+      setPlans(await loadPublicPlans(force));
+    } catch (err) {
+      showApiError(setPlansError, err, "Không tải được danh sách gói");
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
 
   const updateField = (field: keyof FormValues) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -46,6 +67,7 @@ export default function SignupForm() {
     }
     if (!emailPattern.test(values.representativeEmail.trim())) nextErrors.representativeEmail = "Email không hợp lệ";
     if (!phonePattern.test(values.representativePhone.trim())) nextErrors.representativePhone = "Số điện thoại không hợp lệ";
+    if (!values.requestedPlanId) nextErrors.requestedPlanId = "Vui lòng chọn gói mong muốn";
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -62,7 +84,6 @@ export default function SignupForm() {
     setSubmitError(null);
     try {
       // TODO(BE): BE chưa nhận "số chi nhánh dự kiến" (đặc tả GU-01) — web bỏ ô này, không thu dữ liệu mà không gửi.
-      // TODO(BE): chưa có danh sách gói công khai nên chưa có ô chọn gói (requestedPlanId) — docs/api-contract-plan.md mục 7, việc #8, #9.
       await adminApi.submitRegistration({
         businessName: values.businessName.trim(),
         taxCode: values.taxCode.trim() || undefined,
@@ -70,6 +91,7 @@ export default function SignupForm() {
         representativeEmail: values.representativeEmail.trim(),
         representativePhone: values.representativePhone.trim(),
         headquartersAddress: values.headquartersAddress.trim() || undefined,
+        requestedPlanId: values.requestedPlanId,
       });
       setSubmitted(true);
     } catch (err) {
@@ -162,6 +184,47 @@ export default function SignupForm() {
             error={errors.representativePhone}
           />
 
+          <div>
+            <label htmlFor="requestedPlanId" className="block text-sm font-medium text-zinc-700">
+              Gói dịch vụ mong muốn
+            </label>
+            <select
+              id="requestedPlanId"
+              name="requestedPlanId"
+              value={values.requestedPlanId}
+              onChange={(event) => setValues((prev) => ({ ...prev, requestedPlanId: event.target.value }))}
+              disabled={plansLoading || plans.length === 0}
+              aria-invalid={Boolean(errors.requestedPlanId)}
+              aria-describedby={errors.requestedPlanId ? "requestedPlanId-error" : "requestedPlanId-help"}
+              className="mt-1.5 block min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base focus:border-zinc-400 focus:outline-none disabled:bg-zinc-100 disabled:text-zinc-500 sm:text-sm"
+              style={{ color: "var(--fnb-ink)" }}
+            >
+              <option value="">{plansLoading ? "Đang tải danh sách gói…" : "Chọn gói dịch vụ"}</option>
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.name} · {plan.maxBranches} chi nhánh · {plan.maxAccounts} tài khoản
+                </option>
+              ))}
+            </select>
+            {errors.requestedPlanId ? (
+              <p id="requestedPlanId-error" className="mt-1.5 text-xs text-red-600">
+                {errors.requestedPlanId}
+              </p>
+            ) : (
+              <p id="requestedPlanId-help" className="mt-1.5 text-xs text-zinc-500">
+                Admin sẽ xác nhận lại gói và thời hạn khi duyệt hồ sơ.
+              </p>
+            )}
+            {plansError && (
+              <div role="alert" className="mt-2 text-sm text-red-600">
+                {plansError}{" "}
+                <button type="button" className="min-h-11 font-medium underline" onClick={() => void loadPlans(true)}>
+                  Thử lại
+                </button>
+              </div>
+            )}
+          </div>
+
           {submitError && (
             <p role="alert" className="text-sm" style={{ color: palette.error.text }}>
               {submitError}
@@ -170,7 +233,7 @@ export default function SignupForm() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || plansLoading || plans.length === 0}
             className="w-full rounded-lg px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >
