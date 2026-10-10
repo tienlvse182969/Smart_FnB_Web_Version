@@ -347,6 +347,33 @@ Việc mới sau khi kéo mã `0348c38` (7.3b):
 
 Ghi chú: trang theo dõi đơn công khai (`GET /public/track/:token`, QR trên phiếu) **không có trong đặc tả v9**; cần Khánh/nhóm quyết giữ như mở rộng (và bổ sung đặc tả) hoặc bỏ. Việc báo nhóm mobile M1–M8 ở mục 7 của `docs/khao-sat-be-mobile-20261010.md`.
 
+### Tình trạng theo nhánh BE `feat/cashier-barista-render-flow` `06d8c54` (2026-10-10; chỉ đọc mã, KHÔNG nằm trong `main`, KHÔNG nằm trong container đang chạy)
+
+> `origin/main` vẫn `0348c38` (không có commit mới). Nhánh có 3 commit: `a9eca53` (email, Manager tạo Cashier/Barista bằng email, `payos/recheck`, `payos/cancel`), `e9b1c4a` (`docker-compose.yml`: `NODE_ENV: development`, `EMAIL_FROM` rỗng), `06d8c54` "unify counter payment settlement" (#53/#54). Migration mới `20261010090000_payment_mismatch_attention`: chỉ `ALTER TYPE … ADD VALUE IF NOT EXISTS` hai giá trị enum (**AN TOÀN**). Tài liệu BE: `docs/PAYMENT_CONFIRMATION_53_54.md`.
+
+| Ca nghiệm thu | Kết quả (file:dòng trên nhánh) |
+|---|---|
+| 1 webhook đúng số tiền → Đã trả, số gọi, mã theo dõi, PrintJob, `calling.order.queued`, `payment.confirmed` có `orderId` | **ĐẠT** — `payos-payment.service.ts:228-232` gọi `settlement.settle({source:'PAYOS_WEBHOOK'})`; `counter-payment-settlement.service.ts:94-243` (số gọi `:139-143`, tracking `:186`, PrintJob `:187-195`, sự kiện `:226-241`, payload `{paymentId, orderId, status, callNumber, source}`) |
+| 2 Kiểm tra lại báo đã trả | **ĐẠT** — `POST /cashier/payments/:id/payos/recheck` (`counter-operations.controller.ts`), `payos-payment.service.ts:261-312`, `source:'PAYOS_RECHECK'`; mismatch → `markAmountMismatch` `:286` |
+| 3 Manager xác nhận khoản PENDING, nhận đủ (#53) | **ĐẠT** — `payments.service.ts:144-186` → `settle({source:'MANAGER_MANUAL'})`; audit `PAYMENT_MANUALLY_CONFIRMED` kèm lý do, người xác nhận, `receivedAmount`, `changeDue` (`settlement:196-216`); `confirmationReason`, `processedById`, `transactionRef` lưu ở khoản (`:146-158`) |
+| 4 webhook lệch số tiền → khoản "Lệch số tiền", đơn "Cần xử lý", lưu số thực nhận, phát attention (#54, #44) | **ĐẠT** — `PaymentStatus.AMOUNT_MISMATCH`, `OrderStatus.REQUIRES_ATTENTION` (`schema.prisma`); `markAmountMismatch` `settlement:38-92` lưu `payment.receivedAmount`, đơn → `REQUIRES_ATTENTION`, phát `manager.order.attention-required {reason:'PAYMENT_AMOUNT_MISMATCH', orderId, paymentId, expectedAmount, receivedAmount}` (`:83-89`, chỉ khi đổi trạng thái) |
+| 5 xác nhận khoản Lệch số tiền: ≥ tổng → xong + phần dư; < tổng → từ chối rõ (BR-28) | **ĐẠT** (một phần so với BR-28) — nhận đủ: `changeDue` trong audit; nhận thiếu: **409 `PAYMENT_AMOUNT_INSUFFICIENT` "Số tiền thực nhận thấp hơn tổng tiền đơn hàng."** (`settlement:119-125`). BR-28 còn "huỷ đơn và ghi khoản phải hoàn" → thuộc #43, chưa có |
+| 6 webhook về 2 lần | **MỘT PHẦN** — mã đúng (khoá theo `idempotencyKey`, `PROCESSED`/`REJECTED` bỏ qua `:180-189`, `PAYMENT_ALREADY_SETTLED` → `PROCESSED` `:242-246`); test tự động chỉ có "does not settle a payment twice" tuần tự (`test/payment-settlement.test.mjs:161`), chưa có test webhook trùng |
+| 7 webhook và xác nhận thủ công đồng thời | **MỘT PHẦN** — mã đúng (`SELECT … FOR UPDATE` khoá `payments` rồi `orders`, `Serializable`, `settlement:98, 108, 224`; bên sau nhận 409 `PAYMENT_ALREADY_SETTLED`; `P2034` → 409 `payments.service.ts:182-184`); **chưa có test đồng thời** |
+| 8 Manager xác nhận tiền mặt → từ chối (#46) | **ĐẠT** — 409 "Only bank transfers can be confirmed manually" (`payments.service.ts:166-167`, và `settlement:116-118`); chỉ vai MANAGER (`payments.service.ts:146-147`, `payments.controller.ts:91`) |
+
+Trả lời các câu hỏi cấu trúc: (a) **một hàm dùng chung** `CounterPaymentSettlementService.settle` cho webhook, Kiểm tra lại và xác nhận thủ công (tiền mặt vẫn đi đường riêng `collectCash`); (b) enum mới `OrderStatus.REQUIRES_ATTENTION` (đơn "Cần xử lý"), `PaymentStatus.AMOUNT_MISMATCH` (khoản "Lệch số tiền"); số thực nhận ở `payment.receivedAmount` và `GET /manager/orders[/:id]` đã trả (`paymentSelect.receivedAmount`); lọc `GET /manager/orders?status=REQUIRES_ATTENTION` và `?paymentRecordStatus=AMOUNT_MISMATCH` (`manager.dto.ts`, `manager-operations.service.ts`); (c) mã lỗi nhận thiếu `PAYMENT_AMOUNT_INSUFFICIENT` (409), đã thanh toán `PAYMENT_ALREADY_SETTLED` (409, message không dấu tiếng Việt), tiền mặt 409; (d) `payment.confirmed` có `orderId` ở webhook, Kiểm tra lại và xác nhận thủ công; **đường tiền mặt** (`counter-operations.controller.ts:152`) vẫn `{orderId, callNumber}`, đường phiên bàn v7 `{id, status}`; (e) test BE: `test/payment-settlement.test.mjs` (5 ca: xác nhận trọn quy trình, nhận thiếu, tiền mặt, lệch số tiền, không chốt hai lần), `test/payos-channel.test.mjs` (webhook lệch, recheck dùng settlement).
+
+Ảnh hưởng tới web khi nhánh này vào main: giá trị enum mới hiện "Khác (REQUIRES_ATTENTION)", "Khác (AMOUNT_MISMATCH)" ở `api/modules/order/codes.ts` cho tới khi duyệt nhãn ("Cần xử lý", "Lệch số tiền", tông đỏ theo BR-42); `ORDER_STATUS_FILTER` cần thêm `REQUIRES_ATTENTION`; `payment.confirmed`/`manager.order.attention-required` đã có `orderId` nên `orderRefresh.ts` tải đúng; câu lỗi `PAYMENT_AMOUNT_INSUFFICIENT`, `PAYMENT_ALREADY_SETTLED` cần thêm vào `BACKEND_TEXT`; `confirm` trả `{…payment, order, tracking}`.
+
+Việc mới sau 7.3d:
+
+| # | Mức | Việc | Căn cứ | Chặn demo? |
+|---|---|---|---|---|
+| 56 | **CAO** | **`docker-compose.yml` ở `main` ép `NODE_ENV: production` cho Docker local** (dòng 13) + validate `PUBLIC_WEB_URL` HTTPS và `ORDER_TRACKING_SECRET` ≥ 32 ở production (`environment.validation.ts:105-111`) → API sập vòng lặp khi build `main` `0348c38` mà không đặt biến (đã xảy ra 2026-10-10: 78 lần khởi động lại, seed chạy 78 lần). Bản sửa đã có ở nhánh (`e9b1c4a`, `NODE_ENV: development`) nhưng chưa vào main. Local hiện dùng `docker-compose.override.yml` chưa theo dõi (7.3d) | `docker-compose.yml:13` | Có (build local) |
+| 57 | Trung bình | **Merge nhánh `feat/cashier-barista-render-flow` (`06d8c54`) vào `main`** và build: chứa #1, #24, #45 (recheck/cancel), #53, #54 | — | Có |
+| 58 | Thấp | Test tự động cho webhook trùng (ca 6) và webhook đồng thời xác nhận thủ công (ca 7) | `test/payment-settlement.test.mjs` | Không |
+
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
 | Chỗ lệch | Đặc tả / quyết định | BE |
