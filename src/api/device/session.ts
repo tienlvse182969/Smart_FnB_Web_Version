@@ -16,9 +16,15 @@ export interface StoredPairing {
   code: string;
   deviceToken: string;
   expiresAt: string;
+  /** Giờ máy (ms) lúc nhận mã. Hạn mã tính theo thời gian TRÔI QUA từ đây, không so `expiresAt` với đồng hồ máy: TV lệch giờ vài phút
+   *  sẽ coi mọi mã là hết hạn và tạo mã liên tục. */
+  issuedAt?: number;
   /** true sau lần đọc ngữ cảnh thành công đầu tiên (máy đã được Manager ghép). */
   paired?: boolean;
 }
+
+/** Mã ghép hết hạn sau 5 phút (`stations.service.ts:73`). */
+export const PAIRING_CODE_TTL_MS = 5 * 60_000;
 
 export const CALLING_DISPLAY_STORAGE_KEY = "smartfnb.callingDisplay";
 
@@ -46,7 +52,8 @@ export function savePairing(value: StoredPairing | null): void {
   }
 }
 
-export function isCodeExpired(pairing: Pick<StoredPairing, "expiresAt">, now = Date.now()): boolean {
+export function isCodeExpired(pairing: Pick<StoredPairing, "expiresAt" | "issuedAt">, now = Date.now()): boolean {
+  if (typeof pairing.issuedAt === "number") return now - pairing.issuedAt >= PAIRING_CODE_TTL_MS;
   const at = Date.parse(pairing.expiresAt);
   return Number.isNaN(at) || at <= now;
 }
@@ -77,7 +84,8 @@ export const CODE_EXPIRED_TEXT = "Mã ghép cũ đã hết hạn nên đã tạo
 /** Nhịp hỏi lại (ms). Có socket nối thì sự kiện `calling.order.*` đẩy việc tải lại, nhịp dài chỉ là dự phòng. */
 export const WAITING_POLL_MS = 3_000;
 export const PAIRED_POLL_MS = 10_000;
-export const PAIRED_LIVE_POLL_MS = 60_000;
+/** BE không đá socket khi thu hồi (`realtime.gateway.ts` chỉ kiểm token lúc nối), nên nhịp này cũng là thời gian tối đa tới khi TV biết bị thu hồi. */
+export const PAIRED_LIVE_POLL_MS = 30_000;
 export const RETRY_BASE_MS = 5_000;
 export const RETRY_MAX_MS = 60_000;
 /** Sau khi socket hết lượt tự nối: không có ai bấm nút trên TV nên tự nối lại theo nhịp này. */

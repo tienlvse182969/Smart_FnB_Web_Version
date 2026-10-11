@@ -66,7 +66,7 @@ export default function CallScreen() {
     creating.current = true
     try {
       const next = await createCallingDisplayPairing()
-      const stored: StoredPairing = { ...next, paired: false }
+      const stored: StoredPairing = { ...next, issuedAt: Date.now(), paired: false }
       savePairing(stored)
       setPairing(stored)
       setContext(null)
@@ -90,7 +90,7 @@ export default function CallScreen() {
     return () => window.clearTimeout(timer)
   }, [createCode, pairing, codeFailures])
 
-  // Vòng hỏi ngữ cảnh: chờ ghép (3s) → đã ghép (10s, 60s khi socket đang nối); lỗi thì giãn cách tăng dần.
+  // Vòng hỏi ngữ cảnh: chờ ghép (3s) → đã ghép (10s, 30s khi socket đang nối); lỗi thì giãn cách tăng dần.
   const token = pairing?.deviceToken ?? null
   useEffect(() => {
     if (!pairing) return

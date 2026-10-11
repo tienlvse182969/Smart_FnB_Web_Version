@@ -45,6 +45,14 @@ describe("phân loại lỗi đọc ngữ cảnh (quyết định 107)", () => {
     expect(isCodeExpired({ expiresAt: "2026-10-11T10:00:00Z" }, NOW)).toBe(true);
     expect(isCodeExpired({ expiresAt: "không phải ngày" }, NOW)).toBe(true);
   });
+
+  it("có issuedAt: tính theo thời gian trôi qua, không phụ thuộc đồng hồ máy lệch so với BE", () => {
+    // Đồng hồ máy chạy nhanh 1 giờ so với BE: expiresAt (giờ BE) đã "quá khứ" nhưng mã vừa nhận.
+    const skewed = { expiresAt: "2026-10-11T10:05:00Z", issuedAt: NOW + 3_600_000 };
+    expect(isCodeExpired(skewed, NOW + 3_600_000 + 60_000)).toBe(false);
+    expect(isCodeExpired(skewed, NOW + 3_600_000 + 5 * 60_000)).toBe(true);
+    expect(classifyContextFailure(forbidden, { ...base, ...skewed }, NOW + 3_600_000 + 1000)).toBe("waiting");
+  });
 });
 
 describe("giãn cách thử lại (không dồn dập)", () => {
