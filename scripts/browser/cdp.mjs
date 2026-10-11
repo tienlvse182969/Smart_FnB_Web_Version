@@ -196,8 +196,15 @@ class Tab {
       return;
     }
     if (this.tryFault(p, method, path)) return;
-    const safe = ["GET", "HEAD", "OPTIONS"].includes(method) || (method === "POST" && this.blockAllow?.some((re) => re.test(path)));
+    // `blockAllow`: RegExp = cho POST khớp đường dẫn (như cũ: đăng nhập); `{ method, match }` = cho đúng phương thức + đường dẫn (8.1: ghép /
+    // thu hồi thiết bị TEST). Mọi request GHI được cho đi (trừ phiên đăng nhập) đều ghi vào `sentWrites` để báo cáo "đã gửi THẬT".
+    const isRead = ["GET", "HEAD", "OPTIONS"].includes(method);
+    const allowed = this.blockAllow?.some((a) => (a instanceof RegExp ? method === "POST" && a.test(path) : a.method === method && a.match.test(path)));
+    const safe = isRead || allowed;
     if (safe) {
+      if (!isRead && !/\/auth\/(login|refresh|logout)$/.test(path)) {
+        (this.sentWrites ??= []).push({ method, path: path.split("?")[0], body: postData ?? null, caseName: this.caseName ?? "" });
+      }
       void this.send("Fetch.continueRequest", { requestId: p.requestId });
     } else {
       // `contentType` để kiểm multipart (tải logo): có `multipart/form-data; boundary=…` thì trường `body` chứa các phần của form.
@@ -344,15 +351,63 @@ class Tab {
   }
 }
 
+/**
+ * Tab trong ngữ cảnh trình duyệt RIÊNG (`opts.isolated`): localStorage/cookie không dùng chung với tab khác, như một thiết bị khác
+ * (8.1: màn TV gọi số không được thấy phiên đăng nhập của Manager). Đóng tab thì huỷ luôn ngữ cảnh.
+ */
+async function openIsolated() {
+  const version = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`)).json();
+  const bws = new WebSocket(version.webSocketDebuggerUrl);
+  await new Promise((res, rej) => {
+    bws.onopen = res;
+    bws.onerror = rej;
+  });
+  let n = 0;
+  const pending = new Map();
+  bws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.id && pending.has(m.id)) pending.get(m.id)(m);
+  };
+  const call = (method, params = {}) =>
+    new Promise((res) => {
+      const id = ++n;
+      pending.set(id, res);
+      bws.send(JSON.stringify({ id, method, params }));
+    });
+  const { browserContextId } = (await call("Target.createBrowserContext")).result;
+  const { targetId } = (await call("Target.createTarget", { url: "about:blank", browserContextId })).result;
+  let info = null;
+  for (let i = 0; i < 40 && !info; i++) {
+    info = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()).find((t) => t.id === targetId) ?? null;
+    if (!info) await sleep(100);
+  }
+  if (!info) throw new Error("không tìm thấy tab của ngữ cảnh cô lập");
+  return {
+    info,
+    dispose: async () => {
+      await call("Target.disposeBrowserContext", { browserContextId });
+      bws.close();
+    },
+  };
+}
+
 export async function newTab(url = "about:blank", authMode, opts = {}) {
-  const r = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
-  const info = await r.json();
+  let isolated = null;
+  let info;
+  if (opts.isolated) {
+    isolated = await openIsolated();
+    info = isolated.info;
+  } else {
+    const r = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
+    info = await r.json();
+  }
   const ws = new WebSocket(info.webSocketDebuggerUrl);
   await new Promise((res, rej) => {
     ws.onopen = res;
     ws.onerror = rej;
   });
   const tab = new Tab(ws, info.id, authMode);
+  tab.disposeContext = isolated?.dispose ?? null;
   await tab.send("Page.enable");
   await tab.send("Runtime.enable");
   await tab.send("Network.enable");
@@ -393,13 +448,18 @@ export function printBlockedWritesSummary(tab) {
   }
   console.log(`\n[real] BẢNG REQUEST GHI BỊ CHẶN Ở CDP: ${log.length} request, ${rows.size} dòng khác nhau`);
   for (const [key, row] of rows) console.log(`   ${String(row.n).padStart(3)}×  ${key}${row.cases.size ? `   (${[...row.cases].join("; ")})` : ""}`);
+  if (tab.sentWrites?.length) {
+    console.log(`[real] REQUEST GHI ĐÃ GỬI THẬT TỚI BE (theo danh sách cho phép): ${tab.sentWrites.length}`);
+    for (const w of tab.sentWrites) console.log(`   ${w.method} ${w.path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "{id}")} ${w.body ?? ""}`.slice(0, 200));
+  }
 }
 
 export async function closeTab(tab) {
   printBlockedWritesSummary(tab);
   try {
     tab.ws.close();
-    await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);
+    if (tab.disposeContext) await tab.disposeContext();
+    else await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);
   } catch {
     // đã đóng
   }
