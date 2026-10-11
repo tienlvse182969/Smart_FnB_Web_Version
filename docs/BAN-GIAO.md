@@ -55,6 +55,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | `phase2.mjs` | `mock` (khối `brand`, `login` cần server mock + `AUTH_MODE=mock`), real mặc định (có `flip` mock) | `brand` (**mock-only** từ 6.4: bỏ qua ở real), `plan`, `errors`, `ai`, `refresh`, `flip`, `login` | khối `ai` 17s |
 | `phase6.mjs` | `mock`, `real` | `branding` (OW-07, 6.4), `payos` (OW-06, 6.5; khoá GIẢ "test-…-khong-that"; mock cần thêm `VITE_API_PAYOS=mock`; real chặn PUT/DELETE ở CDP, ca "Lưu rồi Gỡ" dùng `fulfillWrites`); `plan` (OW-10, 6.6; real chỉ đọc, ca `subscription: null` tiêm bằng `tab.readOverride` ở `cdp.mjs`, không tới BE) | `branding`: mock 24 ca, real 16 ca; `payos`: mock 15, real 10; `plan`: mock 8, real 11; đủ phase6: mock 47, real 37 |
 | `phase7.mjs` (GĐ7) | `mock` (dev server 5173 với `VITE_API_*=mock` gồm ORDER, AUTH; `AUTH_MODE=mock`), `real` (chặn ghi ở CDP; cần 11 đơn của 7.0b) | `orders` (Tra cứu đơn, BM-04, 7.1: mock 28 ca, real 25 ca gồm ca trả lời giả `readOverride`), `detail` (Chi tiết đơn, 7.2: mock 14, real 18 gồm trả lời giả), `confirm` (Xác nhận chuyển khoản thủ công, BM-05, 7.4: mock 23 ca, real 30 ca; real KHÔNG request ghi nào tới BE: `readOverride` thêm khoản QR PENDING/AMOUNT_MISMATCH vào chi tiết đơn thật, POST bị `blockWrites`/`fulfillWrites`/`setFault`; `tab.readOverride` nhận mảng và khớp theo `/api/v1/…` để F5 trang không bị trả JSON), `report` (Báo cáo chi nhánh, BM-03, 7.3: mock 14 ca, real 14 ca gồm bảng số web cạnh số BE và trả lời giả), `realtime-reconnect` (7.3, CHỈ real, KHÔNG tạo đơn: chặn socket tới khi hết lượt tự nối rồi bấm "Kết nối lại": 8 ca), `realtime` (7.2, CHỈ real, phải gọi tên `--only=realtime`, TẠO 2 đơn mới trên BE local qua script Node: 14 ca) | `orders`: mock ~1 phút, real ~1 phút; `detail` ~1 phút; `report` ~1 phút; `realtime-reconnect` ~35 giây; `realtime` ~1,5 phút |
+| `phase76.mjs` (7.6, CHỈ real) | `real` | `faults` (KHÔNG ghi: 409/500/mạng/403/400 giả, trả lời giả lệch thiếu + khoản chờ hoàn, lọc `refundStatus`; 16 ca), `refund` (GHI THẬT 2 đơn đã chọn + 4 thử âm; 19 ca; chạy được MỘT lần, chốt chặn `REFUND_CANCEL_LIMIT`) | `faults` ~1 phút; `refund` ~1,5 phút |
 | `phase8.mjs` (GĐ8, CHỈ real) | `real` | `pairing` (8.1, GHI THẬT trên BE local: ghép + thu hồi tối đa 2 thiết bị `TEST-8.1…`; từ chối chạy khi BE đã có thiết bị TEST-8.1, `TEST_DEVICE_LIMIT` để nâng khi được duyệt; 25 ca), `board` (8.1, không tạo thiết bị: bảng số từ trả lời giả, socket bị từ chối, thu hồi giả, đồng hồ TV lệch giờ; 12 ca) | `pairing` ~4 phút; `board` ~2 phút |
 | `phase3.mjs` | `mock`, `real` | chưa có (chạy hết) | — |
 | `phase4.mjs` | `mock`, `real` | `owner`, `manager` | đủ mock 159s, real 41s; `manager` 10s |
@@ -427,6 +428,13 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 112 | Số vừa chuyển sang "Mời nhận" (có ở lần nạp này mà chưa có ở lần trước; lần nạp đầu/sau ghép lại thì KHÔNG) được viền vàng + phóng nhẹ 10 giây (`call-attention` ở `index.css`; không đổi độ mờ để giữ tương phản; `prefers-reduced-motion` thì chỉ còn viền) và một âm báo. Âm thanh: Web Audio (`display/chime.ts`, hai nốt 880/1175 Hz, không file âm, không thư viện), MỘT `AudioContext`, các lần kêu cách nhau < 1,5 giây gộp làm một. Trình duyệt chỉ cho phát sau một cú chạm: màn ghép mã có nút "Bật âm thanh"; cú chạm bất kỳ trên màn bảng số cũng mở khoá; đã bật thì nhớ ở `localStorage["smartfnb.callingDisplay.sound"]` (sau F5 thử mở lại, bị chặn thì hiện lại "Âm thanh tắt" tới cú chạm kế tiếp); chưa bật có chỉ báo nhỏ "Âm thanh tắt" ở góc, không chặn hiển thị |
 | 113 | Chưa ghép: sau 3 mã hết hạn liên tiếp (`EXPIRED_STREAK_LIMIT`) thì 5 phút mới tạo mã (`nextCodeDelay`), màn hiện nút "Chạm để lấy mã mới" (lấy ngay); ghép được thì đếm lại. Đếm trong bộ nhớ, F5 đếm lại từ 0 (một mã ngay khi mở) |
 | 114 | Mất kết nối (REST lỗi hoặc socket hết lượt nối): GIỮ bảng số cuối, chỉ đổi chip trạng thái thành "Mất kết nối, đang thử lại" (vàng, `data-offline`); không màn trắng, không banner đỏ (câu lỗi chi tiết ở `call-error`, chỉ đọc cho kiểm tra) |
+| 115 | (7.6, thay QĐ 65 "real khoá chờ #43") Huỷ đơn đã trả chạy THẬT theo BE `514c426` (#43): `POST /manager/orders/:orderId/cancel-paid` thân `{reason (3–500, trim), refundMethod: CASH\|BANK_TRANSFER, orderItemIds?}` (BE `forbidNonWhitelisted`; `orderItemIds` không gửi khi huỷ cả đơn). Nút "Huỷ đơn và ghi hoàn tiền" (`ActionButton`, khoá khi gói hết hạn như QĐ 85) hiện đúng điều kiện BE (`cancelTarget`, `api/modules/order/paidCancel.ts`): đơn quầy `SUBMITTED`/`PREPARING`/`READY`/`REQUIRES_ATTENTION` (đã giao/hoàn tất/đã huỷ → không nút, BE 409), có khoản `SUCCESS` (đơn `PAID`) hoặc `AMOUNT_MISMATCH`, còn số dư để hoàn. Phản hồi bỏ qua, GET lại chi tiết (như QĐ 84) |
+| 116 | Hộp huỷ (`RefundModals.tsx` `CancelPaidModal`) hai bước: nhập (cách hoàn, chọn món nếu đơn có > 1 món chưa huỷ — không chọn = cả đơn, lý do) rồi xem lại (mã đơn, số gọi, số đã nhận, SỐ PHẢI HOÀN, cách hoàn, phạm vi, lý do, nhắc: tiền mặt = trả khách ngay và ghi ĐÃ hoàn, chuyển khoản = ghi chờ hoàn rồi "Đánh dấu đã hoàn"; không hoàn tác). Số hoàn tính như BE: cả đơn = số đã nhận − khoản đã hoàn; một phần = min(tổng món chọn, số dư). Chống bấm đúp (ref ở modal và ở trang: 1 request, đã đo thật). Lỗi: 409/404 → câu tiếng Việt qua `showApiError`, đóng hộp, GET lại; 400/403/5xx/mạng → giữ hộp |
+| 117 | Khoản phải hoàn ở chi tiết đơn (thẻ "Khoản phải hoàn"): số tiền, trạng thái (Chờ hoàn tiền / Đã hoàn tiền), cách hoàn, nguồn (Manager huỷ / Tiền về sau khi đơn đã huỷ), lý do, vai trò + thời điểm yêu cầu/hoàn, ghi chú, món huỷ (kèm hao hụt). BE KHÔNG trả TÊN người (chỉ `requestedByRole`/id, #73) nên web hiện vai trò ("Quản lý chi nhánh"); tên người huỷ cả đơn lấy từ `cancelledBy` của đơn. Nút "Đánh dấu đã hoàn" (`POST /refunds/:id/complete`, thân `{note?}` ≤ 500) chỉ cho khoản `PENDING` + `BANK_TRANSFER`; KHÔNG khoá theo chế độ chỉ đọc vì BE chủ ý để khoản phải hoàn vẫn xử lý được khi gói hết hạn |
+| 118 | Lệch thiếu (`AMOUNT_MISMATCH`, đơn "Cần xử lý"): khung cảnh báo có nút "Huỷ đơn và ghi hoàn tiền" (BR-28); hộp huỷ báo "huỷ cả đơn", số hoàn = SỐ ĐÃ NHẬN, không cho chọn món (BE 409 `An underpaid order must be cancelled in full`). Hộp xác nhận thủ công vẫn khoá khi nhận thiếu (câu BR-28 giữ nguyên, QĐ 83) |
+| 119 | Báo cáo Manager (QĐ 77–78 giữ): doanh thu = `revenue` của BE = doanh thu SAU hoàn (`netRevenue`); thêm 3 thẻ "Doanh thu gộp", "Đã trừ hoàn tiền" (+ số đơn huỷ sau khi trả), "Còn chờ hoàn"; bảng đơn huỷ thêm cột "Đã hoàn / phải hoàn". Web KHÔNG tự trừ. Hoàn tính vào NGÀY HUỶ nên một ngày có thể ÂM: biểu đồ hiện nhãn "−…" và thanh nhỏ màu cảnh báo. `orderCount`/`averageOrderValue` của BE vẫn tính cả đơn đã trả rồi huỷ (#72), web hiện nguyên số BE |
+| 120 | Làm tươi: `order.cancelled`, `refund.pending`, `refund.completed` thêm vào `ORDER_EVENT_TYPES` (qua hook dùng chung → chi tiết đơn, Tra cứu, Đơn cần xử lý tự GET lại; tab xem tự đổi khi nơi khác huỷ: đã kiểm thật). Tiền về sau khi đơn huỷ: BE phát `manager.order.attention-required` `reason: PAYMENT_RECEIVED_AFTER_CANCELLATION` → thông báo "Có khoản tiền về sau khi đơn đã huỷ: cần hoàn X" (đã gom theo `reason:orderId`). Tra cứu đơn thêm ô lọc "Hoàn tiền" (`refundStatus`, tham số URL `refund`); màn "Đơn cần xử lý" thêm khối "Khoản chờ hoàn tiền" (chỉ khi có) |
+| 121 | Kiểm thật 7.6 trên BE local chỉ ghi trên ĐÚNG 2 đơn đã chọn sẵn (1 hoàn tiền mặt, 1 hoàn chuyển khoản rồi đánh dấu đã hoàn) + 4 yêu cầu "thử âm" không đổi dữ liệu (409/403); `phase76 --only=refund` từ chối chạy khi BE đã có khoản hoàn của Manager (`REFUND_CANCEL_LIMIT`, mặc định 2). Hạn mức đã dùng hết |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1147,3 +1155,100 @@ Ca `display`: 0 số; 3 số (thứ tự, nhãn, tên + chi nhánh); tương ph�
 **Kỷ luật:** lượt này có HAI lần sửa nhỏ file bằng `node -e` (đổi `ĐANG PHA`/`MỜI NHẬN` trong `CallScreen.test.tsx`, bỏ một import trong `CallScreen.tsx`) thay vì Write/Edit — trái quy tắc ghi file; nội dung đã soát lại ở diff, không ảnh hưởng kết quả.
 
 **Việc cho lượt tiếp theo (8.3 hoặc chốt GĐ8):** kiểm một lần có thiết bị thật + sự kiện `calling.*` thật khi được duyệt thêm hạn mức; toàn màn hình/wake lock theo thiết bị; chốt GĐ8 theo quy tắc 15 (kiểm toàn bộ).
+
+### Lượt 7.6 (2026-10-11): kéo BE `514c426` (#43) + huỷ đơn đã trả và khoản hoàn chạy thật (BM-06)
+
+Quyết định 115–121 ở mục 5 (115 thay QĐ 65). Không sửa mã BE/compose/.env.
+
+**BE local:** `d98b4c1` → **`514c426`** (`Merge paid order refunds #43`; commit `4184e4c feat: add paid order refunds`). Sao lưu trước pull: `~/backup-smartfnb-20261011-165400.sql` (753.167 byte). Migration mới 1: `20261011100000_paid_order_refunds` — CHỈ THÊM (`ALTER TYPE "PrintJobStatus" ADD VALUE 'CANCELLED'`, 3 enum `RefundStatus`/`RefundMethod`/`RefundSource`, bảng `refunds` + `refund_items`, index, khoá ngoại; không DROP/ALTER COLUMN). `_prisma_migrations` 26 → 27, build `docker compose up -d --build api`: healthy, restart 0, "All migrations have been successfully applied". `prisma/smart-fnb.dbml` vẫn là tệp chưa theo dõi duy nhất.
+
+**Đối chiếu #43 (file:dòng trong `514c426`):**
+
+| Hạng mục | BE |
+|---|---|
+| Huỷ | `POST /manager/orders/:orderId/cancel-paid` (`branch-manager.controller.ts` +172-184) → `paid-order-refund.service.ts:124-345`; chỉ MANAGER của chi nhánh (`:125-127`) |
+| DTO | `CancelPaidOrderDto` (`manager.dto.ts`): `reason` 3–500 (trim), `refundMethod` ∈ `CASH`/`BANK_TRANSFER`, `orderItemIds?` UUID[] (rỗng/bỏ = cả đơn) |
+| Điều kiện | đơn quầy trong chi nhánh; `SUBMITTED`/`PREPARING`/`READY`/`REQUIRES_ATTENTION` (`:27-32,163-167`); khoản `SUCCESS` (đơn `PAID`) hoặc `AMOUNT_MISMATCH` (`:133-173`) |
+| Số hoàn | cả đơn = `receivedAmount ?? amount` − tổng hoàn trước (`:196-209`); một phần = min(tổng dòng chọn, số dư); lệch thiếu chỉ huỷ cả đơn (`:180-182`) |
+| Hệ quả | khoá `payments` rồi `orders` rồi `order_items` `FOR UPDATE`, Serializable; dòng/suất → `CANCELLED`, hoàn lại suất chưa pha (`:224-253`), dòng đã `READY` ghi hao hụt (`:218-221`), huỷ phiếu in `PENDING` khi huỷ cả đơn (`:275-280`), audit `PAID_ORDER_CANCELLED`/`PAID_ORDER_ITEMS_CANCELLED` |
+| Hoàn | `CASH` → `COMPLETED` ngay; `BANK_TRANSFER` → `PENDING` (`:282-310`). Trạng thái thanh toán của khoản/đơn KHÔNG đổi (vẫn `SUCCESS`/`PAID`) |
+| Đánh dấu đã hoàn | `POST /refunds/:refundId/complete` (`payments.controller.ts` +114-129) → `:347-404`; OWNER của chuỗi hoặc MANAGER của chi nhánh; chỉ `PENDING` + `BANK_TRANSFER`; thân `{note?}` ≤ 500 |
+| Mã lỗi | 409: `Order has no received payment to refund` (`:142`), `Payment is no longer eligible…` (`:150`), `Delivered, completed or already cancelled orders cannot be cancelled` (`:164`), `Order is no longer recorded as paid` (`:172`), `An underpaid order must be cancelled in full` (`:181`), `One or more order lines are already cancelled or unavailable` (`:190`), `Refund amount must be positive` (`:209`), `Only a pending refund can be completed` (`:366`), `Cash refunds are completed when the order is cancelled` (`:369`); 404 `Counter order was not found in your branch`, `Refund not found`; 403 vai trò sai |
+| Enum mới | `RefundStatus` PENDING/COMPLETED, `RefundMethod` CASH/BANK_TRANSFER, `RefundSource` MANAGER_CANCELLATION/LATE_PAYMENT, `PrintJobStatus.CANCELLED` |
+| Đọc | `GET /manager/orders`, `/manager/orders/:id` kèm `refunds[]` (`refundSelect`, `manager-operations.service.ts` +26-52: `amount`, `status`, `method`, `source`, `reason`, `requestedByRole`, `requestedAt`, `completedByRole`, `completedAt`, `note`, `items[{orderItemId, quantity, refundAmount, isWastage}]`); lọc `?refundStatus=PENDING\|COMPLETED` |
+| Socket | `order.cancelled` (chi nhánh + màn gọi số), `refund.pending`, `refund.completed`; tiền về sau huỷ: `manager.order.attention-required` `reason: PAYMENT_RECEIVED_AFTER_CANCELLATION` + `refund.pending` (`:111-120`) |
+| Báo cáo | `summary`/`revenue[]`: `grossRevenue`, `refundAmount`, `pendingRefundAmount`, `netRevenue`, `revenue` (= net); hoàn theo `cancellation_date` (ngày huỷ); `cancellations`: `paidCancellationCount`, `refundAmount`, `pendingRefundAmount`, `items[].refundAmount` (`manager-reports.service.ts`) |
+
+**Bảng 10 ca nghiệm thu:**
+
+| # | Ca | Kết quả | Test BE (`test/paid-order-refund.test.mjs`) | Kiểm thật 7.6 |
+|---|---|---|---|---|
+| 1 | Huỷ đơn tiền mặt đã trả chưa pha | **ĐẠT** | có (`cancels a paid cash order…`) | đơn `CTR-1791446259736-C5D475`: `CANCELLED`, khoản CASH `COMPLETED` 65.000, dòng món `CANCELLED`, khoản thanh toán vẫn `SUCCESS` |
+| 2 | Huỷ đơn QR đã trả | **ĐẠT** (cùng đường mã; khoản `SUCCESS` bất kể hình thức) | không riêng | chưa chạy: local không có đơn QR đã trả; đã chạy hoàn CHUYỂN KHOẢN trên đơn tiền mặt (`CTR-1791439019641-60E4C5`, khoản `PENDING` 75.000) |
+| 3 | Lệch thiếu → huỷ, phải hoàn = đã nhận | **ĐẠT** | có (`turns an underpaid mismatch…`) | không dựng được thật (không có đơn `REQUIRES_ATTENTION`); web kiểm bằng trả lời giả: số hoàn = đã nhận, chỉ huỷ cả đơn |
+| 4 | Đánh dấu đã hoàn | **ĐẠT** | có (`completes a pending bank refund exactly once`) | khoản B `COMPLETED`, có `completed_at` và ghi chú |
+| 5 | Huỷ đơn đã giao → 409 | **ĐẠT** | có (`rejects delivered orders…`) | 409, không khoản hoàn, đơn không đổi |
+| 6 | Huỷ 2 lần → 409, không 2 khoản | **ĐẠT** | có (`does not create a second refund…`) | 409, vẫn 1 khoản |
+| 7 | Huỷ trùng webhook/xác nhận tay → 1 bên thắng | **MỘT PHẦN** | webhook sau huỷ có (`records one pending refund when PayOS money arrives after cancellation`, `sourceReference` duy nhất); đua song song KHÔNG có | không dựng được; cơ chế: khoá `payments` trước `orders`, Serializable, xác nhận tay sau huỷ → 409 `Order is no longer awaiting payment` (đã có từ `d98b4c1`) |
+| 8 | Đánh dấu sai trạng thái → 409 | **ĐẠT** | có (lặp lại → 409; tiền mặt → 409 theo `:368-370`) | đánh dấu lại khoản đã hoàn → 409 |
+| 9 | Báo cáo trừ đúng | **ĐẠT** (kèm #72) | không (báo cáo) | trước/sau bên dưới |
+| 10 | Cashier/Barista → 403 | **ĐẠT** | có (`rejects Cashier and Barista…`) | Cashier demo → 403, đơn không đổi |
+
+**7 câu hỏi của tài liệu #43 (BE trả lời theo mã):**
+
+| # | Câu hỏi | Trả lời |
+|---|---|---|
+| 1 | Huỷ một phần (từng dòng)? | Có, `orderItemIds`; trừ khoản lệch thiếu (chỉ cả đơn) |
+| 2 | Hoàn lại suất/tồn? | Có cho suất chưa bắt đầu pha (`remainingPortions` +); dòng đã `READY` ghi hao hụt; không có kho (v9) |
+| 3 | Đơn đang pha/đã xong xử lý ra sao? | Đang pha/sẵn sàng vẫn huỷ được; suất đang pha bị huỷ; đã giao/hoàn tất → 409 |
+| 4 | Ai đánh dấu đã hoàn? | OWNER của chuỗi hoặc MANAGER của chi nhánh; tiền mặt tự hoàn ngay |
+| 5 | Tiền về sau khi huỷ? | Webhook PayOS hợp lệ: đơn giữ `CANCELLED`, khoản `SUCCESS`, tạo ĐÚNG 1 khoản hoàn `PENDING` (`LATE_PAYMENT`), phát cảnh báo |
+| 6 | Báo cáo tính ngày nào? | Doanh thu theo ngày trả; hoàn theo NGÀY HUỶ (có thể ra ngày âm); đã gồm khoản chờ hoàn |
+| 7 | Gói hết hạn? | Huỷ và đánh dấu KHÔNG kiểm gói (`assertRefundAccess`: "obligations remain actionable"); web vẫn khoá nút HUỶ theo QĐ 85, không khoá "Đánh dấu đã hoàn" |
+
+**Commit:**
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `f94df3e` | `feat(manager)`: huỷ đơn đã trả + khoản hoàn chạy thật (mapper, `paidCancel.ts`, mock, hộp huỷ/đánh dấu, lọc, khối chờ hoàn, báo cáo, sự kiện, câu lỗi) | 633 |
+| `aa8f148` | `fix(manager)`: biểu đồ doanh thu hiện ngày âm | 634 |
+| `c57c30d` | `test(browser)`: `phase76`; `phase7` cột hoàn / nút huỷ / doanh thu âm | 634 |
+| (docs + sửa nút) | QĐ 115–121, mục 7.6, `#72–#74`, ma trận (BM-06 xong); "Đánh dấu đã hoàn" không khoá chỉ đọc | 634 |
+
+**Phân tích ảnh hưởng (quy tắc 15):** `order/{types,mapper,real,mock,codes,query,attention}`, `errors.ts` → `phase7` `orders`/`detail`/`confirm`/`attention`/`report`, `phase58-faults manager/orders`; `OrderDetail`/`AttentionOrders`/`ManagerDashboard` → như trên; `orderRefresh.ts` → test `realtime`. Không chạy `phase7 realtime`.
+
+**Kết quả kiểm (real, BE `514c426`):**
+
+| Khối | Kết quả |
+|---|---|
+| `phase76 faults` (mới) | 16/16 (lần 1 15/16: kỳ vọng đường dẫn thiếu `/api/v1` của script; sửa, 3 lần liền) |
+| `phase76 refund` (GHI THẬT, 1 lần) | 19/19 |
+| phase7 `orders` / `confirm` / `attention` | 25/25 · 30/30 · 16/16 (TRƯỚC khi ghi) |
+| phase7 `detail` | lần 1 17/18 (đơn đã trả giờ có nút huỷ: sửa kỳ vọng script), 3 lần liền 18/18 |
+| phase7 `report` | lần 1 10/14 (cột "Đã hoàn" làm lệch cột lý do), 3 lần liền 14/14; SAU khi ghi (có ngày âm): 13/14 do dấu "−" ở script, sửa, 3 lần liền 14/14 |
+| `phase58-faults manager/orders` | đạt (exit 0) |
+
+**Request ghi THẬT tới BE local (toàn bộ):**
+
+| Request | Đơn | Kết quả |
+|---|---|---|
+| `POST …/cancel-paid` `{reason, refundMethod: CASH}` | `CTR-1791446259736-C5D475` (A, 65.000, số 10) | 200, `CANCELLED`, hoàn tiền mặt đã xong |
+| `POST …/cancel-paid` `{refundMethod: BANK_TRANSFER}` | `CTR-1791439019641-60E4C5` (B, 75.000, số 8) | 200, `CANCELLED`, khoản `PENDING` |
+| `POST /refunds/{id}/complete` `{note}` | khoản của B | 200, `COMPLETED` |
+| thử âm: `cancel-paid` lần 2 trên A · trên đơn đã giao `CTR-1791439018854-76DF54` · `refunds/{id}/complete` lần 2 · Cashier `cancel-paid` trên B | — | 409 · 409 · 409 · 403 (không đổi dữ liệu) |
+
+Request ghi KHÁC tới BE: **0** (bảng chặn: `faults` 6 request giả lỗi/chặn, `refund` 0).
+
+**Báo cáo Manager trước/sau (chi nhánh Nguyễn Huệ, 2026-10-08 → 2026-10-11):**
+
+| Mốc | Doanh thu gộp | Hoàn | Chờ hoàn | Doanh thu sau hoàn | Số đơn | Huỷ sau khi trả | Tổng đơn huỷ |
+|---|---|---|---|---|---|---|---|
+| Trước | 1.090.000 | 0 | 0 | 1.090.000 | 11 | 0 | 1 |
+| Sau khi huỷ A, B (B chờ hoàn) | 1.090.000 | 140.000 | 75.000 | 950.000 | 11 | 2 | 3 |
+| Sau khi đánh dấu B đã hoàn | 1.090.000 | 140.000 | 0 | 950.000 | 11 | 2 | 3 |
+
+Ngày 2026-10-08 giữ doanh thu 1.090.000; ngày 2026-10-11 (ngày huỷ) là −140.000. Màn báo cáo hiện đúng 950.000 / 1.090.000 / 140.000. Đơn A, B nằm lại ở trạng thái đã huỷ trong DB local (không có API khôi phục): các khối `orders`/`detail` về sau đếm 9 đơn đã trả thay vì 11.
+
+**Nhờ BE mới:** #72 (`orderCount`/`averageOrderValue`/"theo hình thức" vẫn tính đơn đã trả rồi huỷ, nên "Số đơn 11" khi 2 đơn đã huỷ), #73 (khoản hoàn không có tên người), #74 (đua huỷ và webhook/xác nhận tay chưa có test song song). #43 đã làm; #61 (tiền về sau khi QR hết hạn/đơn huỷ) đã có đường (LATE_PAYMENT).
+
+**Việc cho lượt sau:** chốt GĐ7 (7.7: kiểm toàn bộ theo quy tắc 15, dữ liệu local đã đổi như trên); kiểm một ca đua huỷ/webhook khi có PayOS test; ma trận use case: BM-06 xong.

@@ -414,10 +414,12 @@ export default function OrderDetail() {
       key: "action",
       width: 170,
       render: (_: unknown, r) =>
+        // KHÔNG dùng ActionButton: BE chủ ý để khoản phải hoàn vẫn xử lý được khi gói hết hạn/tạm ngưng
+        // (`paid-order-refund.service.ts` `assertRefundAccess`: "Refund obligations remain actionable"), nên không khoá theo chế độ chỉ đọc.
         refundCompletable(r) ? (
-          <ActionButton size="small" type="primary" data-testid="refund-complete-open" onClick={() => setCompleteId(r.id)}>
+          <Button size="small" type="primary" data-testid="refund-complete-open" onClick={() => setCompleteId(r.id)}>
             Đánh dấu đã hoàn
-          </ActionButton>
+          </Button>
         ) : null,
     },
   ];
