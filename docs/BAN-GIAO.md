@@ -62,6 +62,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | `phase58-faults.mjs` (chỉ real, BE thật) | `real` | vai (`admin`, `owner`, `manager`), nhóm (`read`, `write`, `scope`, `expired`), hoặc một phần id màn (`owner/reports`, `manager/menu`, `owner/options`, `owner/menu (gắn nhóm)`…; id có khoảng trắng đặt trong dấu nháy) | 4 màn đọc+ghi 244s; `scope` 1 vai 32s; đủ 3 vai ~25 phút |
 
 14. **Chuỗi kiểm tra trước mỗi commit (kể cả chỉ tài liệu hoặc script):** `pnpm tsc --noEmit && pnpm lint && pnpm build && pnpm test && git commit …` — `git commit` NẰM TRONG chuỗi, nối bằng `&&`; KHÔNG nối bằng `;` và KHÔNG nối ống (`| grep`, `| tail`, `| head`…) bất kỳ lệnh nào trong chuỗi, vì ống làm mất mã thoát (đã từng commit khi test trượt, quyết định 40). Muốn xem gọn thì chuyển đầu ra vào tệp (`> log 2>&1`) rồi đọc riêng. Cũng đừng dùng tệp đánh dấu cũ trong `/tmp` để chờ tiến trình nền (xoá trước khi chờ).
+15. **Kiểm theo phân tích ảnh hưởng (từ 7.5):** trước khi sửa, liệt kê file sẽ sửa → route/màn bị chạm → khối trình duyệt tương ứng; đó là danh sách kiểm DUY NHẤT của lượt: khối mới + khối của màn bị chạm, MỘT chế độ là đủ (ưu tiên real + `readOverride`; mock chỉ khi real không dựng được dữ liệu). Ca trượt chạy lại 1 lần; sửa script thì chạy 3 lần đạt. Kiểm TOÀN BỘ chỉ ở lượt chốt giai đoạn. Quy tắc 13 (chạy theo khối) và quyết định 21 vẫn đúng, nhưng danh sách khối lấy từ phân tích này thay cho "mọi phase dùng module".
 
 ## 5. Quyết định đã chốt
 
@@ -409,6 +410,10 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 96 | Kiểm real tài khoản chỉ bằng `blockWrites`/`fulfillWrites`/`setFault`; KHÔNG tạo, mời, gửi lại email hay khoá tài khoản thật nào (BE local có `EMAIL_*` nên gửi thật sẽ gửi thư thật) |
 | 97 | `BranchOperations` (Owner "Giờ & khu vực", mã của nhóm): nút ghi (Lưu giờ, Lưu ngày đặc biệt, Xoá, Thêm/Lưu khu vực, Tạm ngưng/Mở lại, Lưu trữ) đổi sang `ActionButton` → khoá khi gói hết hạn/tạm ngưng; cảnh báo antd deprecated (`Drawer width`→`size`, `Spin tip` bỏ) đã sửa; không đổi nghiệp vụ. Ghi chú: nút vào "Giờ & khu vực" ở `Branches.tsx` vốn đã là `ActionButton` nên khi chỉ đọc không mở được ngăn kéo |
 | 98 | Ma trận use case 3 actor là tài liệu chỉ đọc: `docs/ma-tran-use-case-20261010.md` (trạng thái: Xong (thật) / Xong (mock, chờ BE #…) / Một phần / Chưa làm / Hoãn theo quyết định / Ngoài phạm vi web / Thừa) |
+| 99 | (7.5, Khánh duyệt) Route `/manager/orders/needs-attention` ("Đơn cần xử lý", `AttentionOrders.tsx`): đơn `REQUIRES_ATTENTION` của chi nhánh, CŨ NHẤT TRƯỚC (web sắp, vì BE không có tham số sắp xếp và `limit` ≤ 100): số gọi, mã đơn, đã chờ (từ lúc đặt đơn — BE không trả thời điểm lệch #65), tổng, đã nhận, chênh lệch (thiếu = đỏ, dư = vàng), nút Xem → chi tiết (nơi xác nhận thủ công). Rỗng: "Không có đơn nào cần xử lý." Chỉ loại BE đã đánh dấu (số tiền lệch); loại đặc tả có mà BE chưa đánh dấu KHÔNG giả lập (QĐ 64) — ghi lệch và #67 |
+| 100 | Số đếm trên menu = `total` của `GET /manager/orders?status=REQUIRES_ATTENTION&limit=1` (`AttentionWatcher.tsx`, gắn một lần ở `RoleLayout` cho Manager, qua `attentionStore`). Sự kiện `manager.order.attention-required` đi qua hook `useOrderRealtime` dùng chung (một kết nối socket) → GET lại số đếm + 1 thông báo tiếng Việt có nút Xem; gom 2 giây (`createAlertBatcher`), không trùng theo `reason:orderId`; lệch số tiền → dẫn tới chi tiết đơn (1 đơn) hoặc danh sách (nhiều); hết món → Tra cứu đơn |
+| 101 | Tạm chờ #51 (BE chưa phát sự kiện cho mọi thay đổi đơn): trang và số đếm tải lại 60 giây khi tab hiển thị, DỪNG khi ẩn, tải NGAY khi hiện lại (`createPoller`); dọn timer khi rời màn |
+| 102 | Hộp xác nhận tay đang mở mà dữ liệu mới (socket) cho thấy đơn hết điều kiện (đã trả, đã huỷ…) → đóng hộp + "Đơn vừa được cập nhật (<trạng thái>), không cần xác nhận nữa." (`OrderDetail.tsx`); không chạy khi đang gửi request của chính hộp đó |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -937,4 +942,55 @@ KHÔNG chạy phase7 realtime. Ca real của staff (phase5 `--only=staff`, 36 ca
 
 **Nhờ BE mới (đánh tiếp từ #62):** #62 `lastLoginAt` ở danh sách nhân viên; #63 xoá số điện thoại (`null`); #64 phân biệt "chưa kích hoạt"/"ngừng", huỷ lời mời, hạn lời mời.
 
-**Lượt tiếp theo:** 7.5 (Cần xử lý + cảnh báo) rồi 7.6 (huỷ đơn đã trả); đọc `docs/ma-tran-use-case-20261010.md` mục 7 (5 việc thiếu quan trọng nhất cho demo).
+**Lượt tiếp theo:** 7.5 (Cần xử lý + cảnh báo) rồi 7.6 (huỷ đơn đã trả); đọc `docs/ma-tran-use-case-20261010.md` mục 7 (5 việc thiếu quan trọng nhất cho demo). (7.5 đã làm, xem dưới; 7.6 tạm hoãn chờ BE #43.)
+
+### Lượt 7.5 (2026-10-11): Đơn cần xử lý + cảnh báo Manager
+
+Quyết định 99–102 ở mục 5; quy tắc 15 (kiểm theo phân tích ảnh hưởng) ở mục 4. BE `d98b4c1`, dữ liệu thật 0 đơn `REQUIRES_ATTENTION`. KHÔNG request ghi nào tới BE (blockWrites suốt mọi khối).
+
+**Lệch đặc tả ↔ BE về "cần xử lý":** BE đặt `REQUIRES_ATTENTION` chỉ khi webhook/Kiểm tra lại báo SỐ TIỀN LỆCH (`counter-payment-settlement.service.ts:38-92`) và bỏ khi Manager xác nhận (→ `SUBMITTED`); sự kiện `{reason:'PAYMENT_AMOUNT_MISMATCH', orderId, paymentId, expectedAmount, receivedAmount}` (`:83-89`). Đặc tả 4.5 còn "đơn chờ xác nhận thủ công", 6.11 "tiền về sau khi đơn đã huỷ", "hết món khi còn đơn đã trả": BE không đánh dấu trạng thái đơn cho ba loại này (hết món chỉ có sự kiện `ITEM/OPTION_OUT_OF_STOCK` kèm `orderIds`, `counter-operations.controller.ts:351,371`). Web chỉ hiện loại BE đánh dấu; hết món là thông báo dẫn tới Tra cứu đơn; không giả lập (QĐ 64) → #67.
+
+**Phân tích ảnh hưởng (bước 2) → khối kiểm:**
+
+| File sửa | Route/màn bị chạm | Khối kiểm |
+|---|---|---|
+| `api/modules/order/attention.ts` (mới, thuần), `mock.ts` (+1 đơn lệch cũ) | `/manager/orders*` | `attention` (mới), `orders`, `detail` |
+| `api/realtime/operations.ts` (+ hook DEV-only) | mọi màn dùng `useOrderRealtime` | `realtime-reconnect`, `orders`, `detail`, `confirm` |
+| `roles/branch/AttentionOrders.tsx`, `AttentionWatcher.tsx`, `attentionStore.ts` (mới); `router/routeConfig.tsx` | `/manager/orders/needs-attention` | `attention` |
+| `router/RoleLayout.tsx`, `layout/RoleShell.tsx` (số đếm trên menu) | sidebar của mọi vai | `phase4` manager + owner, `phase2` (admin), `phase5 --only=staff` |
+| `roles/branch/OrderDetail.tsx` (QĐ 102) | `/manager/orders/:id` | `detail`, `confirm`, `attention`, `phase58-faults manager/order*` |
+| (watcher gắn ở khu Manager) | `/manager/dashboard` | `report` |
+
+**Cách bơm sự kiện giả và bằng chứng không vào production:** `operations.ts` cuối file đăng ký `window.__injectOperationsEvent` CHỈ khi `import.meta.env.DEV` (viết thẳng tại chỗ để Vite thay bằng `false` và loại khối). Hàm chỉ gọi `onEvent` của người nghe đã đăng ký, không mở socket, không gọi BE. Bằng chứng: sau `pnpm build`, `grep -rl "__injectOperationsEvent" dist` → không có tệp nào (chạy ở cả hai lần build của lượt).
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `64a621c` | `feat(manager)`: route + `AttentionOrders`, `AttentionWatcher` (số đếm menu, socket qua hook dùng chung, gom 2 giây, 60 giây dự phòng), QĐ 102 ở `OrderDetail`, `RoleShell` có `badge`, mock 3 đơn lệch, test thuần + giao diện | 569 |
+| `8aec5a8` | `fix(manager)`: bộ gom cảnh báo tạo trong effect (StrictMode dev nuốt cảnh báo; phát hiện ở khối trình duyệt) + test StrictMode | 570 |
+| `72ff526` | `test(browser)`: phase7 `attention` (16 ca), `listCalls` bỏ GET số đếm, phase5 `confirmOk` chờ tối đa 1,5 giây | 570 |
+| (docs) | QĐ 99–102, quy tắc 15, 7.5, #43 hoãn, ma trận, #65–#67 | 570 |
+
+**Kết quả kiểm (real, chặn ghi, 5173):**
+
+| Khối | Kết quả |
+|---|---|
+| phase7 `attention` (mới) | 16/16 (lần 1 6/7 do lỗi mã StrictMode, sửa trong lượt) |
+| phase7 `orders` | 25/25 (3 lần liền sau sửa script) |
+| phase7 `detail` / `confirm` / `report` | 18/18 · 30/30 · 14/14 |
+| phase7 `realtime-reconnect` | 8/8 |
+| phase4 manager / owner | 2/2 · 34/34 |
+| phase5 `--only=staff` | 36/36 (3 lần liền sau sửa script) |
+| phase2 (real) | đạt, 2 SKIP mock-only đã biết |
+| phase58-faults `manager/order*` (list + chi tiết) | 9/9 |
+
+Ca `attention` (readOverride cho danh sách/chi tiết, `__injectOperationsEvent` cho socket): rỗng đúng dữ liệu thật; 2 đơn (cũ 95 phút "Dư 10.000" vàng nằm trên, mới "Thiếu 5.000" đỏ); số đếm menu = total (2 → 3 sau sự kiện); 3 sự kiện trùng đơn → đúng 1 thông báo "nhận X, cần Y" kèm Xem, không báo lại; Xem → chi tiết; hộp xác nhận mở rồi chi tiết thành `SUBMITTED` → hộp đóng + "Đơn vừa được cập nhật (Đã thanh toán), không cần xác nhận nữa."; 65 giây tab hiển thị ≥ 2 GET, tab ẩn 0 GET, hiện lại tải ngay; 0 request ghi.
+
+**Số request ghi tới BE:** 0 (bảng chặn của `attention`: 0; `confirm`: 8 `POST …/confirm` bị CDP chặn/giả lập như 7.4; staff: 13 PATCH/POST bị chặn/giả lập; không có request nào tới BE).
+
+**Ca trượt:** (1) `attention` lần 1: cảnh báo không hiện → lỗi MÃ của lượt (batcher `useMemo` bị `dispose` khi StrictMode chạy lại effect) → sửa `8aec5a8`. (2) `realtime-reconnect` "đúng 1 GET" thành 2 và `orders` "TỔNG GET đều có from/to": do watcher mới cũng GET `?status=REQUIRES_ATTENTION` → sửa kỳ vọng `listCalls` (script), chạy lại đạt. (3) phase5 staff khoá lỗi giả 500/403/409/404: do script (confirmOk chờ 5 giây làm toast hết sống) → chờ tối đa 1,5 giây, 3 lần liền 36/36. Hạ tầng: `realtime-reconnect` thoát mã 127 (libuv) sau dòng tổng; Vite/Chrome phải dựng lại đầu lượt.
+
+**Nhờ BE mới (đánh tiếp):** #65 thời điểm đơn chuyển "Cần xử lý" (`attentionAt`); #66 tham số sắp xếp cho `GET /manager/orders`; #67 đánh dấu các loại "cần xử lý" khác (chờ xác nhận thủ công, tiền về sau huỷ, hết món). #51 vẫn mở (web đang dùng 60 giây dự phòng).
+
+**Ghi chú #43:** tạm hoãn, tài liệu hợp đồng đã gửi Bảo ngày 11/10 (`api-contract-plan.md` #43); 7.6 làm khi BE có endpoint.
+
+**Lượt tiếp theo:** 7.7 chốt GĐ7 (kiểm toàn bộ theo quy tắc 15) hoặc 7.6 nếu BE có #43.

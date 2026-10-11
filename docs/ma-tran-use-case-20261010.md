@@ -39,9 +39,9 @@
 | BM-02 | Bật/tắt món và tuỳ chọn tại chi nhánh | `/manager/menu` · `BranchMenu.tsx` | `menu`, `branch_options` · real | Xong (thật) | #19, #22 (suất v7) | Không gửi `isEnabled` (của Owner) |
 | BM-03 | Báo cáo chi nhánh | `/manager/dashboard` · `ManagerDashboard.tsx` | `manager_report` · real | Xong (thật) | #47 chỉ ảnh hưởng báo cáo Owner | Kỳ ngày/tuần/tháng, top 10, giờ theo múi giờ chi nhánh |
 | BM-04 | Tra cứu đơn, chi tiết đơn | `/manager/orders`, `/manager/orders/:id` · `OrderSearch.tsx`, `OrderDetail.tsx` | `order` · real | Xong (thật) | #48 (tiền khách đưa/thối), #52 (quầy trong chi tiết) | Tự làm tươi qua socket (QĐ 74) |
-| BM-05 | Xác nhận chuyển khoản thủ công (khoản chờ / lệch số tiền) | `/manager/orders/:id` · `OrderDetail.tsx`, `ConfirmTransferModal.tsx` | `order` · real | Một phần | #59, #60, #61; kiểm thật cần PayOS test | Có: hộp 2 bước, BR-28, lý do, "Cần xử lý"/"Lệch số tiền". Thiếu: route `/manager/orders/needs-attention` còn `placeholder` (7.5), cảnh báo thời gian thực |
+| BM-05 | Xác nhận chuyển khoản thủ công (khoản chờ / lệch số tiền) | `/manager/orders/:id` · `OrderDetail.tsx`, `ConfirmTransferModal.tsx` | `order` · real | Một phần | #59, #60, #61; kiểm thật cần PayOS test | Có: hộp 2 bước, BR-28, lý do, "Cần xử lý"/"Lệch số tiền". Từ 7.5: route `/manager/orders/needs-attention` có danh sách thật (QĐ 99). Còn thiếu: kiểm thật với PayOS test; BE chưa đánh dấu loại "cần xử lý" khác (#67) |
 | BM-06 | Huỷ đơn đã thanh toán (toàn bộ/từng dòng), lý do, hình thức hoàn | — (chưa có nút) | `order` | Chưa làm | #43 (BE chưa có huỷ đơn đã trả, ghi khoản phải hoàn) | Lượt 7.6; QĐ 65 chọn "real khoá, mock đủ luồng" |
-| BM-W | Nhận cảnh báo: số tiền lệch, đơn chờ xác nhận, hết món khi còn đơn đã trả | — | `order` (socket) | Chưa làm | sự kiện `manager.order.attention-required` đã có | Hiện chỉ làm tươi dữ liệu (QĐ 74), chưa có chuông/danh sách cảnh báo (7.5) |
+| BM-W | Nhận cảnh báo: số tiền lệch, đơn chờ xác nhận, hết món khi còn đơn đã trả | Sidebar "Đơn cần xử lý" (số đếm) + thông báo nổi · `AttentionWatcher.tsx` | `order` (socket + tải 60 giây) | Một phần | #51 (sự kiện chưa đủ), #65, #67 | Có (7.5, QĐ 100–101): số tiền lệch (socket) và hết món (thông báo dẫn tới Tra cứu). Thiếu: "đơn chờ xác nhận thủ công" và "tiền về sau khi đơn đã huỷ" — BE không phát/đánh dấu (#67) |
 
 ## 4. Màn chung của web (ngoài 3 actor)
 
@@ -77,18 +77,18 @@
 |---|---|---|---|---|---|---|---|---|
 | Admin (PA) | 5 | 0 | 0 | 0 | 0 | 0 | 1 (`/admin/overview`) | 5 |
 | Owner (OW) | 8 | 1 (OW-09) | 1 (OW-08) | 0 | 0 | 0 | 1 (tab Ngày đặc biệt/Khu vực) | 10 |
-| Branch Manager (BM) | 4 (01a, 02, 03, 04) | 0 | 2 (01b, 05) | 2 (06, cảnh báo) | 0 | 0 | 1 (`branch-info`) | 8 (BM-01 tách 2; thêm "nhận cảnh báo") |
+| Branch Manager (BM) | 4 (01a, 02, 03, 04) | 0 | 3 (01b, 05, cảnh báo) | 1 (06) | 0 | 0 | 1 (`branch-info`) | 8 (BM-01 tách 2; thêm "nhận cảnh báo") |
 | Màn chung | 3 | 0 | 2 | 0 | 0 | 0 | — | 5 |
 | Hoãn / ngoài phạm vi | — | — | — | — | 2 (`/t/:token`, màn khách web) | 2 | — | 4 |
 
-Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **17** (5 + 8 + 4), Xong (mock) **1**, Một phần **3**, Chưa làm **2**.
+Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **17** (5 + 8 + 4), Xong (mock) **1**, Một phần **4** (OW-08, BM-01b, BM-05, cảnh báo — sau 7.5), Chưa làm **1** (BM-06).
 
 ## 7. Năm việc còn thiếu quan trọng nhất cho demo (tuần 7 của lịch)
 
 | # | Việc | Use case | Vì sao | Lượt đề xuất |
 |---|---|---|---|---|
 | 1 | Huỷ đơn đã thanh toán, ghi lý do và hình thức hoàn | BM-06 | Use case duy nhất của Manager chưa có; rủi ro R5 (huỷ đơn đã trả) khi demo; cần BE #43 hoặc làm mock đủ luồng + khoá real (QĐ 65) | 7.6 |
-| 2 | Hoàn thiện "Đơn cần xử lý": route danh sách, cảnh báo thời gian thực, kiểm với PayOS test | BM-05, BM-W | Hiện xác nhận được từng đơn nhưng Manager không được báo và phải tự tìm đơn lệch; kiểm thật cần khoá PayOS + URL công khai (R3) | 7.5 (+ nhờ nhóm cấp PayOS test) |
+| 2 | ~~Route danh sách và cảnh báo~~ **đã làm ở 7.5**; còn kiểm "Đơn cần xử lý" với PayOS test (webhook lệch thật) và các loại BE chưa đánh dấu (#67) | BM-05, BM-W | Kiểm thật cần khoá PayOS + URL công khai (R3) | nhờ nhóm cấp PayOS test; BE #67 |
 | 3 | Màn hình gọi số chạy thật và an toàn: ghép thiết bị thật, đi qua `describeApiError`/refresh, quyết định giữ bản màn hình khách | màn chung `/display/call`, FE-M | Là điểm demo khu nhận món; mã main gọi `fetch` thẳng và hiện câu thô | 8 |
 | 4 | Báo cáo Owner đúng số đơn quầy (BE lọc `COMPLETED`) và trợ lý AI thật | OW-08, OW-09 | Doanh thu Owner lệch so với Manager khi demo đa chi nhánh; AI còn mock | BE #47 rồi 9 |
 | 5 | Nối nốt BE còn chặn nút: đổi tên/ngừng dùng quầy, xoá điện thoại, phân biệt "chưa kích hoạt", đổi mật khẩu | BM-01b, BM-01a, màn chung | Nhiều nút đang khoá kèm "Chờ BE"; giám khảo bấm vào sẽ thấy | nhờ BE #27, #63, #64; web 7.7 |
