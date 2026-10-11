@@ -164,6 +164,27 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     expect(screen.getByTestId("probe").textContent).toBe("/manager/orders/ord-1");
   });
 
+  it("ngày chỉ có khoản hoàn (doanh thu âm, BE #43): hiện nhãn '−' và thanh cảnh báo, số đúng như BE", async () => {
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(
+      report({
+        summary: { revenue: 950000, grossRevenue: 1090000, refundAmount: 140000, pendingRefundAmount: 75000, netRevenue: 950000, orderCount: 11, averageOrderValue: 99090.91 },
+        revenue: [
+          { bucket: "2026-10-14", revenue: 1090000, grossRevenue: 1090000, refundAmount: 0, orderCount: 11 },
+          { bucket: "2026-10-15", revenue: -140000, grossRevenue: 0, refundAmount: 140000, orderCount: 0 },
+        ],
+      }),
+    );
+    mount("/manager/dashboard?from=2026-10-09&to=2026-10-15");
+    await waitFor(() => expect(screen.getByTestId("report-revenue-bars")).toBeTruthy());
+    const neg = document.querySelector('[data-testid="report-revenue-bars"] [data-negative="true"]');
+    expect(neg).toBeTruthy();
+    expect(screen.getByTestId("report-revenue-bars").textContent).toMatch(/−/);
+    expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("950.000");
+    expect(screen.getByTestId("report-kpi-gross").textContent).toContain("1.090.000");
+    expect(screen.getByTestId("report-kpi-refund").textContent).toContain("140.000");
+    expect(screen.getByTestId("report-kpi-refund-pending").textContent).toContain("75.000");
+  });
+
   it("còn nhiều đơn huỷ hơn danh sách: có liên kết 'Xem tất cả' sang Tra cứu đơn đã lọc", async () => {
     vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({ cancellations: { ...report().cancellations, total: 25 } }));
     mount("/manager/dashboard?from=2026-10-01&to=2026-10-10");

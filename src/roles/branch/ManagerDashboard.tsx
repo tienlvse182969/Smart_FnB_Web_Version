@@ -43,9 +43,21 @@ function Bars({ rows, testId, tooltip, valueLabel }: { rows: { key: string; labe
     <div data-testid={testId} style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, marginTop: 12, overflowX: "auto" }}>
       {rows.map((row) => (
         <div key={row.key} data-key={row.key} data-value={row.value} style={{ flex: "1 0 28px", textAlign: "center", minWidth: 28 }}>
-          <div style={{ fontSize: 10.5, color: palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>{row.value > 0 ? valueLabel(row.value) : ""}</div>
+          {/* Ngày chỉ có khoản hoàn (BE #43 tính hoàn vào NGÀY HUỶ) có doanh thu ÂM: hiện nhãn "−…" và thanh nhỏ màu cảnh báo. */}
+          <div style={{ fontSize: 10.5, color: row.value < 0 ? palette.error.text : palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>
+            {row.value > 0 ? valueLabel(row.value) : row.value < 0 ? `−${valueLabel(-row.value)}` : ""}
+          </div>
           <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
-            <div title={tooltip(row)} style={{ width: "100%", height: `${Math.max((row.value / max) * 100, row.value > 0 ? 3 : 0)}%`, background: palette.brandPrimary, borderRadius: "4px 4px 0 0" }} />
+            <div
+              title={tooltip(row)}
+              data-negative={row.value < 0}
+              style={{
+                width: "100%",
+                height: `${row.value < 0 ? 3 : Math.max((row.value / max) * 100, row.value > 0 ? 3 : 0)}%`,
+                background: row.value < 0 ? palette.error.text : palette.brandPrimary,
+                borderRadius: "4px 4px 0 0",
+              }}
+            />
           </div>
           <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>{row.label}</div>
         </div>
