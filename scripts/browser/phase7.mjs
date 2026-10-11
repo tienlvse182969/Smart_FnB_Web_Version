@@ -414,7 +414,7 @@ try {
       check("Real · Đơn 1: Đã thanh toán; thời gian đặt/thanh toán dd/MM/yyyy HH:mm; thu ngân Lan Thu ngân", (await t("order-detail-payment")) === "Đã thanh toán" && DT.test(await t("order-detail-placed")) && DT.test(await t("order-detail-paid-at")) && (await t("order-detail-cashier")) === "Lan Thu ngân");
       const p1 = await payRows();
       check("Real · Đơn 1: một khoản Tiền mặt, 65.000, Đã thanh toán, người xử lý Lan Thu ngân", p1.length === 1 && /Tiền mặt/.test(p1[0]) && /65\.000/.test(p1[0]) && /Đã thanh toán/.test(p1[0]) && /Lan Thu ngân/.test(p1[0]), J(p1));
-      check("Real · Đơn 1: không hiện tiền khách đưa/tiền thối (BE chưa trả, #48), không audit, không nút hành động", !/Khách đưa|Tiền thối|100\.000|35\.000|audit|nhật ký/i.test(await q(`document.body.innerText`)) && J(await q(`[...document.querySelectorAll("main button")].map((b) => b.innerText.trim()).filter(Boolean)`)) === J(["Quay lại"]));
+      check("Real · Đơn 1: không hiện tiền khách đưa/tiền thối (BE chưa trả, #48), không audit; 7.6: đơn đã trả chưa giao chỉ có 'Huỷ đơn và ghi hoàn tiền' (không có 'Xác nhận thủ công')", !/Khách đưa|Tiền thối|100\.000|35\.000|audit|nhật ký/i.test(await q(`document.body.innerText`)) && J(await q(`[...document.querySelectorAll("main button")].map((b) => b.innerText.trim()).filter(Boolean)`)) === J(["Quay lại", "Huỷ đơn và ghi hoàn tiền"]));
       check("Real · Chỉ báo realtime hiện (kín đáo) và đã kết nối", (await has("realtime-status")) && (await tab.waitFor(`${tid("realtime-status")}?.getAttribute("data-status") === "connected"`, 15000, "socket kết nối").then(() => true, () => false)));
 
       // Đơn 2 — 3 dòng.
@@ -967,8 +967,12 @@ try {
     const tx = (id) => q(`${tid(id)}?.innerText.replace(/\\s+/g, " ").trim() ?? ""`);
     const bars = (id) => q(`[...document.querySelectorAll('[data-testid="${id}"] [data-key]')].map((e) => [e.getAttribute("data-key"), Number(e.getAttribute("data-value"))])`);
     const tableRows = (id) => q(`[...document.querySelectorAll('[data-testid="${id}"] tr.ant-table-row')].map((r) => [...r.querySelectorAll("td")].map((c) => c.innerText.replace(/\\s+/g, " ").trim()))`);
-    const money = (s) => Number(String(s).replace(/[^\d]/g, ""));
-    const firstMoney = (s) => money((String(s).match(/([\d.]+)\s*₫/) ?? [])[1] ?? "0");
+    // 7.6: doanh thu có thể ÂM (ngày chỉ có khoản hoàn, BE #43) → giữ dấu "-"/"−" ở đầu chuỗi.
+    const money = (s) => {
+      const t = String(s);
+      return (/^\s*[-−]/.test(t) ? -1 : 1) * Number(t.replace(/[^\d]/g, ""));
+    };
+    const firstMoney = (s) => money(((String(s).match(/([-−]?[\d.]+)\s*₫/) ?? [])[1] ?? "0"));
     const presetClick = (label) => q(`(() => { const l = [...${tid("report-preset")}.querySelectorAll("label")].find((x) => x.innerText.trim() === ${J(label)}); if (!l) return false; l.click(); return true })()`);
     const prepText = (s) => (s === null ? "Chưa có dữ liệu" : s < 1 ? "Dưới 1 giây" : `${Math.floor(Math.round(s) / 60)}:${String(Math.round(s) % 60).padStart(2, "0")}`);
     const reportCalls = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/reports\?/.test(r.url));
@@ -991,7 +995,8 @@ try {
       const rows30 = await tableRows("report-top-items");
       const top30 = (await tableRows("report-top-toppings")).length;
       check("Mock · 30 ngày: món bán chạy ≤ 10 dòng xếp theo số lượng giảm dần, có topping, có đơn huỷ nhiều lý do", rows30.length >= 1 && rows30.length <= 10 && J(rows30.map((r) => money(r[1]))) === J(rows30.map((r) => money(r[1])).sort((a, b) => b - a)) && top30 > 0, `${rows30.length} món · ${top30} topping`);
-      const reasons = (await tableRows("report-cancellations")).map((r) => r[4]);
+      // 7.6: cột "Đã hoàn / phải hoàn" chen vào trước "Lý do" → lý do ở cột 5.
+      const reasons = (await tableRows("report-cancellations")).map((r) => r[5]);
       check("Mock · Đơn huỷ có nhiều lý do khác nhau", new Set(reasons).size > 1, J([...new Set(reasons)]));
 
       await tab.send("Page.reload");
@@ -1049,7 +1054,8 @@ try {
         const tops = await tableRows("report-top-toppings");
         add("topping (hàng)", J(tops.map((p) => [p[0], money(p[1]), firstMoney(p[2])])), J(r.topToppings.map((p) => [p.name, p.quantity, Math.round(Number(p.additionalRevenue))])));
         const canc = await tableRows("report-cancellations");
-        add("đơn huỷ (tổng / lý do)", J([await q(`(${tid("report-cancellations")}?.innerText.match(/(\\d[\\d.]*) đơn huỷ/) ?? [])[1] ?? "0"`), canc.map((c) => c[4])]), J([String(r.cancellations.total), r.cancellations.items.map((c) => c.reason ?? "—")]));
+        add("đơn huỷ (tổng / lý do)", J([await q(`(${tid("report-cancellations")}?.innerText.match(/(\\d[\\d.]*) đơn huỷ/) ?? [])[1] ?? "0"`), canc.map((c) => c[5])]), J([String(r.cancellations.total), r.cancellations.items.map((c) => c.reason ?? "—")]));
+        // (7.6: lý do ở cột 5, sau cột "Đã hoàn / phải hoàn")
         console.log(`   ── ${name}: ${from} → ${to} (${g}) — SỐ WEB cạnh SỐ BE ──`);
         for (const row of rows) console.log(`   ${row.ok ? "=" : "≠"} ${row.field.padEnd(26)} web: ${row.web.slice(0, 90)}\n     ${"".padEnd(26)}  be: ${row.be.slice(0, 90)}`);
         return { r, rows };
@@ -1065,7 +1071,7 @@ try {
       for (const o of dayOrders) byHour[Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", hour12: false }).format(new Date(o.placedAt)))] += 1;
       const webHours = (await bars("report-hours-bars")).map((b) => b[1]);
       check("Real · Số đơn theo giờ: web = đếm giờ Việt Nam từ GET /manager/orders (placedAt đổi +07:00), không phải giờ UTC", J(webHours) === J(byHour) && webHours.some((n) => n > 0), `giờ có đơn: ${J(webHours.map((n, h) => (n ? `${h}h=${n}` : null)).filter(Boolean))}`);
-      const cancelRow = (await tableRows("report-cancellations")).find((r) => /Khách đổi ý trước khi trả tiền/.test(r[4]));
+      const cancelRow = (await tableRows("report-cancellations")).find((r) => /Khách đổi ý trước khi trả tiền/.test(r[5]));
       check("Real · Đơn huỷ 'Khách đổi ý trước khi trả tiền' hiện đúng lý do, tổng 75.000", !!cancelRow && /75\.000/.test(cancelRow[3]), J(cancelRow));
       const href = await q(`document.querySelector('[data-testid="report-cancel-link"]')?.getAttribute("href") ?? ""`);
       await q(`document.querySelector('[data-testid="report-cancel-link"]').click()`);
