@@ -23,6 +23,7 @@ vi.mock("../api/http/client", async (orig) => ({
 }));
 
 import CallScreen from "./CallScreen";
+import { callChime } from "./chime";
 
 class FakeSocket {
   handlers = new Map<string, Set<(...a: unknown[]) => void>>();
@@ -99,7 +100,7 @@ describe("màn hình gọi số (quyết định 105–108)", () => {
     expect(screen.queryByTestId("call-error")).toBeNull();
     expect(screen.getByTestId("call-pairing-code").textContent).toBe("654321");
     await advance(3000); // lần 3 thành công
-    expect(screen.getByText("ĐANG PHA")).toBeTruthy();
+    expect(screen.getByText("ĐANG CHUẨN BỊ")).toBeTruthy();
     expect(screen.getByText("Quán Test")).toBeTruthy();
     expect(stored()).toMatchObject({ deviceToken: "dev-1", paired: true });
     expect(sockets).toHaveLength(1);
@@ -120,7 +121,7 @@ describe("màn hình gọi số (quyết định 105–108)", () => {
     await advance(10);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.context).toHaveBeenCalledWith("dev-9");
-    expect(screen.getByText("MỜI NHẬN")).toBeTruthy();
+    expect(screen.getByText("MỜI NHẬN MÓN")).toBeTruthy();
   });
 
   it("bị thu hồi (403 khi đã ghép): về bước ghép với câu tiếng Việt, xoá token cũ, tạo mã mới, đóng socket", async () => {
@@ -129,7 +130,7 @@ describe("màn hình gọi số (quyết định 105–108)", () => {
     mocks.create.mockResolvedValue({ ...pairingBody("dev-new"), code: "111222" });
     render(<CallScreen />);
     await advance(10);
-    expect(screen.getByText("MỜI NHẬN")).toBeTruthy();
+    expect(screen.getByText("MỜI NHẬN MÓN")).toBeTruthy();
     expect(sockets).toHaveLength(1);
     mocks.context.mockRejectedValue(forbidden());
     act(() => sockets[0].fromServer("operations.updated", { type: "calling.order.ready", occurredAt: "" }));
@@ -194,6 +195,68 @@ describe("màn hình gọi số (quyết định 105–108)", () => {
     expect(mocks.create).toHaveBeenCalledTimes(2);
     await advance(1000);
     expect(mocks.create).toHaveBeenCalledTimes(3);
+  });
+
+  it("số vừa sang 'Mời nhận': nhấn mạnh đúng số mới ~10 giây, một âm, lần nạp đầu không nhấn mạnh (QĐ 112)", async () => {
+    const ring = vi.spyOn(callChime, "ring").mockReturnValue(true);
+    localStorage.setItem(CALLING_DISPLAY_STORAGE_KEY, JSON.stringify({ ...pairingBody("dev-7"), paired: true }));
+    mocks.context.mockResolvedValue(ctx([7], [12, 13]));
+    render(<CallScreen />);
+    await advance(10);
+    expect(ring).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('[data-testid="call-cell"][data-lit="true"]')).toHaveLength(0);
+    mocks.context.mockResolvedValue(ctx([7, 12, 13], []));
+    act(() => sockets[0].fromServer("operations.updated", { type: "calling.order.ready", occurredAt: "" }));
+    await advance(700);
+    const lit = [...document.querySelectorAll('[data-testid="call-cell"][data-lit="true"]')].map((e) => e.getAttribute("data-number"));
+    expect(lit.sort()).toEqual(["12", "13"]);
+    expect(document.querySelector('[data-testid="call-cell"][data-number="7"]')?.getAttribute("data-lit")).toBe("false");
+    expect(ring).toHaveBeenCalledTimes(1);
+    await advance(10_000);
+    expect(document.querySelectorAll('[data-testid="call-cell"][data-lit="true"]')).toHaveLength(0);
+    ring.mockRestore();
+  });
+
+  it("mất kết nối: GIỮ bảng số cuối, hiện 'Mất kết nối, đang thử lại', không xoá trắng (QĐ 114)", async () => {
+    localStorage.setItem(CALLING_DISPLAY_STORAGE_KEY, JSON.stringify({ ...pairingBody("dev-8"), paired: true }));
+    mocks.context.mockResolvedValueOnce(ctx([7], [12]));
+    render(<CallScreen />);
+    await advance(10);
+    expect(screen.queryByTestId("call-offline")).toBeNull();
+    mocks.context.mockRejectedValue(new ApiError(0, "Failed to fetch"));
+    act(() => sockets[0].fromServer("operations.updated", { type: "calling.order.ready", occurredAt: "" }));
+    await advance(700);
+    expect(screen.getByTestId("call-offline").textContent).toBe("Mất kết nối, đang thử lại");
+    expect([...document.querySelectorAll('[data-testid="call-cell"]')].map((e) => e.getAttribute("data-number")).sort()).toEqual(["12", "7"]);
+    expect(screen.getByText("MỜI NHẬN MÓN")).toBeTruthy();
+  });
+
+  it("chưa ghép: sau 3 mã hết hạn liên tiếp thì 5 phút mới tạo mã, có nút 'Chạm để lấy mã mới' (QĐ 113)", async () => {
+    mocks.create.mockImplementation(async () => pairingBody());
+    mocks.context.mockRejectedValue(forbidden());
+    render(<CallScreen />);
+    await advance(10);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    // (act chỉ xả effect khi thoát, nên mỗi lần hết hạn cần thêm một bước ngắn để bộ đếm "tạo mã" chạy)
+    await advance(5 * 60_000 + 4000); // mã 1 hết hạn (phát hiện ở lượt hỏi 3s kế tiếp)
+    await advance(10); // → mã 2
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    await advance(5 * 60_000 + 4000); // mã 2 hết hạn
+    await advance(10); // → mã 3
+    expect(mocks.create).toHaveBeenCalledTimes(3);
+    expect(screen.queryByTestId("call-refetch")).toBeNull();
+    await advance(5 * 60_000 + 4000); // mã 3 hết hạn: lần thứ 3 liên tiếp → giãn nhịp
+    await advance(10);
+    expect(mocks.create).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("call-refetch").textContent).toBe("Chạm để lấy mã mới");
+    await advance(4 * 60_000);
+    expect(mocks.create).toHaveBeenCalledTimes(3);
+    await act(async () => {
+      screen.getByTestId("call-refetch").click();
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(mocks.create).toHaveBeenCalledTimes(4);
+    expect(screen.getByTestId("call-pairing-code").textContent).toBe("654321");
   });
 
   it("rời màn hình: huỷ mọi bộ đếm, đóng socket, không gọi API nữa", async () => {

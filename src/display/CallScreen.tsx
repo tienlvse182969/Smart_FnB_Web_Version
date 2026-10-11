@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Volume2, Wifi, WifiOff } from "lucide-react"
+import { Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
 import {
   CALLING_EVENT_PREFIX,
   createCallingDisplayPairing,
   getCallingDisplayContext,
   type CallingDisplayContext,
+  type CallingOrder,
 } from "../api/modules/callingDisplay"
 import { resolveDisplayAsset } from "../api/modules/customerDisplay"
 import { describeApiError } from "../api/http/errors"
 import {
-  backoffDelay,
   classifyContextFailure,
   CODE_EXPIRED_TEXT,
   isCodeExpired,
@@ -21,41 +21,54 @@ import {
   type StoredPairing,
 } from "../api/device/session"
 import { useDeviceRealtime } from "../api/realtime/useDeviceRealtime"
+import { pickReadableTextColor } from "../theme"
+import {
+  addHighlights,
+  boardOrders,
+  digitScale,
+  EXPIRED_STREAK_LIMIT,
+  fitToCapacity,
+  formatCallNumber,
+  nextCodeDelay,
+  nextHighlightExpiry,
+  newlyReady,
+  PREPARING_CAPACITY,
+  pruneHighlights,
+  READY_CAPACITY,
+  type Highlights,
+} from "./callBoard"
+import { callChime, isSoundRemembered } from "./chime"
 
-function call(value: number | null) {
-  return value === null ? "---" : String(value).padStart(3, "0")
-}
-function beep() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext
-  const audio = new AudioContextClass()
-  const oscillator = audio.createOscillator()
-  const gain = audio.createGain()
-  oscillator.frequency.value = 880
-  gain.gain.setValueAtTime(0.2, audio.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.6)
-  oscillator.connect(gain).connect(audio.destination)
-  // Màn chạy cả ngày: mỗi tiếng bíp tạo một AudioContext, không đóng thì trình duyệt chặn sau vài lần (QĐ 108).
-  oscillator.onended = () => void audio.close()
-  oscillator.start()
-  oscillator.stop(audio.currentTime + 0.6)
+const HEX = /^#[0-9a-fA-F]{6}$/
+
+function useChimeRunning(): boolean {
+  const [running, setRunning] = useState(callChime.isRunning())
+  useEffect(() => {
+    const off = callChime.onChange(setRunning)
+    if (isSoundRemembered()) void callChime.restore()
+    return off
+  }, [])
+  return running
 }
 
 /**
  * Màn hình gọi số (TV/tablet ở khu nhận món, không đăng nhập). Giữ token thiết bị riêng (`api/device/session.ts`), gọi API qua client
- * thiết bị (`api/http/deviceClient.ts`) và nhận sự kiện qua kết nối `/operations` dùng chung (`useDeviceRealtime`). Quyết định 105–108.
+ * thiết bị (`api/http/deviceClient.ts`) và nhận sự kiện qua kết nối `/operations` dùng chung (`useDeviceRealtime`). Quyết định 105–114.
+ * Bố cục/logic hiển thị: `callBoard.ts`; âm báo: `chime.ts`.
  */
 export default function CallScreen() {
   const [pairing, setPairing] = useState<StoredPairing | null>(() =>
     loadPairing(),
   )
   const [context, setContext] = useState<CallingDisplayContext | null>(null)
-  const [sound, setSound] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [codeFailures, setCodeFailures] = useState(0)
-  const soundRef = useRef(sound)
-  soundRef.current = sound
-  const readyNumbers = useRef(new Set<number>())
+  const [expiredStreak, setExpiredStreak] = useState(0)
+  const [lit, setLit] = useState<Highlights>({})
+  const soundOn = useChimeRunning()
+  /** Tập số "Mời nhận" của lần nạp trước; null = chưa nạp (lần đầu không số nào là "mới gọi"). */
+  const readyNumbers = useRef<Set<number> | null>(null)
   const creating = useRef(false)
   /** Tải lại ngữ cảnh ngay (do vòng hỏi trong effect đăng ký); socket và tab hiện lại gọi qua đây. */
   const refreshRef = useRef<() => void>(() => undefined)
@@ -66,7 +79,11 @@ export default function CallScreen() {
     creating.current = true
     try {
       const next = await createCallingDisplayPairing()
-      const stored: StoredPairing = { ...next, issuedAt: Date.now(), paired: false }
+      const stored: StoredPairing = {
+        ...next,
+        issuedAt: Date.now(),
+        paired: false,
+      }
       savePairing(stored)
       setPairing(stored)
       setContext(null)
@@ -80,15 +97,15 @@ export default function CallScreen() {
     }
   }, [])
 
-  // Chưa có mã: tạo mã; lỗi thì thử lại giãn cách 5s, 10s, 20s… tối đa 60s (QĐ 107), không dồn dập.
+  // Chưa có mã: tạo mã; lỗi thì thử lại giãn cách 5s…60s (QĐ 107); 3 mã hết hạn liên tiếp thì mỗi 5 phút một mã (QĐ 113).
   useEffect(() => {
     if (pairing) return
     const timer = window.setTimeout(
       () => void createCode(),
-      codeFailures === 0 ? 0 : backoffDelay(codeFailures),
+      nextCodeDelay({ failures: codeFailures, expiredStreak }),
     )
     return () => window.clearTimeout(timer)
-  }, [createCode, pairing, codeFailures])
+  }, [createCode, pairing, codeFailures, expiredStreak])
 
   // Vòng hỏi ngữ cảnh: chờ ghép (3s) → đã ghép (10s, 30s khi socket đang nối); lỗi thì giãn cách tăng dần.
   const token = pairing?.deviceToken ?? null
@@ -100,13 +117,14 @@ export default function CallScreen() {
     let again = false
     let failures = 0
     let timer: number | undefined
-    const back = (text: string) => {
+    const back = (text: string, expired: boolean) => {
       stopped = true
       savePairing(null)
-      readyNumbers.current = new Set()
+      readyNumbers.current = null
       setNotice(text)
       setContext(null)
       setPairing(null)
+      if (expired) setExpiredStreak((count) => count + 1)
     }
     const schedule = () => {
       if (stopped) return
@@ -129,7 +147,7 @@ export default function CallScreen() {
       window.clearTimeout(timer)
       // Chưa ghép mà mã đã hết hạn: token này không bao giờ dùng được nữa, không cần hỏi BE.
       if (!current.paired && isCodeExpired(current)) {
-        back(CODE_EXPIRED_TEXT)
+        back(CODE_EXPIRED_TEXT, true)
         return
       }
       inFlight = true
@@ -140,18 +158,18 @@ export default function CallScreen() {
         if (!current.paired) {
           current = { ...current, paired: true }
           savePairing(current)
+          setExpiredStreak(0)
         }
-        const nextReady = new Set(
-          next.ready.flatMap((order) =>
-            order.callNumber === null ? [] : [order.callNumber],
-          ),
+        const readyNow = boardOrders(next.ready, "readyAt").map(
+          (order) => order.callNumber as number,
         )
-        if (
-          soundRef.current &&
-          [...nextReady].some((number) => !readyNumbers.current.has(number))
-        )
-          beep()
-        readyNumbers.current = nextReady
+        const fresh = newlyReady(readyNumbers.current, readyNow)
+        readyNumbers.current = new Set(readyNow)
+        if (fresh.length) {
+          const now = Date.now()
+          setLit((prev) => addHighlights(pruneHighlights(prev, now), fresh, now))
+          callChime.ring() // một âm cho mọi số mới của lần nạp này; chime tự chặn chồng tiếng
+        }
         setContext(next)
         setError(null)
         setNotice(null)
@@ -159,11 +177,11 @@ export default function CallScreen() {
         if (stopped) return
         const verdict = classifyContextFailure(reason, current)
         if (verdict === "revoked") {
-          back(REVOKED_TEXT)
+          back(REVOKED_TEXT, false)
           return
         }
         if (verdict === "code-expired") {
-          back(CODE_EXPIRED_TEXT)
+          back(CODE_EXPIRED_TEXT, true)
           return
         }
         if (verdict === "waiting") failures = 0
@@ -188,6 +206,29 @@ export default function CallScreen() {
     }
   }, [pairing?.deviceToken])
 
+  // Tắt nhấn mạnh khi hết 10 giây (một bộ đếm cho cả tập).
+  useEffect(() => {
+    const expiry = nextHighlightExpiry(lit)
+    if (expiry === null) return
+    const timer = window.setTimeout(
+      () => setLit((prev) => pruneHighlights(prev, Date.now())),
+      Math.max(50, expiry - Date.now()),
+    )
+    return () => window.clearTimeout(timer)
+  }, [lit])
+
+  // Chưa bật âm: cú chạm bất kỳ trên màn hình mở khoá (nhân viên chạm một lần khi lắp đặt).
+  useEffect(() => {
+    if (soundOn) return
+    const unlock = () => void callChime.unlock()
+    window.addEventListener("pointerdown", unlock)
+    window.addEventListener("keydown", unlock)
+    return () => {
+      window.removeEventListener("pointerdown", unlock)
+      window.removeEventListener("keydown", unlock)
+    }
+  }, [soundOn])
+
   const realtime = useDeviceRealtime(() => refreshRef.current(), {
     token,
     enabled: context !== null,
@@ -206,7 +247,10 @@ export default function CallScreen() {
       wasOnline.current = true
       return
     }
-    if (realtime.rejected || (wasOnline.current && realtime.status === "disconnected"))
+    if (
+      realtime.rejected ||
+      (wasOnline.current && realtime.status === "disconnected")
+    )
       refreshRef.current()
   }, [online, realtime.rejected, realtime.status, context !== null])
   // Hết lượt tự nối: trên TV không có ai bấm "Kết nối lại" nên tự thử lại theo nhịp 30s.
@@ -219,7 +263,8 @@ export default function CallScreen() {
     return () => window.clearTimeout(timer)
   }, [realtime.exhausted, realtime.reconnect])
 
-  if (!context)
+  if (!context) {
+    const slow = !pairing && expiredStreak >= EXPIRED_STREAK_LIMIT
     return (
       <main className="mx-auto flex min-h-screen w-full items-center justify-center bg-slate-950 p-8 text-white">
         <section className="w-full max-w-xl rounded-3xl bg-white p-10 text-center text-slate-900 shadow-2xl">
@@ -262,11 +307,20 @@ export default function CallScreen() {
             </>
           )}
           {error ? (
-            <p data-testid="call-error" className="mt-4 text-red-600">
+            <p data-testid="call-error" className="mt-4 text-red-700">
               {error}
             </p>
           ) : null}
-          {error && !pairing ? (
+          {slow ? (
+            <button
+              data-testid="call-refetch"
+              className="mt-6 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white"
+              onClick={() => void createCode()}
+            >
+              Chạm để lấy mã mới
+            </button>
+          ) : null}
+          {error && !pairing && !slow ? (
             <button
               className="mt-4 rounded-xl bg-slate-900 px-5 py-3 text-white"
               onClick={() => void createCode()}
@@ -274,44 +328,78 @@ export default function CallScreen() {
               Thử lại
             </button>
           ) : null}
+          <button
+            data-testid="call-sound-enable"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-slate-400 px-4 py-2 text-slate-800"
+            onClick={() => void callChime.unlock()}
+          >
+            {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {soundOn ? "Âm thanh đã bật" : "Bật âm thanh"}
+          </button>
         </section>
       </main>
     )
+  }
+
   const { branding, branch } = context
+  const primary = HEX.test(branding.primaryColor) ? branding.primaryColor : null
+  const headerStyle = primary
+    ? { background: primary, color: pickReadableTextColor(primary) }
+    : undefined
+  const preparing = fitToCapacity(
+    boardOrders(context.preparing, "submittedAt"),
+    PREPARING_CAPACITY,
+  )
+  const ready = fitToCapacity(
+    boardOrders(context.ready, "readyAt"),
+    READY_CAPACITY,
+  )
+  const offline = error !== null || (!online && realtime.exhausted)
+  const nowMs = Date.now()
   return (
-    <main className="min-h-screen bg-slate-100 p-6 text-slate-950">
-      <header className="mb-6 flex items-center justify-between rounded-2xl bg-white px-7 py-5 shadow-sm">
-        <div className="flex items-center gap-4">
+    <main className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-white">
+      <header
+        data-testid="call-header"
+        style={headerStyle}
+        className={`flex h-[12vh] shrink-0 items-center justify-between px-[2vw] ${primary ? "" : "bg-slate-800 text-white"}`}
+      >
+        <div className="flex min-w-0 items-center gap-[1.5vw]">
           {branding.logoUrl ? (
             <img
-              className="h-14 w-14 object-contain"
+              className="h-[8vh] w-[8vh] object-contain"
               src={resolveDisplayAsset(branding.logoUrl) ?? ""}
               alt=""
             />
           ) : null}
-          <div>
-            <h1 className="text-2xl font-black">{branding.displayName}</h1>
-            <p className="text-slate-500">{branch.name}</p>
+          <div className="min-w-0">
+            <h1 className="truncate text-[4.4vh] leading-tight font-black">
+              {branding.displayName}
+            </h1>
+            <p className="truncate text-[2.4vh] opacity-90">{branch.name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            className="flex items-center gap-2 rounded-xl border px-4 py-2"
-            onClick={() => {
-              beep()
-              setSound(true)
-            }}
-          >
-            <Volume2 size={18} />
-            {sound ? "Âm thanh đã bật" : "Bật âm thanh"}
-          </button>
+        <div className="flex shrink-0 items-center gap-[1.5vw] text-[2.2vh] font-semibold">
+          {offline ? (
+            <span
+              data-testid="call-offline"
+              className="rounded-full bg-amber-300 px-[1.2vw] py-[0.6vh] text-slate-950"
+            >
+              Mất kết nối, đang thử lại
+            </span>
+          ) : null}
+          {!soundOn ? (
+            <span
+              data-testid="call-sound-off"
+              className="flex items-center gap-[0.6vw] rounded-full bg-slate-950/70 px-[1.2vw] py-[0.6vh] text-white"
+            >
+              <VolumeX size={18} /> Âm thanh tắt
+            </span>
+          ) : null}
           <span
             data-testid="call-status"
             data-status={realtime.status}
             data-exhausted={realtime.exhausted}
-            className={`flex items-center gap-2 ${
-              online ? "text-emerald-600" : "text-amber-600"
-            }`}
+            className="flex items-center gap-[0.6vw] rounded-full bg-slate-950/70 px-[1.2vw] py-[0.6vh] text-white"
           >
             {online ? <Wifi size={18} /> : <WifiOff size={18} />}
             {online
@@ -323,61 +411,98 @@ export default function CallScreen() {
         </div>
       </header>
       {error ? (
-        <div
-          data-testid="call-error"
-          className="mb-5 rounded-xl bg-red-50 p-4 text-red-700"
-        >
+        <p data-testid="call-error" className="sr-only">
           {error}
-        </div>
+        </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-6">
-        <section className="min-h-[70vh] rounded-3xl bg-white p-7 shadow-sm">
-          <h2 className="mb-6 text-center text-3xl font-black text-slate-600">
-            ĐANG PHA
+      <div className="grid min-h-0 flex-1 grid-cols-[4fr_5fr] gap-[1.5vw] p-[1.5vw]">
+        <section
+          data-testid="call-preparing"
+          className="flex min-h-0 flex-col rounded-[2vh] bg-slate-800 p-[1.5vh]"
+        >
+          <h2 className="mb-[1vh] text-center text-[3.2vh] font-black tracking-wide text-slate-100">
+            ĐANG CHUẨN BỊ
           </h2>
-          <div className="grid grid-cols-3 gap-4">
-            {context.preparing.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-2xl bg-slate-100 p-5 text-center text-5xl font-black"
-              >
-                {call(order.callNumber)}
-              </div>
-            ))}
-          </div>
-          {!context.preparing.length ? (
-            <p className="mt-20 text-center text-xl text-slate-400">
-              Chưa có đơn đang pha
+          {preparing.shown.length === 0 && preparing.hidden === 0 ? (
+            <p className="m-auto text-[2.6vh] text-slate-300">
+              Chưa có đơn đang chuẩn bị
             </p>
-          ) : null}
+          ) : (
+            <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-5 gap-[1vh]">
+              {preparing.shown.map((order: CallingOrder) => {
+                const text = formatCallNumber(order.callNumber as number)
+                return (
+                  <div
+                    key={order.id}
+                    data-testid="call-cell"
+                    data-number={order.callNumber}
+                    className="flex items-center justify-center overflow-hidden rounded-[1.4vh] bg-white font-black text-slate-950 tabular-nums"
+                    style={{
+                      fontSize: `calc(min(7vh, 4.4vw) * ${digitScale(text)})`,
+                    }}
+                  >
+                    {text}
+                  </div>
+                )
+              })}
+              {preparing.hidden > 0 ? (
+                <div
+                  data-testid="call-more"
+                  className="flex items-center justify-center rounded-[1.4vh] border-2 border-slate-300 text-[2.4vh] font-bold text-slate-100"
+                >
+                  +{preparing.hidden} số khác
+                </div>
+              ) : null}
+            </div>
+          )}
         </section>
-        <section className="min-h-[70vh] rounded-3xl bg-emerald-50 p-7 shadow-sm">
-          <h2 className="mb-6 text-center text-3xl font-black text-emerald-700">
-            MỜI NHẬN
+        <section
+          data-testid="call-ready"
+          className="flex min-h-0 flex-col rounded-[2vh] bg-emerald-950 p-[1.5vh] ring-[0.5vh] ring-emerald-400"
+        >
+          <h2 className="mb-[1vh] text-center text-[4.4vh] font-black tracking-wide text-emerald-200">
+            MỜI NHẬN MÓN
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            {context.ready.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-2xl bg-emerald-600 p-6 text-center text-6xl font-black text-white shadow-lg"
-              >
-                {call(order.callNumber)}
-              </div>
-            ))}
-          </div>
-          {!context.ready.length ? (
-            <p className="mt-20 text-center text-xl text-emerald-700/50">
+          {ready.shown.length === 0 && ready.hidden === 0 ? (
+            <p className="m-auto text-[2.8vh] text-emerald-200">
               Chưa có đơn sẵn sàng
             </p>
-          ) : null}
+          ) : (
+            <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-4 gap-[1.2vh]">
+              {ready.shown.map((order: CallingOrder) => {
+                const text = formatCallNumber(order.callNumber as number)
+                const isLit = (lit[order.callNumber as number] ?? 0) > nowMs
+                return (
+                  <div
+                    key={order.id}
+                    data-testid="call-cell"
+                    data-number={order.callNumber}
+                    data-lit={isLit}
+                    className={`flex items-center justify-center overflow-hidden rounded-[1.6vh] bg-emerald-800 font-black text-white tabular-nums transition-transform ${
+                      isLit
+                        ? "z-10 ring-[0.8vh] ring-amber-300 motion-safe:scale-105 motion-safe:animate-pulse"
+                        : ""
+                    }`}
+                    style={{
+                      fontSize: `calc(min(10vh, 7vw) * ${digitScale(text)})`,
+                    }}
+                  >
+                    {text}
+                  </div>
+                )
+              })}
+              {ready.hidden > 0 ? (
+                <div
+                  data-testid="call-more"
+                  className="flex items-center justify-center rounded-[1.6vh] border-2 border-emerald-300 text-[3vh] font-bold text-emerald-100"
+                >
+                  +{ready.hidden} số khác
+                </div>
+              ) : null}
+            </div>
+          )}
         </section>
       </div>
     </main>
   )
-}
-
-declare global {
-  interface Window {
-    webkitAudioContext: typeof AudioContext
-  }
 }
