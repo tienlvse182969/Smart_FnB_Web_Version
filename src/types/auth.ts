@@ -66,4 +66,8 @@ export interface AuthContext {
 }
 
 /** Kết quả xếp email đặt mật khẩu một lần (tạo tài khoản, đặt lại) — như Admin: không bao giờ trả mật khẩu hay token về web. */
-export type PasswordSetupNotice = { expiresAt: string };
+export type PasswordSetupNotice = {
+  expiresAt: string;
+  /** Trạng thái gửi email của BE (`EmailOutboxStatus`): SENT đã gửi, PENDING chưa cấu hình/chưa gửi, FAILED gửi lỗi (BE vẫn tạo tài khoản). Chỉ có ở tài khoản nhân viên của Manager. */
+  emailStatus?: "SENT" | "PENDING" | "FAILED";
+};

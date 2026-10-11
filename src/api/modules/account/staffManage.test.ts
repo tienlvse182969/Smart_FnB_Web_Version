@@ -17,6 +17,7 @@ const staffInput = (n: number, over: Partial<StaffInput> = {}): StaffInput => ({
   lastName: `Viên ${n}`,
   email: `nv${n}@thu.vn`,
   role: "CASHIER",
+  employeeCode: `NV-${n}`,
   ...over,
 });
 
@@ -92,7 +93,8 @@ describe("mock nhân viên của Manager (BM-01, chờ BE #24)", () => {
   it("khoá rồi mở khoá; gửi lại email chỉ trả hạn link và không đổi trạng thái", async () => {
     const { staff } = await accountMock.createStaff(chainId, branchIds[0], staffInput(1));
     const notice = await accountMock.resetStaffPassword(chainId, branchIds[0], staff.id);
-    expect(Object.keys(notice)).toEqual(["expiresAt"]);
+    // Chỉ hạn link và trạng thái gửi email — không bao giờ có mật khẩu hay token.
+    expect(Object.keys(notice)).toEqual(["expiresAt", "emailStatus"]);
     expect((await accountMock.listStaff(chainId, branchIds[0], { search: "nv1@" })).items[0].status).toBe("INACTIVE");
     await accountMock.setStaffActive(chainId, branchIds[0], staff.id, false);
     expect((await accountMock.listStaff(chainId, branchIds[0], { status: "SUSPENDED" })).items.map((s) => s.id)).toContain(staff.id);
@@ -151,7 +153,11 @@ describe("mock nhân viên của Manager (BM-01, chờ BE #24)", () => {
   it("gói cao nhất đủ hạn mức: báo 'đây đã là gói cao nhất'", () => {
     const top = new ApiError(409, "Gói Nâng cao chỉ cho phép 80 tài khoản.", [], "PLAN_LIMIT_REACHED", { suggestedPlans: [] });
     expect(describeAccountError(top)).toMatch(/gói cao nhất/);
-    expect(describeAccountError(new ApiError(409, "Email, phone, or employee code already exists"))).toMatch(/Email này đã được dùng/);
+    expect(describeAccountError(new ApiError(409, "Email, phone, or employee code already exists"))).toMatch(/Email, số điện thoại hoặc mã nhân viên này đã được dùng/);
+    // 409 khác (gói không hoạt động, cập nhật đồng thời) KHÔNG bị gán nhầm là email trùng.
+    expect(describeAccountError(new ApiError(409, "Subscription is not active"))).toBeNull();
+    // BE thật: PLAN_LIMIT_REACHED kèm câu tiếng Việt, không có suggestedPlans → dùng nguyên câu của BE.
+    expect(describeAccountError(new ApiError(409, "Đã hết hạn mức tài khoản. Liên hệ Owner để nâng gói.", [], "PLAN_LIMIT_REACHED", { statusCode: 409 }))).toBe("Đã hết hạn mức tài khoản. Liên hệ Owner để nâng gói.");
     expect(describeAccountError(new Error("x"))).toBeNull(); // không phải ApiError → dùng thông báo chung
   });
 

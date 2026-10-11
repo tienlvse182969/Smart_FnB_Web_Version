@@ -1,4 +1,5 @@
 import { Alert } from "antd";
+import { formatDateVN } from "../lib/reportFormat";
 import { usePlan } from "./usePlan";
 
 /** Banner đầu trang khi doanh nghiệp ở chế độ chỉ đọc (BR-09): hết hạn hoặc tạm ngưng. */
@@ -6,7 +7,7 @@ export default function ReadOnlyBanner() {
   const { isExpired, status, expiresAt } = usePlan();
   if (!isExpired) return null;
 
-  const when = expiresAt ? new Date(expiresAt).toLocaleDateString("vi-VN") : null;
+  const when = expiresAt ? formatDateVN(expiresAt) : null; // dd/MM/yyyy giờ Việt Nam, cùng định dạng với màn Gói của tôi (quyết định 52)
   const message =
     status === "suspended"
       ? "Doanh nghiệp đang bị tạm ngưng — chế độ chỉ đọc"

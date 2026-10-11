@@ -91,16 +91,28 @@ export const GENERIC_ERROR_TEXT = "Không thực hiện được yêu cầu. Ki�
  */
 export const PAYOS_MASTER_KEY_TEXT = "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống.";
 export const PAYOS_STORED_KEY_TEXT = "Khoá PayOS đã lưu không đọc được. Nhập lại đủ 3 khoá để lưu lại.";
+/** 503 khi `PAYOS_WEBHOOK_BASE_URL` chưa đặt (`payos-channel.service.ts:67-70`, BE `de4f55c`). Quyết định 50. */
+export const PAYOS_WEBHOOK_URL_TEXT = "Máy chủ chưa sẵn sàng liên kết PayOS (thiếu địa chỉ nhận thông báo). Vui lòng liên hệ quản trị hệ thống.";
+/** 422 khi lưu khoá: PayOS từ chối bộ khoá hoặc địa chỉ webhook (`payos-channel.service.ts:89`). KHÔNG hiện câu thô của PayOS. Quyết định 50. */
+export const PAYOS_VERIFY_REJECTED_TEXT = "PayOS không chấp nhận bộ khoá này. Kiểm tra lại Client ID, API key và Checksum key.";
+/** 502 khi lưu khoá: PayOS tạm không phản hồi (`payos-channel.service.ts:88`). Quyết định 50. */
+export const PAYOS_UNREACHABLE_TEXT = "Không kết nối được PayOS lúc này. Vui lòng thử lại sau ít phút.";
 const SERVER_TEXT: [RegExp, string][] = [
   [/PAYOS_MASTER_KEY is not configured/i, PAYOS_MASTER_KEY_TEXT],
+  [/PAYOS_WEBHOOK_BASE_URL is not configured/i, PAYOS_WEBHOOK_URL_TEXT],
   [/stored payos credentials are invalid/i, PAYOS_STORED_KEY_TEXT],
 ];
 function serverErrorText(err: ApiError): string {
+  // 502 của PayOS đã được `payos/real.ts` đổi sang câu tiếng Việt cố định (message BE là câu thô, đổi theo PayOS).
+  if (err.message === PAYOS_UNREACHABLE_TEXT) return err.message;
   return SERVER_TEXT.find(([re]) => re.test(err.message ?? ""))?.[1] ?? SERVER_ERROR_TEXT;
 }
 
 /** Có dấu tiếng Việt = câu do web hoặc BE đã Việt hoá, giữ nguyên. */
 const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+
+/** BR-28: nhận thiếu so với tổng đơn (409 `PAYMENT_AMOUNT_INSUFFICIENT` của BE, hoặc web tự chặn ở hộp xác nhận thủ công). Huỷ đơn thuộc 7.6. */
+export const PAYMENT_AMOUNT_INSUFFICIENT_TEXT = "Nhận thiếu so với tổng đơn. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn.";
 
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
@@ -116,6 +128,7 @@ const BACKEND_TEXT: [RegExp, string][] = [
   // 413 do Multer (`FileInterceptor` limits.fileSize, branding.controller.ts:79) trả "File too large" trước khi tới service.
   [/file too large|payload too large/i, "Tệp quá lớn (máy chủ nhận tối đa 5 MB; web giới hạn logo 1 MB)."],
   [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],
+  [/^from must be earlier than to$/i, "Ngày bắt đầu phải trước ngày kết thúc."],
   [/invalid report date|use valid yyyy-mm-dd|report range must contain|reporting range cannot exceed|from must be earlier/i, "Khoảng ngày báo cáo không hợp lệ (từ 1 đến 366 ngày, từ ngày phải trước đến ngày)."],
   [/unknown chain timezone/i, "Múi giờ của chuỗi không hợp lệ."],
   [/provide at least one field/i, "Chưa có thay đổi nào để lưu."],
@@ -139,6 +152,20 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/pairing code/i, "Mã ghép không đúng, đã hết hạn hoặc đã được dùng."],
   [/already uses this service plan/i, "Doanh nghiệp đang dùng gói này rồi."],
   [/target plan price is (higher|lower)/i, "Hướng đổi gói không khớp với giá gói mới."],
+  // Xác nhận thủ công chuyển khoản (BM-05, BE `d98b4c1`: `payments.service.ts`, `counter-payment-settlement.service.ts`; quyết định 89).
+  [/PAYMENT_ALREADY_SETTLED/, "Khoản này đã được xác nhận hoặc không còn chờ xác nhận. Đã tải lại đơn."],
+  [/PAYMENT_AMOUNT_INSUFFICIENT|thực nhận thấp hơn tổng/i, PAYMENT_AMOUNT_INSUFFICIENT_TEXT],
+  [/only bank transfers can be confirmed manually/i, "Chỉ xác nhận thủ công được khoản chuyển khoản, không xác nhận được tiền mặt."],
+  [/order is no longer awaiting payment/i, "Đơn không còn ở trạng thái chờ thanh toán (có thể đã huỷ hoặc đã trả)."],
+  [/payment changed concurrently/i, "Khoản thanh toán vừa được cập nhật ở nơi khác. Tải lại rồi thử lại."],
+  // Nhân viên của Manager (BE `d98b4c1`, `manager-staff.service.ts`; 7.4c).
+  [/concurrent update; reload/i, "Dữ liệu vừa được cập nhật ở nơi khác. Tải lại rồi thử lại."],
+  [/cashier\/barista not found/i, "Không tìm thấy nhân viên này trong chi nhánh của bạn (có thể đã bị xoá)."],
+  [/null fields are not supported/i, "Không xoá trắng được ô này (chưa hỗ trợ). Nhập giá trị mới hoặc để nguyên."],
+  [/only cashier and barista/i, "Chỉ tạo/đổi được vai trò Cashier hoặc Barista."],
+  [/staff role is not configured/i, "Hệ thống chưa cấu hình vai trò nhân viên. Liên hệ quản trị nền tảng."],
+  [/manual confirmation reason/i, "Lý do xác nhận phải từ 3 đến 500 ký tự."],
+  [/actual received amount is required/i, "Chưa nhập số tiền thực nhận."],
   [/not found/i, "Không tìm thấy dữ liệu cần thao tác (có thể đã bị xoá)."],
   [/already exists|already used|duplicate|in use/i, "Dữ liệu bị trùng hoặc đang được dùng ở nơi khác."],
   [/should not be empty|must be|is required|must contain|invalid/i, "Thông tin nhập chưa hợp lệ. Kiểm tra lại rồi thử lại."],
@@ -151,6 +178,8 @@ export function translateBackendMessage(err: ApiError): string {
   if (err.status === 400 && err.details.length > 0) {
     return err.details.every((d) => HAS_VIETNAMESE.test(d)) ? err.details.join("; ") : summarizeValidation(err.details);
   }
+  // BE gửi câu tiếng Việt ngắn kèm mã `PAYMENT_AMOUNT_INSUFFICIENT`; web dùng câu BR-28 đầy đủ (cùng câu ô nhập đã hiện trước khi gửi).
+  if (err.code === "PAYMENT_AMOUNT_INSUFFICIENT") return PAYMENT_AMOUNT_INSUFFICIENT_TEXT;
   if (HAS_VIETNAMESE.test(message)) return message;
   const hit = BACKEND_TEXT.find(([re]) => re.test(message));
   if (hit) return hit[1];
@@ -213,7 +242,12 @@ export function resetErrorDedupe(): void {
  * Màn tự hiện khối lỗi trong trang (kèm nút Thử lại) nên không cần thông báo nổi trùng cho 403 và mất mạng.
  * Khớp theo đường dẫn hiện tại và chỉ cho lỗi ĐỌC (GET); các loại lỗi khác (hạn mức, 401) và mọi lỗi ghi vẫn báo toàn cục.
  */
-export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos"];
+export const INLINE_ERROR_ROUTES = ["/owner/reports", "/manager/branch-info", "/owner/payos", "/manager/orders", "/manager/orders/*", "/manager/dashboard"];
+
+/** Khớp đường dẫn hiện tại với bảng trên; mục kết thúc bằng `/*` khớp mọi đường dẫn con (trang chi tiết đơn `/manager/orders/:id`). */
+export function isInlineErrorRoute(path: string): boolean {
+  return INLINE_ERROR_ROUTES.some((r) => (r.endsWith("/*") ? path.startsWith(r.slice(0, -1)) : r === path));
+}
 
 export interface ApiErrorEvent {
   kind: ApiErrorKind;
@@ -249,7 +283,7 @@ export function reportApiError(err: unknown): void {
   // 5xx của thao tác GHI để màn hình tự hiện (toast tại chỗ); 5xx của thao tác ĐỌC được báo toàn cục kèm nút Thử lại.
   if (!GLOBAL_KINDS.includes(kind) && !(kind === "server" && retryable)) return;
   // Khối lỗi trong trang chỉ thay cho lỗi ĐỌC; lỗi GHI trên màn đó (ví dụ PayOS) vẫn báo toàn cục như mọi màn khác.
-  const inline = err.method === "GET" && (kind === "forbidden" || kind === "network" || kind === "server") && INLINE_ERROR_ROUTES.includes(currentRoute());
+  const inline = err.method === "GET" && (kind === "forbidden" || kind === "network" || kind === "server") && isInlineErrorRoute(currentRoute());
   err.reported = true;
   if (inline) return;
   handler?.({ kind, error: err, canRetry: retryable });

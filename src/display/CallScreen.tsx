@@ -130,7 +130,9 @@ export default function CallScreen() {
     active.on("connect", () => setOnline(true))
     active.on("disconnect", () => setOnline(false))
     socket.current = active
-    return () => active.disconnect()
+    return () => {
+      active.disconnect()
+    }
   }, [context !== null, pairing, refresh])
 
   if (!context)

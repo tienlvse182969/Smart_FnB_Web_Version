@@ -5,7 +5,7 @@ export type PublicOrderStatus = {
   status: string
   displayStatus: "PREPARING" | "READY_FOR_PICKUP" | "DELIVERED" | "CANCELLED"
   branch: { name: string }
-  branding: { displayName: string logoUrl: string | null primaryColor: string }
+  branding: { displayName: string; logoUrl: string | null; primaryColor: string }
   readyAt: string | null
   deliveredAt: string | null
   cancelledAt: string | null

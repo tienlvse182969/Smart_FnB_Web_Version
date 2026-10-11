@@ -15,7 +15,10 @@ export interface MockFailure {
 
 const FAILURE_KEY = "fnb.mock.failure";
 
-function loadFailure(): MockFailure | null {
+/** Lỗi giả đã lưu — chỉ đọc ở dev; production luôn không có lỗi giả (quyết định 47). */
+export function loadFailure(): MockFailure | null {
+  // `import.meta.env.DEV` viết thẳng tại chỗ (không qua hàm) để bản build thay bằng `false` và bỏ hẳn nhánh đọc storage (quyết định 47).
+  if (!import.meta.env.DEV) return null;
   try {
     const raw = localStorage.getItem(FAILURE_KEY);
     return raw ? (JSON.parse(raw) as MockFailure) : null;
@@ -31,6 +34,7 @@ export const mockControl: { latency: [number, number]; failure: MockFailure | nu
 
 export function setMockFailure(failure: MockFailure | null): void {
   mockControl.failure = failure;
+  if (!import.meta.env.DEV) return; // production: chỉ giữ trong bộ nhớ, không chạm storage
   try {
     if (failure) localStorage.setItem(FAILURE_KEY, JSON.stringify(failure));
     else localStorage.removeItem(FAILURE_KEY);

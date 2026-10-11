@@ -9,6 +9,7 @@ export * from "./plan";
 export * from "./option";
 export * from "./order";
 export * from "./report";
+export * from "./managerReport";
 export * from "./admin";
 export * from "./account";
 export * from "./station";

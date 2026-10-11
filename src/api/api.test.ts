@@ -21,11 +21,11 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos = real, còn lại mock", () => {
+  it("mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos/order = real, còn lại mock", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
-    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["order", "ai"] as const) {
+    for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos", "order", "manager_report"] as const) expect(modes[m]).toBe("real");
+    for (const m of ["ai"] as const) {
       expect(modes[m]).toBe("mock");
     }
   });
@@ -404,10 +404,13 @@ describe("gói (plan)", () => {
     setScenario({ tier: null });
   });
 
-  it("bản real không có chuỗi (Manager): hạn mức rỗng, vẫn có cờ để khoá giao diện", async () => {
+  it("bản real không có chuỗi (Manager) mà BE không đọc được: hạn mức rỗng, vẫn có cờ để khoá giao diện, không ném lỗi", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     const plan = await planReal.getPlan("c");
+    vi.unstubAllGlobals();
     expect(plan.limits).toEqual([]);
     expect(plan.source.limits).toBe("mock");
+    expect(plan.subscriptionUnavailable).toBe(true);
     expect(plan.features.aiAssistant.requiredTier).toBe("ADVANCED");
   });
 });

@@ -2,7 +2,7 @@
  * Mapper whitelist cho `GET /employees` (Owner). Chỉ chép các trường của `ManagerAccount`; mọi trường khác của BE
  * (`phone`, `jobTitle`, `hireDate`, `createdAt`, `user.id`, và bất cứ thứ gì BE thêm sau này) bị bỏ, kể cả token hay mã băm.
  */
-import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount } from "../../../types";
+import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount, StaffEmployee, StaffPage } from "../../../types";
 
 export interface RawEmployee {
   id: string;
@@ -42,6 +42,53 @@ export function mapStaff(raw: RawEmployee): StaffAccount | null {
   if (!role) return null;
   const { lastLoginAt: _drop, ...account } = mapManager(raw);
   return { ...account, role };
+}
+
+/**
+ * `GET /manager/staff` của Branch Manager (BE `manager-staff.service.ts` `staffSelect`): khác `/employees` của Owner — không có
+ * `branch`, không có `user.lastLoginAt`, phân trang phẳng `{ items, total, page, limit }`, có `user.phone`.
+ */
+export interface RawStaff {
+  id: string;
+  branchId: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  user: { email: string; phone: string | null; status: string; role: { code: string } };
+}
+
+export interface RawStaffPage {
+  items: RawStaff[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Vai trò khác CASHIER/BARISTA không thể có ở endpoint này; nếu BE trả thì bỏ dòng (null). */
+export function mapStaffEmployee(raw: RawStaff): StaffEmployee | null {
+  const role = raw.user.role.code;
+  if (role !== "CASHIER" && role !== "BARISTA") return null;
+  return {
+    id: raw.id,
+    employeeCode: raw.employeeCode,
+    firstName: raw.firstName,
+    lastName: raw.lastName,
+    email: raw.user.email,
+    phone: raw.user.phone ?? null,
+    role,
+    status: toStatus(raw.user.status),
+    // BE không trả `lastLoginAt` ở danh sách nhân viên của Manager (api-contract-plan #62): màn không hiện cột này ở real.
+    lastLoginAt: null,
+    branchId: raw.branchId,
+  };
+}
+
+export function mapStaffPage(raw: RawStaffPage): StaffPage {
+  const limit = raw.limit > 0 ? raw.limit : 1;
+  return {
+    items: raw.items.flatMap((e) => mapStaffEmployee(e) ?? []),
+    pagination: { page: raw.page, limit: raw.limit, total: raw.total, totalPages: Math.max(1, Math.ceil(raw.total / limit)) },
+  };
 }
 
 export function mapManagerPage(raw: RawEmployeePage): ManagerPage {

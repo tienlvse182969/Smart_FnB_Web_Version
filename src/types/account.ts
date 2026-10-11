@@ -58,7 +58,15 @@ export type StaffEmployee = {
 };
 
 /** Tạo nhân viên: KHÔNG có mật khẩu — BE xếp email đặt mật khẩu một lần. Vai trò quyết lúc tạo, đặc tả không nói đổi vai trò. */
-export type StaffInput = { firstName: string; lastName: string; email: string; phone?: string; role: StaffRole };
+export type StaffInput = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  role: StaffRole;
+  /** Bắt buộc ở BE (`CreateStaffDto.employeeCode`, 1–50 ký tự, BE viết hoa); Manager nhập. */
+  employeeCode: string;
+};
 
 /** Sửa nhân viên: chỉ họ tên và điện thoại (email là tên đăng nhập, vai trò không đổi). */
 export type StaffPatch = { firstName?: string; lastName?: string; phone?: string | null };

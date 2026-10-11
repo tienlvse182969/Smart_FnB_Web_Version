@@ -1,12 +1,11 @@
 import { Card, Progress, Skeleton, Tag } from "antd";
 import { Check, X } from "lucide-react";
 import { SectionTitle } from "../../components/bits";
+import { formatDateVN } from "../../lib/reportFormat";
 import { usePlan } from "../../plan/usePlan";
 import { palette } from "../../theme";
 import type { FeatureKey, PlanStatus, QuotaResource } from "../../types";
 
-/** Câu cho mọi dữ liệu gói mà máy chủ chưa trả (quyết định 36; api-contract-plan #38). */
-export const PLAN_PENDING_TEXT = "Chưa có dữ liệu từ máy chủ (chờ BE #38)";
 /** Dòng liên hệ (quyết định 37): không có nút gia hạn hay đổi gói, BR-10. */
 export const PLAN_CONTACT_TEXT = "Liên hệ quản trị nền tảng để đổi gói hoặc gia hạn.";
 
@@ -20,14 +19,16 @@ export const FEATURE_LABEL: Record<FeatureKey, string> = {
 const BACKEND_FLAGS: FeatureKey[] = ["branding", "multiBranchCompare"];
 
 const RESOURCE_LABEL: Record<QuotaResource, string> = { branches: "Chi nhánh", accounts: "Tài khoản" };
-const STATUS_LABEL: Record<PlanStatus, string> = { active: "Đang hoạt động", expired: "Đã hết hạn", suspended: "Tạm ngưng" };
 
-const dateLabel = (iso: string) => new Date(iso).toLocaleDateString("vi-VN");
+/** Nhãn đủ giá trị enum `BusinessSubscriptionStatus` của BE (`prisma/schema.prisma:217-221`: ACTIVE, SUSPENDED, EXPIRED), quyết định 52. */
+export const STATUS_LABEL: Record<PlanStatus, string> = { active: "Đang hoạt động", suspended: "Tạm ngưng", expired: "Đã hết hạn" };
+const STATUS_COLOR: Record<PlanStatus, string> = { active: "success", suspended: "warning", expired: "error" };
 
 /**
- * "Gói của tôi" (OW-10, đặc tả `:309`): tên gói, hạn mức đã dùng/tối đa, tính năng có và chưa có. Không có nút gia hạn/đổi gói và không
- * so sánh các gói (quyết định 37, 39). Dữ liệu lấy từ gói đã nạp cùng phạm vi làm việc (`GET /restaurant-chains`), nên lỗi đọc
- * hiện ở màn lỗi nạp khu vực (có nút Thử lại), không phải ở màn này.
+ * "Gói của tôi" (OW-10, đặc tả `:309`): tên gói, trạng thái, ngày hết hạn (giờ Việt Nam, dd/MM/yyyy), hạn mức đã dùng/tối đa, tính năng có và chưa có.
+ * Dữ liệu THẬT từ BE `de4f55c` (quyết định 52). Không có nút gia hạn/đổi gói và không so sánh các gói (quyết định 37, 39). Gói không còn ACTIVE đi
+ * vào cơ chế chỉ đọc có sẵn (`usePlan().isExpired`, banner `ReadOnlyBanner`), màn này chỉ hiện nhãn trạng thái (quyết định 55). Dữ liệu lấy từ gói
+ * đã nạp cùng phạm vi làm việc, nên lỗi đọc hiện ở màn lỗi nạp khu vực (có nút Thử lại), không phải ở màn này.
  */
 export default function MyPlan() {
   const { plan, loading } = usePlan();
@@ -67,9 +68,17 @@ export default function MyPlan() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 8, fontSize: 13.5 }}>
             <span style={{ color: palette.textMuted }}>Trạng thái</span>
-            <span data-testid="myplan-status">{plan.status ? STATUS_LABEL[plan.status] : PLAN_PENDING_TEXT}</span>
+            <span data-testid="myplan-status">
+              {plan.status ? (
+                <Tag color={STATUS_COLOR[plan.status]} style={{ margin: 0 }}>
+                  {STATUS_LABEL[plan.status]}
+                </Tag>
+              ) : (
+                "—"
+              )}
+            </span>
             <span style={{ color: palette.textMuted }}>Hết hạn</span>
-            <span data-testid="myplan-expiry">{plan.expiresAt ? dateLabel(plan.expiresAt) : PLAN_PENDING_TEXT}</span>
+            <span data-testid="myplan-expiry">{formatDateVN(plan.expiresAt)}</span>
           </div>
         </Card>
 

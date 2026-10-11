@@ -4,6 +4,7 @@ import { Link2Off, Save } from "lucide-react";
 import { describeApiError, payosApi, showApiError, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "../../api";
 import { SectionTitle } from "../../components/bits";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
+import { formatDateTime } from "../../lib/reportFormat";
 import ActionButton from "../../plan/ActionButton";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
@@ -28,14 +29,18 @@ const STATUS_VIEW: Record<PayosLinkStatus, { label: string; color: string }> = {
   error: { label: "Lỗi", color: "error" },
 };
 
-const formatDate = (iso?: string) =>
-  iso ? new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+/** Câu hiện khi BE báo `ERROR` (PayOS từ chối lúc tạo QR). KHÔNG hiện nguyên văn `lastError` của PayOS (quyết định 49). */
+export const PAYOS_ERROR_NOTE = "PayOS từ chối khi tạo QR gần nhất. Kiểm tra lại khoá và lưu lại.";
+
+/** Khoá che (quyết định 48): "••••<4 ký tự cuối>". */
+const masked = (last4?: string) => (last4 ? `••••${last4}` : null);
 
 /**
- * Liên kết PayOS (OW-06, mục 11.3, BR-25): Owner nhập 3 khoá một chiều; sau khi lưu khoá không bao giờ hiện lại.
- * Khoá chỉ nằm trong state của màn này: ô kiểu mật khẩu (có nút hiện/ẩn), `autoComplete="off"`, xoá sạch sau khi lưu thành công, không ghi
- * vào localStorage/sessionStorage, không log, không đưa vào thông báo lỗi (quyết định 30). Cập nhật phải nhập lại đủ 3 khoá (quyết định 31).
- * Thật chỉ có Chưa liên kết / Đã liên kết; "Đang kiểm tra" chỉ chớp trong lúc PUT; "Lỗi" chờ BE (#40, chỉ mock có).
+ * Liên kết PayOS (OW-06, mục 11.3, BR-25): Owner nhập 3 khoá một chiều; sau khi lưu chỉ hiện khoá che (4 ký tự cuối do BE trả), không bao giờ
+ * hiện lại khoá đầy đủ. Khoá chỉ nằm trong state của màn này: ô kiểu mật khẩu (có nút hiện/ẩn), `autoComplete="off"`, xoá sạch sau khi lưu thành
+ * công, không ghi vào localStorage/sessionStorage, không log, không đưa vào thông báo lỗi (quyết định 30). Cập nhật phải nhập lại đủ 3 khoá (31).
+ * Từ BE `de4f55c` (#40) có đủ 4 trạng thái: "Đang kiểm tra" là trạng thái thật trong lúc `PUT` chờ BE xác minh với PayOS, nút Lưu và Gỡ bị khoá
+ * để không gửi hai lần (quyết định 51); "Lỗi" khi BE `status = ERROR` (quyết định 49).
  */
 export default function PayosLink() {
   const { message, modal } = App.useApp();
@@ -147,13 +152,24 @@ export default function PayosLink() {
               </Tag>
             </div>
             {isLinked && (
-              <div data-testid="payos-dates" style={{ fontSize: 12.5, color: palette.textMuted, marginBottom: 16 }}>
-                Liên kết lúc {formatDate(channel.linkedAt)} · Cập nhật lúc {formatDate(channel.updatedAt)}
+              <div style={{ marginBottom: 16 }}>
+                <div data-testid="payos-dates" style={{ fontSize: 12.5, color: palette.textMuted }}>
+                  Liên kết lúc {formatDateTime(channel.linkedAt)} · Cập nhật lúc {formatDateTime(channel.updatedAt)}
+                </div>
+                {channel.lastVerifiedAt && (
+                  <div data-testid="payos-verified" style={{ fontSize: 12.5, color: palette.textMuted }}>
+                    Xác minh gần nhất: {formatDateTime(channel.lastVerifiedAt)}
+                  </div>
+                )}
+                <div style={{ fontSize: 13, marginTop: 8 }}>
+                  {masked(channel.clientIdLast4) && (
+                    <div data-testid="payos-mask-clientId">Client ID {masked(channel.clientIdLast4)}</div>
+                  )}
+                  {masked(channel.apiKeyLast4) && <div data-testid="payos-mask-apiKey">API key {masked(channel.apiKeyLast4)}</div>}
+                </div>
               </div>
             )}
-            {channel.status === "error" && (
-              <Alert type="warning" showIcon style={{ marginBottom: 14 }} message="Kết nối PayOS đang lỗi. Nhập lại đủ 3 khoá để liên kết lại." />
-            )}
+            {channel.status === "error" && <Alert data-testid="payos-error-note" type="warning" showIcon style={{ marginBottom: 14 }} message={PAYOS_ERROR_NOTE} />}
             <div style={{ fontSize: 13, color: palette.textMuted, margin: "14px 0" }}>
               {isLinked ? "Cập nhật khoá: nhập lại đủ cả 3 khoá (khoá cũ không hiện lại để bạn sửa từng ô)." : "Nhập 3 khoá lấy từ trang quản trị PayOS."}
             </div>

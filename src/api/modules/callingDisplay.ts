@@ -24,16 +24,14 @@ export type CallingDisplayContext = {
 }
 
 async function json<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as {
-    message?: string
-  } | T | null
-  if (!response.ok)
+  const body = (await response.json().catch(() => null)) as unknown
+  if (!response.ok) {
+    const text = (body as { message?: unknown } | null)?.message
     throw new DisplayApiError(
       response.status,
-      body && "message" in body && typeof body.message === "string"
-        ? body.message
-        : "Không thể kết nối màn hình gọi số",
+      typeof text === "string" ? text : "Không thể kết nối màn hình gọi số",
     )
+  }
   return body as T
 }
 

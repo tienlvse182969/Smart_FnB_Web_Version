@@ -51,12 +51,10 @@ export class DisplayApiError extends Error {
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as { message?: string } | T | null;
+  const body = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
-    throw new DisplayApiError(
-      response.status,
-      body && "message" in body && typeof body.message === "string" ? body.message : "Không thể kết nối màn hình",
-    );
+    const text = (body as { message?: unknown } | null)?.message;
+    throw new DisplayApiError(response.status, typeof text === "string" ? text : "Không thể kết nối màn hình");
   }
   return body as T;
 }

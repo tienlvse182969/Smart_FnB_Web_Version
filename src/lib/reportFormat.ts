@@ -76,6 +76,12 @@ export function formatDateTime(iso: string | null | undefined): string {
   return dayjs(iso).tz(VN_TIMEZONE).format("DD/MM/YYYY HH:mm");
 }
 
+/** Ngày (không giờ), quy về giờ Việt Nam: `2026-09-22T17:30:00Z` → `23/09/2026`. */
+export function formatDateVN(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return dayjs(iso).tz(VN_TIMEZONE).format("DD/MM/YYYY");
+}
+
 export interface DateRange {
   from: string;
   to: string;

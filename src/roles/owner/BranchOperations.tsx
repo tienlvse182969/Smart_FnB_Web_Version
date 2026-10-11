@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { branchApi, describeApiError, showApiError } from "../../api";
 import type { ApiBranchArea, ApiBranchAreaInput, ApiBranchAreaType, ApiBranchDetail, ApiOperatingHour, ApiSpecialHour } from "../../types";
 import { palette } from "../../theme";
+import ActionButton from "../../plan/ActionButton";
 
 const DAYS = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
 const AREA_TYPES: { value: ApiBranchAreaType; label: string }[] = [
@@ -160,8 +161,8 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
   };
 
   return (
-    <Drawer title={detail ? `Quản lý · ${detail.name}` : "Quản lý chi nhánh"} open={!!branchId} onClose={onClose} destroyOnHidden width={720}>
-      {loading && <div style={{ padding: 40, textAlign: "center" }}><Spin tip="Đang tải chi tiết chi nhánh…" /></div>}
+    <Drawer title={detail ? `Quản lý · ${detail.name}` : "Quản lý chi nhánh"} open={!!branchId} onClose={onClose} destroyOnHidden size={720}>
+      {loading && <div style={{ padding: 40, textAlign: "center" }}><Spin /><div style={{ marginTop: 8, color: palette.textMuted }}>Đang tải chi tiết chi nhánh…</div></div>}
       {error && <Alert type="error" showIcon message="Không tải được chi nhánh" description={error} action={<Button onClick={() => void load()}>Thử lại</Button>} />}
       {!loading && !error && detail && <Tabs items={[
         { key: "hours", label: "Giờ hoạt động", children: <div>
@@ -172,7 +173,7 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
             <span>{hour.isClosed ? "Nghỉ" : "Mở"}</span>
             <Input aria-label={`Giờ mở ${DAYS[hour.dayOfWeek]}`} type="time" value={hour.openTime ?? ""} disabled={hour.isClosed} onChange={(e) => updateHour(hour.dayOfWeek, { openTime: e.target.value })} style={{ width: 115 }} />
             <Input aria-label={`Giờ đóng ${DAYS[hour.dayOfWeek]}`} type="time" value={hour.closeTime ?? ""} disabled={hour.isClosed} onChange={(e) => updateHour(hour.dayOfWeek, { closeTime: e.target.value })} style={{ width: 115 }} />
-            <Button loading={busy} onClick={() => saveHour(hour)}>Lưu</Button>
+            <ActionButton loading={busy} data-testid={`hour-save-${hour.dayOfWeek}`} onClick={() => saveHour(hour)}>Lưu</ActionButton>
           </div>)}
         </div> },
         { key: "special", label: "Ngày đặc biệt", children: <div>
@@ -184,10 +185,10 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
             <Input type="time" aria-label="Giờ đóng ngày đặc biệt" value={specialClose} disabled={specialClosed} onChange={(e) => setSpecialClose(e.target.value)} style={{ width: 115 }} />
           </Space>
           <Input aria-label="Ghi chú ngày đặc biệt" placeholder="Ghi chú (tuỳ chọn)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} style={{ marginBottom: 12 }} />
-          <Button type="primary" loading={busy} onClick={saveSpecial}>Lưu ngày đặc biệt</Button>
+          <ActionButton type="primary" loading={busy} data-testid="special-save" onClick={saveSpecial}>Lưu ngày đặc biệt</ActionButton>
           {special.length === 0 ? <Empty description="Chưa có lịch ngày đặc biệt" /> : special.map((item) => <div key={item.date} style={{ padding: "12px 0", borderBottom: "1px solid var(--ant-color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div><b>{item.date.slice(0, 10)}</b> · {item.isClosed ? "Nghỉ" : `${item.openTime}–${item.closeTime}`} {item.note && <span style={{ color: palette.textMuted }}>· {item.note}</span>}</div>
-            <Space><Button onClick={() => editSpecial(item)}>Sửa</Button><Button danger onClick={() => removeSpecial(item)}>Xoá</Button></Space>
+            <Space><Button onClick={() => editSpecial(item)}>Sửa</Button><ActionButton danger data-testid="special-delete" onClick={() => removeSpecial(item)}>Xoá</ActionButton></Space>
           </div>)}
         </div> },
         { key: "areas", label: "Khu vực", children: <div>
@@ -197,13 +198,13 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
             <Select aria-label="Loại khu vực" value={area.type} onChange={(type) => setArea({ ...area, type })} options={AREA_TYPES} style={{ width: 155 }} />
             <InputNumber aria-label="Tầng" min={-10} max={200} value={area.floor} onChange={(floor) => setArea({ ...area, floor: floor ?? 1 })} style={{ width: 75 }} />
           </Space>
-          <Space><Button type="primary" loading={busy} onClick={saveArea}>{areaId ? "Lưu khu vực" : "Thêm khu vực"}</Button>{areaId && <Button onClick={() => { setAreaId(null); setArea({ code: "", name: "", type: "DINING", floor: 1 }); }}>Huỷ sửa</Button>}</Space>
+          <Space><ActionButton type="primary" loading={busy} data-testid="area-save" onClick={saveArea}>{areaId ? "Lưu khu vực" : "Thêm khu vực"}</ActionButton>{areaId && <Button onClick={() => { setAreaId(null); setArea({ code: "", name: "", type: "DINING", floor: 1 }); }}>Huỷ sửa</Button>}</Space>
           {areas.length === 0 ? <Empty description="Chưa có khu vực" /> : areas.map((item) => <div key={item.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--ant-color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div><b>{item.name}</b> · {item.code} · {AREA_TYPES.find((type) => type.value === item.type)?.label} · Tầng {item.floor} <Tag color={item.status === "ACTIVE" ? "green" : "default"}>{item.status === "ACTIVE" ? "Hoạt động" : "Tạm ngưng"}</Tag></div>
-            <Space><Button onClick={() => { setAreaId(item.id); setArea({ code: item.code, name: item.name, type: item.type, floor: item.floor }); }}>Sửa</Button><Button loading={busy} onClick={() => toggleArea(item)}>{item.status === "ACTIVE" ? "Tạm ngưng" : "Mở lại"}</Button></Space>
+            <Space><Button onClick={() => { setAreaId(item.id); setArea({ code: item.code, name: item.name, type: item.type, floor: item.floor }); }}>Sửa</Button><ActionButton loading={busy} data-testid="area-toggle" onClick={() => toggleArea(item)}>{item.status === "ACTIVE" ? "Tạm ngưng" : "Mở lại"}</ActionButton></Space>
           </div>)}
         </div> },
-        { key: "archive", label: "Lưu trữ", children: <Alert type="warning" showIcon message="Lưu trữ chi nhánh" description="Thao tác này ngừng hoạt động chi nhánh và giải phóng hạn mức của gói." action={<Button danger onClick={archive}>Lưu trữ chi nhánh</Button>} /> },
+        { key: "archive", label: "Lưu trữ", children: <Alert type="warning" showIcon message="Lưu trữ chi nhánh" description="Thao tác này ngừng hoạt động chi nhánh và giải phóng hạn mức của gói." action={<ActionButton danger data-testid="branch-archive" onClick={archive}>Lưu trữ chi nhánh</ActionButton>} /> },
       ]} />}
     </Drawer>
   );

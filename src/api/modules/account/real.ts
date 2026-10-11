@@ -1,16 +1,27 @@
 /**
- * Bản real của module account — CHỈ phần Manager (OW-05), qua `/employees` của BE (role OWNER, employees.controller.ts).
- * Owner XEM Cashier/Barista cũng bằng `/employees` (OW-05). Phần Manager quản Cashier/Barista KHÔNG có endpoint ở BE
- * (api-contract-plan #24) nên chuyển rõ ràng sang mock. Tạo Manager qua lời mời không cần chủ chuỗi đặt mật khẩu.
+ * Bản real của module account.
+ * - Manager (OW-05): `/employees` của BE (role OWNER, employees.controller.ts); tạo Manager qua lời mời, không mật khẩu.
+ * - Cashier/Barista cho Owner XEM: `GET /employees?role=…`.
+ * - Cashier/Barista cho Manager quản (BM-01, #24, từ 7.4c): `/manager/staff*` (BE `d98b4c1`, `branch-manager.controller.ts:48-108`,
+ *   `manager-staff.service.ts`). Chi nhánh lấy từ JWT nên `branchId`/`chainId` KHÔNG gửi đi; BE bật `forbidNonWhitelisted` nên body CHỈ
+ *   gồm trường của DTO (không `password`, không `branchId`).
  */
 import { ApiError, request } from "../../http/client";
 import { accountMock } from "./mock";
-import type { StaffAccount } from "../../../types";
-import { mapManager, mapManagerPage, mapStaff, type RawEmployee, type RawEmployeePage } from "./mapper";
+import type { StaffAccount, StaffEmployee } from "../../../types";
+import { mapManager, mapManagerPage, mapStaff, mapStaffEmployee, mapStaffPage, type RawEmployee, type RawEmployeePage, type RawStaff, type RawStaffPage } from "./mapper";
+import { validateStaffReason } from "./staffRules";
 import type { AccountApi } from "./index";
 
 /** Khoá tài khoản = `SUSPENDED` (BE: mọi trạng thái khác ACTIVE đều khoá và thu hồi phiên; INACTIVE dành cho chưa kích hoạt). */
 const LOCKED = "SUSPENDED";
+
+/** `reason` bắt buộc 3–500 ký tự (`ManagerStaffStatusDto`/`ManagerResetPasswordDto`); kiểm trước để không gửi request chắc chắn 400. */
+function assertReason(reason: string | undefined): string {
+  const error = validateStaffReason(reason ?? "");
+  if (error) throw new ApiError(400, error, [error]);
+  return (reason as string).trim();
+}
 
 export const accountReal: AccountApi = {
   // --- Manager: thật ---------------------------------------------------------------------------------------------
@@ -57,13 +68,57 @@ export const accountReal: AccountApi = {
     return all;
   },
 
-  // --- Manager quản Cashier/Barista: MOCK (chờ BE #24 — Manager bị 403 ở /employees và chưa có endpoint tạo/khoá nhân viên). ---
-  // Cố ý KHÔNG gọi BE: màn Nhân viên của Manager hiện banner "Dữ liệu mẫu" và không phát sinh request hay toast lỗi nào.
-  listStaff: accountMock.listStaff,
-  createStaff: accountMock.createStaff,
-  updateStaff: accountMock.updateStaff,
-  setStaffActive: accountMock.setStaffActive,
-  resetStaffPassword: accountMock.resetStaffPassword,
+  // --- Manager quản Cashier/Barista: THẬT (`/manager/staff*`, #24) ---------------------------------------------------
+  async listStaff(_chainId, _branchId, query = {}) {
+    // BE chỉ cho `limit` ≤ 100 (`ManagerPageDto`); màn không phân trang nên lấy trang đầu 100 dòng.
+    const params = new URLSearchParams({ page: String(query.page ?? 1), limit: String(Math.min(query.limit ?? 100, 100)) });
+    if (query.role) params.set("role", query.role);
+    if (query.status) params.set("status", query.status);
+    if (query.search?.trim()) params.set("search", query.search.trim());
+    return mapStaffPage(await request<RawStaffPage>(`/manager/staff?${params}`));
+  },
+
+  async createStaff(_chainId, _branchId, input) {
+    // `ManagerCreateStaffDto` = CreateStaffDto bỏ role/branchId/password + role Cashier|Barista. Ô tuỳ chọn trống thì không gửi.
+    const body: Record<string, unknown> = {
+      email: input.email.trim(),
+      role: input.role,
+      employeeCode: input.employeeCode.trim(),
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+    };
+    if (input.phone?.trim()) body.phone = input.phone.trim();
+    const raw = await request<RawStaff & { invitationExpiresAt: string; emailStatus?: string }>("/manager/staff", { method: "POST", body });
+    const staff = mapStaffEmployee(raw) as StaffEmployee;
+    const emailStatus = raw.emailStatus === "SENT" || raw.emailStatus === "FAILED" || raw.emailStatus === "PENDING" ? raw.emailStatus : undefined;
+    return { staff, expiresAt: raw.invitationExpiresAt, emailStatus };
+  },
+
+  async updateStaff(_chainId, _branchId, staffId, patch) {
+    // BE không nhận giá trị null ("Null fields are not supported") nên KHÔNG gửi `phone: null`; xoá số điện thoại chưa làm được (#63).
+    const body: Record<string, unknown> = {};
+    if (patch.firstName !== undefined) body.firstName = patch.firstName.trim();
+    if (patch.lastName !== undefined) body.lastName = patch.lastName.trim();
+    if (patch.phone) body.phone = patch.phone.trim();
+    const raw = await request<RawStaff>(`/manager/staff/${staffId}`, { method: "PATCH", body });
+    return mapStaffEmployee(raw) as StaffEmployee;
+  },
+
+  async setStaffActive(_chainId, _branchId, staffId, active, reason) {
+    await request(`/manager/staff/${staffId}/status`, { method: "PATCH", body: { status: active ? "ACTIVE" : LOCKED, reason: assertReason(reason) } });
+  },
+
+  async resetStaffPassword(_chainId, _branchId, staffId, reason) {
+    const raw = await request<{ message: string; employeeId: string; expiresAt: string; emailStatus?: string }>(`/manager/staff/${staffId}/reset-password`, {
+      method: "POST",
+      body: { reason: assertReason(reason) },
+    });
+    const emailStatus = raw.emailStatus === "SENT" || raw.emailStatus === "FAILED" || raw.emailStatus === "PENDING" ? raw.emailStatus : undefined;
+    return { expiresAt: raw.expiresAt, emailStatus };
+  },
+
+  // Hạn mức: ở real màn Nhân viên đọc GÓI THẬT trong store (`plan.limits`, quyết định 54); hai hàm dưới chỉ phục vụ mock gói khi
+  // cờ plan=mock mà account=real (cấu hình lai) — không gọi BE.
   getAccountQuota: accountMock.getAccountQuota,
   countAccounts: accountMock.countAccounts,
 };

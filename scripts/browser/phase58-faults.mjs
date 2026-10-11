@@ -3,7 +3,7 @@
 // Chỉ ĐỌC: mọi request ghi bị chặn ở CDP (cdp.mjs: blockWrites + setFault); request ghi chỉ nhận lỗi giả, không bao giờ tới BE.
 // Chỉ POST /auth/login, /auth/refresh, /auth/logout đi thật. KHÔNG sửa mã ứng dụng: script chỉ quan sát và chấm.
 // Mỗi ca in một dòng `CASE màn | thao tác | loại lỗi | Đạt/Lỗi | mã lỗi` và cuối cùng một bảng JSON `FAULTS-RESULT`.
-import { cli, newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
+import { accounts, cli, newTab, closeTab, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 // --only=<mục>[,<mục>…]: vai (admin|owner|manager), nhóm (read|write|scope|expired) hoặc một phần id màn (ví dụ owner/reports,
 // manager/menu). Không cờ (hoặc `all`) = chạy hết. --mode=real là mặc định và duy nhất (giả lập lỗi chỉ có ý nghĩa với module real).
@@ -111,8 +111,87 @@ const switchWrite = (scope, { confirm = true } = {}) => async () => {
   return { before, after, kind: "switch" };
 };
 
+// Id một đơn thật của chi nhánh Manager (GET chỉ đọc) cho màn chi tiết đơn.
+const DETAIL_ID = await (async () => {
+  const [email, password] = accounts("real").manager;
+  const base = "http://localhost:3100/api/v1";
+  const login = await (await fetch(`${base}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
+  const list = await (await fetch(`${base}/manager/orders?type=COUNTER_PICKUP&limit=1`, { headers: { Authorization: `Bearer ${login.accessToken}` } })).json();
+  return list.items?.[0]?.id ?? "00000000-0000-4000-8000-000000000000";
+})();
+
+// Xác nhận chuyển khoản thủ công (7.4, BM-05): BE local chưa có khoản QR thật (chưa có khoá PayOS), nên chi tiết một đơn thật CHỜ THANH TOÁN
+// được thêm khoản QR PENDING bằng `tab.readOverride` (đúng dạng BE, chỉ GET, không tới BE) trong lúc ca chạy (setup/teardown).
+const CONFIRM_BASE = await (async () => {
+  const [email, password] = accounts("real").manager;
+  const base = "http://localhost:3100/api/v1";
+  const login = await (await fetch(`${base}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
+  const get = async (path) => (await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${login.accessToken}` } })).json();
+  const items = (await get("/manager/orders?type=COUNTER_PICKUP&limit=100")).items ?? [];
+  const order = items.find((o) => o.status === "CONFIRMED" && o.paymentStatus === "UNPAID");
+  if (!order) return null;
+  const detail = await get(`/manager/orders/${order.id}`);
+  const qr = {
+    id: "7e57ed00-0000-4000-8000-0000000000b1",
+    paymentCode: "PAY-FAKE-QR",
+    method: "BANK_TRANSFER",
+    provider: "PAYOS",
+    status: "PENDING",
+    amount: detail.totalAmount,
+    receivedAmount: null,
+    transactionRef: null,
+    confirmationReason: null,
+    confirmedAt: null,
+    paidAt: null,
+    createdAt: new Date().toISOString(),
+    failureReason: null,
+    processedBy: { id: "e-fake", employeeCode: "DEMO-CASHIER-01", firstName: "Lan", lastName: "Thu ngân" },
+  };
+  return { id: order.id, override: { match: new RegExp(`/api/v1/manager/orders/${order.id}$`), body: JSON.stringify({ ...detail, payments: [qr] }) } };
+})();
+
 // --- định nghĩa màn ----------------------------------------------------------------------------------------------
 const screens = [
+  // Hộp xác nhận chuyển khoản thủ công (BM-05): chỉ ca GHI (500, 403, mất mạng, 401). Ca đọc của chính trang này đã có ở `manager/order-detail`.
+  ...(CONFIRM_BASE
+    ? [
+        {
+          id: "manager/confirm-payment",
+          writeOnly: true,
+          role: "manager",
+          route: `/manager/orders/${CONFIRM_BASE.id}`,
+          from: "/manager/orders",
+          read: new RegExp(`/manager/orders/${CONFIRM_BASE.id}$`),
+          setup: async () => {
+            tab.readOverride = CONFIRM_BASE.override;
+          },
+          teardown: async () => {
+            tab.readOverride = null;
+          },
+          loaded: async () => (await q(`!!document.querySelector('[data-testid="order-confirm-open"]')`)) && (await noErrorUi()),
+          write: async () => {
+            const set = (id, v) =>
+              q(`(() => { const el = document.querySelector('[data-testid="${id}"]'); const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${J(v)}); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+            const click = (id) => q(`(() => { const el = document.querySelector('[data-testid="${id}"]'); if (!el || el.disabled) return false; el.click(); return true; })()`);
+            if (!(await click("order-confirm-open"))) return { skipped: "không có nút Xác nhận thủ công" };
+            await sleep(700);
+            await set("confirm-received", "999000");
+            await set("confirm-reason", "Khách chìa màn hình chuyển khoản, webhook không về");
+            await sleep(250);
+            await click("confirm-next");
+            await sleep(500);
+            if (!(await click("confirm-submit"))) return { skipped: "không sang được bước xem lại" };
+            await sleep(2200);
+            return {
+              ok: true,
+              kind: "modal",
+              after: await q(`(() => { const b = document.querySelector('[data-testid="confirm-submit"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`),
+            };
+          },
+        },
+      ]
+    : []),
   { id: "admin/overview", role: "admin", route: "/admin/overview", from: "/admin/plans", read: /\/admin\//, loaded: () => bodyHas(`/Doanh nghiệp thuê bao[\\s\\S]{0,40}\\d/`) },
   { id: "admin/tenants", role: "admin", route: "/admin/tenants", from: "/admin/plans", read: /\/admin\/businesses/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
     write: async () => {
@@ -204,7 +283,13 @@ const screens = [
   // (PUT …/payos-channel). Chỉ nhận lỗi giả, không bao giờ tới BE, khoá giả không phải khoá thật. Thêm ca 503 như BE khi thiếu PAYOS_MASTER_KEY.
   { id: "owner/payos", ownRetry: true, role: "owner", route: "/owner/payos", from: "/owner/plan", read: /\/payos-channel$/,
     loaded: async () => (await q(`!!document.querySelector('[data-testid="payos-save"]')`)) && (await noErrorUi()),
-    extraWriteKinds: [{ kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." }],
+    extraWriteKinds: [
+      { kind: "503", body: { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" }, expect: "Máy chủ chưa sẵn sàng lưu khoá PayOS. Vui lòng liên hệ quản trị hệ thống." },
+      // BE `de4f55c`: xác minh với PayOS khi lưu (payos-channel.service.ts:74): 422 PayOS từ chối (câu thô của PayOS), 502 PayOS tạm lỗi, 503 thiếu PAYOS_WEBHOOK_BASE_URL (:67-70). Quyết định 50.
+      { kind: "422", body: { statusCode: 422, message: "Invalid webhook url (câu thô của PayOS)", error: "Unprocessable Entity" }, expect: "PayOS không chấp nhận bộ khoá này. Kiểm tra lại Client ID, API key và Checksum key." },
+      { kind: "502", body: { statusCode: 502, message: "PayOS is temporarily unavailable", error: "Bad Gateway" }, expect: "Không kết nối được PayOS lúc này. Vui lòng thử lại sau ít phút." },
+      { kind: "503", body: { statusCode: 503, message: "PAYOS_WEBHOOK_BASE_URL is not configured" }, expect: "Máy chủ chưa sẵn sàng liên kết PayOS (thiếu địa chỉ nhận thông báo). Vui lòng liên hệ quản trị hệ thống." },
+    ],
     write: async () => {
       const setKey = (id, value) => q(`(() => { const el = document.querySelector('[data-testid=${J(id)}]'); if (!el) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${J(value)}); el.dispatchEvent(new Event("input", { bubbles: true })); return true })()`);
       if (!(await setKey("payos-clientId", "test-client-id-khong-that"))) return { skipped: "không thấy ô khoá PayOS" };
@@ -251,7 +336,8 @@ const screens = [
     write: async () => {
       await q(`document.querySelector(".ant-table-row-expand-icon-collapsed")?.click()`);
       await sleep(700);
-      return switchWrite('[data-testid^="group-detail-"]', { confirm: false })();
+      // Từ main (7.4b): tắt tuỳ chọn MẶC ĐỊNH có hộp xác nhận (không phát request ngay) → chỉ thao tác trên dòng không mặc định.
+      return switchWrite('[data-testid^="group-detail-"] [data-testid="option-row"]:not(:has([data-testid="opt-default"]:checked, [data-testid="opt-default"] input:checked))', { confirm: false })();
     } },
   // 6.3: gắn nhóm tuỳ chọn cho món (MenuTable, drawer) — PUT items/{id}/option-groups; món không đổi nên không có PATCH món. Chỉ nhận lỗi giả.
   { id: "owner/menu (gắn nhóm)", role: "owner", route: "/owner/menu", from: "/owner/plan", read: /\/menu\/(items|categories)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
@@ -279,11 +365,49 @@ const screens = [
       return { ok: true, before, after: await first(), kind: "row" };
     } },
   { id: "manager/branch-info", ownRetry: true, role: "manager", route: "/manager/branch-info", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}$/, loaded: () => bodyHas(`/Địa chỉ|Mã chi nhánh|Giờ mở cửa|Chi nhánh/`) },
+  { id: "manager/orders", ownRetry: true, role: "manager", route: "/manager/orders", from: "/manager/dashboard", read: /\/manager\/orders(\?|$)/, loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()) },
+  // Báo cáo chi nhánh (7.3, BM-03): chính là trang đầu của Manager nên đi từ màn khác tới.
+  { id: "manager/reports", ownRetry: true, role: "manager", route: "/manager/dashboard", from: "/manager/branch-info", read: /\/manager\/reports(\?|$)/, loaded: async () => (await q(`!!document.querySelector('[data-testid="report-kpi-revenue"]')`)) && (await noErrorUi()) },
+  // Chi tiết đơn (7.2): id một đơn thật của chi nhánh (đọc bằng GET lúc khởi động). Ngoài 500/403/mạng/401 còn ca 404 (`notFound`).
+  { id: "manager/order-detail", ownRetry: true, notFound: true, role: "manager", route: `/manager/orders/${DETAIL_ID}`, from: "/manager/orders", read: new RegExp(`/manager/orders/${DETAIL_ID}$`), loaded: async () => (await q(`!!document.querySelector('[data-testid="order-detail"]')`)) && (await noErrorUi()) },
   { id: "manager/menu (tuỳ chọn)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/manager\/menu-options/, afterNav: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(1500); },
     loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-option-row"]').length`)) > 0 && (await noErrorUi()),
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(700); return switchWrite('[data-testid="branch-option-row"][data-owner-disabled="false"]')(); } },
   { id: "manager/menu (món)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}\/menu$/, storeBased: true, loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-menu-row"]').length`)) > 0,
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Món")?.click()`); await sleep(500); return switchWrite('[data-testid="branch-menu-row"][data-owner-disabled="false"]')(); } },
+  // Nhân viên của Manager (7.4c, #24, `/manager/staff*`): tạo (ngăn kéo + hộp xác nhận), gửi lại email và khoá (hộp lý do). Chỉ ca GHI; lỗi giả,
+  // KHÔNG request nào tới BE (BE có EMAIL_* nên request thật sẽ gửi thư). Ca đọc của danh sách dùng chung `/manager/staff`.
+  { id: "manager/staff-create", writeOnly: true, role: "manager", route: "/manager/staff", from: "/manager/dashboard", read: /\/manager\/staff(\?|$)/,
+    loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const tidOf = (id) => `document.querySelector('[data-testid=${J(id)}]')`;
+      const setT = (id, v) => q(`(() => { const i = ${tidOf(id)}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, ${J(v)}); i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      const clicked = await q(`(() => { const b = ${tidOf("staff-add")}; if (!b || b.disabled) return false; b.click(); return true; })()`);
+      if (!clicked) return { skipped: "không có nút Thêm nhân viên" };
+      await sleep(800);
+      await setT("staff-name", "Giả Lập Lỗi");
+      await setT("staff-email", "gia.lap.loi@example.invalid");
+      await setT("staff-code", "GLL-001");
+      await sleep(300);
+      await q(`${tidOf("staff-save")}.click()`);
+      await sleep(700);
+      await clickConfirm();
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`!!${tidOf("staff-save")} && !${tidOf("staff-save")}.disabled && !${tidOf("staff-save")}.classList.contains("ant-btn-loading")`) };
+    } },
+  ...["resend", "lock"].map((what) => ({
+    id: `manager/staff-${what}`, writeOnly: true, role: "manager", route: "/manager/staff", from: "/manager/dashboard", read: /\/manager\/staff(\?|$)/,
+    loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const opened = await q(`(() => { const b = [...document.querySelectorAll('[data-testid^="staff-${what}-"]')].find((x) => !x.disabled); if (!b) return false; b.click(); return true; })()`);
+      if (!opened) return { skipped: "không có nút thao tác" };
+      await sleep(800);
+      await q(`(() => { const el = document.querySelector('[data-testid="staff-reason"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, "Giả lập lỗi để kiểm tra"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await sleep(300);
+      await q(`document.querySelector('[data-testid="staff-reason-ok"]').click()`);
+      await sleep(2200);
+      return { ok: true, kind: "modal", after: await q(`(() => { const b = document.querySelector('[data-testid="staff-reason-ok"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } })),
   { id: "manager/stations", role: "manager", route: "/manager/stations", from: "/manager/dashboard", read: /\/stations/, loaded: async () => (await noErrorUi()) && (await bodyHas(`/Chưa có quầy nào|Quầy/`)),
     write: async () => {
       const before = await rowsCount();
@@ -335,8 +459,20 @@ async function readCase(spec, kind) {
     await spaGo(spec.route);
     // KHÔNG chuyển tab trước khi chụp: toast thường (message) chỉ sống ~3 giây, chụp trễ sẽ tưởng là không có thông báo.
     await sleep(2300);
-    const s = await snap();
-    const hits = tab.faultLog.length;
+    let s = await snap();
+    let hits = tab.faultLog.length;
+    // Chập chờn đã gặp ở 7.4b (`manager/stations` ca đầu, ngay sau lượt đăng nhập/đo mốc): màn chưa kịp phát request đọc khi điều hướng
+    // trong app. Chưa có request nào khớp thì thử đúng MỘT lần nữa (đi ra rồi vào lại) trước khi kết luận NO_REQUEST.
+    if (hits === 0 && !spec.storeBased) {
+      await spaGo(spec.from);
+      await sleep(900);
+      await clearNotices();
+      tab.setFault(kind === "401" ? { kind: "401", match: spec.read, times: 1 } : { kind, match: spec.read });
+      await spaGo(spec.route);
+      await sleep(2300);
+      s = await snap();
+      hits = tab.faultLog.length;
+    }
     tab.setFault(null);
     if (spec.storeBased) {
       record(spec.id, "đọc", kind, [], `màn đọc từ store (nạp ở bước vào khu vực), request đọc không phát sinh khi chuyển màn: ${hits} request bị giả lập; kiểm ở ca 'scope'`);
@@ -397,11 +533,48 @@ async function readCase(spec, kind) {
   }
 }
 
+/** Ca 404 của màn chi tiết: khối "Không tìm thấy đơn" (không phải lỗi), không toast, không tiếng Anh thô, không nút Thử lại; hết giả lập thì nạp lại được. */
+async function notFoundCase(spec) {
+  try {
+    await spaGo(spec.from);
+    await sleep(900);
+    await clearNotices();
+    tab.setFault({ kind: "404", match: spec.read });
+    await spaGo(spec.route);
+    await sleep(2300);
+    const s = await snap();
+    const hits = tab.faultLog.length;
+    const block = await q(`document.querySelector('[data-testid="order-detail-notfound"]')?.innerText.replace(/\\s+/g, " ").trim() ?? ""`);
+    tab.setFault(null);
+    const problems = [];
+    if (hits === 0) problems.push("NO_REQUEST");
+    if (!/Không tìm thấy đơn/.test(block)) problems.push("NO_NOTFOUND_BLOCK");
+    if (RAW.test(block) || RAW.test(s.notices.join(" "))) problems.push("RAW_TEXT");
+    if (s.notices.length) problems.push("TOAST");
+    if (s.retry) problems.push("UNEXPECTED_RETRY");
+    if (!(s.sider && s.bodyLen > 60)) problems.push("BLANK");
+    await spaGo(spec.from);
+    await sleep(700);
+    await spaGo(spec.route);
+    await sleep(2300);
+    if (!(await spec.loaded())) problems.push("NO_RECOVERY");
+    record(spec.id, "đọc", "404", problems, `"${block}" retry=${s.retry} toast=${s.notices.length}`);
+  } catch (e) {
+    tab.setFault(null);
+    record(spec.id, "đọc", "404", ["SCRIPT"], e.message);
+  } finally {
+    tab.setFault(null);
+    await clearNotices();
+  }
+}
+
 // --- ca ghi ------------------------------------------------------------------------------------------------------
 async function writeCase(spec, kind, extra) {
   try {
     await spaGo(spec.from);
     await sleep(700);
+    // `setup`/`teardown`: màn cần dữ liệu đọc giả (readOverride) CHỈ trong lúc ca ghi chạy (ví dụ hộp xác nhận chuyển khoản, 7.4).
+    if (spec.setup) await spec.setup();
     await spaGo(spec.route);
     if (spec.afterNav) await spec.afterNav();
     await sleep(2200);
@@ -443,9 +616,64 @@ async function writeCase(spec, kind, extra) {
     record(spec.id, "ghi", kind, ["SCRIPT"], e.message);
   } finally {
     tab.setFault(null);
+    if (spec.teardown) await spec.teardown();
     await clearNotices();
     await closeOverlays();
     await closeOverlays();
+  }
+}
+
+// --- ca đọc gói của Manager (6.11, #38, quyết định 53) -----------------------------------------------------------
+// Manager đọc gói bằng GET /restaurant-chains/:id/subscription khi nạp khu vực. Lỗi đọc KHÔNG được chặn khu vực và KHÔNG có toast (khác các ca đọc
+// thường, nên không dùng `readCase`/`judgeError`): màn Nhân viên ghi "Chưa tải được hạn mức gói" kèm nút Thử lại nhỏ, nút Thêm vẫn bấm được.
+// Riêng 401: refresh thật chạy rồi gọi lại nên phải có số ngay, không lỗi.
+async function managerPlanCase(kind) {
+  const id = "manager/subscription (gói)";
+  try {
+    await clearNotices();
+    tab.setFault(kind === "401" ? { kind: "401", match: /\/subscription$/, times: 1 } : { kind, match: /\/subscription$/ });
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelector('[data-testid="staff-quota"]')`, 25000, "màn Nhân viên");
+    await sleep(2200);
+    const view = await q(`(() => {
+      const t = (id) => document.querySelector('[data-testid="' + id + '"]');
+      return {
+        sider: !!document.querySelector(".ant-layout-sider"),
+        line: t("staff-quota")?.innerText ?? "",
+        retry: !!t("staff-quota-retry"),
+        addDisabled: t("staff-add")?.disabled ?? null,
+        notices: [...document.querySelectorAll(".ant-message-notice, .ant-notification-notice")].map((e) => e.innerText.replace(/\\s+/g, " ").trim()),
+        alerts: [...document.querySelectorAll(".ant-alert-error")].length,
+        path: location.pathname,
+      };
+    })()`);
+    const hits = tab.faultLog.length;
+    tab.setFault(null);
+    const problems = [];
+    if (hits === 0) problems.push("NO_REQUEST");
+    if (!view.sider || !view.path.startsWith("/manager")) problems.push("AREA_BLOCKED");
+    if (view.notices.length > 0 || view.alerts > 0) problems.push("UNEXPECTED_MESSAGE");
+    if (view.notices.some((t) => RAW.test(t))) problems.push("RAW_TEXT");
+    if (view.addDisabled !== false) problems.push("ADD_LOCKED");
+    let detail = `hits=${hits} dòng="${view.line.replace(/\s+/g, " ").slice(0, 60)}" retry=${view.retry}`;
+    if (kind === "401") {
+      if (!/Đã dùng \d+\/\d+ tài khoản của gói/.test(view.line)) problems.push("NO_NUMBERS_AFTER_REFRESH");
+      if (view.retry) problems.push("ERROR_SHOWN_AFTER_SUCCESSFUL_REFRESH");
+    } else {
+      if (!/Chưa tải được hạn mức gói/.test(view.line) || !view.retry) problems.push("NO_UNAVAILABLE_LINE");
+      await q(`document.querySelector('[data-testid="staff-quota-retry"]')?.click()`);
+      await sleep(1800);
+      const after = await q(`document.querySelector('[data-testid="staff-quota"]')?.innerText ?? ""`);
+      if (!/Đã dùng \d+\/\d+ tài khoản của gói/.test(after) || /Chưa tải được/.test(after)) problems.push("RETRY_NOLOAD");
+      detail += ` sau Thử lại="${after.replace(/\s+/g, " ").slice(0, 40)}"`;
+    }
+    record(id, "đọc", kind, problems, detail);
+  } catch (e) {
+    tab.setFault(null);
+    record(id, "đọc", kind, ["SCRIPT"], e.message);
+  } finally {
+    tab.setFault(null);
+    await clearNotices();
   }
 }
 
@@ -543,10 +771,20 @@ const matchesScreen = (s) => screenTokens.length === 0 || screenTokens.some((t) 
 try {
   for (const role of ROLES) {
     const mine = screens.filter((s) => s.role === role && matchesScreen(s));
-    if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0) continue;
+    const wantsPlanRead = role === "manager" && screenTokens.some((t) => "manager/subscription".includes(t));
+    if (roleTokens.length ? !roleTokens.includes(role) : mine.length === 0 && !wantsPlanRead) continue;
     await login(role);
     const landing = role === "admin" ? "/admin/overview" : role === "owner" ? "/owner/reports" : "/manager/dashboard";
-    if (inGroup("read")) for (const spec of mine.filter((s) => !s.writeOnly)) for (const kind of KINDS) await readCase(spec, kind);
+    if (inGroup("read")) {
+      for (const spec of mine.filter((s) => !s.writeOnly)) {
+        for (const kind of KINDS) await readCase(spec, kind);
+        if (spec.notFound) await notFoundCase(spec);
+      }
+    }
+    // 6.11: đọc gói của Manager (không chặn khu vực, không toast). Chạy khi không lọc theo màn hoặc khi gọi tên "manager/subscription".
+    if (role === "manager" && inGroup("read") && (screenTokens.length === 0 || screenTokens.some((t) => "manager/subscription".includes(t)))) {
+      for (const kind of KINDS) await managerPlanCase(kind);
+    }
     if (inGroup("write")) {
       for (const spec of mine.filter((s) => s.write)) {
         for (const kind of KINDS) await writeCase(spec, kind);

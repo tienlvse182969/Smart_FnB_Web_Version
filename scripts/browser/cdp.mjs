@@ -97,7 +97,7 @@ class Tab {
   }
   /**
    * Giả lập lỗi cho module real (5.8a), TÁCH khỏi blockWrites nhưng dùng chung hàng đợi Fetch (gọi blockWrites trước).
-   * `fault = { kind: "500"|"503"|"403"|"network"|"401", match: RegExp, times?: number, refresh?: "fail" }`:
+   * `fault = { kind: "500"|"503"|"502"|"422"|"403"|"network"|"401" (+400/409 kèm body), match: RegExp, times?: number, refresh?: "fail" }`:
    *   - request ĐỌC (GET) có đường dẫn khớp `match` bị trả lỗi giả (Fetch.fulfillRequest) hoặc bị ngắt (network);
    *   - MỌI request ghi (trừ đăng nhập/làm mới/đăng xuất) cũng nhận lỗi giả và KHÔNG bao giờ tới BE (vẫn ghi vào blockedWrites);
    *   - `times` = chỉ giả lập N request đọc đầu rồi cho đi tiếp (ca 401: refresh thật chạy rồi request được gọi lại);
@@ -120,7 +120,12 @@ class Tab {
       500: { statusCode: 500, message: "Internal server error" },
       // 503: body do script truyền (`fault.body`), ví dụ { statusCode: 503, message: "PAYOS_MASTER_KEY is not configured" } như BE khi thiếu khoá mã hoá.
       503: fault?.body ?? { statusCode: 503, message: "Service Unavailable" },
+      // 422/502: body do script truyền, ví dụ BE `de4f55c` khi PayOS từ chối bộ khoá (422) hoặc tạm lỗi (502) lúc `PUT payos-channel`.
+      422: fault?.body ?? { statusCode: 422, message: "Unprocessable Entity", error: "Unprocessable Entity" },
+      502: fault?.body ?? { statusCode: 502, message: "Bad Gateway", error: "Bad Gateway" },
       403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
+      // 404: body do script truyền, mặc định như BE khi chi tiết đơn không có trong chi nhánh (manager-operations.service.ts).
+      404: fault?.body ?? { statusCode: 404, message: "Order not found in your branch", error: "Not Found" },
       401: { statusCode: 401, message: "Unauthorized" },
       // 409: body do script truyền (`fault.body`), ví dụ `PLAN_LIMIT_REACHED` kèm quota và gói gợi ý như BE.
       409: fault?.body ?? { statusCode: 409, message: "Conflict", error: "Conflict" },
@@ -174,8 +179,10 @@ class Tab {
       }
     })();
     // `readOverride = { match: RegExp, body: string }`: request ĐỌC (GET) khớp nhận 200 với body do script dựng (ví dụ phản hồi BE đã sửa
-    // `subscription: null`). Request vẫn KHÔNG tới BE. Tắt bằng `tab.readOverride = null`.
-    if (this.readOverride && method === "GET" && this.readOverride.match.test(path)) {
+    // `subscription: null`). Request vẫn KHÔNG tới BE. Tắt bằng `tab.readOverride = null`. Có thể là MẢNG các `{ match, body }`
+    // (7.4: vừa giả gói hết hạn vừa giả chi tiết đơn); phần tử khớp đầu tiên thắng.
+    const overrideHit = method === "GET" && this.readOverride ? [this.readOverride].flat().find((o) => o.match.test(path)) : null;
+    if (overrideHit) {
       void this.send("Fetch.fulfillRequest", {
         requestId: p.requestId,
         responseCode: 200,
@@ -184,7 +191,7 @@ class Tab {
           { name: "Access-Control-Allow-Origin", value: ORIGIN },
           { name: "Vary", value: "Origin" },
         ],
-        body: Buffer.from(this.readOverride.body).toString("base64"),
+        body: Buffer.from(overrideHit.body).toString("base64"),
       });
       return;
     }
