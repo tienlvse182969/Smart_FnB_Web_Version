@@ -178,7 +178,16 @@ export default function OrderDetail() {
   const realtimeOn = modeOf("order") === "real" && !!branchId && !!orderId;
   const realtime = useOrderRealtime(() => void load(true), { orderId, enabled: realtimeOn });
 
-  const back = () => navigate(`${LIST_PATH}${from}`);
+  // Quyết định 102: hộp xác nhận tay đang mở mà dữ liệu mới (socket/Thử lại) cho thấy đơn hết điều kiện xác nhận (webhook về, đã huỷ…)
+  // → đóng hộp và nói rõ. Không chạy khi đang gửi (kết quả của chính request đó do `submitConfirm` xử lý).
+  useEffect(() => {
+    if (!confirmOpen || submitting || !order) return;
+    if (confirmableTransfer(order)) return;
+    setConfirmOpen(false);
+    message.info(`Đơn vừa được cập nhật (${orderStatusInfo(order.status).label}), không cần xác nhận nữa.`);
+  }, [confirmOpen, submitting, order, message]);
+
+  const back =() => navigate(`${LIST_PATH}${from}`);
 
   /**
    * Xác nhận thủ công (quyết định 84): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi);

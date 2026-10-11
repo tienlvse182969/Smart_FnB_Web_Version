@@ -197,3 +197,16 @@ export function disconnectOperationsRealtime(): void {
   legacyUnsubscribe?.();
   legacyUnsubscribe = null;
 }
+
+/**
+ * CHỈ DEV (lượt 7.5): kiểm trình duyệt bơm sự kiện vận hành giả cho các người nghe (BE local không có đơn lệch tiền để phát sự kiện thật).
+ * `import.meta.env.DEV` viết thẳng tại chỗ để bản build production thay bằng `false` và bỏ hẳn khối này (kiểm bằng grep bundle, BAN-GIAO 7.5).
+ * KHÔNG mở kết nối, KHÔNG gọi BE: chỉ gọi `onEvent` của những người đã đăng ký.
+ */
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as { __injectOperationsEvent?: (event: OperationsEvent) => number }).__injectOperationsEvent = (event) => {
+    const listeners = [...subscribers];
+    for (const sub of listeners) sub.onEvent(event);
+    return listeners.length;
+  };
+}

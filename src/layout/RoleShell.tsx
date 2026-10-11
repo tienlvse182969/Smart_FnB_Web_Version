@@ -9,7 +9,8 @@ import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
 
-export type NavItem = { key: string; label: string; icon: ReactNode };
+/** `badge` > 0 hiện số đếm cạnh nhãn (ví dụ "Đơn cần xử lý", lượt 7.5); 0/null/không có = không hiện. */
+export type NavItem = { key: string; label: string; icon: ReactNode; badge?: number | null };
 
 const today = new Date().toLocaleDateString("vi-VN", {
   weekday: "long",
@@ -112,7 +113,19 @@ export default function RoleShell({
             selectedKeys={[section]}
             onClick={(e) => onSection(e.key)}
             style={{ border: "none", background: "transparent", padding: "0 12px" }}
-            items={nav.map((n) => ({ key: n.key, icon: n.icon, label: n.label }))}
+            items={nav.map((n) => ({
+              key: n.key,
+              icon: n.icon,
+              label:
+                n.badge && n.badge > 0 ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    {n.label}
+                    <Badge count={n.badge} overflowCount={99} data-testid={`nav-badge-${n.key}`} style={{ boxShadow: "none" }} />
+                  </span>
+                ) : (
+                  n.label
+                ),
+            }))}
           />
         </div>
 

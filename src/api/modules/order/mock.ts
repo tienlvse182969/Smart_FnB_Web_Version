@@ -90,6 +90,18 @@ function scenarioOrders(chainId: string, branchId: string, now: Date): Order[] {
       total: 75000,
     },
     {
+      // Lệch tiền đã chờ lâu (95 phút): ở danh sách "Cần xử lý" nằm đầu (cũ nhất trước).
+      ...base,
+      id: `${branchId}-scn-mismatch-old`,
+      callNumber: null,
+      createdAt: at(95),
+      status: "needsAttention",
+      paymentMethod: "qr",
+      paymentStatus: "amountMismatch",
+      lines: [{ id: "s13", menuItemId: "m-scn-13", name: "Cơm gà nướng", unitPrice: 65000, quantity: 1, options: [], status: "queued", lineTotal: 65000 }],
+      total: 65000,
+    },
+    {
       ...base,
       id: `${branchId}-${MISMATCH_SHORT_SUFFIX}`,
       callNumber: null,
