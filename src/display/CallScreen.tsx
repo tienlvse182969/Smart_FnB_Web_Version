@@ -354,6 +354,7 @@ export default function CallScreen() {
     boardOrders(context.ready, "readyAt"),
     READY_CAPACITY,
   )
+  // Lỗi REST (mất mạng/5xx) hoặc socket hết lượt nối: GIỮ bảng cuối, chỉ đổi chỉ báo (QĐ 114).
   const offline = error !== null || (!online && realtime.exhausted)
   const nowMs = Date.now()
   return (
@@ -379,14 +380,6 @@ export default function CallScreen() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-[1.5vw] text-[2.2vh] font-semibold">
-          {offline ? (
-            <span
-              data-testid="call-offline"
-              className="rounded-full bg-amber-300 px-[1.2vw] py-[0.6vh] text-slate-950"
-            >
-              Mất kết nối, đang thử lại
-            </span>
-          ) : null}
           {!soundOn ? (
             <span
               data-testid="call-sound-off"
@@ -399,13 +392,18 @@ export default function CallScreen() {
             data-testid="call-status"
             data-status={realtime.status}
             data-exhausted={realtime.exhausted}
-            className="flex items-center gap-[0.6vw] rounded-full bg-slate-950/70 px-[1.2vw] py-[0.6vh] text-white"
+            data-offline={offline}
+            className={`flex items-center gap-[0.6vw] rounded-full px-[1.2vw] py-[0.6vh] ${
+              offline
+                ? "bg-amber-300 text-slate-950"
+                : "bg-slate-950/70 text-white"
+            }`}
           >
-            {online ? <Wifi size={18} /> : <WifiOff size={18} />}
-            {online
-              ? "Trực tuyến"
-              : realtime.exhausted
-                ? "Mất kết nối, đang thử lại"
+            {online && !offline ? <Wifi size={18} /> : <WifiOff size={18} />}
+            {offline
+              ? "Mất kết nối, đang thử lại"
+              : online
+                ? "Trực tuyến"
                 : "Đang kết nối"}
           </span>
         </div>
@@ -480,7 +478,7 @@ export default function CallScreen() {
                     data-lit={isLit}
                     className={`flex items-center justify-center overflow-hidden rounded-[1.6vh] bg-emerald-800 font-black text-white tabular-nums transition-transform ${
                       isLit
-                        ? "z-10 ring-[0.8vh] ring-amber-300 motion-safe:scale-105 motion-safe:animate-pulse"
+                        ? "call-lit z-10 ring-[0.8vh] ring-amber-300"
                         : ""
                     }`}
                     style={{

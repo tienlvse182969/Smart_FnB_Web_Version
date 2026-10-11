@@ -222,11 +222,12 @@ describe("màn hình gọi số (quyết định 105–108)", () => {
     mocks.context.mockResolvedValueOnce(ctx([7], [12]));
     render(<CallScreen />);
     await advance(10);
-    expect(screen.queryByTestId("call-offline")).toBeNull();
+    expect(screen.getByTestId("call-status").getAttribute("data-offline")).toBe("false");
     mocks.context.mockRejectedValue(new ApiError(0, "Failed to fetch"));
     act(() => sockets[0].fromServer("operations.updated", { type: "calling.order.ready", occurredAt: "" }));
     await advance(700);
-    expect(screen.getByTestId("call-offline").textContent).toBe("Mất kết nối, đang thử lại");
+    expect(screen.getByTestId("call-status").textContent).toBe("Mất kết nối, đang thử lại");
+    expect(screen.getByTestId("call-status").getAttribute("data-offline")).toBe("true");
     expect([...document.querySelectorAll('[data-testid="call-cell"]')].map((e) => e.getAttribute("data-number")).sort()).toEqual(["12", "7"]);
     expect(screen.getByText("MỜI NHẬN MÓN")).toBeTruthy();
   });
