@@ -376,6 +376,9 @@ Việc mới sau 7.3d:
 | 59 | Thấp | **`POST /payments/:id/confirm` không kiểm gói**: `payments.service.ts:144-186` chỉ `assertCanAccessBranch`, KHÔNG gọi `assertSubscriptionAllowsWrite` như các thao tác ghi khác của Manager (`manager-operations.service.ts:54`, `counter-operations.service.ts`) → gói hết hạn BE vẫn cho xác nhận, web (QĐ 85) khoá nút. Nhờ BE và Khánh thống nhất BR-09: đơn chờ thu tiền có được xác nhận khi chỉ đọc không | BR-09 (`:676`) | Không |
 | 60 | Thấp | **Đồng nhất mã lỗi 409 của `confirm`**: `PAYMENT_ALREADY_SETTLED` đặt vào `message` (`error` là "Conflict", `counter-payment-settlement.service.ts:113`), còn `PAYMENT_AMOUNT_INSUFFICIENT` đặt vào `error` (`:119-125`). Đề nghị cả hai cùng đặt mã ở `error` và `message` tiếng Việt để web không phải nhận diện theo chuỗi | — | Không |
 | 61 | Trung bình | **Tiền về sau khi QR hết hạn/đơn đã huỷ** (6.11, BR-31): "xác nhận thủ công để pha hoặc hoàn tiền ngoài hệ thống". BE từ chối (409 `Order is no longer awaiting payment`, `:135`), web không hiện nút cho đơn huỷ (QĐ 82). Cần đường để Manager xử lý (khôi phục đơn hoặc ghi nhận khoản phải hoàn, cùng #43) | 6.11 (`:632`), BR-31 (`:713`) | Không |
+| 62 | Thấp | **`GET /manager/staff` không trả `user.lastLoginAt`**: `staffSelect` (`manager-staff.service.ts:26-41`) chỉ có `id, email, phone, status, role`; `/employees` của Owner có. Màn Nhân viên của Manager ẩn cột "Đăng nhập gần nhất" ở real. Đề nghị thêm `lastLoginAt` (và `emailVerifiedAt` nếu có) vào `staffSelect` | BM-01 | Không |
+| 63 | Thấp | **Không xoá được số điện thoại nhân viên**: `PATCH /manager/staff/:id` từ chối giá trị `null` (`manager-staff.service.ts:208-209` "Null fields are not supported") và bỏ qua chuỗi rỗng; nên nhận `phone: null` để xoá. Web ở real khoá việc xoá trắng, ghi "chờ BE #63" | BM-01 | Không |
+| 64 | Trung bình | **Không phân biệt "chưa kích hoạt" với "ngừng hoạt động" và không có thao tác thu hồi lời mời**: tạo nhân viên đặt `UserStatus.INACTIVE` (`manager-staff.service.ts:163`) và `PATCH …/status` cũng nhận `INACTIVE` (`manager.dto.ts:50`), nên hai trường hợp trùng; không xem được hạn của lời mời đang chờ, không huỷ lời mời (chỉ "gửi lại" tạo token mới). Mở khoá một tài khoản chưa từng kích hoạt đặt `ACTIVE` dù chưa có mật khẩu. Đề nghị có trạng thái/cờ `invitationPending` + `invitationExpiresAt` ở danh sách | BM-01, BR-05 | Không |
 
 ### Cập nhật 7.3e (2026-10-10): nhánh `feat/cashier-barista-render-flow` đã vào `main` `d98b4c1`
 
@@ -384,13 +387,36 @@ Việc mới sau 7.3d:
 | # | Trạng thái | Ghi chú |
 |---|---|---|
 | 1 email | **Đã vào main** | `EMAIL_*` chưa đặt ở local nên không kiểm gửi thật |
-| 24 Manager tạo Cashier/Barista bằng email | **Đã vào main** | web `Staff` vẫn dùng đường cũ cho tới khi làm lại (không đổi ở lượt này) |
+| 24 Manager tạo Cashier/Barista bằng email | **Đã vào main** | **Web nối real ở 7.4c** (`/manager/staff*`), xem "Cập nhật 7.4c" cuối phần này |
 | 45 recheck / cancel QR | **Đã vào main** (một phần) | vẫn không có job hết hạn, BR-31 chưa |
 | 46 Manager xác nhận tiền mặt | **Đã vào main** | 409 từ chối |
 | 53 xác nhận thủ công | **Đã vào main** | một hàm `settle` dùng chung |
 | 54 lệch số tiền | **Đã vào main** | `AMOUNT_MISMATCH` / `REQUIRES_ATTENTION`; nhận thiếu → 409 `PAYMENT_AMOUNT_INSUFFICIENT`. Dòng #44 ở bảng trên ("Xấu hơn") không còn đúng với `main`. Web vẫn hiện "Khác (…)" cho hai mã mới tới 7.4 |
 | 56 compose ép production | **Đã vào main** | `docker-compose.yml:15` `NODE_ENV: development`; override local đã xoá |
 | 57 merge nhánh | **Đã vào main** | còn #58 (test ca 6, 7) |
+
+### Cập nhật 7.4c (2026-10-11): #24 Manager quản Cashier/Barista — web nối real (BE `d98b4c1`)
+
+| Thao tác | Endpoint (BE) | Thân / điều kiện | Lỗi chính | Web |
+|---|---|---|---|---|
+| Danh sách | `GET /manager/staff?page&limit≤100&search&role&status` (`branch-manager.controller.ts:48`) | trả `{items,total,page,limit}`, không `lastLoginAt` (#62) | 403 hết hạn/không phải Manager | real; lấy 100 dòng đầu |
+| Tạo | `POST /manager/staff` (`:54`) → `ManagerCreateStaffDto` = `CreateStaffDto` bỏ `role/branchId/password` + `role` CASHIER/BARISTA: `email`, `employeeCode` (1–50, BE viết hoa), `firstName`, `lastName` (1–100), `phone?` (`^\+?[0-9]{8,15}$`), `jobTitle?`, `dateOfBirth?`, `hireDate?`; tạo `INACTIVE` + token 24 giờ + email; trả `{…staff, invitationExpiresAt, emailStatus}` | `forbidNonWhitelisted` (không `password`, không `branchId`); chặn theo `maxAccounts` | 409 `Email, phone or employee code already exists`; 409 `PLAN_LIMIT_REACHED` ("Đã hết hạn mức tài khoản. Liên hệ Owner để nâng gói.", KHÔNG có `suggestedPlans`); 409 `Subscription is not active`; 403 chỉ đọc | real; form có Mã nhân viên |
+| Sửa | `PATCH /manager/staff/:id` (`:73`) partial của DTO tạo | không nhận `null` (#63); đổi `email`/`role` thu hồi phiên | 400 `Provide at least one field`; 404 `Cashier/Barista not found in your branch` | real; chỉ họ tên và điện thoại |
+| Khoá / mở | `PATCH /manager/staff/:id/status` (`:85`) `{status: ACTIVE\|INACTIVE\|SUSPENDED, reason 3–500}` | khoá thu hồi phiên; KHÔNG kiểm hạn mức khi mở khoá | 409 `Concurrent update; reload and retry` | real; luôn gửi `reason`; khoá = `SUSPENDED` |
+| Gửi lại email | `POST /manager/staff/:id/reset-password` (`:97`) `{reason 3–500}` | thu hồi phiên, vô hiệu token cũ, tạo token mới, email; trả `{message, employeeId, expiresAt, emailStatus}` | như trên | real; cũng là "gửi lại lời mời" cho tài khoản chưa kích hoạt |
+
+**Khi gửi email lỗi:** `EmailOutboxService.deliver` (`email-outbox.service.ts:22-72`) KHÔNG ném lỗi: thiếu `EMAIL_API_KEY`/`EMAIL_FROM` → trả `PENDING` (không gửi, không thử lại); Resend trả lỗi/quá 10 giây → ghi `lastError`, `attempts+1`, trả `FAILED`. Tài khoản VẪN được tạo (giao dịch DB đã commit trước khi gửi); không có job gửi lại, nên lối duy nhất là "Gửi lại email". Web hiện câu theo `emailStatus` (SENT / chưa gửi / thất bại).
+
+**Bảng lệch đặc tả ↔ BE ↔ web (Cashier/Barista):**
+
+| Chỗ | Đặc tả (BM-01) | BE | Web |
+|---|---|---|---|
+| Tạo không mật khẩu | email kích hoạt, không mật khẩu | Đúng (token 24 giờ) | Đúng; không có ô mật khẩu |
+| Sửa | "sửa" | Cả email, vai trò, mã, ngày | Chỉ họ tên và điện thoại (email là tên đăng nhập; vai trò quyết lúc tạo) |
+| Đặt lại mật khẩu | có | Có, bắt buộc `reason` | Có, hộp lý do |
+| Khoá khi nghỉ việc | có, bị chặn khi vượt hạn mức | Khoá/mở có `reason`; hạn mức chỉ kiểm khi TẠO; hạn mức đếm cả tài khoản khoá (#26, lệch 13.1) | Hộp lý do; nút Mở khoá vẫn "báo sớm" theo hạn mức |
+| Trạng thái kích hoạt | (không nêu) | `INACTIVE` dùng cho cả "chưa kích hoạt" và "ngừng" (#64) | Nhãn "Chưa kích hoạt" như màn Owner |
+| Đăng nhập gần nhất | (không nêu) | không trả (#62) | ẩn cột ở real |
 
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 

@@ -163,7 +163,7 @@ scripts/browser/              Chrome CDP + phase2.mjs (+ README)
 | branding | `VITE_API_BRANDING` | **real** (từ 6.4) | OW-07: `GET/PUT/DELETE restaurant-chains/{id}/branding` + `POST …/branding/logo` (multipart, field `file`). BE chưa có `isCustom`/`version` (#39) và chưa chặn theo gói (#33) nên web tự suy `isCustom` (so với bộ mặc định của BE, `theme/tokens.ts` `BE_DEFAULT_BRANDING`) và tự khoá theo `brandingEnabled`. Từ 6.5 web tách `lookCustom` (màu/logo khác mặc định) khỏi tên: chỉ đổi tên → áp tên, màu vẫn của nền tảng (quyết định 28). Vai trò không đọc được (403) → giao diện nền tảng, không lỗi. Mock = `VITE_API_BRANDING=mock` (logo là data URL, lưu qua F5 ở `smartfnb:mock:branding:v1:<chainId>`). Test vitest ép `VITE_API_BRANDING=mock` |
 | payos | `VITE_API_PAYOS` | **real** (từ 6.5) | OW-06: `GET/PUT/DELETE restaurant-chains/{id}/payos-channel` (chỉ OWNER; `payos/real.ts`). PUT body CHỈ `{clientId, apiKey, checksumKey}` (`SavePayosChannelDto`), response `{configured, id?, createdAt?, updatedAt?}` KHÔNG có khoá. **Từ 6.10 (BE `de4f55c`, #40) đủ 4 trạng thái thật** (Chưa liên kết, Đang kiểm tra lúc `PUT` xác minh với PayOS, Đã liên kết kèm khoá che và `lastVerifiedAt`, Lỗi khi BE `ERROR`); quyết định 48–51. `PUT` cần `PAYOS_MASTER_KEY` và `PAYOS_WEBHOOK_BASE_URL` trên BE (thiếu thì 503, web báo câu tiếng Việt). Mock lưu **chỉ trạng thái, ngày và 4 ký tự cuối** ở `smartfnb:mock:payos:v1:<chainId>` (+ cờ Lỗi `smartfnb:mock:payos-error`, chỉ đọc ở dev), không bao giờ lưu khoá đầy đủ. Test vitest ép `VITE_API_PAYOS=mock` |
 | stations | `VITE_API_STATIONS` | **real** | 5.5: quầy và máy in (`GET/POST /stations`, role MANAGER; CASHIER GET để chọn quầy trên POS). Module riêng vì quầy có vòng đời riêng và 5.6 mở rộng cùng module. BE chưa có PATCH quầy (#27); trùng tên theo code trả 500 (#34) nên web báo trùng trước. Không giới hạn số quầy |
-| account | `VITE_API_ACCOUNT` | **real một phần** | 5.3: Manager (Owner) qua `/employees` real: list phân trang/tìm kiếm/lọc, khoá/mở (`PATCH :id/status`, khoá = `SUSPENDED`), gửi lại email đặt mật khẩu, chuyển chi nhánh; mapper whitelist. Tạo Manager bị khoá ở real (chờ BE #23). Owner **xem** Cashier/Barista bằng real (5.3b, `GET /employees?role=CASHIER|BARISTA`). Manager quản Cashier/Barista là **mock** (chờ BE #24, 5.4 ✅): `real.ts` trỏ thẳng sang `accountMock`, màn `/manager/staff` không gọi `/employees` (Manager bị 403) và hiện banner "Dữ liệu mẫu, chờ BE (#24)". Mock lưu ở localStorage `smartfnb:mock:accounts:v1:<chainId>`. Hạn mức tài khoản (đặc tả 13.1): tính tài khoản không bị khoá của cả doanh nghiệp (gồm Owner), chặn cả tạo lẫn mở khoá |
+| account | `VITE_API_ACCOUNT` | **real (7.4c, QĐ 95)** | **7.4c: phần Manager quản Cashier/Barista đã real** qua `/manager/staff*` (`GET` danh sách, `POST` tạo bằng email, `PATCH :id` họ tên/điện thoại, `PATCH :id/status` kèm lý do, `POST :id/reset-password` kèm lý do); hạn mức đọc từ gói thật trong store; mock giữ chạy (`VITE_API_ACCOUNT=mock`). Phần mô tả dưới là lịch sử trước 7.4c. 5.3: Manager (Owner) qua `/employees` real: list phân trang/tìm kiếm/lọc, khoá/mở (`PATCH :id/status`, khoá = `SUSPENDED`), gửi lại email đặt mật khẩu, chuyển chi nhánh; mapper whitelist. Tạo Manager bị khoá ở real (chờ BE #23). Owner **xem** Cashier/Barista bằng real (5.3b, `GET /employees?role=CASHIER|BARISTA`). Manager quản Cashier/Barista là **mock** (chờ BE #24, 5.4 ✅): `real.ts` trỏ thẳng sang `accountMock`, màn `/manager/staff` không gọi `/employees` (Manager bị 403) và hiện banner "Dữ liệu mẫu, chờ BE (#24)". Mock lưu ở localStorage `smartfnb:mock:accounts:v1:<chainId>`. Hạn mức tài khoản (đặc tả 13.1): tính tài khoản không bị khoá của cả doanh nghiệp (gồm Owner), chặn cả tạo lẫn mở khoá |
 | order | `VITE_API_ORDER` | mock | BE chưa có (BM-04..06) — giai đoạn 7 |
 | ai | `VITE_API_AI` | mock | BE chưa có (OW-09) — giai đoạn 9 |
 | admin | `VITE_API_ADMIN` | **real** | hồ sơ + doanh nghiệp + gói (3.2, 3.3); mapper bỏ ví (BR-07); nộp hồ sơ công khai real. Còn chờ BE: xem `docs/api-contract-plan.md` mục 7 |
@@ -405,6 +405,10 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 92 | Màn hình phía khách bản web (`/display/customer`): đặc tả giao FE-M (repo mobile backscreen). Cờ riêng `VITE_FEATURE_WEB_CUSTOMER_DISPLAY` (mặc định tắt), giữ mã, chờ nhóm quyết định giữ bản nào |
 | 93 | Màn gọi số `/display/call` của main GIỮ NGUYÊN, là điểm bắt đầu GĐ8; lượt 7.4b chỉ đảm bảo build/test chạy và trang mở được (không sửa nghiệp vụ) |
 | 94 | Giải xung đột: giữ đủ tính năng cả hai phía; cờ module (`flags.ts`) giữ trạng thái của `feat/v9-orders` cho module có sẵn, main không thêm cờ module; hai bên cùng sửa một logic thì theo đặc tả v9, không rõ thì giữ bản `feat/v9-orders` và ghi bảng "cần nhóm xem". Lượt 7.4b: 0 xung đột văn bản |
+| 95 | (7.4c, Khánh duyệt) Manager quản Cashier/Barista chạy thật theo #24 (BE `d98b4c1`): tạo bằng email KHÔNG mật khẩu (thêm ô **Mã nhân viên** vì BE bắt buộc `employeeCode`), sửa họ tên/điện thoại, khoá/mở khoá và gửi lại email kích hoạt đều BẮT BUỘC lý do 3–500 ký tự (hộp `StaffReasonModal`, audit của BE), nhãn "Chưa kích hoạt" cùng màn Owner. Không có BE thì khoá nút kèm "Chờ BE (#…)": xoá số điện thoại (#63), cột đăng nhập gần nhất ẩn ở real (#62). Cờ `account` phần Cashier/Barista từ mock sang real; mock giữ chạy; banner "Dữ liệu mẫu" bỏ |
+| 96 | Kiểm real tài khoản chỉ bằng `blockWrites`/`fulfillWrites`/`setFault`; KHÔNG tạo, mời, gửi lại email hay khoá tài khoản thật nào (BE local có `EMAIL_*` nên gửi thật sẽ gửi thư thật) |
+| 97 | `BranchOperations` (Owner "Giờ & khu vực", mã của nhóm): nút ghi (Lưu giờ, Lưu ngày đặc biệt, Xoá, Thêm/Lưu khu vực, Tạm ngưng/Mở lại, Lưu trữ) đổi sang `ActionButton` → khoá khi gói hết hạn/tạm ngưng; cảnh báo antd deprecated (`Drawer width`→`size`, `Spin tip` bỏ) đã sửa; không đổi nghiệp vụ. Ghi chú: nút vào "Giờ & khu vực" ở `Branches.tsx` vốn đã là `ActionButton` nên khi chỉ đọc không mở được ngăn kéo |
+| 98 | Ma trận use case 3 actor là tài liệu chỉ đọc: `docs/ma-tran-use-case-20261010.md` (trạng thái: Xong (thật) / Xong (mock, chờ BE #…) / Một phần / Chưa làm / Hoãn theo quyết định / Ngoài phạm vi web / Thừa) |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -898,3 +902,39 @@ KHÔNG chạy `phase7 realtime`. Mock: không chạy lại (merge không đổi 
 **Tồn đọng:** kiểm `/display/call` ghép thiết bị thật và `/t/:token` với token thật (cờ tắt) — GĐ8. `docs/PR-v9-orders-to-main.md` soạn sẵn (gitignore).
 
 **Lượt tiếp theo:** Khánh mở PR `feat/v9-orders` → `main` (docs/PR-v9-orders-to-main.md); rồi 7.5.
+
+### Lượt 7.4c (2026-10-11): Manager quản Cashier/Barista thật (#24), BranchOperations chỉ đọc, ma trận use case
+
+Quyết định 95–98 ở mục 5. BE local `main` `d98b4c1` (healthy; Docker phải bật lại đầu lượt). KHÔNG tạo/mời/gửi email/khoá tài khoản thật (BE có `EMAIL_*`): mọi ghi bị chặn/giả lập ở CDP; BE `GET /manager/staff` total không đổi trước/sau.
+
+**Hợp đồng BE `/manager/staff*`** (chi tiết và bảng lệch ở `docs/api-contract-plan.md`, "Cập nhật 7.4c"): `ManagerCreateStaffDto` = `CreateStaffDto` bỏ `role/branchId/password` (`email`, `employeeCode` ≤50, `firstName`, `lastName`, `phone?`…); `forbidNonWhitelisted` nên không gửi `password`/`branchId`; lỗi 409 `Email, phone or employee code already exists`, 409 `PLAN_LIMIT_REACHED` (câu tiếng Việt sẵn, KHÔNG `suggestedPlans`), 409 `Subscription is not active`, 409 `Concurrent update`, 404 `Cashier/Barista not found in your branch`. **Gửi email lỗi:** BE không ném lỗi, tài khoản vẫn tạo; `emailStatus` = `SENT` / `PENDING` (thiếu `EMAIL_*`, không thử lại) / `FAILED` (ghi `lastError`); lối duy nhất là "Gửi lại email". Web hiện câu theo `emailStatus`.
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `a3f41aa` | `feat(manager)`: `account` real cho Cashier/Barista (`real.ts`, `mapper.ts` `mapStaffPage`), `StaffTable.tsx` + `StaffReasonModal.tsx`, `staffRules.ts`, `BACKEND_TEXT` + fixture (6 câu), `PasswordSetupNotice.emailStatus`, mock có mã nhân viên và `emailStatus` | 550 |
+| `7131f5d` | `fix(owner)`: `BranchOperations` → `ActionButton`, bỏ prop deprecated, `BranchOperations.test.tsx` | 553 |
+| `2780767` | `fix(manager)`: hộp lý do chống bấm đúp bằng ref (phát hiện ở phase5 real: 2 PATCH khi bấm đúp); bỏ banner mẫu | 553 |
+| `007fde0` | `test(browser)`: phase5 staff real/mock, phase4 owner (BranchOperations chỉ đọc), faults `manager/staff-create|resend|lock` | 553 |
+| (docs) | quyết định 95–98, mục 7.4c, `ma-tran-use-case-20261010.md`, api-contract-plan (#62–#64) | 553 |
+
+**Kết quả kiểm (cổng 5173):**
+
+| Khối | Mock | Real (chặn ghi) |
+|---|---|---|
+| phase5 (đủ) | 112/112 (3 lần liền sau sửa script) | 106/106 (3 lần liền; gồm 22 ca staff mới) |
+| phase4 owner | 99/99 | 34/34 (gồm ca BranchOperations với gói EXPIRED trả lời giả) |
+| phase58-forms | — | 16/16 |
+| phase58-faults manager | — | 66/66 (54 cũ + 12 mới: `staff-create`, `staff-resend`, `staff-lock` × 500, 403, mạng, 401) |
+| phase58-faults owner | — | 85/85 |
+
+KHÔNG chạy phase7 realtime. Ca real của staff (phase5 `--only=staff`, 36 ca): `readOverride` cho gói EXPIRED; `blockWrites` cho tạo/gửi lại/khoá (đúng 1 request, thân khớp DTO); `fulfillWrites` 200 cho tạo (emailStatus FAILED) và khoá bấm đúp (1 PATCH); `setFault` 409 email trùng, 409 PLAN_LIMIT_REACHED, 400 theo ô, 403, 500, 409 cập nhật đồng thời, 404. Chạy lại theo QĐ 21: mọi phase/khối có màn `/manager/staff`, `/owner/branches` (BranchOperations).
+
+**Ca trượt:** (1) phase5 real chạy đủ lần đầu 60/65 (tạo 409 hạn mức/400/403, "Thêm nhân viên vẫn mở", hộp lý do gửi lại) mà `--only=staff` 36/36 và các lần chạy lại đạt → **chập chờn của script, chưa tái hiện** (nghi: thông báo "Mất kết nối" của ca chặn ghi còn sống/hộp cũ chưa đóng); đã thêm chờ hộp lý do đóng hẳn trong `confirmOk` và nạp lại gói thật sau ca chỉ đọc. (2) Sau ca chỉ đọc, khối Quầy của phase5 gặp gói EXPIRED còn trong store → thêm `tab.goto` nạp lại gói thật (script). (3) phase5 mock: 2 ca khoá đọc nhầm hộp lý do cũ (hiệu ứng đóng antd) → sửa script, 3 lần liền 112/112. (4) Mã ứng dụng: bấm đúp hộp lý do gửi 2 request (state chưa render lại) → sửa bằng ref (`2780767`). Không do merge. Hạ tầng: `phase4`/`forms`/`phase5 mock` thoát mã 127 (libuv) sau dòng tổng.
+
+**Bảng request ghi bị chặn/giả lập (script in; tới BE: 0, đặc biệt 0 request tạo/mời/gửi email):** phase5 staff real 13 (`POST /manager/staff` ×6, `POST /manager/staff/{id}/reset-password` ×1, `PATCH /manager/staff/{id}/status` ×6) + các dòng cũ (reset-password Owner, branch, service-plans, stations, menu); faults `manager/staff-*` 15 (5 mỗi dòng); phase4 owner 11 + 0 cho ca BranchOperations; forms 1. Thân POST tạo mẫu: `{"email":"kiem.thu.7-4c@example.invalid","role":"CASHIER","employeeCode":"KT-74C-01","firstName":"Trần","lastName":"Thị Kiểm Thử","phone":"0901234567"}`.
+
+**Chỗ `CLAUDE.md`/`AGENTS.md` (của nhóm, từ main) mâu thuẫn với prompt/BAN-GIAO:** hai file yêu cầu chạy `impact`/`detect_changes` của GitNexus trước khi sửa và trước khi commit; môi trường này không có công cụ đó và prompt lượt 7.4c cấm cài/chạy công cụ chỉ vì hai file. Theo quy tắc 14 (chuỗi `tsc && lint && build && test && commit`) của BAN-GIAO; không dùng GitNexus.
+
+**Nhờ BE mới (đánh tiếp từ #62):** #62 `lastLoginAt` ở danh sách nhân viên; #63 xoá số điện thoại (`null`); #64 phân biệt "chưa kích hoạt"/"ngừng", huỷ lời mời, hạn lời mời.
+
+**Lượt tiếp theo:** 7.5 (Cần xử lý + cảnh báo) rồi 7.6 (huỷ đơn đã trả); đọc `docs/ma-tran-use-case-20261010.md` mục 7 (5 việc thiếu quan trọng nhất cho demo).
