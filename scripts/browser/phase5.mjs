@@ -58,6 +58,18 @@ const clickRowBtn = (rowText, btnText) =>
     const b = r && [...r.querySelectorAll("button")].find((x) => x.textContent.includes(${J(btnText)}) && !x.disabled); if (!b) return false; b.click(); return true })()`);
 const confirmOk = async (okText) => {
   await sleep(600);
+  // 7.4c: khoá / mở khoá / gửi lại email của Manager hỏi LÝ DO trong hộp riêng (StaffReasonModal, BE bắt buộc `reason` 3–500).
+  if (await q(`!!document.querySelector('[data-testid="staff-reason"]')`)) {
+    await q(`(() => { const el = document.querySelector('[data-testid="staff-reason"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, "Lý do kiểm thử tự động"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await sleep(250);
+    const clicked = await q(`(() => { const b = document.querySelector('[data-testid="staff-reason-ok"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
+    // Chờ hộp lý do đóng hẳn (hiệu ứng đóng của antd còn giữ phần tử vài trăm ms) để thao tác sau không đọc nhầm hộp cũ.
+    for (let i = 0; i < 25; i++) {
+      if (!(await q(`!!document.querySelector('[data-testid="staff-reason"]')`))) break;
+      await sleep(200);
+    }
+    return clicked;
+  }
   return q(`(() => { const b = [...document.querySelectorAll(".ant-modal-confirm button")].find((x) => x.textContent.includes(${J(okText)})); if (!b) return false; b.click(); return true })()`);
 };
 const confirmCancel = () => q(`(() => { const b = [...document.querySelectorAll(".ant-modal-confirm button")].find((x) => x.textContent.includes("Huỷ")); if (!b) return false; b.click(); return true })()`);
@@ -273,7 +285,7 @@ try {
     check("Nhân viên (mock): dòng hạn mức KHÔNG có nhãn '(số liệu mẫu)' (số liệu của mock là số liệu thật của mock)", !/số liệu mẫu/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
     check("Nhân viên (mock): không có banner 'dữ liệu mẫu' và có dòng hạn mức 'Đã dùng X/Y tài khoản'", !(await has("staff-mock-banner")) && /Đã dùng \d+\/\d+ tài khoản/.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)), await q(`${tid("staff-quota")}?.innerText.slice(0, 60) ?? ""`));
     const staffRowsNow = await waitRows((r) => r.length >= 4);
-    check("Nhân viên: bảng chỉ có Cashier/Barista của chi nhánh mình, hiện trạng thái và đăng nhập gần nhất", staffRowsNow.length >= 4 && staffRowsNow.every((r) => /Cashier|Barista/.test(r) && /Đang hoạt động|Đã khoá|Chờ đặt mật khẩu/.test(r) && /Chưa từng|\d{2}\/\d{2}\/\d{4}/.test(r)), `${staffRowsNow.length} dòng; ${staffRowsNow[0]?.slice(0, 100)}`);
+    check("Nhân viên: bảng chỉ có Cashier/Barista của chi nhánh mình, hiện trạng thái và đăng nhập gần nhất", staffRowsNow.length >= 4 && staffRowsNow.every((r) => /Cashier|Barista/.test(r) && /Đang hoạt động|Đã khoá|Chưa kích hoạt/.test(r) && /Chưa từng|\d{2}\/\d{2}\/\d{4}/.test(r)), `${staffRowsNow.length} dòng; ${staffRowsNow[0]?.slice(0, 100)}`);
     const staffQuotaText = () => q(`${tid("staff-quota")}?.innerText ?? ""`);
     const quotaUsed = async () => Number(((await staffQuotaText()).match(/Đã dùng (\d+)\//) ?? [])[1] ?? NaN);
     const quotaLimit = async () => Number(((await staffQuotaText()).match(/Đã dùng \d+\/(\d+)/) ?? [])[1] ?? NaN);
@@ -284,6 +296,8 @@ try {
       await sleep(700);
       await setTid("staff-name", fullName);
       await setTid("staff-email", email);
+      // Mã nhân viên bắt buộc từ 7.4c (BE `employeeCode`): suy từ email để không trùng.
+      await setTid("staff-code", `NV-${email.split("@")[0].toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 30)}`);
       if (phone) await setTid("staff-phone", phone);
       if (roleText) {
         await q(`document.querySelector(".ant-drawer .ant-select-content, .ant-drawer .ant-select-selector").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))`);
@@ -302,7 +316,7 @@ try {
     check("Manager tạo nhân viên: hiện 'Đã xếp email đặt mật khẩu … hiệu lực tới …', không có mật khẩu", /Đã xếp email đặt mật khẩu tới nv\.thu@mock\.local, hiệu lực tới/.test(staffNotice) && !SECRET.test(await pageText()), staffNotice);
     await dismissModals();
     let sRows = await waitRows((r) => r.some((x) => x.includes("Nhân Viên Thử")));
-    check("Nhân viên mới: hiện 'Chờ đặt mật khẩu', vai trò Cashier, chưa đăng nhập, quota +1", sRows.some((r) => r.includes("Nhân Viên Thử") && r.includes("Chờ đặt mật khẩu") && r.includes("Cashier") && r.includes("Chưa từng")) && (await quotaUsed()) === usedBefore + 1, `${usedBefore} → ${await quotaUsed()}`);
+    check("Nhân viên mới: hiện 'Chưa kích hoạt', vai trò Cashier, chưa đăng nhập, quota +1", sRows.some((r) => r.includes("Nhân Viên Thử") && r.includes("Chưa kích hoạt") && r.includes("Cashier") && r.includes("Chưa từng")) && (await quotaUsed()) === usedBefore + 1, `${usedBefore} → ${await quotaUsed()}`);
 
     // ============================================================ MOCK — 5.4 Manager quản Cashier/Barista
     // tạo Barista (chọn vai trò) + điện thoại
@@ -312,7 +326,7 @@ try {
     check("Tạo Barista (kèm điện thoại): hiện đúng vai trò và số điện thoại", sRows.some((r) => r.includes("Pha Chế Thử") && r.includes("Barista") && r.includes("0901234567")), (sRows.find((r) => r.includes("Pha Chế Thử")) ?? "").slice(0, 120));
     // email trùng
     await createStaffUI("Người Trùng", "NV.THU@mock.local", "", "");
-    check("Email trùng (không phân biệt hoa thường) → báo 'Email này đã được dùng'", /Email này đã được dùng/.test(await toasts()), await toasts());
+    check("Email trùng (không phân biệt hoa thường) → báo 'Email, số điện thoại hoặc mã nhân viên đã tồn tại'", /Email, số điện thoại hoặc mã nhân viên đã tồn tại/.test(await toasts()), await toasts());
     await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
     await sleep(500);
     // dữ liệu sai bị chặn ở form
@@ -998,18 +1012,23 @@ try {
     await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 15000, "shell manager");
     await sleep(1000);
 
-    // ---- 5.4: Manager real — màn Nhân viên là dữ liệu mẫu: banner, KHÔNG gọi /employees (Manager bị 403), không toast lỗi, không request ghi
+    // ---- 7.4c (#24): Manager real — màn Nhân viên đọc THẬT `GET /manager/staff` (không còn dữ liệu mẫu/banner); Manager bị 403 ở /employees nên
+    // KHÔNG gọi /employees. Mọi ghi bị chặn/giả lập ở CDP; KHÔNG tạo, mời, gửi lại email hay khoá tài khoản thật (quyết định 96).
     const reqMark = tab.requests.length;
     tab.blockedWrites.length = 0;
     await tab.clickMenu("Nhân viên");
     await sleep(2800);
     const staffReqs = tab.requests.slice(reqMark);
-    const staffBanner = await q(`${tid("staff-mock-banner")}?.innerText ?? ""`);
-    check("Real · Manager · Nhân viên: banner 'Dữ liệu mẫu, chờ BE (#24)… chưa đăng nhập được app POS'", /Dữ liệu mẫu, chờ BE \(#24\)/.test(staffBanner) && /chưa đăng nhập được app POS/.test(staffBanner), staffBanner);
-    check("Real · Manager · Nhân viên: 0 request tới /employees", staffReqs.filter((r) => /\/employees/.test(r.url)).length === 0, `${staffReqs.length} request: ${[...new Set(staffReqs.map((r) => new URL(r.url).pathname.replace(/[0-9a-f-]{36}/g, "{id}")))].join(", ")}`);
+    const beStaff = await beGet("/manager/staff?limit=100", "manager");
+    const staffListGets = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/staff(\?|$)/.test(r.url)).length;
+    check("Real · Manager · Nhân viên: không còn banner dữ liệu mẫu; gọi GET /manager/staff, 0 request tới /employees", !(await has("staff-mock-banner")) && staffReqs.some((r) => r.method === "GET" && /\/manager\/staff\?/.test(r.url)) && staffReqs.filter((r) => /\/employees/.test(r.url)).length === 0, `${staffReqs.length} request: ${[...new Set(staffReqs.map((r) => new URL(r.url).pathname.replace(/[0-9a-f-]{36}/g, "{id}")))].join(", ")}`);
+    const realStaffRows = await rows();
+    const STATUS_VN = { ACTIVE: "Đang hoạt động", INACTIVE: "Chưa kích hoạt", SUSPENDED: "Đã khoá" };
+    check("Real · Manager · Nhân viên: số dòng, họ tên, email, mã, vai trò, trạng thái từng dòng khớp GET /manager/staff", realStaffRows.length === beStaff.items.length && beStaff.items.length > 0 && beStaff.items.every((e) => realStaffRows.some((r) => r.includes(`${e.firstName} ${e.lastName}`.trim()) && r.includes(e.user.email) && r.includes(e.employeeCode) && r.includes(e.user.role.code === "CASHIER" ? "Cashier" : "Barista") && r.includes(STATUS_VN[e.user.status]))), `${realStaffRows.length}/${beStaff.items.length}`);
+    check("Real · Manager · Nhân viên: không có cột 'Đăng nhập gần nhất' (BE không trả, #62)", !(await q(`[...document.querySelectorAll(".ant-table-thead th")].some((t) => /Đăng nhập gần nhất/.test(t.innerText))`)));
     check("Real · Manager · Nhân viên: 0 toast lỗi", (await toasts()) === "", await toasts());
     check("Real · Manager · Nhân viên: 0 request ghi bị chặn ở CDP", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
-    check("Real · Manager · Nhân viên: bảng có dữ liệu mẫu và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
+    check("Real · Manager · Nhân viên: bảng có dòng và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
     // 6.11 (#38): dòng hạn mức lấy từ GÓI THẬT (GET /restaurant-chains/:id/subscription), không còn nhãn '(số liệu mẫu)'; danh sách vẫn mẫu nên banner còn.
     const meBe = await beGet("/auth/me", "manager");
     const subBe = (await beGet(`/restaurant-chains/${meBe.chainId}/subscription`, "manager")).subscription;
@@ -1058,6 +1077,171 @@ try {
     const retried = await q(`${tid("staff-quota")}?.innerText ?? ""`);
     check("Real · Bỏ lỗi rồi bấm Thử lại: dòng hạn mức có số thật lại, hết 'Chưa tải được'", retried.includes(`Đã dùng ${accBe.used}/${accBe.limit}`) && !/Chưa tải được/.test(retried), retried.replace(/\s+/g, " ").slice(0, 70));
     check("Real · Manager · khối gói: 0 request ghi bị chặn", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
+
+    // ---- 7.4c: các thao tác GHI của Manager với Cashier/Barista. KHÔNG request nào tới BE (BE local có EMAIL_* nên tạo/mời/gửi lại sẽ gửi
+    // THƯ THẬT): blockWrites (chặn), fulfillWrites (trả lời giả 200), setFault (lỗi giả). So thân POST với DTO BE (manager.dto.ts, create-staff.dto.ts).
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelectorAll(".ant-table-tbody > tr.ant-table-row").length > 0 && /Đã dùng \\d+\\//.test(${tid("staff-quota")}?.innerText ?? "")`, 20000, "màn Nhân viên nạp xong");
+    await sleep(600);
+    const writesTo = (re) => tab.blockedWrites.filter((w) => re.test(w.path));
+    const bodyOf = (w) => {
+      try {
+        return JSON.parse(w?.body ?? "null");
+      } catch {
+        return null;
+      }
+    };
+    const staffTotalBefore = beStaff.total;
+    const activeRow = beStaff.items.find((e) => e.user.status === "ACTIVE");
+    const anyRow = beStaff.items[0];
+    const closeDrawers = async () => {
+      await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+      await sleep(500);
+    };
+    const fillCreate = async () => {
+      await clickTid("staff-add");
+      await sleep(700);
+      await setTid("staff-name", "Trần Thị Kiểm Thử");
+      await setTid("staff-email", "kiem.thu.7-4c@example.invalid");
+      await setTid("staff-code", "KT-74C-01");
+      await setTid("staff-phone", "0901234567");
+      await sleep(300);
+    };
+    const submitCreate = async () => {
+      await clickTid("staff-save");
+      await sleep(600);
+      await confirmOk("Tạo tài khoản");
+      await sleep(1600);
+    };
+
+    // W1. Tạo — blockWrites: đúng 1 POST, thân khớp ManagerCreateStaffDto, KHÔNG mật khẩu/branchId; BE không đổi.
+    await fillCreate();
+    check("Real · Tạo: form có Mã nhân viên, không có ô mật khẩu", (await has("staff-code")) && !(await q(`!!document.querySelector('.ant-drawer input[type="password"]')`)));
+    tab.blockedWrites.length = 0;
+    tab.caseName = "staff-create|blockWrites";
+    await submitCreate();
+    const w1 = writesTo(/\/manager\/staff$/);
+    const b1 = bodyOf(w1[0]);
+    check("Real · Tạo (blockWrites): đúng 1 POST /api/v1/manager/staff", w1.length === 1 && w1[0].method === "POST", J(w1.map((w) => `${w.method} ${w.path}`)));
+    check("Real · Tạo: thân khớp ManagerCreateStaffDto — {email, role, employeeCode, firstName, lastName, phone}, KHÔNG password/branchId", !!b1 && J(Object.keys(b1).sort()) === J(["email", "employeeCode", "firstName", "lastName", "phone", "role"]) && b1.role === "CASHIER" && b1.employeeCode === "KT-74C-01" && b1.firstName === "Trần" && b1.lastName === "Thị Kiểm Thử" && b1.email === "kiem.thu.7-4c@example.invalid", J(b1));
+    check("Real · Tạo bị chặn: báo lỗi mạng tiếng Việt, dữ liệu BE không đổi (GET lại cùng tổng)", /kết nối/i.test(await toasts()) && (await beGet("/manager/staff?limit=100", "manager")).total === staffTotalBefore, `${await toasts()} · BE ${staffTotalBefore}`);
+
+    // W2. Tạo — fulfillWrites 200 (trả lời giả như BE): thông báo + trạng thái email + GET lại danh sách.
+    const getsBefore = staffListGets();
+    tab.blockedWrites.length = 0;
+    tab.caseName = "staff-create|fulfillWrites 200";
+    tab.fulfillWrites = true;
+    tab.fulfillBody = J({ id: "7e57ed00-0000-4000-8000-0000000000c1", branchId: anyRow.branchId, employeeCode: "KT-74C-01", firstName: "Trần", lastName: "Thị Kiểm Thử", jobTitle: null, dateOfBirth: null, hireDate: new Date().toISOString(), status: "ACTIVE", user: { id: "u-fake", email: "kiem.thu.7-4c@example.invalid", phone: "0901234567", status: "INACTIVE", role: { code: "CASHIER" } }, invitationExpiresAt: new Date(Date.now() + 86_400_000).toISOString(), emailStatus: "FAILED" });
+    await submitCreate();
+    tab.fulfillWrites = false;
+    const notice = await q(`${tid("password-setup-notice")}?.innerText ?? ""`);
+    check("Real · Tạo (fulfillWrites 200): thông báo 'Đã xếp email đặt mật khẩu…', nêu rõ email gửi THẤT BẠI, GET lại danh sách, không mật khẩu", /Đã xếp email đặt mật khẩu tới kiem\.thu\.7-4c@example\.invalid/.test(notice) && /THẤT BẠI/.test(notice) && staffListGets() > getsBefore && !SECRET.test(await pageText()), `${notice.replace(/\s+/g, " ").slice(0, 160)} · GET ${getsBefore}→${staffListGets()}`);
+    await dismissModals();
+    await closeDrawers();
+
+    // W3. Tạo — setFault: 409 email trùng, 409 hết hạn mức, 400 theo ô, 403.
+    await fillCreate();
+    const createFaults = [
+      ["409 email trùng", "409", { statusCode: 409, message: "Email, phone or employee code already exists", error: "Conflict" }, /Email, số điện thoại hoặc mã nhân viên đã tồn tại/],
+      ["409 hết hạn mức (PLAN_LIMIT_REACHED)", "409", { statusCode: 409, error: "PLAN_LIMIT_REACHED", message: "Đã hết hạn mức tài khoản. Liên hệ Owner để nâng gói." }, /Đã hết hạn mức tài khoản/],
+      ["400 theo ô", "400", { statusCode: 400, message: ["employeeCode must be shorter than or equal to 50 characters", "property password should not exist"], error: "Bad Request" }, /Mã nhân viên tối đa 50 ký tự/],
+      ["403", "403", undefined, /Bạn không đủ quyền thực hiện thao tác này/],
+    ];
+    for (const [label, kind, fbody, re] of createFaults) {
+      await q(`document.querySelectorAll(".ant-message-notice-close, .ant-notification-notice-close").forEach((b) => b.click())`);
+      await sleep(500);
+      tab.blockedWrites.length = 0;
+      tab.caseName = `staff-create|setFault ${label}`;
+      tab.setFault({ kind, match: /^$/, ...(fbody && { body: fbody }) });
+      await submitCreate();
+      tab.setFault(null);
+      const t = await toasts();
+      check(`Real · Tạo (lỗi giả ${label}): 1 POST bị giả lập, câu tiếng Việt, form còn mở để sửa`, writesTo(/\/manager\/staff$/).length === 1 && re.test(t) && !/already exists|should not exist|must be/.test(t) && (await has("staff-save")), t.slice(0, 140));
+    }
+    await closeDrawers();
+
+    // W4. Gửi lại email — hộp lý do bắt buộc; blockWrites: 1 POST …/reset-password {reason}.
+    await q(`document.querySelectorAll(".ant-message-notice-close, .ant-notification-notice-close").forEach((b) => b.click())`);
+    tab.blockedWrites.length = 0;
+    tab.caseName = "staff-resend|blockWrites";
+    await clickTid(`staff-resend-${anyRow.id}`);
+    await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do gửi lại email");
+    const resendBox = await q(`document.querySelector(".ant-modal-container")?.innerText ?? ""`);
+    check("Real · Gửi lại email: hộp xác nhận nêu email, hiệu lực 24 giờ, cảnh báo GỬI EMAIL THẬT, bắt buộc lý do (nút khoá khi trống)", resendBox.includes(anyRow.user.email) && /24 giờ/.test(resendBox) && /GỬI EMAIL THẬT/.test(resendBox) && (await q(`${tid("staff-reason-ok")}.disabled`)) === true, resendBox.replace(/\s+/g, " ").slice(0, 160));
+    await confirmOk("Gửi email");
+    await sleep(1500);
+    const w4 = writesTo(new RegExp(`/manager/staff/${anyRow.id}/reset-password$`));
+    check("Real · Gửi lại email (blockWrites): đúng 1 POST …/reset-password, thân CHỈ {reason}", w4.length === 1 && w4[0].method === "POST" && J(Object.keys(bodyOf(w4[0]) ?? {})) === J(["reason"]) && bodyOf(w4[0]).reason === "Lý do kiểm thử tự động", J(w4.map((w) => `${w.method} ${w.path} ${w.body}`)));
+    await q(`document.querySelectorAll(".ant-modal-container button").forEach((b) => { if (/Huỷ/.test(b.innerText)) b.click(); })`);
+    await sleep(500);
+
+    // W5. Khoá — hộp lý do; blockWrites: 1 PATCH …/status {status:"SUSPENDED", reason}; BE không đổi.
+    tab.blockedWrites.length = 0;
+    tab.caseName = "staff-lock|blockWrites";
+    await clickTid(`staff-lock-${activeRow.id}`);
+    await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do khoá");
+    const lockBox = await q(`document.querySelector(".ant-modal-container")?.innerText ?? ""`);
+    check("Real · Khoá: hộp xác nhận nêu tên, vai trò, 'không tính vào hạn mức', bắt buộc lý do", lockBox.includes(activeRow.user.email) && /không tính vào hạn mức/.test(lockBox) && (await q(`${tid("staff-reason-ok")}.disabled`)) === true, lockBox.replace(/\s+/g, " ").slice(0, 150));
+    await confirmOk("Khoá tài khoản");
+    await sleep(1500);
+    const w5 = writesTo(new RegExp(`/manager/staff/${activeRow.id}/status$`));
+    check("Real · Khoá (blockWrites): đúng 1 PATCH …/status, thân {status:'SUSPENDED', reason} (ManagerStaffStatusDto)", w5.length === 1 && w5[0].method === "PATCH" && J(bodyOf(w5[0])) === J({ status: "SUSPENDED", reason: "Lý do kiểm thử tự động" }), J(w5.map((w) => `${w.method} ${w.path} ${w.body}`)));
+    const afterLock = await beGet("/manager/staff?limit=100", "manager");
+    check("Real · Khoá bị chặn: dữ liệu BE không đổi (tài khoản vẫn ACTIVE)", afterLock.items.find((e) => e.id === activeRow.id)?.user.status === "ACTIVE");
+    await q(`document.querySelectorAll(".ant-modal-container button").forEach((b) => { if (/Huỷ/.test(b.innerText)) b.click(); })`);
+    await sleep(500);
+
+    // W6. Khoá — fulfillWrites + bấm đúp nhanh: chỉ 1 PATCH.
+    tab.blockedWrites.length = 0;
+    tab.caseName = "staff-lock|fulfillWrites bấm đúp";
+    await clickTid(`staff-lock-${activeRow.id}`);
+    await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do khoá");
+    await q(`(() => { const el = ${tid("staff-reason")}; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, "Kiểm bấm đúp"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await sleep(250);
+    tab.fulfillWrites = true;
+    tab.fulfillBody = J({ ...activeRow, user: { ...activeRow.user, status: "SUSPENDED" } });
+    await q(`(() => { const b = ${tid("staff-reason-ok")}; b.click(); b.click(); })()`);
+    await sleep(1800);
+    tab.fulfillWrites = false;
+    check("Real · Khoá: bấm đúp nhanh chỉ 1 PATCH (CDP); thông báo thành công", writesTo(new RegExp(`/manager/staff/${activeRow.id}/status$`)).length === 1 && /Đã khoá tài khoản/.test(await toasts()), `${writesTo(/status$/).length} · ${await toasts()}`);
+    await q(`document.querySelectorAll(".ant-message-notice-close, .ant-notification-notice-close").forEach((b) => b.click())`);
+
+    // W7. Khoá/gửi lại — setFault 500, 403, mạng, 409: hộp còn mở, nút mở lại, câu tiếng Việt (409 cập nhật đồng thời).
+    for (const [label, kind, fbody, re] of [
+      ["500", "500", undefined, /Máy chủ đang gặp sự cố/],
+      ["403", "403", undefined, /Bạn không đủ quyền thực hiện thao tác này/],
+      ["409 cập nhật đồng thời", "409", { statusCode: 409, message: "Concurrent update; reload and retry", error: "Conflict" }, /Dữ liệu vừa được cập nhật ở nơi khác/],
+      ["404 không thuộc chi nhánh", "404", { statusCode: 404, message: "Cashier/Barista not found in your branch", error: "Not Found" }, /Không tìm thấy nhân viên/],
+    ]) {
+      await q(`document.querySelectorAll(".ant-message-notice-close, .ant-notification-notice-close").forEach((b) => b.click())`);
+      await sleep(400);
+      tab.blockedWrites.length = 0;
+      tab.caseName = `staff-lock|setFault ${label}`;
+      await clickTid(`staff-lock-${activeRow.id}`);
+      await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do khoá");
+      tab.setFault({ kind, match: /^$/, ...(fbody && { body: fbody }) });
+      await confirmOk("Khoá tài khoản");
+      await sleep(1600);
+      tab.setFault(null);
+      const t = await toasts();
+      check(`Real · Khoá (lỗi giả ${label}): 1 PATCH bị giả lập, câu tiếng Việt, không tiếng Anh thô`, writesTo(/\/status$/).length === 1 && re.test(t) && !/Internal|Concurrent|not found|Forbidden/i.test(t), t.slice(0, 140));
+      await q(`document.querySelectorAll(".ant-modal-container button").forEach((b) => { if (/Huỷ/.test(b.innerText)) b.click(); })`);
+      await sleep(500);
+    }
+
+    // W8. Chỉ đọc (gói EXPIRED, trả lời giả GET …/subscription): Thêm, Sửa, Gửi lại email, Khoá đều khoá.
+    tab.readOverride = { match: /\/api\/v1\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/, body: J({ subscription: { ...subBe, status: "EXPIRED", expiresAt: "2020-01-01T00:00:00.000Z" } }) };
+    tab.caseName = "staff-readonly|readOverride";
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelectorAll(".ant-table-tbody > tr.ant-table-row").length > 0`, 20000, "màn Nhân viên (gói hết hạn)");
+    await sleep(900);
+    const roState = await q(`({ add: ${tid("staff-add")}.disabled, all: [...document.querySelectorAll(".ant-table-tbody button")].every((b) => b.disabled), n: document.querySelectorAll(".ant-table-tbody button").length })`);
+    check("Real · (trả lời giả gói EXPIRED) chỉ đọc: nút Thêm và mọi nút Sửa/Gửi lại email/Khoá/Mở khoá bị khoá", roState.add === true && roState.all === true && roState.n > 0, J(roState));
+    tab.readOverride = null;
+    // Nạp lại để trả gói THẬT về store (các khối sau, như Quầy và máy in, cần chế độ ghi bình thường).
+    await tab.goto("/manager/staff");
+    await tab.waitFor(`document.querySelectorAll(".ant-table-tbody > tr.ant-table-row").length > 0 && ${tid("staff-add")}.disabled === false`, 20000, "màn Nhân viên với gói thật");
+    check("Real · Khối ghi Cashier/Barista: mọi request ghi là POST/PATCH …/manager/staff* và đều bị chặn/giả lập ở CDP (không tới BE)", (tab.writeLog ?? []).filter((w) => /staff-/.test(w.caseName ?? "")).every((w) => /\/manager\/staff(\/[0-9a-f-]{36}\/(status|reset-password))?$/.test(w.path)) && (await beGet("/manager/staff?limit=100", "manager")).total === staffTotalBefore, `${(tab.writeLog ?? []).filter((w) => /staff-/.test(w.caseName ?? "")).length} request ghi; BE total ${staffTotalBefore}`);
     }
 
     if (FULL) {

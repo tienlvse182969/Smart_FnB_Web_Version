@@ -1005,6 +1005,31 @@ try {
     list = await rows();
     check("Real · Danh sách món thật vẫn hiển thị đúng sau các thao tác", list.length === be.items.length && be.items.every((i) => list.some((r) => r.includes(i.name) && r.includes(i.sku))), `${list.length}/${be.items.length}`);
 
+    // ---- 7.4c (QĐ 97): "Giờ & khu vực" (BranchOperations) theo cơ chế chỉ đọc. Gói thật ACTIVE: mở được ngăn kéo, nút ghi mở. Trả lời giả
+    // gói EXPIRED (readOverride GET /restaurant-chains; không tới BE): nút vào "Giờ & khu vực" bị khoá. Nút ghi BÊN TRONG ngăn kéo
+    // (Lưu giờ, Lưu ngày đặc biệt, Thêm khu vực, Lưu trữ) kiểm bằng test đơn vị (BranchOperations.test.tsx) vì ngăn kéo không mở được khi chỉ đọc.
+    await tab.goto("/owner/branches");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell owner");
+    await sleep(1500);
+    const manageBtn = `[...document.querySelectorAll("button")].find((b) => b.textContent.includes("Giờ & khu vực"))`;
+    check("Real · Chi nhánh (gói thật ACTIVE): nút 'Giờ & khu vực' mở", (await q(`!!(${manageBtn}) && (${manageBtn}).disabled === false`)) === true);
+    await q(`(${manageBtn}).click()`);
+    await tab.waitFor(`document.querySelector(".ant-drawer") && document.querySelector('[data-testid^="hour-save-"]')`, 15000, "ngăn kéo Giờ & khu vực");
+    check("Real · BranchOperations (gói ACTIVE): 7 nút Lưu giờ mở (ActionButton), không lỗi", (await q(`[...document.querySelectorAll('[data-testid^="hour-save-"]')].filter((b) => !b.disabled).length`)) === 7);
+    await q(`document.querySelectorAll(".ant-drawer-close").forEach((b) => b.click())`);
+    await sleep(500);
+    const chainsBody = await q(`(async () => { const r = await fetch("http://localhost:3100/api/v1/restaurant-chains", { headers: { Authorization: "Bearer " + localStorage.getItem("smartfnb_access_token") } }); return JSON.stringify(await r.json()); })()`);
+    const chainsExpired = JSON.parse(chainsBody).map((c) => ({ ...c, subscription: c.subscription ? { ...c.subscription, status: "EXPIRED", expiresAt: "2020-01-01T00:00:00.000Z" } : c.subscription }));
+    tab.readOverride = { match: /\/api\/v1\/restaurant-chains$/, body: J(chainsExpired) };
+    tab.blockedWrites.length = 0;
+    await tab.goto("/owner/branches");
+    await tab.waitFor(`document.querySelector(".ant-layout-sider")`, 20000, "shell owner (gói hết hạn)");
+    await sleep(1500);
+    check("Real · (trả lời giả gói EXPIRED) chỉ đọc: nút 'Giờ & khu vực' bị khoá, không mở được ngăn kéo, 0 request ghi", (await q(`(${manageBtn})?.disabled`)) === true && !(await q(`!!document.querySelector(".ant-drawer-open")`)) && tab.blockedWrites.length === 0);
+    tab.readOverride = null;
+    await tab.goto("/owner/branches");
+    await sleep(800);
+
     } // hết khối owner (bỏ qua khi --only=manager)
 
     // Manager đọc menu chi nhánh (--only=manager chạy riêng khối này)

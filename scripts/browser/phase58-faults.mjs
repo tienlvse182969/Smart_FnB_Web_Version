@@ -375,6 +375,39 @@ const screens = [
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Tuỳ chọn")?.click()`); await sleep(700); return switchWrite('[data-testid="branch-option-row"][data-owner-disabled="false"]')(); } },
   { id: "manager/menu (món)", role: "manager", route: "/manager/menu", from: "/manager/dashboard", read: /\/branches\/[0-9a-f-]{36}\/menu$/, storeBased: true, loaded: async () => (await q(`document.querySelectorAll('[data-testid="branch-menu-row"]').length`)) > 0,
     write: async () => { await q(`[...document.querySelectorAll(".ant-tabs-tab")].find((x) => x.textContent.trim() === "Món")?.click()`); await sleep(500); return switchWrite('[data-testid="branch-menu-row"][data-owner-disabled="false"]')(); } },
+  // Nhân viên của Manager (7.4c, #24, `/manager/staff*`): tạo (ngăn kéo + hộp xác nhận), gửi lại email và khoá (hộp lý do). Chỉ ca GHI; lỗi giả,
+  // KHÔNG request nào tới BE (BE có EMAIL_* nên request thật sẽ gửi thư). Ca đọc của danh sách dùng chung `/manager/staff`.
+  { id: "manager/staff-create", writeOnly: true, role: "manager", route: "/manager/staff", from: "/manager/dashboard", read: /\/manager\/staff(\?|$)/,
+    loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const tidOf = (id) => `document.querySelector('[data-testid=${J(id)}]')`;
+      const setT = (id, v) => q(`(() => { const i = ${tidOf(id)}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, ${J(v)}); i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      const clicked = await q(`(() => { const b = ${tidOf("staff-add")}; if (!b || b.disabled) return false; b.click(); return true; })()`);
+      if (!clicked) return { skipped: "không có nút Thêm nhân viên" };
+      await sleep(800);
+      await setT("staff-name", "Giả Lập Lỗi");
+      await setT("staff-email", "gia.lap.loi@example.invalid");
+      await setT("staff-code", "GLL-001");
+      await sleep(300);
+      await q(`${tidOf("staff-save")}.click()`);
+      await sleep(700);
+      await clickConfirm();
+      await sleep(2200);
+      return { ok: true, kind: "drawer", saveEnabled: await q(`!!${tidOf("staff-save")} && !${tidOf("staff-save")}.disabled && !${tidOf("staff-save")}.classList.contains("ant-btn-loading")`) };
+    } },
+  ...["resend", "lock"].map((what) => ({
+    id: `manager/staff-${what}`, writeOnly: true, role: "manager", route: "/manager/staff", from: "/manager/dashboard", read: /\/manager\/staff(\?|$)/,
+    loaded: async () => (await rowsCount()) > 0 && (await noErrorUi()),
+    write: async () => {
+      const opened = await q(`(() => { const b = [...document.querySelectorAll('[data-testid^="staff-${what}-"]')].find((x) => !x.disabled); if (!b) return false; b.click(); return true; })()`);
+      if (!opened) return { skipped: "không có nút thao tác" };
+      await sleep(800);
+      await q(`(() => { const el = document.querySelector('[data-testid="staff-reason"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(el, "Giả lập lỗi để kiểm tra"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+      await sleep(300);
+      await q(`document.querySelector('[data-testid="staff-reason-ok"]').click()`);
+      await sleep(2200);
+      return { ok: true, kind: "modal", after: await q(`(() => { const b = document.querySelector('[data-testid="staff-reason-ok"]'); return !!b && !b.disabled && !b.classList.contains("ant-btn-loading"); })()`) };
+    } })),
   { id: "manager/stations", role: "manager", route: "/manager/stations", from: "/manager/dashboard", read: /\/stations/, loaded: async () => (await noErrorUi()) && (await bodyHas(`/Chưa có quầy nào|Quầy/`)),
     write: async () => {
       const before = await rowsCount();
