@@ -66,9 +66,12 @@
 | Tab "Ngày đặc biệt" và "Khu vực" của BranchOperations | `roles/owner/BranchOperations.tsx` (main) | Thừa | OW-01 chỉ nêu giờ mở/đóng, tạm ngưng, đóng; khu vực/tầng (DINING, KITCHEN…) là dấu vết v7 (bàn/khu), 4.4 không có |
 | Loại khu vực DINING/KITCHEN/BAR/PICKUP, `resource: "tables"` | `types/branch.ts:72, 110` | Thừa | Dấu vết v7 (bàn, bếp) |
 | Vai trò `WAITER`, `KITCHEN` của BE | `types/auth.ts:45-46`, `api/modules/auth/real.ts:44` | Thừa | Không thuộc v9; web chặn không cho vào |
-| Phương thức `CARD`, `E_WALLET`, `OTHER`, trạng thái `PARTIALLY_PAID`, `REFUNDED` | `api/modules/order/codes.ts` | Thừa | Dữ liệu v7; hiện "Khác (<mã>)" (QĐ 70–71) |
-| Phiên bàn (`tableSession`), `createdByWaiter` trong chi tiết đơn | `api/modules/order/mapper.ts` | Thừa | Tương thích dữ liệu v7 của BE; không hiển thị bàn |
-| `maxTables` của gói | `types/admin.ts`, `adminApi.createPlan` | Thừa | v7, BE còn bắt buộc (#29); web gửi 1, không hiện |
+| Phương thức `CARD`, `E_WALLET`, `OTHER` | `api/modules/order/codes.ts` | Thừa (đã dọn 7.5b) | Dữ liệu v7 BE còn trả: giữ NHÃN tiếng Việt "Thẻ" / "Ví điện tử" / "Khác" (QĐ 103); không có trong ô lọc hay lựa chọn nào. Trạng thái `PARTIALLY_PAID`, `REFUNDED`, `PENDING`, `SERVED` vẫn hiện "Khác (<mã>)" (QĐ 70–71) |
+| ~~Phiên bàn (`tableSession`), `createdByWaiter` trong chi tiết đơn~~ | `api/modules/order/mapper.ts` | **Đã gỡ 7.5b** | Mapper không còn đọc; đơn tra cứu luôn `COUNTER_PICKUP` |
+| ~~`getCustomerTraffic` (`/reports/customers`, lượt bàn), `guestCount`/`sessionCount`~~ | `api/modules/report/*`, `types/report.ts` | **Đã gỡ 7.5b** | Endpoint đếm lượt bàn v7, không màn nào dùng |
+| ~~Route `/branch/*`~~, ~~nhãn `maxTables` ở thông báo lỗi~~, `ApiPlan.maxTables` | `router/index.tsx`, `validationText.ts`, `types/branch.ts` | **Đã gỡ 7.5b** (QĐ 104) | Route v7 rơi về trang chủ như route lạ |
+| `maxTables` trong thân `POST /admin/service-plans` | `api/modules/admin/real.ts:15,122` | Thừa (giữ) | BE còn bắt buộc `@Min(1)` (#29); không hiện ở giao diện |
+| `/admin/overview`, `/manager/branch-info` | `AdminOverview.tsx`, `BranchInfo.tsx` | Thừa (giữ, chờ Khánh) | Không chứa khái niệm v7 (là tổng quan doanh nghiệp và thông tin chi nhánh); gỡ sẽ đổi trang đầu của Admin và nhiều script — chờ quyết định |
 | Ví/số dư (`wallet`, `balance`, `heldBalance`) | `api/modules/admin/mapper.ts` | Thừa (bị chặn) | BR-07: mapper không bao giờ chép |
 
 ## 6. Tổng theo actor

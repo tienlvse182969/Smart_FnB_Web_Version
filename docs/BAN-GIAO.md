@@ -414,6 +414,8 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 100 | Số đếm trên menu = `total` của `GET /manager/orders?status=REQUIRES_ATTENTION&limit=1` (`AttentionWatcher.tsx`, gắn một lần ở `RoleLayout` cho Manager, qua `attentionStore`). Sự kiện `manager.order.attention-required` đi qua hook `useOrderRealtime` dùng chung (một kết nối socket) → GET lại số đếm + 1 thông báo tiếng Việt có nút Xem; gom 2 giây (`createAlertBatcher`), không trùng theo `reason:orderId`; lệch số tiền → dẫn tới chi tiết đơn (1 đơn) hoặc danh sách (nhiều); hết món → Tra cứu đơn |
 | 101 | Tạm chờ #51 (BE chưa phát sự kiện cho mọi thay đổi đơn): trang và số đếm tải lại 60 giây khi tab hiển thị, DỪNG khi ẩn, tải NGAY khi hiện lại (`createPoller`); dọn timer khi rời màn |
 | 102 | Hộp xác nhận tay đang mở mà dữ liệu mới (socket) cho thấy đơn hết điều kiện (đã trả, đã huỷ…) → đóng hộp + "Đơn vừa được cập nhật (<trạng thái>), không cần xác nhận nữa." (`OrderDetail.tsx`); không chạy khi đang gửi request của chính hộp đó |
+| 103 | (7.5b, Khánh duyệt; thay QĐ 70–71 cho riêng phương thức thanh toán v7) Giá trị v7 mà BE còn trả (enum `PaymentMethod` ở `schema.prisma:184-190`) VẪN CÓ NHÃN tiếng Việt để không lộ "Khác (<mã>)": `CARD` = "Thẻ", `E_WALLET` = "Ví điện tử", `OTHER` = "Khác" (`known: false`, không có trong ô lọc/dropdown/form). Chỉ gỡ khỏi chỗ NGƯỜI DÙNG CHỌN. Giá trị BE không còn trả thì gỡ hẳn mã |
+| 104 | Route v7 gỡ hẳn, không để cờ: `/branch/*` (chuyển sang `/manager`) đã bỏ; đường dẫn cũ rơi về trang chủ như route lạ (`*`). Route ẩn bằng cờ ở 7.4b (QĐ 91–92) giữ nguyên |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -994,3 +996,34 @@ Ca `attention` (readOverride cho danh sách/chi tiết, `__injectOperationsEvent
 **Ghi chú #43:** tạm hoãn, tài liệu hợp đồng đã gửi Bảo ngày 11/10 (`api-contract-plan.md` #43); 7.6 làm khi BE có endpoint.
 
 **Lượt tiếp theo:** 7.7 chốt GĐ7 (kiểm toàn bộ theo quy tắc 15) hoặc 7.6 nếu BE có #43.
+
+### Lượt 7.5b (2026-10-11): dọn dấu vết v7 + sửa nhỏ 7.5
+
+Quyết định 103–104 ở mục 5. Chỉ mã của web (tác giả Khánh); mã của nhóm (Dang Quan: `BranchOperations.tsx`) chỉ liệt kê.
+
+| Chỗ | Người dùng thấy/chọn? | BE còn trả? | Xử lý |
+|---|---|---|---|
+| `CARD`, `E_WALLET`, `OTHER` (`order/codes.ts`) | thấy nhãn ở dòng thanh toán của đơn cũ | còn (`PaymentMethod`) | GIỮ nhãn "Thẻ"/"Ví điện tử"/"Khác" (QĐ 103); không ở ô lọc |
+| `tableSession.payments`, `createdByWaiter` (`order/mapper.ts`) | không | còn (đơn DINE_IN) | GỠ (web chỉ lấy `COUNTER_PICKUP`) |
+| `getCustomerTraffic` → `/reports/customers`, `guestCount`/`sessionCount`, TODO "lượt bàn" | không (thẻ đã ẩn) | còn | GỠ hẳn (mã chết) |
+| Route `/branch/*` (`router/index.tsx`) | đường dẫn | — | GỠ (QĐ 104) |
+| Nhãn `maxTables` "Số bàn tối đa" (`validationText.ts`) | thấy khi BE trả 400 về ô này | còn | GỠ |
+| `ApiPlan.maxTables` (`types/branch.ts`), mock | không | còn | GỠ khỏi kiểu và mock; `adminApi` vẫn gửi `maxTables=1` vì BE bắt buộc (#29) |
+| `ApiQuota.resource "tables"` | không (lọc bỏ) | còn | GIỮ trong kiểu (đại diện dữ liệu BE), có test lọc |
+| `BackendRole` WAITER/KITCHEN (`types/auth.ts`, `auth/real.ts`) | không (web chặn đăng nhập) | còn | GIỮ (kiểu của JSON BE) |
+| Ví/số dư (`admin/mapper.ts`) | không (mapper chặn, BR-07) | còn | GIỮ (là chỗ CHẶN) |
+| Cột "Đã chờ" ở Đơn cần xử lý | thấy | — | đổi thành "Đã chờ (từ lúc đặt)" (tạm tới #65) |
+| `BranchOperations.tsx`: "Khu ăn uống", "Bếp", "Quầy pha chế", "Nhận món", câu "lượt bàn" khi lưu trữ, tab Ngày đặc biệt/Khu vực | thấy | — | **CHỈ LIỆT KÊ** (mã của Dang Quan; Khánh đang hỏi Quân) |
+| `/admin/overview`, `/manager/branch-info` | thấy | — | GIỮ: không chứa khái niệm v7; gỡ làm đổi trang đầu của Admin và nhiều script; chờ Khánh quyết |
+| AI mock: câu từ chối "không quản lý ca làm hay tính lương" (`ai/mock.ts:181`) | thấy khi hỏi lương | — | GIỮ: là câu từ chối đúng đặc tả (không kho, không lương) |
+
+**Kết quả `grep` bản build (`dist/assets/*.js`):** `WAITER`, `Waiter`, `Kitchen`, `Số bàn`, `voucher`, `Voucher`, `tableSession`, `createdByWaiter`, `/reports/customers`, `Phục vụ`, `Đặt bàn`, `Kho ` → 0. Còn lại và lý do: `Ví điện tử`, `E_WALLET` (QĐ 103: nhãn dữ liệu v7); `maxTables` (thân `POST /admin/service-plans`, BE bắt buộc); `KITCHEN`, `Bếp`, `Khu ăn uống`, `lượt bàn` (đều trong `BranchOperations.tsx`, mã của nhóm); `ca làm` (câu từ chối của AI mock); `Khác (` (mã trạng thái lạ, QĐ 70–71).
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `1916fbb` | `refactor`: gỡ dấu vết v7 (bảng trên) + cột "Từ lúc đặt" | 570 (không đổi: test phiên bàn đổi thành "bỏ qua phiên bàn", test nhãn CARD cập nhật, không xoá test) |
+| (script, docs) | `phase7` ca nhãn "Thẻ", `phase74b-main` ca `/branch/orders`, tài liệu | 570 |
+
+**Kiểm (real, chặn ghi):** `orders` 25/25 · `detail` 18/18 · `confirm` 30/30 · `attention` 16/16 · `phase74b-main` 9/9 (thêm ca `/branch/orders` về trang chủ) · `phase58-forms` 16/16 · faults `owner/reports` + `manager/reports` 8/8 · `phase2` 32/32 (2 SKIP mock-only đã biết). Request ghi tới BE: 0.
+
+**Việc cần nhóm xem:** `BranchOperations.tsx` còn khái niệm bếp/quầy pha chế/lượt bàn (Quân); câu "lượt bàn" ở hộp lưu trữ nên bỏ.

@@ -326,7 +326,7 @@ try {
       await goOrders();
       const fakeRows = (await rowTexts()).join(" | ");
       check("Real · Trả lời giả: mã trạng thái lạ → 'Khác (WEIRD_STATUS)', PENDING → 'Khác (PENDING)', SERVED → 'Khác (SERVED)'", /Khác \(WEIRD_STATUS\)/.test(fakeRows) && /Khác \(PENDING\)/.test(fakeRows) && /Khác \(SERVED\)/.test(fakeRows), fakeRows.slice(0, 200));
-      check("Real · Trả lời giả: thanh toán 'Chờ chuyển khoản', 'Khác (PARTIALLY_PAID)', hình thức 'Khác (CARD)'", /Chờ chuyển khoản/.test(fakeRows) && /Khác \(PARTIALLY_PAID\)/.test(fakeRows) && /Khác \(CARD\)/.test(fakeRows), fakeRows.slice(0, 200));
+      check("Real · Trả lời giả: thanh toán 'Chờ chuyển khoản', 'Khác (PARTIALLY_PAID)', hình thức 'Thẻ' (giá trị v7 giữ nhãn tiếng Việt, QĐ 103)", /Chờ chuyển khoản/.test(fakeRows) && /Khác \(PARTIALLY_PAID\)/.test(fakeRows) && /Thẻ/.test(fakeRows) && !/Khác \(CARD\)/.test(fakeRows), fakeRows.slice(0, 200));
       check("Real · Trả lời giả: không toast, không khối lỗi", (await toasts()) === "" && !(await has("order-error")));
       tab.readOverride = null;
 
