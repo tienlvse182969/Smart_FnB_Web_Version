@@ -248,6 +248,11 @@ export const accountMock: AccountApi = {
     if (errors.length) throw new ApiError(400, errors[0], errors);
     assertSeatAvailable(chainId);
     assertEmailFree(chainId, input.email);
+    const wantedCode = input.employeeCode.trim().toUpperCase();
+    // Như BE: mã nhân viên trùng trong cùng doanh nghiệp → cùng câu 409 với email trùng (`P2002` ở manager-staff.service.ts).
+    if (getChainState(chainId).accounts.some((a) => (a.employeeCode ?? "").toUpperCase() === wantedCode)) {
+      throw new ApiError(409, "Email, phone or employee code already exists");
+    }
     const role = input.role === "CASHIER" ? "cashier" : "barista";
     const name = `${input.firstName.trim()} ${input.lastName.trim()}`;
     const created: DemoAccount = {
@@ -257,11 +262,11 @@ export const accountMock: AccountApi = {
       awaitingPasswordSetup: true,
       lastLoginAt: null,
     };
-    created.employeeCode = codeOf(role, created.id);
+    created.employeeCode = wantedCode;
     const state = getChainState(chainId);
     state.accounts.push(created);
     persist(state);
-    return { staff: toStaffEmployee(created), ...setupNotice() };
+    return { staff: toStaffEmployee(created), ...setupNotice(), emailStatus: "SENT" as const };
   },
 
   async updateStaff(chainId, branchId, staffId, patch) {
@@ -301,7 +306,7 @@ export const accountMock: AccountApi = {
     await mockDelay();
     assertMockWritable();
     findStaffOfBranch(track(chainId), branchId, staffId); // 404 nếu không thuộc chi nhánh; trạng thái không đổi (như BE)
-    return setupNotice();
+    return { ...setupNotice(), emailStatus: "SENT" as const };
   },
 
   async resetManagerPassword(accountId) {

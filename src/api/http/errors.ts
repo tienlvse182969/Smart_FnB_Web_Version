@@ -158,6 +158,12 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/only bank transfers can be confirmed manually/i, "Chỉ xác nhận thủ công được khoản chuyển khoản, không xác nhận được tiền mặt."],
   [/order is no longer awaiting payment/i, "Đơn không còn ở trạng thái chờ thanh toán (có thể đã huỷ hoặc đã trả)."],
   [/payment changed concurrently/i, "Khoản thanh toán vừa được cập nhật ở nơi khác. Tải lại rồi thử lại."],
+  // Nhân viên của Manager (BE `d98b4c1`, `manager-staff.service.ts`; 7.4c).
+  [/concurrent update; reload/i, "Dữ liệu vừa được cập nhật ở nơi khác. Tải lại rồi thử lại."],
+  [/cashier\/barista not found/i, "Không tìm thấy nhân viên này trong chi nhánh của bạn (có thể đã bị xoá)."],
+  [/null fields are not supported/i, "Không xoá trắng được ô này (chưa hỗ trợ). Nhập giá trị mới hoặc để nguyên."],
+  [/only cashier and barista/i, "Chỉ tạo/đổi được vai trò Cashier hoặc Barista."],
+  [/staff role is not configured/i, "Hệ thống chưa cấu hình vai trò nhân viên. Liên hệ quản trị nền tảng."],
   [/manual confirmation reason/i, "Lý do xác nhận phải từ 3 đến 500 ký tự."],
   [/actual received amount is required/i, "Chưa nhập số tiền thực nhận."],
   [/not found/i, "Không tìm thấy dữ liệu cần thao tác (có thể đã bị xoá)."],

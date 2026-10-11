@@ -17,12 +17,15 @@ interface AccountLimitBody {
 export function describeAccountError(err: unknown): string | null {
   if (!(err instanceof ApiError)) return null;
   if (err.code === "PLAN_LIMIT_REACHED") {
+    // BE thật (`manager-staff.service.ts`) trả câu tiếng Việt sẵn, KHÔNG kèm `suggestedPlans`: dùng nguyên câu (Manager không đổi được gói).
+    if ((err.body as AccountLimitBody | null)?.suggestedPlans === undefined) return translateBackendMessage(err);
     const suggestion = (err.body as AccountLimitBody | null)?.suggestedPlans?.[0];
     return suggestion
       ? `${translateBackendMessage(err)} Hãy nâng lên gói "${suggestion.name}" (tối đa ${suggestion.maxAccounts} tài khoản) hoặc khoá bớt tài khoản không dùng.`
       : `${translateBackendMessage(err)} Đây đã là gói cao nhất: hãy khoá bớt tài khoản không dùng.`;
   }
-  if (err.status === 409) return "Email này đã được dùng cho một tài khoản khác. Dùng email khác.";
+  // Chỉ lỗi trùng email/điện thoại/mã nhân viên; các 409 khác (gói không hoạt động, cập nhật đồng thời…) dùng câu dịch chung.
+  if (err.status === 409 && /already exists/i.test(err.message)) return "Email, số điện thoại hoặc mã nhân viên này đã được dùng cho một tài khoản khác. Kiểm tra lại.";
   return null;
 }
 
@@ -49,7 +52,22 @@ export function validateStaffInput(input: StaffInput): string[] {
   else if (!EMAIL_PATTERN.test(email) || email.length > 255) errors.push("Email không hợp lệ");
   if (input.phone?.trim() && !PHONE_PATTERN.test(input.phone.trim())) errors.push("Điện thoại gồm 8–15 chữ số (có thể có dấu + ở đầu)");
   if (input.role !== "CASHIER" && input.role !== "BARISTA") errors.push("Chọn vai trò Cashier hoặc Barista");
+  const code = (input.employeeCode ?? "").trim();
+  if (!code) errors.push("Nhập mã nhân viên");
+  else if (code.length > 50) errors.push("Mã nhân viên tối đa 50 ký tự");
   return errors;
+}
+
+export const STAFF_REASON_MIN = 3;
+export const STAFF_REASON_MAX = 500;
+
+/** Lý do khoá/mở khoá/gửi lại email (`ManagerStaffStatusDto`/`ManagerResetPasswordDto`: 3–500 ký tự sau trim). Trả câu lỗi hoặc null. */
+export function validateStaffReason(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return "Nhập lý do (ghi vào nhật ký, bắt buộc).";
+  if (text.length < STAFF_REASON_MIN) return `Lý do phải có ít nhất ${STAFF_REASON_MIN} ký tự.`;
+  if (text.length > STAFF_REASON_MAX) return `Lý do tối đa ${STAFF_REASON_MAX} ký tự.`;
+  return null;
 }
 
 /** Lỗi sửa nhân viên (chỉ họ tên và điện thoại). */

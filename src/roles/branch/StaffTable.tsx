@@ -3,24 +3,30 @@ import { KeyRound, Lock, Pencil, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STAFF_ROLE_LABEL, type AccountQuota, type AccountStatus, type StaffEmployee, type StaffInput, type StaffRole } from "../../types";
 import { accountApi, modeOf, showApiError } from "../../api";
-import { describeAccountError, splitName, staffName, validateStaffInput, validateStaffPatch } from "../../api/modules/account/staffRules";
+import { splitName, staffName, validateStaffInput, validateStaffPatch } from "../../api/modules/account/staffRules";
 import { formatDateTime } from "../../lib/reportFormat";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import ActionButton from "../../plan/ActionButton";
 import { palette } from "../../theme";
+import StaffReasonModal from "./StaffReasonModal";
 
-const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chờ đặt mật khẩu" };
+/** Cùng nhãn với màn Owner quản Manager (`ManagerAccounts.tsx`): INACTIVE = chưa đặt mật khẩu (BE: `UserStatus.INACTIVE` lúc mời). */
+const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
+const statusLabel = (code: string) => STATUS_LABEL[code as AccountStatus] ?? `Khác (${code})`;
+
+const EMAIL_NOTE: Record<"SENT" | "PENDING" | "FAILED", string> = {
+  SENT: "Email đã được gửi.",
+  PENDING: "Email đã xếp hàng nhưng CHƯA gửi (máy chủ chưa cấu hình gửi thư). Dùng \"Gửi lại email\" sau khi cấu hình.",
+  FAILED: "Gửi email THẤT BẠI (tài khoản vẫn được tạo). Dùng \"Gửi lại email\" để gửi lại lời mời.",
+};
 
 /**
- * (6.11, #38: ở real, dòng hạn mức "Đã dùng X/Y" lấy từ GÓI THẬT của BE qua `plan.limits`, không còn nhãn "(số liệu mẫu)"; danh sách nhân viên
- * vẫn là mock nên banner "Dữ liệu mẫu" còn. Đạt hạn mức → nút Thêm khoá (`ActionButton consumes="accounts"`, câu quyết định 54); chưa tải được
- * gói → dòng "Chưa tải được hạn mức gói" + Thử lại nhỏ, KHÔNG chặn màn, quyết định 53.)
- *
- * BM-01: Branch Manager quản Cashier/Barista của CHI NHÁNH MÌNH (BR-05, BR-02). MOCK — BE chưa có endpoint (api-contract-plan #24),
- * và Manager bị 403 ở `/employees`, nên màn này KHÔNG gọi BE và hiện banner "Dữ liệu mẫu". Không có mật khẩu: tài khoản mới nhận
- * email đặt mật khẩu một lần. Hạn mức theo gói (13.1): đếm cả doanh nghiệp, tài khoản khoá không tính; tạo mới và mở khoá đều bị
- * chặn khi đủ. Mọi thao tác ghi có hộp xác nhận; hết hạn gói thì chỉ đọc (ActionButton).
+ * BM-01 (#24, real từ 7.4c): Branch Manager quản Cashier/Barista của CHI NHÁNH MÌNH (BR-05, BR-02) qua `/manager/staff*`. Không có
+ * mật khẩu: tài khoản mới ở trạng thái "Chưa kích hoạt" và nhận email đặt mật khẩu một lần (24 giờ); "Gửi lại email" cũng dùng để gửi lại
+ * lời mời. Khoá/mở khoá và gửi lại email BẮT BUỘC lý do 3–500 ký tự (audit của BE). Cùng khuôn với màn Owner tạo Manager.
+ * Dòng hạn mức "Đã dùng X/Y" lấy từ GÓI THẬT (`plan.limits`, quyết định 54); chưa tải được gói → "Chưa tải được hạn mức gói" + Thử lại
+ * nhỏ, KHÔNG chặn màn (quyết định 53). Hết hạn gói thì chỉ đọc (ActionButton). Mock (cờ account=mock) giữ banner "Dữ liệu mẫu".
  */
 export default function StaffTable() {
   const { message, modal } = App.useApp();
@@ -28,7 +34,8 @@ export default function StaffTable() {
   const branchId = useAppStore((s) => s.currentBranchId);
   const branches = useAppStore((s) => s.branches);
   const branchName = branches.find((b) => b.id === branchId)?.name ?? "";
-  const sampleOnly = modeOf("account") === "real";
+  const realAccount = modeOf("account") === "real";
+  const sampleOnly = realAccount; // real: hạn mức đọc từ gói thật trong store; mock: từ mock tài khoản
   const plan = useAppStore((s) => s.plan);
   const reloadPlan = useAppStore((s) => s.reloadPlan);
 
@@ -39,6 +46,9 @@ export default function StaffTable() {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffEmployee | null>(null);
+  /** Hộp nhập lý do cho khoá / mở khoá / gửi lại email (BE bắt buộc `reason`). */
+  const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; staff: StaffEmployee } | null>(null);
+  const [reasonBusy, setReasonBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!chainId || !branchId) return;
@@ -69,66 +79,53 @@ export default function StaffTable() {
   };
 
   /** Chạy một thao tác ghi: lỗi hiện một thông báo rõ (kèm gói cần nâng khi đủ hạn mức), xong thì nạp lại. */
-  const run = async (action: () => Promise<void>, failText: string) => {
+  const run = async (action: () => Promise<void>, failText: string): Promise<boolean> => {
     try {
       await action();
+      return true;
     } catch (err) {
-      const text = describeAccountError(err);
-      if (text) message.error({ key: "staff-error", content: text, duration: 6 });
-      else showApiError(message.error, err, failText);
+      // Mọi lỗi API đi qua showApiError (câu tiếng Việt, chống trùng); lỗi toàn cục (403, hạn mức, mạng) do ApiErrorBridge báo.
+      showApiError(message.error, err, failText);
+      return false;
     } finally {
       await refreshAll();
     }
   };
 
-  const confirmLock = (s: StaffEmployee) => {
-    const locking = s.status !== "SUSPENDED";
-    modal.confirm({
-      title: locking ? `Khoá tài khoản ${staffName(s)}?` : `Mở khoá tài khoản ${staffName(s)}?`,
-      content: (
-        <div data-testid="confirm-staff" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-          <b>{staffName(s)}</b> · {STAFF_ROLE_LABEL[s.role]} · chi nhánh <b>{branchName}</b> ({s.email})
-          <br />
-          {locking
-            ? "Các phiên đang đăng nhập bị thu hồi và nhân viên không đăng nhập được nữa. Tài khoản khoá không tính vào hạn mức gói."
-            : "Tài khoản đăng nhập được trở lại và tính lại vào hạn mức gói; nếu gói đã đủ tài khoản thì không mở khoá được."}
-        </div>
-      ),
-      okText: locking ? "Khoá tài khoản" : "Mở khoá",
-      okButtonProps: { danger: locking },
-      cancelText: "Huỷ",
-      onOk: () =>
-        run(async () => {
-          await accountApi.setStaffActive(chainId!, branchId!, s.id, !locking);
-          message.success(locking ? `Đã khoá tài khoản ${staffName(s)}` : `Đã mở khoá tài khoản ${staffName(s)}`);
-        }, locking ? "Không khoá được tài khoản" : "Không mở khoá được tài khoản"),
-    });
+  /** Bước cuối của khoá / mở khoá / gửi lại email: gọi API kèm lý do, rồi đóng hộp nếu thành công. Bấm đúp chỉ gửi 1 request. */
+  const submitReason = async (reason: string) => {
+    if (!reasonFor || reasonBusy) return;
+    const { kind, staff: s } = reasonFor;
+    setReasonBusy(true);
+    try {
+      const ok = await run(
+        async () => {
+          if (kind === "reset") {
+            const { expiresAt, emailStatus } = await accountApi.resetStaffPassword(chainId!, branchId!, s.id, reason);
+            modal.success({
+              title: s.status === "INACTIVE" ? `Đã gửi lại lời mời kích hoạt cho ${staffName(s)}` : `Đã xếp email đặt lại mật khẩu cho ${staffName(s)}`,
+              content: (
+                <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
+                  Đã xếp email đặt mật khẩu tới <b>{s.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
+                  {emailStatus && <div data-testid="email-status">{EMAIL_NOTE[emailStatus]}</div>}
+                </div>
+              ),
+            });
+          } else {
+            await accountApi.setStaffActive(chainId!, branchId!, s.id, kind === "unlock", reason);
+            message.success(kind === "lock" ? `Đã khoá tài khoản ${staffName(s)}` : `Đã mở khoá tài khoản ${staffName(s)}`);
+          }
+        },
+        kind === "lock" ? "Không khoá được tài khoản" : kind === "unlock" ? "Không mở khoá được tài khoản" : "Không gửi được email đặt mật khẩu",
+      );
+      if (ok) setReasonFor(null);
+    } finally {
+      setReasonBusy(false);
+    }
   };
 
-  const confirmReset = (s: StaffEmployee) => {
-    modal.confirm({
-      title: `Gửi lại email đặt mật khẩu cho ${staffName(s)}?`,
-      content: (
-        <div data-testid="confirm-staff" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-          Email gửi tới <b>{s.email}</b>. Link dùng một lần, hiệu lực 24 giờ; các phiên đang đăng nhập của {staffName(s)} sẽ bị thu hồi.
-        </div>
-      ),
-      okText: "Gửi email",
-      cancelText: "Huỷ",
-      onOk: () =>
-        run(async () => {
-          const { expiresAt } = await accountApi.resetStaffPassword(chainId!, branchId!, s.id);
-          modal.success({
-            title: `Đã xếp email đặt lại mật khẩu cho ${staffName(s)}`,
-            content: (
-              <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                Đã xếp email đặt mật khẩu tới <b>{s.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
-              </div>
-            ),
-          });
-        }, "Không gửi được email đặt mật khẩu"),
-    });
-  };
+  const confirmLock = (s: StaffEmployee) => setReasonFor({ kind: s.status === "SUSPENDED" ? "unlock" : "lock", staff: s });
+  const confirmReset = (s: StaffEmployee) => setReasonFor({ kind: "reset", staff: s });
 
   // Số liệu hạn mức: real = gói thật của BE; mock = mock tài khoản. Real mà chưa tải được gói → dòng báo lỗi nhỏ + Thử lại (quyết định 53).
   const planAccounts = plan?.limits.find((l) => l.resource === "accounts");
@@ -147,9 +144,9 @@ export default function StaffTable() {
           </ActionButton>
         }
       />
-      {sampleOnly && (
+      {!realAccount && (
         <div data-testid="staff-mock-banner" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-          Dữ liệu mẫu, chờ BE (#24). Tài khoản tạo ở đây chưa đăng nhập được app POS.
+          Dữ liệu mẫu (chế độ giả lập). Tài khoản tạo ở đây không có trên máy chủ.
         </div>
       )}
       <div data-testid="staff-quota" style={{ fontSize: 13, marginBottom: 14, color: limitReached ? palette.error.text : palette.textMuted }}>
@@ -224,11 +221,12 @@ export default function StaffTable() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {STATUS_LABEL[st]}
+                {statusLabel(st)}
               </span>
             ),
           },
-          { title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") },
+          // BE không trả `lastLoginAt` ở danh sách nhân viên của Manager (#62) nên cột này chỉ có ở mock.
+          ...(realAccount ? [] : [{ title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") }]),
           {
             title: "",
             align: "right",
@@ -237,15 +235,15 @@ export default function StaffTable() {
                 <ActionButton size="small" icon={<Pencil size={13} />} onClick={() => setEditing(s)}>
                   Sửa
                 </ActionButton>
-                <ActionButton size="small" icon={<KeyRound size={13} />} onClick={() => confirmReset(s)}>
+                <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
                   Gửi lại email
                 </ActionButton>
                 {s.status === "SUSPENDED" ? (
-                  <ActionButton size="small" icon={<Unlock size={13} />} consumes="accounts" onClick={() => confirmLock(s)}>
+                  <ActionButton size="small" icon={<Unlock size={13} />} consumes="accounts" data-testid={`staff-unlock-${s.id}`} onClick={() => confirmLock(s)}>
                     Mở khoá
                   </ActionButton>
                 ) : (
-                  <ActionButton size="small" icon={<Lock size={13} />} onClick={() => confirmLock(s)}>
+                  <ActionButton size="small" icon={<Lock size={13} />} data-testid={`staff-lock-${s.id}`} onClick={() => confirmLock(s)}>
                     Khoá
                   </ActionButton>
                 )}
@@ -275,13 +273,14 @@ export default function StaffTable() {
               onCancel: () => resolve(),
               onOk: () =>
                 run(async () => {
-                  const { staff, expiresAt } = await accountApi.createStaff(chainId!, branchId!, input);
+                  const { staff, expiresAt, emailStatus } = await accountApi.createStaff(chainId!, branchId!, input);
                   setCreating(false);
                   modal.success({
                     title: "Đã tạo tài khoản nhân viên",
                     content: (
                       <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
                         Đã xếp email đặt mật khẩu tới <b>{staff.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
+                        {emailStatus && <div data-testid="email-status">{EMAIL_NOTE[emailStatus]}</div>}
                       </div>
                     ),
                   });
@@ -290,8 +289,21 @@ export default function StaffTable() {
           })
         }
       />
+      <StaffReasonModal
+        open={!!reasonFor}
+        busy={reasonBusy}
+        kind={reasonFor?.kind ?? "lock"}
+        staffName={reasonFor ? staffName(reasonFor.staff) : ""}
+        email={reasonFor?.staff.email ?? ""}
+        roleLabel={reasonFor ? STAFF_ROLE_LABEL[reasonFor.staff.role] : ""}
+        branchName={branchName}
+        pending={reasonFor?.staff.status === "INACTIVE"}
+        onCancel={() => !reasonBusy && setReasonFor(null)}
+        onSubmit={(reason) => void submitReason(reason)}
+      />
       <EditDrawer
         staff={editing}
+        realAccount={realAccount}
         onClose={() => setEditing(null)}
         onSubmit={(patch) =>
           new Promise<void>((resolve) => {
@@ -336,6 +348,7 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<StaffRole>("CASHIER");
+  const [employeeCode, setEmployeeCode] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -344,11 +357,12 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
       setEmail("");
       setPhone("");
       setRole("CASHIER");
+      setEmployeeCode("");
     }
   }, [open]);
 
-  const input: StaffInput = { ...splitName(fullName), email, phone: phone || undefined, role };
-  const errors = useMemo(() => (fullName || email || phone ? validateStaffInput(input) : []), [fullName, email, phone, role]);
+  const input: StaffInput = { ...splitName(fullName), email, phone: phone || undefined, role, employeeCode: employeeCode.trim() };
+  const errors = useMemo(() => (fullName || email || phone || employeeCode ? validateStaffInput(input) : []), [fullName, email, phone, role, employeeCode]);
   const canSave = validateStaffInput(input).length === 0 && !saving;
 
   return (
@@ -361,6 +375,9 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
       </Field>
       <Field label="Email đăng nhập">
         <Input data-testid="staff-email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} placeholder="VD: an.nguyen@comtam.vn" />
+      </Field>
+      <Field label="Mã nhân viên">
+        <Input data-testid="staff-code" value={employeeCode} maxLength={50} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="VD: CSH-001 (BE tự viết hoa)" />
       </Field>
       <Field label="Điện thoại (tuỳ chọn)">
         <Input data-testid="staff-phone" value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="+84901234567" />
@@ -405,7 +422,7 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
   );
 }
 
-function EditDrawer({ staff, onClose, onSubmit }: { staff: StaffEmployee | null; onClose: () => void; onSubmit: (patch: { firstName: string; lastName: string; phone: string | null }) => Promise<void> }) {
+function EditDrawer({ staff, realAccount, onClose, onSubmit }: { staff: StaffEmployee | null; realAccount: boolean; onClose: () => void; onSubmit: (patch: { firstName: string; lastName: string; phone: string | null }) => Promise<void> }) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
@@ -419,6 +436,8 @@ function EditDrawer({ staff, onClose, onSubmit }: { staff: StaffEmployee | null;
 
   const parts = splitName(fullName);
   const errors = staff ? validateStaffPatch({ ...parts, phone: phone.trim() || null }) : [];
+  // BE không nhận null ("Null fields are not supported", manager-staff.service.ts:209) nên chưa xoá được số điện thoại đã có (#63).
+  if (staff && realAccount && staff.phone && !phone.trim()) errors.push("Chưa xoá được số điện thoại đã có (chờ BE #63). Nhập số mới hoặc để nguyên.");
   return (
     <Drawer title={staff ? `Sửa · ${staffName(staff)}` : ""} open={!!staff} onClose={onClose} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
       {staff && (

@@ -1,8 +1,9 @@
 /**
  * Module account — tài khoản Manager/Cashier/Barista (OW-05, BM-01).
  * - Manager (Owner quản): REAL qua `/employees` của BE, gồm lời mời tạo tài khoản.
- * - Cashier/Barista: Owner XEM bằng real (`/employees`, 5.3b); Manager quản (liệt kê, tạo, sửa, khoá, gửi lại email) là MOCK
- *   (5.4), BE chưa có endpoint (api-contract-plan #24 — shape ở đó). Mock lưu qua F5 (`persist.ts`).
+ * - Cashier/Barista: Owner XEM bằng real (`/employees`, 5.3b); Manager quản (liệt kê, tạo, sửa, khoá, gửi lại email) là REAL từ 7.4c
+ *   qua `/manager/staff*` (BE `d98b4c1`, #24). Hạn mức (`getAccountQuota`/`countAccounts`) ở real đọc từ GÓI THẬT trong store, không qua
+ *   module này. Mock lưu qua F5 (`persist.ts`).
  * Mỗi tầng chỉ tạo tài khoản tầng ngay dưới: Owner tạo Manager, Manager tạo Cashier/Barista (BR-05).
  */
 import type {
@@ -48,9 +49,12 @@ export interface AccountApi {
   /** Sửa họ tên và điện thoại (email là tên đăng nhập, vai trò không đổi). */
   updateStaff(chainId: string, branchId: string, staffId: string, patch: StaffPatch): Promise<StaffEmployee>;
   /** Khoá (thu hồi phiên) / mở khoá. Mở khoá cũng bị chặn khi đủ hạn mức vì tài khoản khoá không tính (13.1). */
-  setStaffActive(chainId: string, branchId: string, staffId: string, active: boolean): Promise<void>;
-  /** Thu hồi phiên và xếp lại email đặt mật khẩu một lần (hiệu lực 24 giờ). */
-  resetStaffPassword(chainId: string, branchId: string, staffId: string): Promise<PasswordSetupNotice>;
+  setStaffActive(chainId: string, branchId: string, staffId: string, active: boolean, reason?: string): Promise<void>;
+  /**
+   * Thu hồi phiên và xếp lại email đặt mật khẩu một lần (hiệu lực 24 giờ). Real BẮT BUỘC `reason` 3–500 ký tự (audit,
+   * `ManagerResetPasswordDto`); cũng dùng để gửi lại lời mời cho tài khoản chưa kích hoạt.
+   */
+  resetStaffPassword(chainId: string, branchId: string, staffId: string, reason?: string): Promise<PasswordSetupNotice>;
   /** Đã dùng / tối đa của hạn mức tài khoản (mock theo kịch bản gói). Đếm CẢ DOANH NGHIỆP (Owner, Manager, Cashier, Barista), trừ tài khoản khoá. */
   getAccountQuota(chainId: string): Promise<AccountQuota>;
   /** Số tài khoản đang hoạt động của doanh nghiệp (Owner + Manager + Cashier + Barista — mục 13.1). */

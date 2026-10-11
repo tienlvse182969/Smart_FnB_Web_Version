@@ -75,6 +75,13 @@ export const BACKEND_MESSAGES: [status: number, message: string, source: string]
   [409, "Service plan account limit has been reached", "users/users.service.ts:175"],
   [409, "Email, phone or employee code already exists", "branch-manager/manager-staff.service.ts:287"],
   [409, "Subscription is not active", "branch-manager/manager-staff.service.ts:126"],
+  // Nhân viên của Manager (BE `d98b4c1`, 7.4c)
+  [404, "Cashier/Barista not found in your branch", "branch-manager/manager-staff.service.ts:110"],
+  [400, "Only CASHIER and BARISTA can be created", "branch-manager/manager-staff.service.ts:117"],
+  [409, "Staff role is not configured; run the seed", "branch-manager/manager-staff.service.ts:147"],
+  [400, "Null fields are not supported", "branch-manager/manager-staff.service.ts:209"],
+  [400, "Only CASHIER and BARISTA roles are allowed", "branch-manager/manager-staff.service.ts:211"],
+  [409, "Concurrent update; reload and retry", "branch-manager/manager-staff.service.ts:349"],
   // Xác nhận thủ công chuyển khoản (BE `d98b4c1`)
   [409, "PAYMENT_ALREADY_SETTLED", "payments/counter-payment-settlement.service.ts:113"],
   [409, "Only bank transfers can be confirmed manually", "payments/payments.service.ts:167"],
