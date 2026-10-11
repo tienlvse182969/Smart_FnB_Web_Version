@@ -73,7 +73,7 @@ export function notifySessionExpired(): void {
   onSessionExpired?.();
 }
 
-function toApiError(status: number, body: unknown): ApiError {
+export function toApiError(status: number, body: unknown): ApiError {
   const payload = body as { message?: unknown; error?: unknown } | null;
   const raw = payload?.message;
   // `error` là tên lỗi HTTP ("Bad Request") hoặc mã nghiệp vụ ("PLAN_LIMIT_REACHED").
@@ -90,7 +90,7 @@ function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, `Máy chủ trả lỗi ${status}`, [], code, body);
 }
 
-async function parseBody(res: Response): Promise<unknown> {
+export async function parseBody(res: Response): Promise<unknown> {
   const text = await res.text();
   if (!text) return null;
   try {

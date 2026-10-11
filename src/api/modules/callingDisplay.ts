@@ -1,6 +1,5 @@
-import { io, type Socket } from "socket.io-client"
-import { API_BASE_URL } from "../../config"
-import { DisplayApiError, type PairingRequest } from "./customerDisplay"
+import { deviceRequest } from "../http/deviceClient"
+import type { PairingRequest } from "./customerDisplay"
 
 export type CallingOrder = {
   id: string
@@ -23,56 +22,20 @@ export type CallingDisplayContext = {
   serverTime: string
 }
 
-async function json<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as unknown
-  if (!response.ok) {
-    const text = (body as { message?: unknown } | null)?.message
-    throw new DisplayApiError(
-      response.status,
-      typeof text === "string" ? text : "Không thể kết nối màn hình gọi số",
-    )
-  }
-  return body as T
+/** `POST /device-pairing/codes` (công khai, `stations.controller.ts:24-29`): mã 6 số hết hạn sau 5 phút + token thiết bị. */
+export function createCallingDisplayPairing(): Promise<PairingRequest> {
+  return deviceRequest("/device-pairing/codes", {
+    method: "POST",
+    body: { deviceType: "CALLING_DISPLAY" },
+  })
 }
 
-export async function createCallingDisplayPairing(): Promise<PairingRequest> {
-  return json(
-    await fetch(`${API_BASE_URL}/device-pairing/codes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceType: "CALLING_DISPLAY" }),
-    }),
-  )
-}
-
-export async function getCallingDisplayContext(
+/** `GET /public/calling-display/context` bằng token thiết bị (`stations.service.ts:103-180`). 403 = chưa ghép hoặc đã thu hồi. */
+export function getCallingDisplayContext(
   token: string,
 ): Promise<CallingDisplayContext> {
-  return json(
-    await fetch(`${API_BASE_URL}/public/calling-display/context`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    }),
-  )
+  return deviceRequest("/public/calling-display/context", { token })
 }
 
-export function connectCallingDisplay(
-  token: string,
-  onUpdate: () => void,
-  onRevoked: () => void,
-): Socket {
-  const origin = new URL(API_BASE_URL, window.location.origin).origin
-  const socket = io(`${origin}/operations`, {
-    path: import.meta.env.VITE_REALTIME_PATH || "/socket.io",
-    auth: { token },
-    transports: ["websocket", "polling"],
-    reconnection: true,
-  })
-  socket.on("operations.updated", (event: { type?: string }) => {
-    if (event.type?.startsWith("calling.order.")) onUpdate()
-  })
-  socket.on("disconnect", (reason) => {
-    if (reason === "io server disconnect") onRevoked()
-  })
-  return socket
-}
+/** Sự kiện socket làm danh sách số thay đổi (`counter-operations.controller.ts:158-332`, `counter-payment-settlement.service.ts:235`). */
+export const CALLING_EVENT_PREFIX = "calling.order."

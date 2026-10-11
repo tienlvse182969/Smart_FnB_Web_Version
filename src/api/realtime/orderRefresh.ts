@@ -71,6 +71,8 @@ export interface RefresherOptions {
   isVisible: () => boolean;
   /** Chi tiết một đơn: chỉ tải khi sự kiện thuộc đơn này. */
   orderId?: string;
+  /** Thay bộ lọc sự kiện mặc định (sự kiện đơn): màn thiết bị lọc `calling.order.*` (QĐ 106). */
+  isRelevant?: (event: OperationsEvent) => boolean;
   delayMs?: number;
 }
 
@@ -83,7 +85,7 @@ export interface Refresher {
   dispose(): void;
 }
 
-export function createRefresher({ run, isVisible, orderId, delayMs = REFRESH_DEBOUNCE_MS }: RefresherOptions): Refresher {
+export function createRefresher({ run, isVisible, orderId, isRelevant, delayMs = REFRESH_DEBOUNCE_MS }: RefresherOptions): Refresher {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let missed = false;
   let disposed = false;
@@ -110,7 +112,7 @@ export function createRefresher({ run, isVisible, orderId, delayMs = REFRESH_DEB
 
   return {
     onEvent(event) {
-      if (isRelevantToOrder(event, orderId)) signal();
+      if (isRelevant ? isRelevant(event) : isRelevantToOrder(event, orderId)) signal();
     },
     onReconnect: signal,
     onVisibilityChange() {

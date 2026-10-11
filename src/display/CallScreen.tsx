@@ -1,33 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Volume2, Wifi, WifiOff } from "lucide-react"
-import type { Socket } from "socket.io-client"
 import {
-  connectCallingDisplay,
+  CALLING_EVENT_PREFIX,
   createCallingDisplayPairing,
   getCallingDisplayContext,
   type CallingDisplayContext,
 } from "../api/modules/callingDisplay"
+import { resolveDisplayAsset } from "../api/modules/customerDisplay"
+import { describeApiError } from "../api/http/errors"
 import {
-  DisplayApiError,
-  resolveDisplayAsset,
-  type PairingRequest,
-} from "../api/modules/customerDisplay"
+  backoffDelay,
+  classifyContextFailure,
+  CODE_EXPIRED_TEXT,
+  isCodeExpired,
+  loadPairing,
+  nextPollDelay,
+  RECONNECT_AFTER_EXHAUSTED_MS,
+  REVOKED_TEXT,
+  savePairing,
+  type StoredPairing,
+} from "../api/device/session"
+import { useDeviceRealtime } from "../api/realtime/useDeviceRealtime"
 
-const STORAGE_KEY = "smartfnb.callingDisplay"
-function storedPairing(): PairingRequest | null {
-  try {
-    const value = JSON.parse(
-      localStorage.getItem(STORAGE_KEY) ?? "null",
-    ) as PairingRequest | null
-    return value?.deviceToken ? value : null
-  } catch {
-    return null
-  }
-}
-function savePairing(value: PairingRequest | null) {
-  if (value) localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  else localStorage.removeItem(STORAGE_KEY)
-}
 function call(value: number | null) {
   return value === null ? "---" : String(value).padStart(3, "0")
 }
@@ -40,100 +34,190 @@ function beep() {
   gain.gain.setValueAtTime(0.2, audio.currentTime)
   gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.6)
   oscillator.connect(gain).connect(audio.destination)
+  // Màn chạy cả ngày: mỗi tiếng bíp tạo một AudioContext, không đóng thì trình duyệt chặn sau vài lần (QĐ 108).
+  oscillator.onended = () => void audio.close()
   oscillator.start()
   oscillator.stop(audio.currentTime + 0.6)
 }
 
+/**
+ * Màn hình gọi số (TV/tablet ở khu nhận món, không đăng nhập). Giữ token thiết bị riêng (`api/device/session.ts`), gọi API qua client
+ * thiết bị (`api/http/deviceClient.ts`) và nhận sự kiện qua kết nối `/operations` dùng chung (`useDeviceRealtime`). Quyết định 105–108.
+ */
 export default function CallScreen() {
-  const [pairing, setPairing] = useState<PairingRequest | null>(() =>
-    storedPairing(),
+  const [pairing, setPairing] = useState<StoredPairing | null>(() =>
+    loadPairing(),
   )
   const [context, setContext] = useState<CallingDisplayContext | null>(null)
-  const [online, setOnline] = useState(false)
   const [sound, setSound] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [codeFailures, setCodeFailures] = useState(0)
+  const soundRef = useRef(sound)
+  soundRef.current = sound
   const readyNumbers = useRef(new Set<number>())
   const creating = useRef(false)
-  const socket = useRef<Socket | null>(null)
+  /** Tải lại ngữ cảnh ngay (do vòng hỏi trong effect đăng ký); socket và tab hiện lại gọi qua đây. */
+  const refreshRef = useRef<() => void>(() => undefined)
+  const liveRef = useRef(false)
+
   const createCode = useCallback(async () => {
     if (creating.current) return
     creating.current = true
     try {
       const next = await createCallingDisplayPairing()
-      savePairing(next)
-      setPairing(next)
+      const stored: StoredPairing = { ...next, paired: false }
+      savePairing(stored)
+      setPairing(stored)
       setContext(null)
       setError(null)
+      setCodeFailures(0)
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Không thể tạo mã ghép nối",
-      )
+      setError(describeApiError(reason))
+      setCodeFailures((count) => count + 1)
     } finally {
       creating.current = false
     }
   }, [])
-  const refresh = useCallback(async () => {
-    if (!pairing) return
-    try {
-      const next = await getCallingDisplayContext(pairing.deviceToken)
-      const nextReady = new Set(
-        next.ready.flatMap((order) =>
-          order.callNumber === null ? [] : [order.callNumber],
-        ),
-      )
-      if (
-        sound &&
-        [...nextReady].some((number) => !readyNumbers.current.has(number))
-      )
-        beep()
-      readyNumbers.current = nextReady
-      setContext(next)
-      setError(null)
-    } catch (reason) {
-      const expired = Date.parse(pairing.expiresAt) <= Date.now()
-      if (
-        reason instanceof DisplayApiError &&
-        reason.status === 403 &&
-        expired
-      ) {
-        savePairing(null)
-        setPairing(null)
-      } else if (!(reason instanceof DisplayApiError) || reason.status !== 403)
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Không thể tải màn hình gọi số",
-        )
-    }
-  }, [pairing, sound])
+
+  // Chưa có mã: tạo mã; lỗi thì thử lại giãn cách 5s, 10s, 20s… tối đa 60s (QĐ 107), không dồn dập.
   useEffect(() => {
-    if (!pairing) void createCode()
-  }, [createCode, pairing])
-  useEffect(() => {
-    if (!pairing) return
-    void refresh()
-    const timer = window.setInterval(() => void refresh(), 5_000)
-    return () => window.clearInterval(timer)
-  }, [pairing, refresh])
-  useEffect(() => {
-    if (!pairing || !context) return
-    socket.current?.disconnect()
-    const active = connectCallingDisplay(
-      pairing.deviceToken,
-      () => void refresh(),
-      () => {
-        savePairing(null)
-        setPairing(null)
-        setContext(null)
-      },
+    if (pairing) return
+    const timer = window.setTimeout(
+      () => void createCode(),
+      codeFailures === 0 ? 0 : backoffDelay(codeFailures),
     )
-    active.on("connect", () => setOnline(true))
-    active.on("disconnect", () => setOnline(false))
-    socket.current = active
-    return () => {
-      active.disconnect()
+    return () => window.clearTimeout(timer)
+  }, [createCode, pairing, codeFailures])
+
+  // Vòng hỏi ngữ cảnh: chờ ghép (3s) → đã ghép (10s, 60s khi socket đang nối); lỗi thì giãn cách tăng dần.
+  const token = pairing?.deviceToken ?? null
+  useEffect(() => {
+    if (!pairing) return
+    let current = pairing
+    let stopped = false
+    let inFlight = false
+    let again = false
+    let failures = 0
+    let timer: number | undefined
+    const back = (text: string) => {
+      stopped = true
+      savePairing(null)
+      readyNumbers.current = new Set()
+      setNotice(text)
+      setContext(null)
+      setPairing(null)
     }
-  }, [context !== null, pairing, refresh])
+    const schedule = () => {
+      if (stopped) return
+      window.clearTimeout(timer)
+      timer = window.setTimeout(
+        () => void run(),
+        nextPollDelay({
+          failures,
+          paired: !!current.paired,
+          live: liveRef.current,
+        }),
+      )
+    }
+    const run = async (): Promise<void> => {
+      if (stopped) return
+      if (inFlight) {
+        again = true
+        return
+      }
+      window.clearTimeout(timer)
+      // Chưa ghép mà mã đã hết hạn: token này không bao giờ dùng được nữa, không cần hỏi BE.
+      if (!current.paired && isCodeExpired(current)) {
+        back(CODE_EXPIRED_TEXT)
+        return
+      }
+      inFlight = true
+      try {
+        const next = await getCallingDisplayContext(current.deviceToken)
+        if (stopped) return
+        failures = 0
+        if (!current.paired) {
+          current = { ...current, paired: true }
+          savePairing(current)
+        }
+        const nextReady = new Set(
+          next.ready.flatMap((order) =>
+            order.callNumber === null ? [] : [order.callNumber],
+          ),
+        )
+        if (
+          soundRef.current &&
+          [...nextReady].some((number) => !readyNumbers.current.has(number))
+        )
+          beep()
+        readyNumbers.current = nextReady
+        setContext(next)
+        setError(null)
+        setNotice(null)
+      } catch (reason) {
+        if (stopped) return
+        const verdict = classifyContextFailure(reason, current)
+        if (verdict === "revoked") {
+          back(REVOKED_TEXT)
+          return
+        }
+        if (verdict === "code-expired") {
+          back(CODE_EXPIRED_TEXT)
+          return
+        }
+        if (verdict === "waiting") failures = 0
+        else {
+          failures += 1
+          setError(describeApiError(reason))
+        }
+      } finally {
+        inFlight = false
+      }
+      if (again) {
+        again = false
+        void run()
+      } else schedule()
+    }
+    refreshRef.current = () => void run()
+    void run()
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      refreshRef.current = () => undefined
+    }
+  }, [pairing?.deviceToken])
+
+  const realtime = useDeviceRealtime(() => refreshRef.current(), {
+    token,
+    enabled: context !== null,
+    isRelevant: (event) => !!event.type?.startsWith(CALLING_EVENT_PREFIX),
+  })
+  const online = realtime.status === "connected"
+  liveRef.current = online
+  // Socket rớt hoặc bị máy chủ ngắt: kiểm tra bằng REST ngay (403 = đã thu hồi → về bước ghép), đồng thời nhịp hỏi ngắn lại.
+  const wasOnline = useRef(false)
+  useEffect(() => {
+    if (context === null) {
+      wasOnline.current = false
+      return
+    }
+    if (online) {
+      wasOnline.current = true
+      return
+    }
+    if (realtime.rejected || (wasOnline.current && realtime.status === "disconnected"))
+      refreshRef.current()
+  }, [online, realtime.rejected, realtime.status, context !== null])
+  // Hết lượt tự nối: trên TV không có ai bấm "Kết nối lại" nên tự thử lại theo nhịp 30s.
+  useEffect(() => {
+    if (!realtime.exhausted) return
+    const timer = window.setTimeout(
+      () => realtime.reconnect(),
+      RECONNECT_AFTER_EXHAUSTED_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [realtime.exhausted, realtime.reconnect])
 
   if (!context)
     return (
@@ -148,12 +232,41 @@ export default function CallScreen() {
           <p className="mt-2 text-slate-500">
             Nhập mã này trong phần quản lý màn hình gọi số.
           </p>
-          <div className="my-8 font-mono text-7xl font-black tracking-[0.18em]">
-            {pairing?.code ?? "------"}
-          </div>
-          <p className="text-sm text-slate-500">Mã có hiệu lực trong 5 phút</p>
-          {error ? <p className="mt-4 text-red-600">{error}</p> : null}
+          {notice ? (
+            <p
+              data-testid="call-notice"
+              className="mt-4 rounded-xl bg-amber-50 p-3 text-amber-800"
+            >
+              {notice}
+            </p>
+          ) : null}
+          {pairing?.paired ? (
+            // Đã ghép từ trước (F5 / khởi động lại): chưa đọc được ngữ cảnh thì KHÔNG hiện mã cũ, chỉ báo đang nối lại.
+            <p
+              data-testid="call-loading"
+              className="my-8 text-2xl font-semibold text-slate-600"
+            >
+              Đang kết nối lại với chi nhánh…
+            </p>
+          ) : (
+            <>
+              <div
+                data-testid="call-pairing-code"
+                className="my-8 font-mono text-7xl font-black tracking-[0.18em]"
+              >
+                {pairing?.code ?? "------"}
+              </div>
+              <p className="text-sm text-slate-500">
+                Mã có hiệu lực trong 5 phút
+              </p>
+            </>
+          )}
           {error ? (
+            <p data-testid="call-error" className="mt-4 text-red-600">
+              {error}
+            </p>
+          ) : null}
+          {error && !pairing ? (
             <button
               className="mt-4 rounded-xl bg-slate-900 px-5 py-3 text-white"
               onClick={() => void createCode()}
@@ -193,17 +306,27 @@ export default function CallScreen() {
             {sound ? "Âm thanh đã bật" : "Bật âm thanh"}
           </button>
           <span
+            data-testid="call-status"
+            data-status={realtime.status}
+            data-exhausted={realtime.exhausted}
             className={`flex items-center gap-2 ${
               online ? "text-emerald-600" : "text-amber-600"
             }`}
           >
             {online ? <Wifi size={18} /> : <WifiOff size={18} />}
-            {online ? "Trực tuyến" : "Đang kết nối"}
+            {online
+              ? "Trực tuyến"
+              : realtime.exhausted
+                ? "Mất kết nối, đang thử lại"
+                : "Đang kết nối"}
           </span>
         </div>
       </header>
       {error ? (
-        <div className="mb-5 rounded-xl bg-red-50 p-4 text-red-700">
+        <div
+          data-testid="call-error"
+          className="mb-5 rounded-xl bg-red-50 p-4 text-red-700"
+        >
           {error}
         </div>
       ) : null}
