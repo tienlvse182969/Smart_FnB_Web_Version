@@ -21,7 +21,10 @@ const REAL = MODE === "real";
 // Khối `confirm` (xác nhận chuyển khoản thủ công, BM-05, 7.4): mock + real. Real KHÔNG có request ghi nào tới BE: chi tiết đơn thật được
 // thêm khoản QR PENDING / AMOUNT_MISMATCH bằng `tab.readOverride` (đúng dạng BE), mọi POST xác nhận bị chặn (blockWrites), trả lời giả
 // (fulfillWrites) hoặc lỗi giả (setFault) ở CDP.
-const BLOCKS = ["orders", "detail", "confirm", "report", "realtime-reconnect", "realtime"];
+// Khối `attention` (Đơn cần xử lý + cảnh báo Manager, 7.5, QĐ 99–102): CHỈ real. BE local không có đơn REQUIRES_ATTENTION nên dữ liệu dựng
+// bằng `tab.readOverride` (GET danh sách/chi tiết, đúng dạng BE); sự kiện socket giả bơm qua `window.__injectOperationsEvent` (hook DEV-only
+// của `api/realtime/operations.ts`, không có trong bản build). Mọi request ghi bị chặn ở CDP (kỳ vọng 0).
+const BLOCKS = ["orders", "detail", "confirm", "attention", "report", "realtime-reconnect", "realtime"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -87,7 +90,8 @@ const chips = () => q(`[...${ROWS}].map((r) => [...r.querySelectorAll("td")].sli
 const vnDay = (d = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(d);
 const vnDayMinus = (n) => vnDay(new Date(Date.now() - n * 86_400_000));
 const RAW_CODES = /CONFIRMED|SUBMITTED|PREPARING|DELIVERED|CANCELLED|UNPAID|BANK_TRANSFER|COUNTER_PICKUP|\bPAID\b/;
-const listCalls = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/orders\?/.test(r.url));
+// Từ 7.5 `AttentionWatcher` (khu Manager) tự GET số đếm `?status=REQUIRES_ATTENTION&limit=1` (và trang Đơn cần xử lý): không tính là GET của màn tra cứu.
+const listCalls = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/orders\?/.test(r.url) && !/status=REQUIRES_ATTENTION/.test(r.url));
 
 /** Đọc BE bằng GET (chỉ đọc) để đối chiếu; đăng nhập bằng .env của BE (không in mật khẩu). */
 async function readBe() {
@@ -832,6 +836,123 @@ try {
       tab.fulfillWrites = false;
       tab.setFault(null);
     }
+  }
+
+  // ---- attention: Đơn cần xử lý + cảnh báo (BM-05, quyết định 99–102) ------------------------------------------------------------
+  if (want("attention") && REAL) {
+    const be = await readBe();
+    const list = (await be.get("/manager/orders?type=COUNTER_PICKUP&limit=100")).body.items;
+    const cashPending = list.filter((o) => o.status === "CONFIRMED" && o.paymentStatus === "UNPAID");
+    const baseA = cashPending[0] ?? list[0];
+    const baseB = list.find((o) => o.id !== baseA.id);
+    const detailA = (await be.get(`/manager/orders/${baseA.id}`)).body;
+    const FAKE_PAY = "7e57ed00-0000-4000-8000-0000000000d1";
+    const ME = { id: "e-fake", employeeCode: "DEMO-CASHIER-01", firstName: "Lan", lastName: "Thu ngân" };
+    const mismatchPay = (order, received) => ({
+      id: FAKE_PAY, paymentCode: "PAY-FAKE-MIS", method: "BANK_TRANSFER", provider: "PAYOS", status: "AMOUNT_MISMATCH", amount: order.totalAmount,
+      receivedAmount: String(received), transactionRef: null, confirmationReason: null, confirmedAt: null, paidAt: null,
+      createdAt: new Date().toISOString(), failureReason: null, processedBy: ME,
+    });
+    const attentionItem = (base, placedAt, received) => ({ ...base, status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID", callNumber: null, placedAt, paidAt: null, payments: [mismatchPay(base, received)] });
+    const now = Date.now();
+    // Cố ý đặt đơn MỚI trước, CŨ sau trong phản hồi: web phải sắp cũ nhất lên đầu (QĐ 99).
+    const newer = attentionItem(baseA, new Date(now - 5 * 60_000).toISOString(), Number(baseA.totalAmount) - 5000);
+    const older = attentionItem(baseB, new Date(now - 95 * 60_000).toISOString(), Number(baseB.totalAmount) + 10000);
+    let listTotal = 2;
+    const listOverride = () => ({
+      match: /\/api\/v1\/manager\/orders\?.*status=REQUIRES_ATTENTION/,
+      body: J({ items: listTotal === 0 ? [] : [newer, older], total: listTotal, page: 1, limit: 100 }),
+    });
+    const detailBody = (over, payments) => J({ ...detailA, ...over, payments });
+    const detailMatch = new RegExp(`/api/v1/manager/orders/${baseA.id}$`);
+    const attGets = () => tab.requests.filter((r) => r.method === "GET" && /\/manager\/orders\?.*status=REQUIRES_ATTENTION/.test(r.url)).length;
+    const badgeText = () => q(`(() => { const it = [...document.querySelectorAll(".ant-menu-item")].find((e) => /Đơn cần xử lý/.test(e.textContent)); return it?.querySelector(".ant-badge-count")?.textContent ?? ""; })()`);
+    const inject = (event) => q(`(() => { const f = window.__injectOperationsEvent; if (typeof f !== "function") return -1; return f(${J(event)}); })()`);
+    tab.blockedWrites.length = 0;
+    tab.caseName = "attention|readOverride (0 ghi)";
+
+    // 1. Rỗng (đúng dữ liệu thật: 0 đơn REQUIRES_ATTENTION): thông báo rỗng, không số đếm trên menu.
+    tab.readOverride = null;
+    await spaGo("/manager/dashboard");
+    await sleep(900);
+    await spaGo("/manager/orders/needs-attention");
+    await tab.waitFor(`${tid("attention-empty")} || ${tid("attention-table")}`, 15000, "trang Đơn cần xử lý");
+    await sleep(700);
+    check("Real · Dữ liệu thật: 'Không có đơn nào cần xử lý.' và menu không có số đếm", (await q(`${tid("attention-empty")}?.innerText ?? ""`)) === "Không có đơn nào cần xử lý." && (await badgeText()) === "", `${await q(`${tid("attention-empty")}?.innerText ?? ""`)} · badge "${await badgeText()}"`);
+    check("Real · Trang dùng GET lọc status=REQUIRES_ATTENTION (type=COUNTER_PICKUP, limit 100)", tab.requests.some((r) => r.method === "GET" && /type=COUNTER_PICKUP/.test(r.url) && /status=REQUIRES_ATTENTION/.test(r.url) && /limit=100/.test(r.url)));
+
+    // 2. Hai đơn lệch (trả lời giả): số đếm menu = total, danh sách cũ nhất trước, chênh lệch thiếu/dư.
+    tab.readOverride = [listOverride(), { match: detailMatch, body: detailBody({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID" }, [mismatchPay(detailA, Number(detailA.totalAmount) - 5000)]) }];
+    await spaGo("/manager/dashboard");
+    await sleep(700);
+    await tab.goto("/manager/orders/needs-attention");
+    await tab.waitFor(`document.querySelectorAll(".ant-table-tbody tr.ant-table-row").length === 2`, 20000, "2 dòng đơn cần xử lý");
+    await sleep(600);
+    const attRows = await q(`[...document.querySelectorAll(".ant-table-tbody tr.ant-table-row")].map((r) => ({ key: r.getAttribute("data-row-key"), text: r.innerText.replace(/\\s+/g, " ").trim() }))`);
+    check("Real · (trả lời giả) 2 đơn: cũ nhất (95 phút) lên đầu, mới (5 phút) sau", attRows.length === 2 && attRows[0].key === older.id && attRows[1].key === newer.id && /1 giờ 3\d? ?phút|1 giờ/.test(attRows[0].text) && /5 phút|vừa xong/.test(attRows[1].text), J(attRows.map((r) => r.text.slice(0, 90))));
+    check("Real · Chênh lệch: đơn cũ 'Dư 10.000' (vàng), đơn mới 'Thiếu 5.000' (đỏ); có đã nhận và tổng", /Dư 10\.000/.test(attRows[0].text) && /Thiếu 5\.000/.test(attRows[1].text) && (await q(`document.querySelectorAll('.ant-tag-error').length >= 1 && document.querySelectorAll('.ant-tag-warning').length >= 1`)));
+    check("Real · Số đếm trên menu = total (2)", (await badgeText()) === "2", `"${await badgeText()}"`);
+
+    // 3. Cảnh báo socket (giả): gom 2 giây, 1 thông báo, không trùng theo đơn, GET lại số đếm.
+    const getsBefore = attGets();
+    listTotal = 3;
+    tab.readOverride = [listOverride(), { match: detailMatch, body: detailBody({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID" }, [mismatchPay(detailA, Number(detailA.totalAmount) - 5000)]) }];
+    const ev = (orderId) => ({ type: "manager.order.attention-required", occurredAt: new Date().toISOString(), data: { reason: "PAYMENT_AMOUNT_MISMATCH", orderId, paymentId: FAKE_PAY, expectedAmount: String(detailA.totalAmount), receivedAmount: String(Number(detailA.totalAmount) - 5000) } });
+    const listeners = await inject(ev("ffffffff-0000-4000-8000-000000000001"));
+    await inject(ev("ffffffff-0000-4000-8000-000000000001")); // trùng đơn
+    await sleep(600);
+    await inject(ev("ffffffff-0000-4000-8000-000000000001")); // trùng đơn (trong cửa sổ gom)
+    check(`Real · Bơm sự kiện giả: có người nghe (${listeners}); chưa hiện thông báo trong cửa sổ gom 2 giây`, listeners >= 1 && !/Đơn cần xử lý.*chuyển khoản lệch/.test(await q(`[...document.querySelectorAll(".ant-notification-notice")].map((e) => e.innerText).join(" | ")`)));
+    await tab.waitFor(`[...document.querySelectorAll(".ant-notification-notice")].some((e) => /lệch số tiền/.test(e.innerText))`, 6000, "thông báo cảnh báo");
+    const alertText = await q(`[...document.querySelectorAll(".ant-notification-notice")].filter((e) => /lệch số tiền/.test(e.innerText)).map((e) => e.innerText.replace(/\\s+/g, " ").trim())`);
+    check("Real · Đúng 1 thông báo tiếng Việt (nhận X, cần Y) kèm nút Xem; 3 sự kiện trùng đơn chỉ báo 1 lần", alertText.length === 1 && /nhận .*cần /.test(alertText[0]) && /Xem/.test(alertText[0]) && !/payment|attention|AMOUNT/i.test(alertText[0]), J(alertText));
+    await inject(ev("ffffffff-0000-4000-8000-000000000001"));
+    await sleep(2600);
+    check("Real · Đơn đã báo không báo lại (vẫn 1 thông báo)", (await q(`[...document.querySelectorAll(".ant-notification-notice")].filter((e) => /lệch số tiền/.test(e.innerText)).length`)) === 1);
+    check("Real · Sự kiện làm GET lại số đếm → menu 3", attGets() > getsBefore && (await badgeText()) === "3", `GET ${getsBefore}→${attGets()} · "${await badgeText()}"`);
+    // Nút Xem của thông báo dẫn tới chi tiết đơn.
+    await q(`[...document.querySelectorAll('[data-testid="attention-alert-view"]')][0]?.click()`);
+    await sleep(900);
+    check("Real · Nút Xem của thông báo → /manager/orders/<orderId>", /^\/manager\/orders\/ffffffff-0000-4000-8000-000000000001$/.test(await loc()), await loc());
+
+    // 4. Chi tiết đơn: hộp xác nhận tay đang mở, đơn chuyển SUBMITTED → đóng hộp đúng câu (QĐ 102).
+    tab.readOverride = [listOverride(), { match: detailMatch, body: detailBody({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID" }, [mismatchPay(detailA, Number(detailA.totalAmount) + 2000)]) }];
+    await spaGo("/manager/orders/needs-attention");
+    await sleep(900);
+    await q(`[...document.querySelectorAll('[data-testid="attention-open"]')].find((b) => b.closest("tr")?.getAttribute("data-row-key") === ${J(newer.id)})?.click()`);
+    await sleep(900);
+    // đơn `newer` có id baseA: trang chi tiết dùng readOverride của detailA
+    await tab.waitFor(`${tid("order-detail")}`, 15000, "chi tiết đơn");
+    check("Real · Từ danh sách bấm Xem → chi tiết; nút 'Xác nhận thủ công' có (khoản Lệch số tiền)", (await has("order-confirm-open")) && (await q(`${tid("order-detail-status")}?.innerText.trim()`)) === "Cần xử lý");
+    await clickTid("order-confirm-open");
+    await tab.waitFor(tid("confirm-step-form"), 8000, "hộp xác nhận mở");
+    tab.readOverride = [listOverride(), { match: detailMatch, body: detailBody({ status: "SUBMITTED", paymentStatus: "PAID", callNumber: 88, paidAt: new Date().toISOString() }, [{ ...mismatchPay(detailA, Number(detailA.totalAmount) + 2000), status: "SUCCESS", paidAt: new Date().toISOString(), confirmedAt: new Date().toISOString(), confirmationReason: "webhook về", processedBy: ME }]) }];
+    await inject({ type: "payment.confirmed", occurredAt: new Date().toISOString(), data: { orderId: baseA.id, callNumber: 88 } });
+    await tab.waitFor(`/Đơn vừa được cập nhật \\(Đã thanh toán\\), không cần xác nhận nữa\\./.test(document.body.innerText)`, 8000, "câu đóng hộp");
+    await sleep(500);
+    check("Real · Chi tiết chuyển SUBMITTED khi hộp đang mở: hộp đóng + 'Đơn vừa được cập nhật (Đã thanh toán), không cần xác nhận nữa.'", !(await has("confirm-step-form")) && !(await has("order-confirm-open")) && (await q(`${tid("order-detail-status")}?.innerText.trim()`)) === "Đã thanh toán");
+
+    // 5. Tải định kỳ 60 giây dự phòng #51: tab hiển thị → có; ẩn → không; hiện lại → ngay.
+    listTotal = 2;
+    tab.readOverride = [listOverride()];
+    await spaGo("/manager/orders/needs-attention");
+    await sleep(1500);
+    const mark = attGets();
+    await sleep(65_000);
+    const visibleGets = attGets() - mark;
+    check("Real · Tab hiển thị: sau ~65 giây có tải lại định kỳ (màn + số đếm)", visibleGets >= 2, `${visibleGets} GET trong 65 giây`);
+    await q(`Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" }); document.dispatchEvent(new Event("visibilitychange"));`);
+    await sleep(500);
+    const mark2 = attGets();
+    await sleep(65_000);
+    check("Real · Tab ẩn: không tải định kỳ (0 GET trong 65 giây)", attGets() - mark2 === 0, `${attGets() - mark2} GET`);
+    await q(`Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" }); document.dispatchEvent(new Event("visibilitychange"));`);
+    await sleep(1500);
+    check("Real · Hiện lại tab: tải NGAY (≥ 1 GET trong 1,5 giây)", attGets() - mark2 >= 1, `${attGets() - mark2} GET`);
+    await q(`delete document.visibilityState`);
+
+    tab.readOverride = null;
+    check("Real · Khối attention: 0 request ghi (blockWrites) và không có POST/PATCH nào phát sinh", tab.blockedWrites.length === 0 && (tab.writeLog ?? []).filter((w) => /attention\|/.test(w.caseName ?? "")).length === 0, `${tab.blockedWrites.length}`);
   }
 
   if (want("report")) {

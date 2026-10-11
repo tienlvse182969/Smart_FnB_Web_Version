@@ -64,9 +64,10 @@ const confirmOk = async (okText) => {
     await sleep(250);
     const clicked = await q(`(() => { const b = document.querySelector('[data-testid="staff-reason-ok"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
     // Chờ hộp lý do đóng hẳn (hiệu ứng đóng của antd còn giữ phần tử vài trăm ms) để thao tác sau không đọc nhầm hộp cũ.
-    for (let i = 0; i < 25; i++) {
+    // Tối đa 1,5 giây: khi BE/giả lập trả LỖI hộp còn mở và thông báo lỗi chỉ sống ~3 giây — chờ lâu hơn làm ca đọc thông báo bị trượt.
+    for (let i = 0; i < 10; i++) {
       if (!(await q(`!!document.querySelector('[data-testid="staff-reason"]')`))) break;
-      await sleep(200);
+      await sleep(150);
     }
     return clicked;
   }
@@ -1221,7 +1222,7 @@ try {
       await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do khoá");
       tab.setFault({ kind, match: /^$/, ...(fbody && { body: fbody }) });
       await confirmOk("Khoá tài khoản");
-      await sleep(1600);
+      await sleep(500);
       tab.setFault(null);
       const t = await toasts();
       check(`Real · Khoá (lỗi giả ${label}): 1 PATCH bị giả lập, câu tiếng Việt, không tiếng Anh thô`, writesTo(/\/status$/).length === 1 && re.test(t) && !/Internal|Concurrent|not found|Forbidden/i.test(t), t.slice(0, 140));
