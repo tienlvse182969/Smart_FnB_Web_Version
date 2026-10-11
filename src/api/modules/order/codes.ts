@@ -61,13 +61,19 @@ export function orderItemStatusInfo(code: string): StatusInfo {
   return (ORDER_ITEM_STATUS as Record<string, StatusInfo>)[code] ?? other(code);
 }
 
-/** Hình thức thanh toán: đặc tả chỉ có tiền mặt và QR (chuyển khoản qua PayOS). */
+/** Giá trị v7 mà BE còn trả về (đơn cũ): nhãn tiếng Việt, KHÔNG phải "Khác (<mã>)" (QĐ 103), `known: false` vì không có trong đặc tả. */
+const legacy = (label: string): StatusInfo => ({ label, tone: "neutral", known: false });
+
+/**
+ * Hình thức thanh toán: đặc tả chỉ có tiền mặt và QR (chuyển khoản qua PayOS). CARD, E_WALLET, OTHER là dữ liệu v7 còn trong enum BE
+ * (`schema.prisma:184-190`): chỉ hiện nhãn, KHÔNG có trong ô lọc hay lựa chọn nào (`PAYMENT_METHOD_FILTER`).
+ */
 const PAYMENT_METHOD: Record<(typeof PAYMENT_METHOD_CODES)[number], StatusInfo> = {
   CASH: known("Tiền mặt", "neutral"),
-  CARD: other("CARD"),
+  CARD: legacy("Thẻ"),
   BANK_TRANSFER: known("Chuyển khoản (QR)", "neutral"),
-  E_WALLET: other("E_WALLET"),
-  OTHER: other("OTHER"),
+  E_WALLET: legacy("Ví điện tử"),
+  OTHER: legacy("Khác"),
 };
 
 export function paymentMethodInfo(code: string): StatusInfo {

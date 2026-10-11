@@ -45,13 +45,11 @@ export interface BranchRevenueRow {
   orderCount: number;
   /** Doanh thu trung bình mỗi đơn, chuỗi thập phân. */
   averageOrderValue: string;
-  guestCount: number;
-  sessionCount: number;
 }
 
 export interface RevenueComparison {
   range: ReportRange;
-  totals: { revenue: string; orderCount: number; guestCount: number };
+  totals: { revenue: string; orderCount: number };
   /** Đã sắp theo doanh thu giảm dần. */
   branches: BranchRevenueRow[];
 }
@@ -93,16 +91,3 @@ export interface TopItems {
   items: TopItemRow[];
 }
 
-export interface CustomerTrafficRow {
-  branch: ReportBranchRef;
-  guestCount: number;
-  sessionCount: number;
-  /** Số khách trung bình mỗi lượt bàn, đã làm tròn 2 chữ số. */
-  averageGuestsPerSession: number;
-}
-
-export interface CustomerTraffic {
-  range: ReportRange;
-  totals: { guestCount: number; sessionCount: number };
-  branches: CustomerTrafficRow[];
-}

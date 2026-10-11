@@ -63,7 +63,6 @@ function planOf(): ApiPlan {
     monthlyPrice: "0.00",
     maxBranches: caps.branches,
     maxAccounts: caps.accounts,
-    maxTables: 0,
   };
 }
 

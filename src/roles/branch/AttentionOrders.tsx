@@ -87,7 +87,8 @@ export default function AttentionOrders() {
   const columns: ColumnsType<AttentionRow> = [
     { title: "Số gọi", dataIndex: "callNumber", width: 90, render: (v: number | null) => v ?? "—" },
     { title: "Mã đơn", dataIndex: "orderCode", render: (v: string) => <span style={{ fontFamily: "monospace" }}>{v}</span> },
-    { title: "Đã chờ", dataIndex: "waitedMs", width: 130, render: (v: number | null) => <span data-testid="attention-waited">{formatWaited(v)}</span> },
+    // BE không trả thời điểm đơn chuyển "Cần xử lý" (#65): tạm tính từ lúc đặt đơn, ghi rõ trên tiêu đề.
+    { title: "Đã chờ (từ lúc đặt)", dataIndex: "waitedMs", width: 130, render: (v: number | null) => <span data-testid="attention-waited">{formatWaited(v)}</span> },
     { title: "Tổng đơn", dataIndex: "total", align: "right", width: 130, render: (v: number) => formatVnd(v) },
     { title: "Đã nhận", dataIndex: "received", align: "right", width: 130, render: (v: number | null) => (v === null ? "—" : formatVnd(v)) },
     {

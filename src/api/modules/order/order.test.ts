@@ -10,6 +10,7 @@ import {
   ORDER_STATUS_CODES,
   ORDER_STATUS_FILTER,
   PAYMENT_METHOD_CODES,
+  PAYMENT_METHOD_FILTER,
   PAYMENT_STATUS_CODES,
   orderItemStatusInfo,
   orderPaymentInfo,
@@ -62,7 +63,10 @@ describe("nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.
   });
 
   it("hình thức thanh toán: đặc tả chỉ có tiền mặt và QR", () => {
-    expect(PAYMENT_METHOD_CODES.map((c) => paymentMethodInfo(c).label)).toEqual(["Tiền mặt", "Khác (CARD)", "Chuyển khoản (QR)", "Khác (E_WALLET)", "Khác (OTHER)"]);
+    expect(PAYMENT_METHOD_CODES.map((c) => paymentMethodInfo(c).label)).toEqual(["Tiền mặt", "Thẻ", "Chuyển khoản (QR)", "Ví điện tử", "Khác"]);
+    // Giá trị v7 BE còn trả: nhãn tiếng Việt (QĐ 103), nhưng không có trong đặc tả (known=false) và KHÔNG có trong ô lọc.
+    expect(paymentMethodInfo("CARD").known).toBe(false);
+    expect(PAYMENT_METHOD_FILTER.map((o) => o.value)).toEqual(["CASH", "BANK_TRANSFER"]);
   });
 
   it("thanh toán (5.5): PENDING phụ thuộc hình thức; FAILED/REFUNDED chưa có trong đặc tả", () => {
@@ -134,10 +138,10 @@ describe("mapper phản hồi BE", () => {
     expect(mapOrderPage("lỗi", { page: 1, limit: 20 }).items).toEqual([]);
   });
 
-  it("khoản thanh toán của phiên bàn (v7) gộp vào, bỏ trùng", () => {
+  it("khoản thanh toán chỉ lấy của đơn, bỏ trùng; không đọc phiên bàn (v7, QĐ 104)", () => {
     const p = { id: "p1", method: "CASH", status: "SUCCESS", amount: "1" };
-    const o = mapOrderPage({ items: [{ ...rawOrder, payments: [p], tableSession: { payments: [p, { id: "p2", method: "BANK_TRANSFER", status: "SUCCESS", amount: "2" }] } }] }, { page: 1, limit: 20 }).items[0];
-    expect(o.payments.map((x) => x.id)).toEqual(["p1", "p2"]);
+    const o = mapOrderPage({ items: [{ ...rawOrder, payments: [p, p], tableSession: { payments: [{ id: "p2", method: "BANK_TRANSFER", status: "SUCCESS", amount: "2" }] } }] }, { page: 1, limit: 20 }).items[0];
+    expect(o.payments.map((x) => x.id)).toEqual(["p1"]);
   });
 
   it("chi tiết: dòng món có tuỳ chọn chụp lúc bán, người huỷ, ghi chú", () => {

@@ -4,7 +4,6 @@
  */
 import type {
   ApiBranch,
-  CustomerTraffic,
   ReportBranchRef,
   ReportGranularity,
   ReportRange,
@@ -92,8 +91,6 @@ export const reportMock: ReportApi = {
         discount: money(0),
         orderCount,
         averageOrderValue: money(orderCount ? revenue / orderCount : 0),
-        guestCount: 0,
-        sessionCount: 0,
         raw: revenue,
       };
     });
@@ -103,7 +100,6 @@ export const reportMock: ReportApi = {
       totals: {
         revenue: money(rows.reduce((s, r) => s + r.raw, 0)),
         orderCount: rows.reduce((s, r) => s + r.orderCount, 0),
-        guestCount: 0,
       },
       branches: rows.map(({ raw: _raw, ...row }) => row),
     };
@@ -176,15 +172,5 @@ export const reportMock: ReportApi = {
         orderLineCount: v.lines,
       }));
     return { range: scope.range, items };
-  },
-
-  async getCustomerTraffic(params = {}): Promise<CustomerTraffic> {
-    await mockDelay();
-    const scope = await resolveScope(params);
-    return {
-      range: scope.range,
-      totals: { guestCount: 0, sessionCount: 0 },
-      branches: scope.branches.map((b) => ({ branch: refOf(b), guestCount: 0, sessionCount: 0, averageGuestsPerSession: 0 })),
-    };
   },
 };

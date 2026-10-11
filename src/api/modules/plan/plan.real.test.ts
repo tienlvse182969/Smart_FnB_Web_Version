@@ -18,7 +18,7 @@ const pathsOf = (fn: ReturnType<typeof vi.fn>) =>
 const SUB = (over: Partial<ApiSubscription> = {}): ApiSubscription => ({
   status: "ACTIVE",
   expiresAt: "2099-12-31T23:59:59.999Z",
-  plan: { id: "p", code: "DEMO_OPERATIONS", name: "Demo Operations", description: null, monthlyPrice: "0", maxBranches: 5, maxAccounts: 20, maxTables: 100, brandingEnabled: true, multiBranchComparisonEnabled: true },
+  plan: { id: "p", code: "DEMO_OPERATIONS", name: "Demo Operations", description: null, monthlyPrice: "0", maxBranches: 5, maxAccounts: 20, brandingEnabled: true, multiBranchComparisonEnabled: true },
   quotas: [
     { resource: "branches", used: 2, limit: 5, remaining: 3 },
     { resource: "accounts", used: 7, limit: 20, remaining: 13 },

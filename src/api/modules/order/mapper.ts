@@ -39,13 +39,11 @@ function mapPayment(raw: Raw): OrderPaymentRecord {
   };
 }
 
-/** Khoản thanh toán của đơn: của đơn và của phiên bàn (v7) gộp lại, bỏ trùng theo id. */
+/** Khoản thanh toán của đơn, bỏ trùng theo id. */
 function mapPayments(raw: Raw): OrderPaymentRecord[] {
-  const own = list(raw.payments);
-  const session = isObject(raw.tableSession) ? list(raw.tableSession.payments) : [];
   const seen = new Set<string>();
   const out: OrderPaymentRecord[] = [];
-  for (const p of [...own, ...session]) {
+  for (const p of list(raw.payments)) {
     const mapped = mapPayment(p);
     if (mapped.id && seen.has(mapped.id)) continue;
     seen.add(mapped.id);
@@ -65,7 +63,7 @@ export function mapOrderSummary(raw: Raw): OrderSummary {
     status: strOr(raw.status, "UNKNOWN"),
     paymentStatus: strOr(raw.paymentStatus, "UNKNOWN"),
     payments: mapPayments(raw),
-    cashierName: mapActorName(raw.createdByCashier) ?? mapActorName(raw.createdByWaiter),
+    cashierName: mapActorName(raw.createdByCashier),
     cancelledAt: str(raw.cancelledAt),
     cancellationReason: str(raw.cancellationReason),
   };

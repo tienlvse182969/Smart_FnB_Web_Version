@@ -77,7 +77,6 @@ export const FIELD_LABELS: Record<string, string> = {
   monthlyPrice: "Giá hằng tháng",
   maxBranches: "Số chi nhánh tối đa",
   maxAccounts: "Số tài khoản tối đa",
-  maxTables: "Số bàn tối đa",
   brandingEnabled: "Tính năng nhận diện",
   multiBranchComparisonEnabled: "Tính năng so sánh chi nhánh",
   businessName: "Tên doanh nghiệp",
