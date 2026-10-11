@@ -1,6 +1,6 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
 import { KeyRound, Lock, Pencil, Plus, Unlock } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STAFF_ROLE_LABEL, type AccountQuota, type AccountStatus, type StaffEmployee, type StaffInput, type StaffRole } from "../../types";
 import { accountApi, modeOf, showApiError } from "../../api";
 import { splitName, staffName, validateStaffInput, validateStaffPatch } from "../../api/modules/account/staffRules";
@@ -26,7 +26,7 @@ const EMAIL_NOTE: Record<"SENT" | "PENDING" | "FAILED", string> = {
  * mật khẩu: tài khoản mới ở trạng thái "Chưa kích hoạt" và nhận email đặt mật khẩu một lần (24 giờ); "Gửi lại email" cũng dùng để gửi lại
  * lời mời. Khoá/mở khoá và gửi lại email BẮT BUỘC lý do 3–500 ký tự (audit của BE). Cùng khuôn với màn Owner tạo Manager.
  * Dòng hạn mức "Đã dùng X/Y" lấy từ GÓI THẬT (`plan.limits`, quyết định 54); chưa tải được gói → "Chưa tải được hạn mức gói" + Thử lại
- * nhỏ, KHÔNG chặn màn (quyết định 53). Hết hạn gói thì chỉ đọc (ActionButton). Mock (cờ account=mock) giữ banner "Dữ liệu mẫu".
+ * nhỏ, KHÔNG chặn màn (quyết định 53). Hết hạn gói thì chỉ đọc (ActionButton). Mock (cờ account=mock) cùng giao diện, thêm cột đăng nhập gần nhất.
  */
 export default function StaffTable() {
   const { message, modal } = App.useApp();
@@ -49,6 +49,7 @@ export default function StaffTable() {
   /** Hộp nhập lý do cho khoá / mở khoá / gửi lại email (BE bắt buộc `reason`). */
   const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; staff: StaffEmployee } | null>(null);
   const [reasonBusy, setReasonBusy] = useState(false);
+  const reasonInFlight = useRef(false);
 
   const load = useCallback(async () => {
     if (!chainId || !branchId) return;
@@ -94,7 +95,9 @@ export default function StaffTable() {
 
   /** Bước cuối của khoá / mở khoá / gửi lại email: gọi API kèm lý do, rồi đóng hộp nếu thành công. Bấm đúp chỉ gửi 1 request. */
   const submitReason = async (reason: string) => {
-    if (!reasonFor || reasonBusy) return;
+    // Ref (không phải state): hai lần bấm liên tiếp trong cùng một tick chưa kịp render lại nên `reasonBusy` còn false.
+    if (!reasonFor || reasonBusy || reasonInFlight.current) return;
+    reasonInFlight.current = true;
     const { kind, staff: s } = reasonFor;
     setReasonBusy(true);
     try {
@@ -120,6 +123,7 @@ export default function StaffTable() {
       );
       if (ok) setReasonFor(null);
     } finally {
+      reasonInFlight.current = false;
       setReasonBusy(false);
     }
   };
@@ -144,11 +148,6 @@ export default function StaffTable() {
           </ActionButton>
         }
       />
-      {!realAccount && (
-        <div data-testid="staff-mock-banner" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-          Dữ liệu mẫu (chế độ giả lập). Tài khoản tạo ở đây không có trên máy chủ.
-        </div>
-      )}
       <div data-testid="staff-quota" style={{ fontSize: 13, marginBottom: 14, color: limitReached ? palette.error.text : palette.textMuted }}>
         {planUnavailable ? (
           // Lỗi đọc gói KHÔNG chặn màn (quyết định 53): nút Thêm vẫn bấm được, BE chặn thật nếu vượt hạn mức; không toast.
