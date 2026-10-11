@@ -120,6 +120,55 @@ export function orderPaymentInfo(order: {
   }
 }
 
+export const REFUND_STATUS_CODES = ["PENDING", "COMPLETED"] as const;
+export const REFUND_METHOD_CODES = ["CASH", "BANK_TRANSFER"] as const;
+export const REFUND_SOURCE_CODES = ["MANAGER_CANCELLATION", "LATE_PAYMENT"] as const;
+
+/**
+ * Khoản phải hoàn (BM-06, BR-49/50; enum `RefundStatus` của BE `514c426`, migration `20261011100000_paid_order_refunds`).
+ * Chờ hoàn = vàng (việc còn phải làm), Đã hoàn = xanh.
+ */
+export function refundStatusInfo(code: string): StatusInfo {
+  switch (code) {
+    case "PENDING":
+      return known("Chờ hoàn tiền", "warning");
+    case "COMPLETED":
+      return known("Đã hoàn tiền", "success");
+    default:
+      return other(code);
+  }
+}
+
+/** Cách hoàn (`RefundMethod`): tiền mặt ghi là đã hoàn ngay; chuyển khoản chờ Manager đánh dấu. */
+export function refundMethodInfo(code: string): StatusInfo {
+  switch (code) {
+    case "CASH":
+      return known("Tiền mặt tại quầy", "neutral");
+    case "BANK_TRANSFER":
+      return known("Chuyển khoản", "neutral");
+    default:
+      return other(code);
+  }
+}
+
+/** Nguồn khoản hoàn (`RefundSource`). */
+export function refundSourceInfo(code: string): StatusInfo {
+  switch (code) {
+    case "MANAGER_CANCELLATION":
+      return known("Manager huỷ đơn đã trả", "neutral");
+    case "LATE_PAYMENT":
+      return known("Tiền về sau khi đơn đã huỷ", "warning");
+    default:
+      return other(code);
+  }
+}
+
+/** Ô lọc "Hoàn tiền": BE chỉ lọc theo `refundStatus` của khoản hoàn (`ManagerOrderQueryDto`). */
+export const REFUND_STATUS_FILTER: { value: string; label: string }[] = [
+  { value: "PENDING", label: "Còn khoản chờ hoàn" },
+  { value: "COMPLETED", label: "Đã hoàn xong" },
+];
+
 /** Lựa chọn của ô lọc: giá trị gửi BE → nhãn. Ô trạng thái đơn bỏ các mã chưa có trong đặc tả. */
 export const ORDER_STATUS_FILTER: { value: string; label: string }[] = [
   { value: "CONFIRMED", label: "Chờ thanh toán" },

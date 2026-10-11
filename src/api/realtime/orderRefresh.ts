@@ -33,6 +33,11 @@ export const ORDER_EVENT_TYPES: ReadonlySet<string> = new Set([
   "preparation.item.undone",
   "preparation.order.delivered",
   "manager.order.attention-required",
+  // Huỷ đơn đã trả + khoản hoàn (BE `514c426`, #43): `order.cancelled` { orderId, refundId, refundStatus, refundAmount, itemIds },
+  // `refund.pending` (cùng payload hoặc { reason, orderId, paymentId, refundId, receivedAmount }), `refund.completed` { refundId, orderId, amount }.
+  "order.cancelled",
+  "refund.pending",
+  "refund.completed",
 ]);
 
 export const REFRESH_DEBOUNCE_MS = 500;

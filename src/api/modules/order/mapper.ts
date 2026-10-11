@@ -3,7 +3,7 @@
  * Mọi trường đọc phòng thủ: thiếu hoặc sai kiểu thì rơi về mặc định, không ném lỗi (BE là nguồn ngoài).
  * Tiền BE là chuỗi thập phân ("65000", "280000.00") → số.
  */
-import type { OrderDetail, OrderDetailLine, OrderDetailOption, OrderPage, OrderPaymentRecord, OrderSummary } from "../../../types";
+import type { OrderDetail, OrderDetailLine, OrderDetailOption, OrderPage, OrderPaymentRecord, OrderRefundRecord, OrderSummary } from "../../../types";
 import { parseAmount } from "../../../lib/reportFormat";
 
 type Raw = Record<string, unknown>;
@@ -52,6 +52,29 @@ function mapPayments(raw: Raw): OrderPaymentRecord[] {
   return out;
 }
 
+function mapRefund(raw: Raw): OrderRefundRecord {
+  return {
+    id: strOr(raw.id, ""),
+    paymentId: str(raw.paymentId),
+    amount: parseAmount(raw.amount as string | number | null),
+    status: strOr(raw.status, "PENDING"),
+    method: strOr(raw.method, "BANK_TRANSFER"),
+    source: strOr(raw.source, "MANAGER_CANCELLATION"),
+    reason: strOr(raw.reason, ""),
+    requestedByRole: str(raw.requestedByRole),
+    requestedAt: str(raw.requestedAt),
+    completedByRole: str(raw.completedByRole),
+    completedAt: str(raw.completedAt),
+    note: str(raw.note),
+    lines: list(raw.items).map((i) => ({
+      orderItemId: strOr(i.orderItemId, ""),
+      quantity: num(i.quantity) ?? 0,
+      refundAmount: parseAmount(i.refundAmount as string | number | null),
+      isWastage: i.isWastage === true,
+    })),
+  };
+}
+
 export function mapOrderSummary(raw: Raw): OrderSummary {
   return {
     id: strOr(raw.id, ""),
@@ -66,6 +89,7 @@ export function mapOrderSummary(raw: Raw): OrderSummary {
     cashierName: mapActorName(raw.createdByCashier),
     cancelledAt: str(raw.cancelledAt),
     cancellationReason: str(raw.cancellationReason),
+    refunds: list(raw.refunds).map(mapRefund),
   };
 }
 

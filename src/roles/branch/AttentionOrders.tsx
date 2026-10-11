@@ -18,11 +18,13 @@ import { formatVnd } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import { attentionStore } from "./attentionStore";
+import PendingRefunds from "./PendingRefunds";
 
 /**
  * BM-05 (quyết định 99–101): danh sách đơn "Cần xử lý" (`REQUIRES_ATTENTION`) của chi nhánh, cũ nhất trước. Mỗi dòng: mã đơn, số gọi,
  * đã chờ (từ lúc đặt đơn), tổng, đã nhận, chênh lệch (thiếu = đỏ, dư = vàng), nút Xem → chi tiết (nơi xác nhận thủ công).
- * Tự làm tươi qua socket (hook dùng chung) và dự phòng 60 giây khi tab hiển thị. Chỉ đọc; không có nút huỷ/hoàn (#43).
+ * Tự làm tươi qua socket (hook dùng chung) và dự phòng 60 giây khi tab hiển thị. Chỉ đọc; huỷ/hoàn làm ở trang chi tiết đơn (BM-06, #43).
+ * Phía dưới có khối "Khoản chờ hoàn tiền" (`PendingRefunds`) khi có đơn còn khoản chờ hoàn.
  */
 export default function AttentionOrders() {
   const chainId = useAppStore((s) => s.chainId);
@@ -166,6 +168,7 @@ export default function AttentionOrders() {
           )}
         </Card>
       )}
+      <PendingRefunds refreshKey={rows} />
     </div>
   );
 }

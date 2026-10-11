@@ -73,7 +73,7 @@ export function formatWaited(ms: number | null): string {
 // Cảnh báo từ socket
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type AttentionReason = "PAYMENT_AMOUNT_MISMATCH" | "ITEM_OUT_OF_STOCK" | "OPTION_OUT_OF_STOCK" | "OTHER";
+export type AttentionReason = "PAYMENT_AMOUNT_MISMATCH" | "PAYMENT_RECEIVED_AFTER_CANCELLATION" | "ITEM_OUT_OF_STOCK" | "OPTION_OUT_OF_STOCK" | "OTHER";
 
 export interface AttentionAlertItem {
   /** Khoá chống trùng: `reason:orderId`. */
@@ -84,7 +84,7 @@ export interface AttentionAlertItem {
   receivedAmount?: number;
 }
 
-const REASONS: AttentionReason[] = ["PAYMENT_AMOUNT_MISMATCH", "ITEM_OUT_OF_STOCK", "OPTION_OUT_OF_STOCK"];
+const REASONS: AttentionReason[] = ["PAYMENT_AMOUNT_MISMATCH", "PAYMENT_RECEIVED_AFTER_CANCELLATION", "ITEM_OUT_OF_STOCK", "OPTION_OUT_OF_STOCK"];
 const asNumber = (v: unknown): number | undefined => {
   const n = typeof v === "string" ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) ? n : undefined;
@@ -175,6 +175,15 @@ export function describeAttentionBatch(items: AttentionAlertItem[], formatMoney:
     out.push({ key: "attention-mismatch", text: `Có đơn chuyển khoản lệch số tiền${detail}. Cần xử lý.`, to: `${ORDERS_PATH}/${m.orderId}`, tone: "error" });
   } else if (mismatch.length > 1) {
     out.push({ key: "attention-mismatch", text: `Có ${mismatch.length} đơn chuyển khoản lệch số tiền cần xử lý.`, to: ATTENTION_PATH, tone: "error" });
+  }
+  // Tiền về SAU khi đơn đã huỷ (#43): BE tự ghi MỘT khoản phải hoàn (`refund.pending`); Manager hoàn ngoài hệ thống rồi đánh dấu đã hoàn.
+  const late = items.filter((i) => i.reason === "PAYMENT_RECEIVED_AFTER_CANCELLATION");
+  if (late.length === 1) {
+    const l = late[0];
+    const detail = l.receivedAmount !== undefined ? `: cần hoàn ${formatMoney(l.receivedAmount)}` : "";
+    out.push({ key: "attention-late", text: `Có khoản tiền về sau khi đơn đã huỷ${detail}.`, to: `${ORDERS_PATH}/${l.orderId}`, tone: "error" });
+  } else if (late.length > 1) {
+    out.push({ key: "attention-late", text: `Có ${late.length} khoản tiền về sau khi đơn đã huỷ, cần hoàn lại cho khách.`, to: ATTENTION_PATH, tone: "error" });
   }
   const stock = items.filter((i) => i.reason === "ITEM_OUT_OF_STOCK" || i.reason === "OPTION_OUT_OF_STOCK");
   if (stock.length > 0) {

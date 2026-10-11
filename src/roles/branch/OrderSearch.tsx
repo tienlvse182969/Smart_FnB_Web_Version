@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { describeApiError, modeOf, orderApi } from "../../api";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
-import { orderPaymentInfo, orderStatusInfo, paymentMethodInfo, ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER } from "../../api/modules/order/codes";
+import { orderPaymentInfo, orderStatusInfo, paymentMethodInfo, ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER, REFUND_STATUS_FILTER } from "../../api/modules/order/codes";
 import { ORDER_PAGE_SIZES } from "../../api/modules/order/query";
 import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
@@ -215,6 +215,15 @@ export default function OrderSearch() {
             value={filters.method || undefined}
             options={PAYMENT_METHOD_FILTER}
             onChange={(v) => apply({ method: v ?? "" })}
+          />
+          <Select
+            data-testid="order-refund"
+            style={{ width: 190 }}
+            placeholder="Hoàn tiền"
+            allowClear
+            value={filters.refund || undefined}
+            options={REFUND_STATUS_FILTER}
+            onChange={(v) => apply({ refund: v ?? "" })}
           />
           <Button type="primary" icon={<Search size={15} />} onClick={submitText} data-testid="order-search">
             Tìm

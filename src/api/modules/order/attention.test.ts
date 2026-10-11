@@ -36,6 +36,7 @@ const order = (id: string, over: Partial<OrderSummary> = {}): OrderSummary => ({
   status: "REQUIRES_ATTENTION",
   paymentStatus: "UNPAID",
   payments: [pay()],
+  refunds: [],
   cashierName: null,
   cancelledAt: null,
   cancellationReason: null,

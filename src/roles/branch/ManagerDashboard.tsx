@@ -86,6 +86,7 @@ const cancelColumns: ColumnsType<ManagerReportCancelledOrder> = [
   },
   { title: "Thời điểm huỷ", dataIndex: "cancelledAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "totalAmount", align: "right", width: 120, render: (v: number) => formatVnd(v) },
+  { title: "Đã hoàn / phải hoàn", dataIndex: "refundAmount", align: "right", width: 150, render: (v: number) => (v > 0 ? formatVnd(v) : "—") },
   { title: "Lý do", dataIndex: "reason", render: (v: string | null) => v ?? "—" },
 ];
 
@@ -96,7 +97,8 @@ function isEmptyReport(r: ManagerReport): boolean {
 /**
  * BM-03: báo cáo chi nhánh của Branch Manager. Real `GET /manager/reports` (module `managerReport`). Hiện ĐÚNG số BE trả, không tính lại
  * hay lọc lại (quyết định 78); giờ và ngày BE đã cắt theo giờ Việt Nam. Khoảng thời gian nằm trên URL (F5 giữ nguyên). Không tự làm
- * tươi qua socket (quyết định 79): có nút Làm mới. Chưa có mục hoàn tiền (BR-49/50) vì BE chưa có (#43).
+ * tươi qua socket (quyết định 79): có nút Làm mới. Hoàn tiền (BR-49/50, BE `514c426` #43): doanh thu là số SAU hoàn của BE, kèm gộp,
+ * đã hoàn và chờ hoàn; web không tự trừ.
  */
 export default function ManagerDashboard() {
   const chainId = useAppStore((s) => s.chainId);
@@ -207,7 +209,7 @@ export default function ManagerDashboard() {
           <Row gutter={[16, 16]}>
             <Col xs={12} lg={6}>
               <div data-testid="report-kpi-revenue" style={{ height: "100%" }}>
-                <StatCard label="Doanh thu" value={formatVnd(data.summary.revenue)} icon={<Banknote size={18} />} hint="đơn đã thanh toán, chưa huỷ" />
+                <StatCard label="Doanh thu (sau hoàn tiền)" value={formatVnd(data.summary.revenue)} icon={<Banknote size={18} />} hint="đơn đã thanh toán, đã trừ khoản hoàn" />
               </div>
             </Col>
             <Col xs={12} lg={6}>
@@ -228,6 +230,29 @@ export default function ManagerDashboard() {
                   icon={<Clock size={18} />}
                   hint={data.preparation.averageSeconds === null ? undefined : `${formatCount(data.preparation.completedUnits)} suất đã xong · phút:giây`}
                 />
+              </div>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-gross" style={{ height: "100%" }}>
+                <StatCard label="Doanh thu gộp" value={formatVnd(data.summary.grossRevenue)} icon={<Banknote size={18} />} hint="theo ngày thanh toán, chưa trừ hoàn tiền" />
+              </div>
+            </Col>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-refund" style={{ height: "100%" }}>
+                <StatCard
+                  label="Đã trừ hoàn tiền"
+                  value={formatVnd(data.summary.refundAmount)}
+                  icon={<Wallet size={18} />}
+                  hint={`${formatCount(data.cancellations.paidCancellationCount)} đơn huỷ sau khi trả · theo ngày huỷ`}
+                />
+              </div>
+            </Col>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-refund-pending" style={{ height: "100%" }}>
+                <StatCard label="Còn chờ hoàn" value={formatVnd(data.summary.pendingRefundAmount)} icon={<Clock size={18} />} hint="chuyển khoản chưa đánh dấu đã hoàn" />
               </div>
             </Col>
           </Row>

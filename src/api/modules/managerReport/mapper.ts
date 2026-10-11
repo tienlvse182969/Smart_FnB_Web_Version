@@ -26,7 +26,15 @@ const list = (v: unknown): Raw[] => (Array.isArray(v) ? v.filter(isObject) : [])
 const GRANULARITIES: readonly ManagerReportGranularity[] = ["day", "week", "month"];
 
 function mapBucket(r: Raw): ManagerReportBucket {
-  return { bucket: str(r.bucket) ?? "", revenue: money(r.revenue), orderCount: num(r.orderCount) };
+  const revenue = money(r.revenue);
+  return {
+    bucket: str(r.bucket) ?? "",
+    revenue,
+    // BE trước #43 không có các trường gộp/hoàn: coi gộp = doanh thu, hoàn = 0 (không tự tính thêm).
+    grossRevenue: r.grossRevenue === undefined ? revenue : money(r.grossRevenue),
+    refundAmount: money(r.refundAmount),
+    orderCount: num(r.orderCount),
+  };
 }
 
 function mapPayment(r: Raw): ManagerReportPayment {
@@ -53,6 +61,7 @@ function mapCancelled(r: Raw): ManagerReportCancelledOrder {
     totalAmount: money(r.totalAmount),
     cancelledAt: str(r.cancelledAt),
     reason: str(r.reason),
+    refundAmount: money(r.refundAmount),
   };
 }
 
@@ -69,7 +78,15 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
     branchName: str(branch.name) ?? "Chi nhánh",
     timezone: str(range.timezone) ?? str(branch.timezone) ?? "Asia/Ho_Chi_Minh",
     range: { from: str(range.from) ?? fallback.from, to: str(range.to) ?? fallback.to, granularity },
-    summary: { revenue: money(summary.revenue), orderCount: num(summary.orderCount), averageOrderValue: money(summary.averageOrderValue) },
+    summary: {
+      revenue: money(summary.revenue),
+      grossRevenue: summary.grossRevenue === undefined ? money(summary.revenue) : money(summary.grossRevenue),
+      refundAmount: money(summary.refundAmount),
+      pendingRefundAmount: money(summary.pendingRefundAmount),
+      netRevenue: summary.netRevenue === undefined ? money(summary.revenue) : money(summary.netRevenue),
+      orderCount: num(summary.orderCount),
+      averageOrderValue: money(summary.averageOrderValue),
+    },
     revenue: list(body.revenue).map(mapBucket),
     payments: list(body.payments).map(mapPayment),
     topItems: list(body.topItems).map(mapItem),
@@ -77,6 +94,13 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
     ordersByHour: list(body.ordersByHour).map(mapHour),
     // `averageSeconds` null khi chưa có suất nào xong trong kỳ (BE: AVG của tập rỗng); số 0 là số thật.
     preparation: { averageSeconds: typeof prep.averageSeconds === "number" && Number.isFinite(prep.averageSeconds) ? prep.averageSeconds : null, completedUnits: num(prep.completedUnits) },
-    cancellations: { total: typeof cancel.total === "number" ? cancel.total : cancelItems.length, limit: num(cancel.limit), items: cancelItems },
+    cancellations: {
+      total: typeof cancel.total === "number" ? cancel.total : cancelItems.length,
+      paidCancellationCount: num(cancel.paidCancellationCount),
+      refundAmount: money(cancel.refundAmount),
+      pendingRefundAmount: money(cancel.pendingRefundAmount),
+      limit: num(cancel.limit),
+      items: cancelItems,
+    },
   };
 }

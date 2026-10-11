@@ -90,4 +90,16 @@ export const BACKEND_MESSAGES: [status: number, message: string, source: string]
   [409, "Số tiền thực nhận thấp hơn tổng tiền đơn hàng.", "payments/counter-payment-settlement.service.ts:122 (error PAYMENT_AMOUNT_INSUFFICIENT)"],
   [400, "A manual confirmation reason of 3 to 500 characters is required", "payments/payments.service.ts:151"],
   [400, "Actual received amount is required", "payments/payments.service.ts:158"],
+  // Huỷ đơn đã trả + khoản hoàn (BE `514c426`, #43)
+  [409, "Order has no received payment to refund", "payments/paid-order-refund.service.ts:142"],
+  [409, "Payment is no longer eligible for a refund", "payments/paid-order-refund.service.ts:150"],
+  [404, "Counter order was not found in your branch", "payments/paid-order-refund.service.ts:162"],
+  [409, "Delivered, completed or already cancelled orders cannot be cancelled", "payments/paid-order-refund.service.ts:164"],
+  [409, "Order is no longer recorded as paid", "payments/paid-order-refund.service.ts:172"],
+  [409, "An underpaid order must be cancelled in full", "payments/paid-order-refund.service.ts:181"],
+  [409, "One or more order lines are already cancelled or unavailable", "payments/paid-order-refund.service.ts:190"],
+  [409, "Refund amount must be positive", "payments/paid-order-refund.service.ts:209"],
+  [404, "Refund not found", "payments/paid-order-refund.service.ts:355"],
+  [409, "Only a pending refund can be completed", "payments/paid-order-refund.service.ts:366"],
+  [409, "Cash refunds are completed when the order is cancelled", "payments/paid-order-refund.service.ts:369"],
 ];

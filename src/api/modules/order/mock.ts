@@ -2,13 +2,26 @@
  * Mock của module order: dữ liệu đơn giả lập (cùng bộ với báo cáo và trợ lý AI mock, `getBranchOrders`) đổi sang HÌNH DẠNG BE
  * (mã trạng thái BE, tiền là số) cộng vài đơn cố định hôm nay để đủ mọi trạng thái và có đơn kèm tuỳ chọn/topping (quyết định 67).
  * Ghi duy nhất: xác nhận thủ công chuyển khoản (BM-05, 7.4) — nhớ trong bộ nhớ (WeakMap theo trạng thái chuỗi, mất khi F5/`resetMockStates`),
- * cùng luật với BE `d98b4c1`. Huỷ đơn đã trả thêm ở 7.6.
+ * cùng luật với BE `d98b4c1`; huỷ đơn đã trả + đánh dấu đã hoàn (BM-06, 7.6) cùng luật với BE `514c426` (#43).
  *
  * Kịch bản xác nhận thủ công (id đơn kết thúc bằng): `scn-qr-waiting` (QR chờ), `scn-mismatch-short` (Lệch số tiền, nhận thiếu),
  * `scn-mismatch-over` (Lệch số tiền, nhận dư), `scn-qr-failed` (khoản FAILED), `scn-cancelled-pending` (đơn huỷ còn khoản chờ),
  * `scn-qr-conflict` (bấm xác nhận thì BE trả 409 PAYMENT_ALREADY_SETTLED: webhook vừa về).
  */
-import type { ConfirmPaymentInput, Order, OrderDetail, OrderDetailLine, OrderLine, OrderPage, OrderPaymentRecord, OrderQuery, OrderSummary } from "../../../types";
+import type {
+  CancelPaidInput,
+  CompleteRefundInput,
+  ConfirmPaymentInput,
+  Order,
+  OrderDetail,
+  OrderDetailLine,
+  OrderLine,
+  OrderPage,
+  OrderPaymentRecord,
+  OrderQuery,
+  OrderRefundRecord,
+  OrderSummary,
+} from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockWritable } from "../../mock/guards";
@@ -42,6 +55,58 @@ function overlayOf(chainId: string): Map<string, Confirmation> {
   let map = overlays.get(key);
   if (!map) overlays.set(key, (map = new Map()));
   return map;
+}
+
+/** Huỷ đơn đã trả (BM-06, 7.6) đã ghi trong phiên mock: giữ trong bộ nhớ như xác nhận thủ công, mất khi F5. */
+interface MockCancel {
+  refundId: string;
+  reason: string;
+  method: "CASH" | "BANK_TRANSFER";
+  amount: number;
+  status: "PENDING" | "COMPLETED";
+  at: string;
+  completedAt: string | null;
+  note: string | null;
+  lineIds: string[];
+  full: boolean;
+}
+const cancelOverlays = new WeakMap<object, Map<string, MockCancel>>();
+function cancelsOf(chainId: string): Map<string, MockCancel> {
+  const key = getChainState(chainId);
+  let map = cancelOverlays.get(key);
+  if (!map) cancelOverlays.set(key, (map = new Map()));
+  return map;
+}
+let cancelSeq = 0;
+
+function refundOf(c: MockCancel, paymentId: string | null, lines: OrderLine[]): OrderRefundRecord {
+  return {
+    id: c.refundId,
+    paymentId,
+    amount: c.amount,
+    status: c.status,
+    method: c.method,
+    source: "MANAGER_CANCELLATION",
+    reason: c.reason,
+    requestedByRole: "MANAGER",
+    requestedAt: c.at,
+    completedByRole: c.status === "COMPLETED" ? "MANAGER" : null,
+    completedAt: c.completedAt,
+    note: c.note,
+    lines: lines.filter((l) => c.lineIds.includes(l.id)).map((l) => ({ orderItemId: l.id, quantity: l.quantity, refundAmount: l.lineTotal, isWastage: false })),
+  };
+}
+
+/** Phủ kết quả huỷ trong phiên mock lên một dòng danh sách/chi tiết. */
+function applyCancel(summary: OrderSummary, order: Order, cancel?: MockCancel): OrderSummary {
+  if (!cancel) return summary;
+  return {
+    ...summary,
+    status: cancel.full ? "CANCELLED" : summary.status,
+    cancelledAt: cancel.full ? cancel.at : summary.cancelledAt,
+    cancellationReason: cancel.full ? cancel.reason : summary.cancellationReason,
+    refunds: [...summary.refunds, refundOf(cancel, summary.payments[0]?.id ?? null, order.lines)],
+  };
 }
 
 const ORDER_STATUS_OF: Record<Order["status"], string> = {
@@ -325,6 +390,26 @@ function baseSummary(order: Order): OrderSummary {
     cashierName: CASHIER,
     cancelledAt: order.status === "cancelled" ? order.createdAt : null,
     cancellationReason: order.cancelReason ?? null,
+    // Dữ liệu cũ của mock: đơn huỷ sau khi trả có `refund` (BR-49).
+    refunds: order.refund
+      ? [
+          {
+            id: `${order.id}-refund`,
+            paymentId: `${order.id}-pay`,
+            amount: order.refund.amount,
+            status: order.refund.status === "awaitingOwnerRefund" ? "PENDING" : "COMPLETED",
+            method: order.refund.status === "refundedCash" ? "CASH" : "BANK_TRANSFER",
+            source: "MANAGER_CANCELLATION",
+            reason: order.cancelReason ?? "Khách đổi ý",
+            requestedByRole: "MANAGER",
+            requestedAt: order.createdAt,
+            completedByRole: order.refund.status === "awaitingOwnerRefund" ? null : "MANAGER",
+            completedAt: order.refund.status === "awaitingOwnerRefund" ? null : order.createdAt,
+            note: null,
+            lines: [],
+          },
+        ]
+      : [],
   };
 }
 
@@ -343,8 +428,8 @@ function toLine(line: OrderLine, delivered: boolean): OrderDetailLine {
   };
 }
 
-function toDetail(order: Order, confirmations?: Map<string, Confirmation>): OrderDetail {
-  const summary = toSummary(order, confirmations);
+function toDetail(order: Order, confirmations?: Map<string, Confirmation>, cancel?: MockCancel): OrderDetail {
+  const summary = applyCancel(toSummary(order, confirmations), order, cancel);
   return {
     ...summary,
     subtotal: order.total,
@@ -352,8 +437,12 @@ function toDetail(order: Order, confirmations?: Map<string, Confirmation>): Orde
     tax: 0,
     serviceCharge: 0,
     note: null,
-    cancelledBy: order.status === "cancelled" ? (order.refund ? MANAGER : CASHIER) : null,
-    lines: order.lines.map((l) => toLine(l, order.status === "completed")),
+    cancelledBy: cancel?.full ? MANAGER : order.status === "cancelled" ? (order.refund ? MANAGER : CASHIER) : null,
+    lines: order.lines.map((l) => {
+      const line = toLine(l, order.status === "completed");
+      const gone = cancel && (cancel.full || cancel.lineIds.includes(l.id));
+      return gone ? { ...line, status: "CANCELLED", cancellationReason: cancel.reason } : line;
+    }),
   };
 }
 
@@ -361,8 +450,9 @@ function allOrders(chainId: string, branchId: string): Order[] {
   return [...scenarioOrders(chainId, branchId, new Date()), ...getBranchOrders(chainId, branchId)];
 }
 
-function matches(order: Order, query: OrderQuery, confirmations: Map<string, Confirmation>): boolean {
-  const s = toSummary(order, confirmations);
+function matches(order: Order, query: OrderQuery, confirmations: Map<string, Confirmation>, cancels: Map<string, MockCancel>): boolean {
+  const s = applyCancel(toSummary(order, confirmations), order, cancels.get(order.id));
+  if (query.refundStatus && !s.refunds.some((r) => r.status === query.refundStatus)) return false;
   const t = new Date(order.createdAt).getTime();
   if (query.from && t < new Date(query.from).getTime()) return false;
   if (query.to && t >= new Date(query.to).getTime()) return false;
@@ -379,18 +469,79 @@ export const orderMock: OrderApi = {
   async listOrders({ chainId, branchId }, query): Promise<OrderPage> {
     await mockDelay();
     const confirmations = overlayOf(chainId);
+    const cancels = cancelsOf(chainId);
     const rows = allOrders(chainId, branchId)
-      .filter((o) => matches(o, query, confirmations))
+      .filter((o) => matches(o, query, confirmations, cancels))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const start = (query.page - 1) * query.limit;
-    return { items: rows.slice(start, start + query.limit).map((o) => toSummary(o, confirmations)), total: rows.length, page: query.page, limit: query.limit };
+    return {
+      items: rows.slice(start, start + query.limit).map((o) => applyCancel(toSummary(o, confirmations), o, cancels.get(o.id))),
+      total: rows.length,
+      page: query.page,
+      limit: query.limit,
+    };
   },
 
   async getOrder({ chainId, branchId }, orderId) {
     await mockDelay();
     const found = allOrders(chainId, branchId).find((o) => o.id === orderId);
     if (!found) throw new ApiError(404, "Đơn không tồn tại");
-    return toDetail(found, overlayOf(chainId));
+    return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
+  },
+
+  async cancelPaidOrder({ chainId, branchId }, orderId, input: CancelPaidInput) {
+    await mockDelay();
+    assertMockWritable();
+    const order = allOrders(chainId, branchId).find((o) => o.id === orderId);
+    if (!order) throw new ApiError(404, "Counter order was not found in your branch");
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 500) throw new ApiError(400, "reason must be longer than or equal to 3 characters");
+    const cancels = cancelsOf(chainId);
+    const detail = toDetail(order, overlayOf(chainId), cancels.get(orderId));
+    const payment = detail.payments.find((p) => p.status === "SUCCESS") ?? detail.payments.find((p) => p.status === "AMOUNT_MISMATCH");
+    if (!payment) throw new ApiError(409, "Order has no received payment to refund");
+    if (!["SUBMITTED", "PREPARING", "READY", "REQUIRES_ATTENTION"].includes(detail.status)) {
+      throw new ApiError(409, "Delivered, completed or already cancelled orders cannot be cancelled");
+    }
+    const ids = input.orderItemIds ?? [];
+    const active = detail.lines.filter((l) => l.status !== "CANCELLED");
+    if (payment.status === "AMOUNT_MISMATCH" && ids.length > 0) throw new ApiError(409, "An underpaid order must be cancelled in full");
+    const picked = ids.length === 0 ? active : active.filter((l) => ids.includes(l.id));
+    if (picked.length === 0 || (ids.length > 0 && picked.length !== ids.length)) {
+      throw new ApiError(409, "One or more order lines are already cancelled or unavailable");
+    }
+    const received = payment.receivedAmount ?? payment.amount;
+    const already = detail.refunds.reduce((s, r) => s + r.amount, 0);
+    const balance = received - already;
+    const amount = ids.length === 0 ? balance : Math.min(picked.reduce((s, l) => s + l.total, 0), balance);
+    if (amount <= 0) throw new ApiError(409, "Refund amount must be positive");
+    const now = new Date().toISOString();
+    const full = picked.length === active.length;
+    const prior = cancels.get(orderId);
+    cancels.set(orderId, {
+      refundId: `mock-refund-${++cancelSeq}`,
+      reason,
+      method: input.refundMethod,
+      amount,
+      status: input.refundMethod === "CASH" ? "COMPLETED" : "PENDING",
+      at: now,
+      completedAt: input.refundMethod === "CASH" ? now : null,
+      note: null,
+      lineIds: [...(prior?.lineIds ?? []), ...picked.map((l) => l.id)],
+      full: full || (prior?.full ?? false),
+    });
+  },
+
+  async completeRefund({ chainId }, refundId, input: CompleteRefundInput) {
+    await mockDelay();
+    assertMockWritable();
+    const entry = [...cancelsOf(chainId).values()].find((c) => c.refundId === refundId);
+    if (!entry) throw new ApiError(404, "Refund not found");
+    if (entry.status !== "PENDING") throw new ApiError(409, "Only a pending refund can be completed");
+    if (entry.method !== "BANK_TRANSFER") throw new ApiError(409, "Cash refunds are completed when the order is cancelled");
+    entry.status = "COMPLETED";
+    entry.completedAt = new Date().toISOString();
+    entry.note = input.note?.trim() || null;
   },
 
   async confirmPayment({ chainId, branchId }, paymentId, input: ConfirmPaymentInput) {

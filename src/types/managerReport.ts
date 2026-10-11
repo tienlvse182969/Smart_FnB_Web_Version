@@ -19,7 +19,12 @@ export interface ManagerReportQuery {
 export interface ManagerReportBucket {
   /** Đầu kỳ `YYYY-MM-DD` (ngày; thứ Hai của tuần; mùng 1 của tháng). */
   bucket: string;
+  /** Doanh thu SAU hoàn tiền (BE `514c426`: `revenue` = `netRevenue`). */
   revenue: number;
+  /** Doanh thu gộp (đơn đã trả theo ngày trả), chưa trừ hoàn. */
+  grossRevenue: number;
+  /** Tổng hoàn theo NGÀY HUỶ (kể cả khoản chuyển khoản chờ hoàn). */
+  refundAmount: number;
   orderCount: number;
 }
 
@@ -60,13 +65,25 @@ export interface ManagerReportCancelledOrder {
   totalAmount: number;
   cancelledAt: string | null;
   reason: string | null;
+  /** Tổng khoản hoàn của đơn (0 với đơn huỷ khi chưa trả). */
+  refundAmount: number;
 }
 
 export interface ManagerReport {
   branchName: string;
   timezone: string;
   range: { from: string; to: string; granularity: ManagerReportGranularity };
-  summary: { revenue: number; orderCount: number; averageOrderValue: number };
+  summary: {
+    /** Doanh thu sau hoàn (= `netRevenue` của BE). */
+    revenue: number;
+    grossRevenue: number;
+    refundAmount: number;
+    /** Phần `refundAmount` còn chờ hoàn (chuyển khoản chưa đánh dấu). */
+    pendingRefundAmount: number;
+    netRevenue: number;
+    orderCount: number;
+    averageOrderValue: number;
+  };
   revenue: ManagerReportBucket[];
   payments: ManagerReportPayment[];
   topItems: ManagerReportItem[];
@@ -74,5 +91,13 @@ export interface ManagerReport {
   ordersByHour: ManagerReportHour[];
   /** Thời gian pha trung bình từ lúc bắt đầu tới lúc xong của từng suất, tính bằng giây; null = chưa có suất nào xong trong kỳ. */
   preparation: { averageSeconds: number | null; completedUnits: number };
-  cancellations: { total: number; limit: number; items: ManagerReportCancelledOrder[] };
+  cancellations: {
+    total: number;
+    /** Số đơn có khoản hoàn trong kỳ (đã huỷ SAU khi trả). */
+    paidCancellationCount: number;
+    refundAmount: number;
+    pendingRefundAmount: number;
+    limit: number;
+    items: ManagerReportCancelledOrder[];
+  };
 }

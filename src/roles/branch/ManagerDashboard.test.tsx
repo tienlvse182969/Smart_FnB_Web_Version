@@ -57,14 +57,21 @@ const report = (over: Partial<ManagerReport> = {}): ManagerReport => ({
   branchName: "Chi nhánh thử",
   timezone: "Asia/Ho_Chi_Minh",
   range: { from: "2026-10-09", to: "2026-10-15", granularity: "day" },
-  summary: { revenue: 1090000, orderCount: 11, averageOrderValue: 99090.91 },
-  revenue: [{ bucket: "2026-10-14", revenue: 1090000, orderCount: 11 }],
+  summary: { revenue: 1090000, grossRevenue: 1090000, refundAmount: 0, pendingRefundAmount: 0, netRevenue: 1090000, orderCount: 11, averageOrderValue: 99090.91 },
+  revenue: [{ bucket: "2026-10-14", revenue: 1090000, grossRevenue: 1090000, refundAmount: 0, orderCount: 11 }],
   payments: [{ method: "CASH", settledAmount: 1090000, receivedAmount: 1155000, paymentCount: 11 }],
   topItems: [{ menuItemId: "m1", name: "Cơm gà nướng", quantity: 9, lineRevenue: 585000 }],
   topToppings: [{ optionId: "o1", name: "Trân châu đen", quantity: 3, additionalRevenue: 15000 }],
   ordersByHour: Array.from({ length: 24 }, (_, hour) => ({ hour, orderCount: hour === 12 ? 11 : 0 })),
   preparation: { averageSeconds: 0.02, completedUnits: 2 },
-  cancellations: { total: 1, limit: 10, items: [{ id: "ord-1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-14T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền" }] },
+  cancellations: {
+    total: 1,
+    paidCancellationCount: 0,
+    refundAmount: 0,
+    pendingRefundAmount: 0,
+    limit: 10,
+    items: [{ id: "ord-1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-14T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền", refundAmount: 0 }],
+  },
   ...over,
 });
 
@@ -78,7 +85,11 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     }
     expect(document.querySelectorAll('[data-testid="report-hours-bars"] [data-key]')).toHaveLength(24);
     expect(document.querySelectorAll('[data-testid="report-revenue-bars"] [data-key]')).toHaveLength(7);
-    expect(document.body.textContent).not.toMatch(/CASH|BANK_TRANSFER|hoàn tiền|sắp có/i);
+    expect(document.body.textContent).not.toMatch(/CASH|BANK_TRANSFER|sắp có|chưa có mục hoàn/i);
+    // BE 514c426 (#43): có mục hoàn tiền (gộp, đã trừ, còn chờ), không còn chữ "chưa có".
+    expect(screen.getByTestId("report-kpi-gross")).toBeTruthy();
+    expect(screen.getByTestId("report-kpi-refund")).toBeTruthy();
+    expect(screen.getByTestId("report-kpi-refund-pending")).toBeTruthy();
   });
 
   it("URL giữ khoảng và kỳ: F5 (mount lại) cho cùng kết quả; chọn nhanh ghi URL", async () => {
@@ -154,7 +165,7 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
   });
 
   it("còn nhiều đơn huỷ hơn danh sách: có liên kết 'Xem tất cả' sang Tra cứu đơn đã lọc", async () => {
-    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({ cancellations: { total: 25, limit: 10, items: report().cancellations.items } }));
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({ cancellations: { ...report().cancellations, total: 25 } }));
     mount("/manager/dashboard?from=2026-10-01&to=2026-10-10");
     await waitFor(() => expect(screen.getByTestId("report-cancel-all")).toBeTruthy());
     expect((screen.getByTestId("report-cancel-all") as HTMLAnchorElement).getAttribute("href")).toBe("/manager/orders?status=CANCELLED&from=2026-10-01&to=2026-10-10");

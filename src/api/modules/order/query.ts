@@ -40,6 +40,7 @@ export function buildOrderQueryString(query: OrderQuery): string {
   if (query.status) search.set("status", query.status);
   if (query.paymentStatus) search.set("paymentStatus", query.paymentStatus);
   if (query.paymentMethod) search.set("paymentMethod", query.paymentMethod);
+  if (query.refundStatus) search.set("refundStatus", query.refundStatus);
   search.set("page", String(Math.max(1, Math.trunc(query.page) || 1)));
   search.set("limit", String(Math.min(ORDER_MAX_LIMIT, Math.max(1, Math.trunc(query.limit) || ORDER_PAGE_SIZES[0]))));
   return `?${search.toString()}`;

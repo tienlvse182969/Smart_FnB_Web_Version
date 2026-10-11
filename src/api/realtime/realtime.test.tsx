@@ -15,6 +15,7 @@ describe("sự kiện đơn của BE (quyết định 74)", () => {
       [
         "cashier.order.updated",
         "manager.order.attention-required",
+        "order.cancelled",
         "payment.confirmed",
         "payment.created",
         "preparation.batch.completed",
@@ -24,6 +25,8 @@ describe("sự kiện đơn của BE (quyết định 74)", () => {
         "preparation.item.undone",
         "preparation.order.delivered",
         "preparation.order.queued",
+        "refund.completed",
+        "refund.pending",
       ].sort(),
     );
     expect(isOrderEvent(ev("menu.availability.changed"))).toBe(false);

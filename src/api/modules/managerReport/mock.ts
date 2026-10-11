@@ -101,8 +101,15 @@ function build(orders: Order[], branchId: string, query: ManagerReportQuery): Ma
     branchName: "Chi nhánh (mock)",
     timezone: VN_TIMEZONE,
     range: { from: query.from, to: query.to, granularity: query.granularity },
-    summary: { revenue, orderCount: sales.length, averageOrderValue: sales.length ? round2(revenue / sales.length) : 0 },
-    revenue: bucketsBetween(query.from, query.to, query.granularity).map((bucket) => ({ bucket, revenue: byBucket.get(bucket)?.revenue ?? 0, orderCount: byBucket.get(bucket)?.orderCount ?? 0 })),
+    // Mock không có khoản hoàn của phiên (khối hoàn tiền mock nằm ở module `order`): gộp = doanh thu, hoàn = 0.
+    summary: { revenue, grossRevenue: revenue, refundAmount: 0, pendingRefundAmount: 0, netRevenue: revenue, orderCount: sales.length, averageOrderValue: sales.length ? round2(revenue / sales.length) : 0 },
+    revenue: bucketsBetween(query.from, query.to, query.granularity).map((bucket) => ({
+      bucket,
+      revenue: byBucket.get(bucket)?.revenue ?? 0,
+      grossRevenue: byBucket.get(bucket)?.revenue ?? 0,
+      refundAmount: 0,
+      orderCount: byBucket.get(bucket)?.orderCount ?? 0,
+    })),
     payments: [...byMethod.entries()].map(([method, v]) => ({ method, settledAmount: v.settled, receivedAmount: v.settled, paymentCount: v.count })).sort((a, b) => a.method.localeCompare(b.method)),
     topItems: top(items),
     topToppings: top(toppings),
@@ -111,8 +118,11 @@ function build(orders: Order[], branchId: string, query: ManagerReportQuery): Ma
     preparation: { averageSeconds: doneUnits > 0 ? 90 + (hashString(branchId) % 60) : null, completedUnits: doneUnits },
     cancellations: {
       total: cancelled.length,
+      paidCancellationCount: 0,
+      refundAmount: 0,
+      pendingRefundAmount: 0,
       limit: query.limit,
-      items: cancelled.slice(0, query.limit).map((o) => ({ id: o.id, orderCode: mockOrderCode(o.id), callNumber: o.callNumber, totalAmount: o.total, cancelledAt: o.createdAt, reason: o.cancelReason ?? null })),
+      items: cancelled.slice(0, query.limit).map((o) => ({ id: o.id, orderCode: mockOrderCode(o.id), callNumber: o.callNumber, totalAmount: o.total, cancelledAt: o.createdAt, reason: o.cancelReason ?? null, refundAmount: 0 })),
     },
   };
 }
