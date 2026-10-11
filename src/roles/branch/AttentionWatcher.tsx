@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { App, Button } from "antd";
 import { useNavigate } from "react-router-dom";
 import { modeOf, orderApi } from "../../api";
 import {
+  type AlertBatcher,
   ATTENTION_STATUS,
   attentionItemsOf,
   createAlertBatcher,
@@ -59,42 +60,46 @@ export default function AttentionWatcher() {
     };
   }, [chainId, branchId, loadRef]);
 
-  // Cảnh báo: gom 2 giây, không trùng theo đơn.
-  const batcher = useMemo(
-    () =>
-      createAlertBatcher({
-        onBatch: (items) => {
-          for (const a of describeAttentionBatch(items, formatVnd)) {
-            notification.open({
-              key: a.key,
-              type: a.tone === "error" ? "error" : "warning",
-              message: "Đơn cần xử lý",
-              description: a.text,
-              duration: 12,
-              actions: (
-                <Button
-                  size="small"
-                  type="primary"
-                  data-testid="attention-alert-view"
-                  onClick={() => {
-                    notification.destroy(a.key);
-                    navigate(a.to);
-                  }}
-                >
-                  Xem
-                </Button>
-              ),
-            });
-          }
-        },
-      }),
-    [notification, navigate],
-  );
-  useEffect(() => () => batcher.dispose(), [batcher]);
+  // Cảnh báo: gom 2 giây, không trùng theo đơn. Tạo TRONG effect (không useMemo): React StrictMode (dev) chạy cleanup rồi effect lại,
+  // một batcher tạo bằng useMemo sẽ bị `dispose` vĩnh viễn và nuốt mọi cảnh báo.
+  const batcherRef = useRef<AlertBatcher | null>(null);
+  useEffect(() => {
+    const batcher = createAlertBatcher({
+      onBatch: (items) => {
+        for (const a of describeAttentionBatch(items, formatVnd)) {
+          notification.open({
+            key: a.key,
+            type: a.tone === "error" ? "error" : "warning",
+            message: "Đơn cần xử lý",
+            description: a.text,
+            duration: 12,
+            actions: (
+              <Button
+                size="small"
+                type="primary"
+                data-testid="attention-alert-view"
+                onClick={() => {
+                  notification.destroy(a.key);
+                  navigate(a.to);
+                }}
+              >
+                Xem
+              </Button>
+            ),
+          });
+        }
+      },
+    });
+    batcherRef.current = batcher;
+    return () => {
+      batcher.dispose();
+      batcherRef.current = null;
+    };
+  }, [notification, navigate]);
 
   useOrderRealtime(() => void loadRef.current(), {
     enabled: modeOf("order") === "real" && !!branchId,
-    onEvent: (event) => batcher.push(attentionItemsOf(event)),
+    onEvent: (event) => batcherRef.current?.push(attentionItemsOf(event)),
   });
 
   return null;
