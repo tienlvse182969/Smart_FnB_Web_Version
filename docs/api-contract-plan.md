@@ -442,6 +442,13 @@ Phía web (đã làm): token thu hồi hoặc mã hết hạn → về bước g
 
 **#28 (cập nhật 8.1):** vẫn thiếu `GET /display-devices`. Hệ quả cụ thể: giao diện Manager không liệt kê/thu hồi được màn gọi số, và token thiết bị không có hạn nên máy bị mất chỉ thu hồi được khi biết `deviceId` (hoặc ghép máy mới thay thế). Ca kiểm 8.1 lấy `deviceId` bằng SELECT chỉ đọc.
 
+### Cập nhật 8.2 (2026-10-11): màn gọi số — việc mới cho BE
+
+| # | Mức | Việc cho BE | Use case | Chặn web? |
+|---|---|---|---|---|
+| 70 | Thấp | **Mã ghép hết hạn không bao giờ bị dọn, endpoint công khai không giới hạn tần suất**: `pairing_codes` chỉ đặt `consumedAt` khi ghép (`stations.service.ts:332-336`), không job xoá dòng hết hạn; `POST /device-pairing/codes` công khai (`stations.controller.ts:24-29`). Một TV chưa ghép tạo tới 288 mã/ngày (nhịp 5 phút sau 3 mã hết hạn, QĐ 113); kiểm 8.1–8.2 để lại 16 dòng hết hạn. Đề nghị job xoá mã đã hết hạn > 1 ngày + giới hạn tần suất theo IP | BR-45, 11.10 | Không |
+| 71 | Thấp | **`GET /public/calling-display/context` không trả tổng số**: `take: 30` mỗi cột (`:151, :163`), web chỉ biết ≤ 30 số nên "+N số khác" không bao giờ vượt mốc đó. Đề nghị thêm `preparingCount`/`readyCount` (hoặc bỏ giới hạn, web đã tự cắt theo ô) | 11.10, đặc tả dòng 188 | Không |
+
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
 | Chỗ lệch | Đặc tả / quyết định | BE |

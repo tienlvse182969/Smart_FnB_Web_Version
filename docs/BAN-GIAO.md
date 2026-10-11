@@ -421,6 +421,12 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 106 | Socket của màn TV đi qua kết nối `/operations` DÙNG CHUNG: `subscribeOperations(sub, { kind: "device", token })` (`OperationsCredential`) + `useDeviceRealtime` (lớp con của `useOrderRealtime`: gom 500 ms, tab ẩn thì chờ, nối lại thì tải lại 1 lần, lọc `calling.order.*`). Khác phiên người dùng ở hai điểm: token đọc từ nơi TV giữ; máy chủ ngắt = token bị từ chối → báo `rejected`, KHÔNG làm mới phiên người dùng. Không có socket thứ hai song song (`connectCallingDisplay` đã gỡ). Hết lượt tự nối thì TV tự nối lại sau 30 giây (không ai bấm nút trên TV) |
 | 107 | Thu hồi / mã hết hạn / lỗi tạm thời: BE trả CÙNG một 403 cho "chưa ghép", "token sai", "đã thu hồi" (`stations.service.ts:362-369`) nên web phân biệt bằng cờ `paired` (đã từng đọc được ngữ cảnh): đã ghép + 403/401 = thu hồi → xoá token, về bước ghép với câu "Màn hình này không còn được ghép với chi nhánh…", tự lấy mã mới; chưa ghép + 403 + mã còn hạn = đang chờ (KHÔNG hiện lỗi); mã hết hạn = lấy mã mới ("Mã ghép cũ đã hết hạn…"). Lỗi mạng/5xx: giữ token, giữ bảng số cũ, hiện câu tiếng Việt, thử lại 5s → 10s → 20s → 40s → 60s (reset khi thành công). Hạn mã tính theo THỜI GIAN TRÔI QUA từ lúc nhận mã (`issuedAt`), không so `expiresAt` với đồng hồ TV (TV lệch giờ sẽ tạo mã liên tục). Nhịp hỏi ngữ cảnh: chờ ghép 3s, đã ghép 10s, 30s khi socket đang nối (là thời gian tối đa tới khi TV biết bị thu hồi, vì BE không đá socket, #68) |
 | 108 | Màn chạy cả ngày: không `setInterval`, mọi bộ đếm là `setTimeout` huỷ ở cleanup; rời màn thì socket đóng, listener gỡ, không gọi API nữa (test `CallScreen.test.tsx`); `AudioContext` đóng sau mỗi tiếng bíp; không đọc phiên đăng nhập web (kiểm trên ngữ cảnh trình duyệt riêng: TV không có `smartfnb_access_token`, không gọi `/api/v1/auth/*`) |
+| 109 | (8.2) Bố cục màn gọi số: HAI cột, "ĐANG CHUẨN BỊ" (nhỏ, nền trắng) và "MỜI NHẬN MÓN" (to hơn, nền xanh đậm, viền sáng); đặc tả chỉ nói "các số đang pha và các số mời nhận" (dòng 188) nên tên cột do web đặt. Số MỚI NHẤT ở trên (BE trả cũ trước, web đảo theo `submittedAt`/`readyAt`). "Đang chuẩn bị" = `SUBMITTED` + `PREPARING` (BE gộp sẵn, `stations.service.ts:141`). Đơn `callNumber = null` không hiện (không có số để gọi). Logic thuần ở `display/callBoard.ts` |
+| 110 | Đọc từ 3–5 m: cỡ chữ theo `vh`/`vw` (`min(10vh, 7vw)` cho số mời nhận, `min(7vh, 4.4vw)` cho đang chuẩn bị), không px cố định. Màu SỐ cố định, KHÔNG theo thương hiệu (đặc tả dòng 956 "số gọi dùng màu tương phản cao cố định"): số mời nhận trắng trên xanh đậm 7,6:1, số đang chuẩn bị đen trên trắng 20,2:1, tiêu đề cột 11,9:1 và 13,3:1. Thương hiệu chỉ ở thanh tiêu đề (logo, tên, nền = `primaryColor`, chữ tự chọn đen/trắng theo `pickReadableTextColor`: 16,9:1 với nền sáng, 17,9:1 với nền tối) |
+| 111 | Tràn: lưới cố định (đang chuẩn bị 5×3 = 15 ô, mời nhận 4×2 = 8 ô); vượt thì dành MỘT ô cuối cho "+N số khác" (N gồm cả số bị ẩn). Số ≥ 1000 hiện đủ (`padStart(3)` không cắt), chữ co theo số chữ số (`digitScale`) nên không vỡ ô. BE chỉ trả tối đa 30 số mỗi cột nên "+N" không vượt được mốc đó (#71) |
+| 112 | Số vừa chuyển sang "Mời nhận" (có ở lần nạp này mà chưa có ở lần trước; lần nạp đầu/sau ghép lại thì KHÔNG) được viền vàng + phóng nhẹ 10 giây (`call-attention` ở `index.css`; không đổi độ mờ để giữ tương phản; `prefers-reduced-motion` thì chỉ còn viền) và một âm báo. Âm thanh: Web Audio (`display/chime.ts`, hai nốt 880/1175 Hz, không file âm, không thư viện), MỘT `AudioContext`, các lần kêu cách nhau < 1,5 giây gộp làm một. Trình duyệt chỉ cho phát sau một cú chạm: màn ghép mã có nút "Bật âm thanh"; cú chạm bất kỳ trên màn bảng số cũng mở khoá; đã bật thì nhớ ở `localStorage["smartfnb.callingDisplay.sound"]` (sau F5 thử mở lại, bị chặn thì hiện lại "Âm thanh tắt" tới cú chạm kế tiếp); chưa bật có chỉ báo nhỏ "Âm thanh tắt" ở góc, không chặn hiển thị |
+| 113 | Chưa ghép: sau 3 mã hết hạn liên tiếp (`EXPIRED_STREAK_LIMIT`) thì 5 phút mới tạo mã (`nextCodeDelay`), màn hiện nút "Chạm để lấy mã mới" (lấy ngay); ghép được thì đếm lại. Đếm trong bộ nhớ, F5 đếm lại từ 0 (một mã ngay khi mở) |
+| 114 | Mất kết nối (REST lỗi hoặc socket hết lượt nối): GIỮ bảng số cuối, chỉ đổi chip trạng thái thành "Mất kết nối, đang thử lại" (vàng, `data-offline`); không màn trắng, không banner đỏ (câu lỗi chi tiết ở `call-error`, chỉ đọc cho kiểm tra) |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1088,3 +1094,56 @@ Quyết định 105–108 ở mục 5. Nhận phần "cần nhóm xem" #1–2 c�
 **Nhờ BE mới (đánh tiếp):** #68 ngắt socket thiết bị khi thu hồi; #69 phân biệt "chưa ghép"/"đã thu hồi" (mã lỗi riêng hoặc `GET /device-pairing/codes/{pairingId}`). #28 vẫn mở và nặng hơn: token thiết bị không hạn + Manager không thấy danh sách → máy bị mất không thu hồi được từ giao diện.
 
 **Việc cho 8.2 (giao diện gọi số theo đặc tả):** (1) màu tương phản cao cố định cho số gọi + logo/tên theo nhận diện (đặc tả, bảng áp dụng nhận diện, dòng "Màn hình gọi số"); (2) âm thanh: chuông khi có số MỚI sang "Mời nhận" (hiện chỉ so tập số, và trình duyệt cần một cú chạm để cho phát — TV không có người chạm: cân nhắc nút bật một lần rồi nhớ); (3) `context` chỉ trả 30 số mỗi cột: quyết định hiển thị khi quá 30; số đã 3 chữ số `padStart(3)` nên >999 thì sao; (4) bố cục TV toàn màn hình (cỡ chữ theo khoảng cách nhìn), chống burn-in nếu cần; (5) phân biệt "Đang pha" = `SUBMITTED` + `PREPARING` (BE gộp, `stations.service.ts:141`); (6) sắp xếp (đang pha: cũ trước, mời nhận: `readyAt` cũ trước) đã theo BE; (7) toàn màn hình/wake lock (không có API an toàn cho mọi TV).
+
+### Lượt 8.2 (2026-10-11): màn TV gọi số — giao diện theo đặc tả, âm báo, tràn số
+
+Quyết định 109–114 ở mục 5. Không sửa BE, không ghép thiết bị mới (QĐ 105–108 giữ nguyên).
+
+**Lệch đặc tả ↔ BE ↔ web:**
+
+| # | Điểm | Đặc tả | BE `d98b4c1` (`stations.service.ts:103-180`) | Web 8.2 |
+|---|---|---|---|---|
+| 1 | Tên/số cột | "các số đang pha và các số mời nhận" (dòng 188); không đặt nhãn | `preparing`, `ready` | "ĐANG CHUẨN BỊ" / "MỜI NHẬN MÓN" (QĐ 109) |
+| 2 | Trạng thái | Chờ thanh toán → Đã thanh toán → Đang pha → Sẵn sàng (gọi số) | `preparing` gộp `SUBMITTED` + `PREPARING`, `ready` = `READY`, chỉ `PAID` + `COUNTER_PICKUP`, theo `businessDate` chi nhánh | giữ gộp như BE; không tách "Đã thanh toán" khỏi "Đang pha" vì BE không cho phân biệt ở màn gọi số và khách không cần |
+| 3 | Thứ tự | không nói | cũ trước (`submittedAt`/`readyAt` tăng dần) | số mới nhất ở trên (đảo ở web) |
+| 4 | Số gọi | "Phiếu số in kèm bill" | `callNumber` có thể `null` | bỏ đơn `null` (không có số để gọi); số ≥ 1000 hiện đủ |
+| 5 | Giới hạn | — | `take: 30` mỗi cột, không trả tổng | tối đa 15/8 ô rồi "+N số khác"; N chỉ đếm trong 30 (#71) |
+| 6 | Nhận diện | dòng 956: "Logo và thanh tiêu đề; số gọi dùng màu tương phản cao cố định" | `branding.primaryColor/secondaryColor/accentColor/logoUrl/displayName` | thanh tiêu đề theo `primaryColor` + logo + tên; số không dùng màu thương hiệu (QĐ 110); `secondaryColor`/`accentColor` không dùng (không đảm bảo tương phản) |
+| 7 | Tự hoàn tất | dòng 448: Sẵn sàng → Hoàn tất sau 30 phút "để màn hình gọi số không bị đầy" | có `context` chỉ lấy `READY`; việc tự chuyển do BE | web không tự ẩn số theo giờ; chỉ hiện đúng `ready` của BE |
+| 8 | Âm thanh | dòng 108: "màn hình gọi số và âm báo" | không có | QĐ 112 |
+
+**Commit:**
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `77f8f76` | `feat(display)`: `callBoard.ts`, `chime.ts`, `CallScreen` (bố cục, âm, nhấn mạnh, tràn, giãn nhịp mã) + test | 607 |
+| `c2475d7` | `fix(display)`: gộp chip kết nối; thay `animate-pulse` (làm mờ số) bằng `call-attention` | 607 |
+| `1027e04` | `test(browser)`: `phase8` khối `display`; cập nhật khối `board` theo nhãn/thứ tự mới | 607 |
+| (docs) | QĐ 109–114, mục 8.2, #70–#71 | 607 |
+
+**Phân tích ảnh hưởng (quy tắc 15):** `display/CallScreen.tsx` (+ `callBoard.ts`, `chime.ts`, `index.css` thêm 3 dòng) chỉ route `/display/call`; không đụng `operations.ts`/`client.ts` ở lượt này → khối kiểm: `phase8 display` (mới), `phase8 board` (nhãn/thứ tự đổi), `phase74b-main` (route mở được). Không chạy lại phase7 (không file chung).
+
+**Kết quả kiểm (real, 0 request ghi tới BE):**
+
+| Khối | Kết quả |
+|---|---|
+| `phase8 display` (mới) | 20/20 · 20/20 · 20/20 (lần 1 20/20 với `animate-pulse`, sau đổi hiệu ứng 3 lần liền) |
+| `phase8 board` | 12/12 (1 lần; tạo 3 mã ghép, xem dưới) |
+| `phase8 pairing` | từ chối chạy đúng chốt chặn (đã có 2 thiết bị TEST-8.1) |
+| `phase74b-main` | 9/9 |
+
+Ca `display`: 0 số; 3 số (thứ tự, nhãn, tên + chi nhánh); tương phản số/tiêu đề/thanh tiêu đề với nền thương hiệu sáng và tối; 3 số ở 1280×800; 60 số ở 1920×1080 và 1280×800 (mời nhận 7 số + "+23 số khác", đang chuẩn bị 14 số + "+16 số khác", không cuộn, không ô tràn khung); số 1234/12345; số vừa gọi (nhấn mạnh đúng số mới, hết sau 10,0–10,1 giây, reduced-motion không hoạt ảnh); mất mạng giữ bảng + chip; âm thanh: "Âm thanh tắt" rồi một cú chạm thật (`Input.dispatchMouseEvent`) → hết chỉ báo và được nhớ.
+
+**Ảnh chụp (ngoài repo, đè lên mỗi lần chạy):** `C:\Users\KhanhNB\AppData\Local\Temp\claude\c--Capstone-Project\bd6cec75-f03a-480a-afaf-324e60be5a76\scratchpad\shots\` — `0-so-1920x1080.png`, `3-so-1920x1080-thuong-hieu-sang.png`, `3-so-1280x800.png`, `60-so-1920x1080.png`, `60-so-1280x800.png`, `so-1234-1920x1080.png`, `so-vua-goi-1920x1080.png`, `so-vua-goi-1280x800.png`, `mat-ket-noi-1920x1080.png`. Trong ảnh chip vàng "Mất kết nối" là THẬT: token thiết bị giả bị socket BE từ chối (không có thiết bị ghép trong lượt này).
+
+**Tỉ lệ tương phản (đo bằng canvas trên màu Chrome tính ra):** số mời nhận 7,61:1 · số đang chuẩn bị 20,16:1 · tiêu đề "mời nhận" 11,87:1 · tiêu đề "đang chuẩn bị" 13,34:1 · thanh tiêu đề nền sáng `#FDE68A` 16,86:1 · nền tối `#0F172A` 17,85:1 (đều ≥ AA 4,5; số ≥ AAA 7).
+
+**Request ghi tới BE:** chỉ `POST /device-pairing/codes` do khối `board`: 3 (đầu, sau thu hồi giả, ca lệch giờ); `display` 0; `phase74b-main` 0 (bị chặn). BE `pairing_codes` 15 → 18 dòng (không thiết bị mới, `display_devices` đang hoạt động 0).
+
+**Chưa kiểm được trong trình duyệt:** tiếng kêu thật (headless không có loa; kiểm đơn vị bằng AudioContext giả), "chạm để lấy mã mới" (cần 15 phút hết hạn; kiểm đơn vị bằng đồng hồ giả), socket ĐANG nối cộng sự kiện thật (không ghép thiết bị mới theo ràng buộc; đã kiểm ở 8.1).
+
+**Nhờ BE mới:** #70 job dọn mã ghép hết hạn + giới hạn tần suất `POST /device-pairing/codes`; #71 `context` trả thêm tổng số mỗi cột.
+
+**Kỷ luật:** lượt này có HAI lần sửa nhỏ file bằng `node -e` (đổi `ĐANG PHA`/`MỜI NHẬN` trong `CallScreen.test.tsx`, bỏ một import trong `CallScreen.tsx`) thay vì Write/Edit — trái quy tắc ghi file; nội dung đã soát lại ở diff, không ảnh hưởng kết quả.
+
+**Việc cho lượt tiếp theo (8.3 hoặc chốt GĐ8):** kiểm một lần có thiết bị thật + sự kiện `calling.*` thật khi được duyệt thêm hạn mức; toàn màn hình/wake lock theo thiết bị; chốt GĐ8 theo quy tắc 15 (kiểm toàn bộ).
