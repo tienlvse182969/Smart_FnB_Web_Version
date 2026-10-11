@@ -421,6 +421,27 @@ Việc mới sau 7.3d:
 | Trạng thái kích hoạt | (không nêu) | `INACTIVE` dùng cho cả "chưa kích hoạt" và "ngừng" (#64) | Nhãn "Chưa kích hoạt" như màn Owner |
 | Đăng nhập gần nhất | (không nêu) | không trả (#62) | ẩn cột ở real |
 
+### Cập nhật 8.1 (2026-10-11): hợp đồng của màn hình gọi số (`/display/call`) — BE `d98b4c1`, đã kiểm thật
+
+Màn TV/tablet không đăng nhập. Web dùng đúng các endpoint dưới đây; mọi lời gọi qua `api/http/deviceClient.ts`, token ở `localStorage["smartfnb.callingDisplay"]`.
+
+| Bước | Request | Ghi chú |
+|---|---|---|
+| Lấy mã | `POST /device-pairing/codes` thân `{"deviceType":"CALLING_DISPLAY"}` (công khai) → `{pairingId, code, deviceToken, expiresAt}` | mã 6 số hết hạn sau 5 phút; `deviceToken` là token thiết bị về sau, KHÔNG có hạn (chỉ thu hồi được) |
+| Manager ghép | `POST /stations/pair-calling-display` thân `{code, deviceName?}` (MANAGER) → `{deviceId, branchId}` | thu hồi máy gọi số cũ của chi nhánh; `400 "Pairing code is invalid, used, or expired"` cho mã sai/hết hạn/đã dùng/sai loại |
+| TV hỏi ghép / dữ liệu | `GET /public/calling-display/context`, `Authorization: Bearer <deviceToken>` → `{branch:{name}, branding, preparing[], ready[], serverTime}` | `403 "Display device token is invalid or revoked"` cho cả "chưa ghép", "token sai", "đã thu hồi" (#69); mỗi cột tối đa 30 số; theo `businessDate` của chi nhánh |
+| Realtime | Socket.IO `/operations`, `auth: { token: <deviceToken> }` → `operations.connected {kind:"DEVICE", deviceType, branchId}`; `operations.updated` với `type` `calling.order.queued/preparing/ready/delivered` | web chỉ dùng sự kiện để TẢI LẠI `context` (không ráp bảng từ payload). Token bị từ chối → máy chủ ngắt (`io server disconnect`) |
+| Thu hồi | `DELETE /display-devices/{deviceId}` (MANAGER) → `{revoked:true}`; `404 "Active display device was not found in your branch"` | socket đang nối KHÔNG bị ngắt (#68); TV biết nhờ REST |
+
+Phía web (đã làm): token thu hồi hoặc mã hết hạn → về bước ghép bằng câu tiếng Việt; lỗi tạm thời giữ token, thử lại giãn cách 5–60 giây.
+
+| # | Mức | Việc cho BE | Use case | Chặn web? |
+|---|---|---|---|---|
+| 68 | Trung bình | **Thu hồi thiết bị không ngắt socket đang nối**: `revoke` chỉ đặt `revokedAt` (`stations.service.ts:341-351`), gateway chỉ kiểm token lúc nối (`realtime.gateway.ts:171-183`); thiết bị bị thu hồi còn nhận sự kiện của phòng tới khi rớt mạng. Web tự phát hiện bằng REST trong ≤ 30 giây (đo thật 61 giây khi nhịp dự phòng 60s). Đề nghị sau `revoke`: `server.in(socketIds của thiết bị).disconnectSockets()` hoặc gửi `device.revoked` rồi ngắt (BR-45 "Manager thu hồi được bất cứ lúc nào") | BR-45, 11.10 | Không |
+| 69 | Thấp | **403 chung cho "chưa ghép", "token sai", "đã thu hồi"** (`stations.service.ts:362-369`): web phải suy luận bằng trạng thái cục bộ (đã từng đọc được ngữ cảnh chưa). Đề nghị mã lỗi riêng (`DEVICE_NOT_PAIRED`/`DEVICE_REVOKED`) hoặc `GET /device-pairing/codes/{pairingId}` trả `PENDING`/`PAIRED`/`EXPIRED` (công khai, theo `pairingId`) | 11.10 | Không |
+
+**#28 (cập nhật 8.1):** vẫn thiếu `GET /display-devices`. Hệ quả cụ thể: giao diện Manager không liệt kê/thu hồi được màn gọi số, và token thiết bị không có hạn nên máy bị mất chỉ thu hồi được khi biết `deviceId` (hoặc ghép máy mới thay thế). Ca kiểm 8.1 lấy `deviceId` bằng SELECT chỉ đọc.
+
 ### BE lệch quyết định/đặc tả (đối chiếu `0083289`)
 
 | Chỗ lệch | Đặc tả / quyết định | BE |

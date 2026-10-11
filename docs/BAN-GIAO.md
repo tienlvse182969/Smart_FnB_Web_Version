@@ -55,6 +55,7 @@ POS thu ngân, màn hình phía khách và màn hình pha chế thuộc **app An
 | `phase2.mjs` | `mock` (khối `brand`, `login` cần server mock + `AUTH_MODE=mock`), real mặc định (có `flip` mock) | `brand` (**mock-only** từ 6.4: bỏ qua ở real), `plan`, `errors`, `ai`, `refresh`, `flip`, `login` | khối `ai` 17s |
 | `phase6.mjs` | `mock`, `real` | `branding` (OW-07, 6.4), `payos` (OW-06, 6.5; khoá GIẢ "test-…-khong-that"; mock cần thêm `VITE_API_PAYOS=mock`; real chặn PUT/DELETE ở CDP, ca "Lưu rồi Gỡ" dùng `fulfillWrites`); `plan` (OW-10, 6.6; real chỉ đọc, ca `subscription: null` tiêm bằng `tab.readOverride` ở `cdp.mjs`, không tới BE) | `branding`: mock 24 ca, real 16 ca; `payos`: mock 15, real 10; `plan`: mock 8, real 11; đủ phase6: mock 47, real 37 |
 | `phase7.mjs` (GĐ7) | `mock` (dev server 5173 với `VITE_API_*=mock` gồm ORDER, AUTH; `AUTH_MODE=mock`), `real` (chặn ghi ở CDP; cần 11 đơn của 7.0b) | `orders` (Tra cứu đơn, BM-04, 7.1: mock 28 ca, real 25 ca gồm ca trả lời giả `readOverride`), `detail` (Chi tiết đơn, 7.2: mock 14, real 18 gồm trả lời giả), `confirm` (Xác nhận chuyển khoản thủ công, BM-05, 7.4: mock 23 ca, real 30 ca; real KHÔNG request ghi nào tới BE: `readOverride` thêm khoản QR PENDING/AMOUNT_MISMATCH vào chi tiết đơn thật, POST bị `blockWrites`/`fulfillWrites`/`setFault`; `tab.readOverride` nhận mảng và khớp theo `/api/v1/…` để F5 trang không bị trả JSON), `report` (Báo cáo chi nhánh, BM-03, 7.3: mock 14 ca, real 14 ca gồm bảng số web cạnh số BE và trả lời giả), `realtime-reconnect` (7.3, CHỈ real, KHÔNG tạo đơn: chặn socket tới khi hết lượt tự nối rồi bấm "Kết nối lại": 8 ca), `realtime` (7.2, CHỈ real, phải gọi tên `--only=realtime`, TẠO 2 đơn mới trên BE local qua script Node: 14 ca) | `orders`: mock ~1 phút, real ~1 phút; `detail` ~1 phút; `report` ~1 phút; `realtime-reconnect` ~35 giây; `realtime` ~1,5 phút |
+| `phase8.mjs` (GĐ8, CHỈ real) | `real` | `pairing` (8.1, GHI THẬT trên BE local: ghép + thu hồi tối đa 2 thiết bị `TEST-8.1…`; từ chối chạy khi BE đã có thiết bị TEST-8.1, `TEST_DEVICE_LIMIT` để nâng khi được duyệt; 25 ca), `board` (8.1, không tạo thiết bị: bảng số từ trả lời giả, socket bị từ chối, thu hồi giả, đồng hồ TV lệch giờ; 12 ca) | `pairing` ~4 phút; `board` ~2 phút |
 | `phase3.mjs` | `mock`, `real` | chưa có (chạy hết) | — |
 | `phase4.mjs` | `mock`, `real` | `owner`, `manager` | đủ mock 159s, real 41s; `manager` 10s |
 | `phase5.mjs` | `mock`, `real` | `menu` (menu món + tuỳ chọn chi nhánh, 5.7b/5.7d), `staff` (màn Nhân viên của Manager, 5.4: mock 28 ca, real 7 ca gồm nhãn "(số liệu mẫu)") | `menu`: mock 46s, real 15s; đủ mock ~4 phút |
@@ -416,6 +417,10 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 102 | Hộp xác nhận tay đang mở mà dữ liệu mới (socket) cho thấy đơn hết điều kiện (đã trả, đã huỷ…) → đóng hộp + "Đơn vừa được cập nhật (<trạng thái>), không cần xác nhận nữa." (`OrderDetail.tsx`); không chạy khi đang gửi request của chính hộp đó |
 | 103 | (7.5b, Khánh duyệt; thay QĐ 70–71 cho riêng phương thức thanh toán v7) Giá trị v7 mà BE còn trả (enum `PaymentMethod` ở `schema.prisma:184-190`) VẪN CÓ NHÃN tiếng Việt để không lộ "Khác (<mã>)": `CARD` = "Thẻ", `E_WALLET` = "Ví điện tử", `OTHER` = "Khác" (`known: false`, không có trong ô lọc/dropdown/form). Chỉ gỡ khỏi chỗ NGƯỜI DÙNG CHỌN. Giá trị BE không còn trả thì gỡ hẳn mã |
 | 104 | Route v7 gỡ hẳn, không để cờ: `/branch/*` (chuyển sang `/manager`) đã bỏ; đường dẫn cũ rơi về trang chủ như route lạ (`*`). Route ẩn bằng cờ ở 7.4b (QĐ 91–92) giữ nguyên |
+| 105 | (8.1) Màn gọi số dùng TOKEN THIẾT BỊ, không dùng phiên người dùng. Mọi lời gọi qua `api/http/deviceClient.ts` (`deviceRequest`: Bearer token thiết bị, không làm mới phiên, không đăng xuất, không `reportApiError`), lỗi cùng lớp `ApiError` → `describeApiError`/`BACKEND_TEXT`, không tiếng Anh thô. Token lưu ở `localStorage["smartfnb.callingDisplay"]` = `{pairingId, code, deviceToken, expiresAt, issuedAt, paired}` (`api/device/session.ts`), tách khỏi `smartfnb_access_token`. Token KHÔNG có hạn (BE chỉ có `revokedAt`); hạn duy nhất là của MÃ ghép (5 phút). Thu hồi: Manager `DELETE /display-devices/{id}` hoặc ghép máy gọi số mới cho chi nhánh (BE tự thu hồi máy cũ, `stations.service.ts:315-322`) |
+| 106 | Socket của màn TV đi qua kết nối `/operations` DÙNG CHUNG: `subscribeOperations(sub, { kind: "device", token })` (`OperationsCredential`) + `useDeviceRealtime` (lớp con của `useOrderRealtime`: gom 500 ms, tab ẩn thì chờ, nối lại thì tải lại 1 lần, lọc `calling.order.*`). Khác phiên người dùng ở hai điểm: token đọc từ nơi TV giữ; máy chủ ngắt = token bị từ chối → báo `rejected`, KHÔNG làm mới phiên người dùng. Không có socket thứ hai song song (`connectCallingDisplay` đã gỡ). Hết lượt tự nối thì TV tự nối lại sau 30 giây (không ai bấm nút trên TV) |
+| 107 | Thu hồi / mã hết hạn / lỗi tạm thời: BE trả CÙNG một 403 cho "chưa ghép", "token sai", "đã thu hồi" (`stations.service.ts:362-369`) nên web phân biệt bằng cờ `paired` (đã từng đọc được ngữ cảnh): đã ghép + 403/401 = thu hồi → xoá token, về bước ghép với câu "Màn hình này không còn được ghép với chi nhánh…", tự lấy mã mới; chưa ghép + 403 + mã còn hạn = đang chờ (KHÔNG hiện lỗi); mã hết hạn = lấy mã mới ("Mã ghép cũ đã hết hạn…"). Lỗi mạng/5xx: giữ token, giữ bảng số cũ, hiện câu tiếng Việt, thử lại 5s → 10s → 20s → 40s → 60s (reset khi thành công). Hạn mã tính theo THỜI GIAN TRÔI QUA từ lúc nhận mã (`issuedAt`), không so `expiresAt` với đồng hồ TV (TV lệch giờ sẽ tạo mã liên tục). Nhịp hỏi ngữ cảnh: chờ ghép 3s, đã ghép 10s, 30s khi socket đang nối (là thời gian tối đa tới khi TV biết bị thu hồi, vì BE không đá socket, #68) |
+| 108 | Màn chạy cả ngày: không `setInterval`, mọi bộ đếm là `setTimeout` huỷ ở cleanup; rời màn thì socket đóng, listener gỡ, không gọi API nữa (test `CallScreen.test.tsx`); `AudioContext` đóng sau mỗi tiếng bíp; không đọc phiên đăng nhập web (kiểm trên ngữ cảnh trình duyệt riêng: TV không có `smartfnb_access_token`, không gọi `/api/v1/auth/*`) |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1027,3 +1032,59 @@ Quyết định 103–104 ở mục 5. Chỉ mã của web (tác giả Khánh); 
 **Kiểm (real, chặn ghi):** `orders` 25/25 · `detail` 18/18 · `confirm` 30/30 · `attention` 16/16 · `phase74b-main` 9/9 (thêm ca `/branch/orders` về trang chủ) · `phase58-forms` 16/16 · faults `owner/reports` + `manager/reports` 8/8 · `phase2` 32/32 (2 SKIP mock-only đã biết). Request ghi tới BE: 0.
 
 **Việc cần nhóm xem:** `BranchOperations.tsx` còn khái niệm bếp/quầy pha chế/lượt bàn (Quân); câu "lượt bàn" ở hộp lưu trữ nên bỏ.
+
+### Lượt 8.1 (2026-10-11): màn TV gọi số — nền móng + ghép thiết bị THẬT (đóng "tồn đọng" 7.4b về `/display/call`)
+
+Quyết định 105–108 ở mục 5. Nhận phần "cần nhóm xem" #1–2 của 7.4b cho RIÊNG màn gọi số (QĐ 93); `customerDisplay.ts`/`orderTracking.ts` (cờ tắt) giữ nguyên. Không dùng GitNexus (BAN-GIAO thắng CLAUDE.md, mục 7.4b #5); phân tích ảnh hưởng theo quy tắc 15.
+
+**Lệch đặc tả ↔ BE ↔ mã nhóm (trước lượt):**
+
+| # | Điểm | Đặc tả | BE (`d98b4c1`) | Mã nhóm trước 8.1 | Xử lý |
+|---|---|---|---|---|---|
+| 1 | Gọi API | 11.10: token chỉ đọc, gắn chi nhánh, không phải tài khoản | `GET /public/calling-display/context` Bearer token thiết bị (`stations.controller.ts:39-47`) | `fetch` thẳng, `reason.message` thô của BE | `deviceClient.ts` + `describeApiError` (QĐ 105) |
+| 2 | Lưu token | "mở lại app hoặc khởi động lại máy thì tự vào lại" | token = `deviceToken` trả lúc tạo mã (`stations.service.ts:63-84`), không hạn | `localStorage` không `try/catch`, không biết đã ghép hay chưa | `api/device/session.ts` (QĐ 105) |
+| 3 | Thu hồi | "Manager thu hồi được bất cứ lúc nào"; token thu hồi thì "không nhận được dữ liệu" | `DELETE /display-devices/:id` → `revokedAt` (`stations.service.ts:341-351`); REST 403; socket ĐÃ NỐI không bị ngắt (gateway chỉ kiểm lúc nối, `realtime.gateway.ts:171-183`) | chỉ coi là thu hồi khi 403 VÀ mã đã hết hạn → thu hồi trong 5 phút đầu thì **treo, không báo gì** | QĐ 107; BE #68 |
+| 4 | Phân biệt "chưa ghép" / "thu hồi" | — | cùng một 403 "Display device token is invalid or revoked" (`:362-369`) | không phân biệt | cờ `paired` ở web (QĐ 107); BE #69 |
+| 5 | Socket | cùng kênh `/operations`, token thiết bị (`realtime.gateway.ts:71-84`, phòng `calling-display:{branchId}`) | sự kiện `calling.order.queued/preparing/ready/delivered` (`counter-operations.controller.ts:158-332`, `counter-payment-settlement.service.ts:235`) | socket riêng `connectCallingDisplay`: không giới hạn nối lại, không chỉ báo "hết lượt", `io server disconnect` xoá token ngay | dùng chung `operations.ts` (QĐ 106) |
+| 6 | Nhịp hỏi | NFR: số gọi lên màn hình ≤ 2 giây | `context` lấy tối đa 30 số mỗi cột, theo `businessDate` múi giờ chi nhánh (`:130-165`) | `setInterval` 5s bất kể socket; lỗi vẫn hỏi 5s một lần | 3s/10s/30s + giãn cách khi lỗi (QĐ 107–108) |
+| 7 | Hạn mã | 5 phút | `expiresAt = now + 5 phút` giờ BE (`:73`) | so `expiresAt` với đồng hồ TV: TV lệch > 5 phút sẽ tạo mã liên tục | `issuedAt` + thời gian trôi qua (QĐ 107; phát hiện khi thiết kế ca kiểm) |
+| 8 | Tiếng bíp | 8.2 | — | mỗi lần tạo `AudioContext` mới, không đóng (Chrome chặn sau vài cái) | đóng sau mỗi tiếng (QĐ 108); âm thanh theo đặc tả là 8.2 |
+| 9 | Danh sách thiết bị gọi số | BM-01: "xem và thu hồi" | KHÔNG có `GET /display-devices` (#28); `POST /stations/pair-calling-display` trả `{deviceId}` | — | giao diện Manager chưa liệt kê/thu hồi được máy gọi số (chỉ ghép máy mới thu hồi máy cũ); ca kiểm lấy `id` từ SELECT chỉ đọc |
+
+**Commit:**
+
+| Commit | Nội dung | vitest |
+|---|---|---|
+| `e5f0aeb` | `refactor(display)`: `deviceClient.ts`, `api/device/session.ts`, `OperationsCredential` + `useDeviceRealtime`, `CallScreen` (logic; JSX giữ, thêm `data-testid`, câu thông báo, nhãn "Mất kết nối, đang thử lại", "Đang kết nối lại với chi nhánh…"), `isRelevant` ở `createRefresher` | 590 |
+| `dcad0d3` | `fix(display)`: hạn mã theo `issuedAt`; nhịp dự phòng 60s → 30s (đo thật 61 giây tới khi TV về bước ghép) | 591 |
+| `0bf333c` | `test(browser)`: `phase8.mjs` (`pairing`, `board`), `cdp.mjs` (`blockWrites` nhận `{method, match}`, `sentWrites`, `newTab({isolated})`) | 591 |
+| (docs) | QĐ 105–108, mục 8.1, hợp đồng màn TV + #68–#69 vào `api-contract-plan.md` | 591 |
+
+**Phân tích ảnh hưởng (quy tắc 15):** `api/realtime/operations.ts` (+ `orderRefresh.ts`) dùng chung với mọi màn có `useOrderRealtime` → khối `realtime-reconnect`, `orders`, `detail`, `attention`, `confirm`; `CallScreen`/`callingDisplay.ts` → `phase74b-main`, `phase8`; `http/client.ts` chỉ thêm `export` (không đổi hành vi).
+
+**Kiểm thật (BE `d98b4c1`, dev server 5173, TV trong ngữ cảnh trình duyệt RIÊNG):**
+
+| Khối | Kết quả |
+|---|---|
+| `phase8 pairing` (lần duy nhất, đủ 2 thiết bị) | 25/26. Ca trượt duy nhất: "TV không gọi /auth/*" do SCRIPT (regex `/auth\//` khớp cả file Vite `src/api/modules/auth/…`); đã sửa thành `/api/v1/auth/` và kiểm lại ở khối `board` (3 lần liền, không cần thiết bị). Ca "đồng hồ TV lệch" cũng chuyển sang `board` |
+| `phase8 board` | 12/12 · 12/12 · 12/12 (lần đầu 11/12: kỳ vọng script sai khi bơm 403 làm `POST …/codes` bị giả lỗi, màn vẫn đúng; sửa script, 3 lần liền) |
+| phase7 `realtime-reconnect` / `orders` / `detail` / `attention` / `confirm` | 8/8 · 25/25 · 18/18 · 16/16 · 30/30 |
+| `phase74b-main` | 9/9 (`/display/call` mở được, POST mã bị chặn → câu tiếng Việt) |
+
+**Từng bước `pairing` (thật):** TV tự lấy mã 6 số, token `paired=false`, TV không có `smartfnb_access_token`, đúng 1 POST mã; chờ ghép 7 giây = 3 lượt hỏi, không lỗi → Manager nhập mã (`POST /stations/pair-calling-display` thân `{code, deviceName}`) → TV vào bảng số, "Trực tuyến", số khớp `GET context` (hôm nay 0 số: dữ liệu thật rỗng, số cụ thể được kiểm ở `board` bằng trả lời giả) → F5 giữ ghép, 0 mã mới → sự kiện không phải `calling.*` bỏ, 3 sự kiện `calling.*` gom đúng 1 lần tải → lỗi 500 (câu "Máy chủ đang gặp sự cố…", bảng cũ giữ, 2 lượt hỏi/12 giây), mạng ("Không kết nối được máy chủ…"), tự hồi phục sau 20 giây → thu hồi: DELETE 200 `{revoked:true}`, TV về bước ghép sau **61 giây** (trước khi rút nhịp còn 30s) với câu đúng, token cũ xoá, mã mới, +1 POST mã trong 12 giây (không lặp) → ghép lại thiết bị B, socket nối → dọn: thu hồi B.
+
+**Request ghi THẬT đã gửi tới BE local (toàn bộ):**
+
+| Request | Số lần | Ghi chú |
+|---|---|---|
+| `POST /device-pairing/codes` `{"deviceType":"CALLING_DISPLAY"}` | 15 (BE: `pairing_codes` 15 dòng, 2 đã dùng, 13 tự hết hạn sau 5 phút) | `pairing` 3 (đầu, sau thu hồi, ca lệch giờ cũ) + `board` 4 lần chạy × 3; công khai, không phải thiết bị |
+| `POST /stations/pair-calling-display` | 2 | thân `{"code":"856281","deviceName":"TEST-8.1 màn gọi số A"}` và `{"code":"914284","deviceName":"TEST-8.1 màn gọi số B"}` |
+| `DELETE /display-devices/{id}` | 2 | `c7cac536-afe7-4a24-9fd3-37f367b98271` (A), `48611fa8-7b58-4af1-b253-7228e12779b7` (B) |
+
+**Đã dọn:** BE có đúng 2 dòng `display_devices` (type `CALLING_DISPLAY`, tên `TEST-8.1…`), cả hai `revoked_at` đã đặt; không còn màn gọi số nào hoạt động (SELECT chỉ đọc). Không có API xoá cứng thiết bị/mã ghép: hai dòng thu hồi và 13 mã hết hạn nằm lại trong DB. Request ghi KHÁC tới BE: **0** (bảng chặn của `pairing`: 0; `board` chỉ có `POST …/codes` do `setFault` giả lỗi, không tới BE).
+
+**Hạn mức thử đã dùng hết:** khối `pairing` tự từ chối chạy khi BE đã có thiết bị TEST-8.1 (`TEST_DEVICE_LIMIT`). Muốn chạy lại phải được duyệt.
+
+**Nhờ BE mới (đánh tiếp):** #68 ngắt socket thiết bị khi thu hồi; #69 phân biệt "chưa ghép"/"đã thu hồi" (mã lỗi riêng hoặc `GET /device-pairing/codes/{pairingId}`). #28 vẫn mở và nặng hơn: token thiết bị không hạn + Manager không thấy danh sách → máy bị mất không thu hồi được từ giao diện.
+
+**Việc cho 8.2 (giao diện gọi số theo đặc tả):** (1) màu tương phản cao cố định cho số gọi + logo/tên theo nhận diện (đặc tả, bảng áp dụng nhận diện, dòng "Màn hình gọi số"); (2) âm thanh: chuông khi có số MỚI sang "Mời nhận" (hiện chỉ so tập số, và trình duyệt cần một cú chạm để cho phát — TV không có người chạm: cân nhắc nút bật một lần rồi nhớ); (3) `context` chỉ trả 30 số mỗi cột: quyết định hiển thị khi quá 30; số đã 3 chữ số `padStart(3)` nên >999 thì sao; (4) bố cục TV toàn màn hình (cỡ chữ theo khoảng cách nhìn), chống burn-in nếu cần; (5) phân biệt "Đang pha" = `SUBMITTED` + `PREPARING` (BE gộp, `stations.service.ts:141`); (6) sắp xếp (đang pha: cũ trước, mời nhận: `readyAt` cũ trước) đã theo BE; (7) toàn màn hình/wake lock (không có API an toàn cho mọi TV).
