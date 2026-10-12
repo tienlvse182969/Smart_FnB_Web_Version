@@ -102,12 +102,13 @@ describe("stationsMock — ghép và thu hồi (BR-45)", () => {
     await expect(stationsMock.pairCustomerDisplay(branchId, "khong-co", createMockPairingCode("CUSTOMER_DISPLAY").code)).rejects.toMatchObject({ status: 404 });
   });
 
-  it("màn hình gọi số: ghép bằng mã loại CALLING_DISPLAY, ghép máy mới thay máy cũ, thu hồi được; không có hàm liệt kê (#28)", async () => {
+  it("màn hình gọi số: ghép bằng mã loại CALLING_DISPLAY, ghép máy mới thay máy cũ, liệt kê và thu hồi được", async () => {
     const a = await stationsMock.pairCallingDisplay(branchId, createMockPairingCode("CALLING_DISPLAY").code, "TV 1");
     const b = await stationsMock.pairCallingDisplay(branchId, createMockPairingCode("CALLING_DISPLAY").code, "TV 2");
     await expect(stationsMock.revokeDevice(branchId, a.deviceId)).rejects.toMatchObject({ status: 404 });
+    expect((await stationsMock.listDisplayDevices(branchId)).map((device) => device.id)).toContain(b.deviceId);
     await stationsMock.revokeDevice(branchId, b.deviceId);
-    expect(Object.keys(stationsMock).some((k) => /callingDisplays|listDisplayDevices/i.test(k))).toBe(false);
+    expect((await stationsMock.listDisplayDevices(branchId)).map((device) => device.id)).not.toContain(b.deviceId);
   });
 
   it("hết hạn gói: mọi thao tác ghép/thu hồi bị chặn (chỉ đọc), vẫn xem được quầy", async () => {

@@ -1,5 +1,5 @@
 import { request } from "../../http/client";
-import { mapStation, type RawStation } from "./mapper";
+import { mapDevice, mapStation, type RawDevice, type RawStation } from "./mapper";
 import { toCreateBody } from "./rules";
 import type { StationsApi } from "./index";
 
@@ -11,6 +11,14 @@ export const stationsReal: StationsApi = {
   async createStation(_branchId, input) {
     // Thân gửi đúng `CreateStationDto` (station.dto.ts:5-21); BE tạo quầy ACTIVE.
     return mapStation(await request<RawStation>("/stations", { method: "POST", body: toCreateBody(input) }));
+  },
+
+  async updateStation(_branchId, stationId, input) {
+    return mapStation(await request<RawStation>(`/stations/${stationId}`, { method: "PATCH", body: input }));
+  },
+
+  async listDisplayDevices() {
+    return (await request<RawDevice[]>("/display-devices")).map(mapDevice);
   },
 
   async pairCustomerDisplay(_branchId, stationId, code, deviceName) {
