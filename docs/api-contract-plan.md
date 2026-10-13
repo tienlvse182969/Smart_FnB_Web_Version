@@ -572,4 +572,27 @@ Việc mới sau 7.7a:
 | 79 | Trung bình | **API áp phích (OW-11, mục 20.4)**: `GET /restaurant-chains/{id}/posters`, `POST …/posters` (multipart `file`, `title?`), `POST …/posters/{id}/image`, `PATCH …/posters/{id}` `{title?, enabled?}`, `PUT …/posters/order` `{ids[]}`, `DELETE …/posters/{id}`; role OWNER; kiểm lại PNG/JPG/WebP ≤ 5 MB, ≤ 6 áp phích, tên ≤ 50 (BR-51); chỉ đọc khi gói hết hạn (BR-09/BR-51); `GET /public/customer-display/context` thêm `posters[{id, url}]` (chỉ áp phích bật, đúng thứ tự); phát `display.update` tới mọi quầy khi đổi. BE `7d7f2dc` KHÔNG có bảng `posters`, controller hay trường nào (`grep -ri poster` rỗng) | 4.4 (OW-11), 5.9, 6.13, 20, BR-51, BR-52 | KHÔNG làm trang áp phích (không dựng mock thay thế, tránh số liệu mẫu giả). Khi BE có: trang Owner "Poster màn hình sau" (tải ngay khi chọn tệp, chặn định dạng/dung lượng/số lượng ở web, xem trước 16:9 xoay 8 giây, lên/xuống, bật/tắt, xoá có xác nhận) |
 | 80 | Thấp | **`GET /display-devices` đã đủ cho BM-01 phía khách** (có cả màn hình khách kèm `station`, `tokenExpiresAt`, `revokedAt`) — không cần việc thêm; ghi để khép mục | 4.5 (BM-01) | Đã làm ở 7.8: hạn token ở từng màn hình khách của quầy; thu hồi vẫn qua `DELETE /display-devices/{id}` |
 
+### Cập nhật 7.8a (2026-10-13): quét BE `origin/main` `4b81e48` theo đặc tả 9.2 — việc mới cho BE
+
+> Chi tiết, bằng chứng `file:dòng` và ưu tiên: `docs/kiem-tra-be-dac-ta-9.2-20261013.md` (mục 6 "Tin nhắn gửi BE"). **#79 đã được BE làm** (`display-posters`, migration `20261013110000_display_posters`, Dang Quan) nhưng lệch hợp đồng đặc tả 20.4 → thay bằng **#82**. Mục còn mở từ trước: #78, #58, #74, #51, #52, #37, #22.
+
+| # | Mức | Việc cần BE | Ưu tiên |
+|---|---|---|---|
+| 81 | Cao | Huỷ QR bên PayOS khi thu tiền mặt / huỷ đơn chưa trả / QR hết hạn (huỷ cả đơn); webhook về cho đơn đã trả tiền mặt phải tạo khoản hoàn + cảnh báo (hiện `FAILED`) — BR-30, `collectCash` `counter-operations.service.ts:406`, `cancelUnpaid :530` | Nên có trước demo |
+| 82 | Cao | Áp phích đúng 20.4: tối đa 6 (BE 10), tên ≤ 50 (BE 120), `title` khi tải lên, đổi ảnh `POST …/{id}/image`, `PUT …/order {ids}`, sự kiện `display.update`, audit log, thu ảnh ≤ 1920; đường dẫn `/posters` hoặc đổi đặc tả (`/display-posters`); `durationSeconds` chỉ giữ nếu đặc tả đổi | Nên có trước demo |
+| 83 | Trung bình | Hạ gói không chặn (BR-11): bỏ 409 vượt hạn mức và `tableCount` — `platform-admin.service.ts:470` | Nên có trước demo |
+| 84 | Trung bình | Thi hành cờ gói ở BE (#33): chặn `PUT/POST/DELETE branding` và `revenue/comparison`; gói Cơ bản `GET branding` trả mặc định | Nên có trước demo |
+| 85 | Trung bình | Audit log đủ BR-06: đổi giá món/tuỳ chọn, Owner khoá/đổi chi nhánh Manager, nhận diện, áp phích, in lại | Nên có trước demo |
+| 86 | Trung bình | Khoá ghép OTP sai 5 lần 5 phút + audit (BR-45), đếm bền; giới hạn tần suất đăng nhập | Nên có trước demo |
+| 87 | Trung bình | Job tự hoàn tất đơn `READY` sau 30 phút (6.11) | Nên có trước demo |
+| 88 | Thấp | Email nhắc Owner trước hạn 7 ngày (6.8) | Nên có trước demo |
+| 89 | **Chặn demo (nếu Render)** | Đĩa bền/lưu trữ đối tượng cho `UPLOAD_DIR`; tạo Admin lần đầu không cần seed demo; gói trả phí hoặc giữ máy thức; tắt Swagger công khai — `render.yaml:5`, `branding-upload.ts:6` | Chặn demo |
+| 90 | Trung bình | Gỡ/hạn chế `GET /public/restaurant-chains`, `/public/branches*` (liệt kê mọi doanh nghiệp, BR-01) | Nên có trước demo |
+| 91 | Thấp | Cho `BARISTA` đọc `GET …/branding` (`branding.controller.ts:51`, #39a) | Nên có trước demo |
+| 92 | Trung bình | Manager không ghi `isEnabled`/`remainingPortions` (#37, #22); bỏ `reservePortions` ở `checkout` | Nên có trước demo |
+| 93 | Trung bình | Test: truy cập chéo doanh nghiệp (API + Socket.IO), webhook trùng/đồng thời (#58/#74), script tải 10 × 2 quầy | Nên có trước demo |
+| 94 | Trung bình | Báo cáo Owner theo hình thức thanh toán (OW-08) | Nên có trước demo |
+| 95 | Trung bình | Đổi mật khẩu và cập nhật hồ sơ (CM-02) | Nên có trước demo |
+| 96 | Thấp | Nhóm sau demo: gỡ route/role v7, tiền số nguyên, log webhook sai chữ ký, tương phản ở BE, GU-01 số chi nhánh + trùng MST, báo In thất bại, ràng buộc quầy ở sự kiện giỏ, adapter Redis, cảnh báo Owner khi PayOS lỗi | Sau demo |
+
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.
