@@ -20,6 +20,7 @@ export { managerReportApi, type ManagerReportApi, type ManagerReportScope } from
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "./modules/payos";
+export { postersApi, type PostersApi, type PosterAddInput, type PosterPatch } from "./modules/posters";
 
 export {
   ApiError,
