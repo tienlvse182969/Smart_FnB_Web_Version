@@ -20,6 +20,7 @@ export const API_MODULES = [
   "ai",
   "admin",
   "payos",
+  "posters",
 ] as const;
 
 export type ApiModule = (typeof API_MODULES)[number];
@@ -42,6 +43,7 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   ai: "mock",
   admin: "real",
   payos: "real",
+  posters: "real",
 };
 
 /** Ghi chú cho bảng cờ: vì sao module đang ở chế độ đó. */
@@ -61,6 +63,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
   admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",
   payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
+  posters: "real (7.9, OW-11): GET/POST/PATCH/DELETE /restaurant-chains/:id/display-posters (BE 4b81e48; cần migration 20261013110000); BE lệch đặc tả 20.4 (#82): tối đa 10, tên ≤ 120, không đổi ảnh/đổi thứ tự riêng nên web ghép từ POST/PATCH/DELETE",
 };
 
 type Env = Record<string, string | undefined>;

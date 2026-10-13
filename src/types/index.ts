@@ -13,3 +13,4 @@ export * from "./managerReport";
 export * from "./admin";
 export * from "./account";
 export * from "./station";
+export * from "./poster";
