@@ -560,4 +560,6 @@ Việc mới sau 7.7a:
 
 **Việc BE còn lại:** #58 (test webhook trùng), #74 (test đua; `docs/BE_GAPS…` nói đã kiểm tích hợp nhưng repo không có ca đó), #52/#51 (test), #63, #29 (không đổi).
 
+**Web đã dùng ở lượt 7.7c (`6d308a4`, QĐ 126–131):** #75 (xác nhận tay + huỷ cả đơn), #34 (`code` `STATION_NAME_ALREADY_EXISTS`; toApiError đọc `body.code`), #27 (Sửa, Ngừng dùng/Dùng lại), #28 (danh sách và thu hồi màn hình gọi số theo `deviceId`), #68 (`device.revoked`), #69 (`DEVICE_TOKEN_*`, `PAIRING_CODE_*`), #70 (429 → chờ 60 giây), #71 (`counts` cho "+N số khác"), #62 (cột đăng nhập gần nhất), #63 (`phone: null`), #64 (nhãn lời mời, huỷ lời mời `POST /manager/staff/:id/invitation/cancel`), #29 (không gửi `maxTables`), #65/#77 (đọc sẵn; kiểm bằng trả lời giả). **Còn chờ kiểm thật (lượt chốt 7.7d):** #51 (sự kiện `cashier.order.updated` của checkout), #52 (quầy ở khoản tiền mặt mới) — web GIỮ tải lại 60 giây.
+
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.

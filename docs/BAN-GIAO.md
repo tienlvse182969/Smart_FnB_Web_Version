@@ -438,7 +438,13 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 122 | (7.7b, **đổi QĐ 85**, theo #59 và cùng chính sách BE) "Xác nhận thủ công" và "Huỷ đơn đã trả / Huỷ đơn và ghi hoàn tiền" KHÔNG khoá khi gói hết hạn/tạm ngưng (dùng `Button` thay `ActionButton` ở `OrderDetail.tsx`): tiền đã nhận hoặc khách đã chuyển khoản phải xử lý được; BE không kiểm gói cho các đường này (`payments.service.ts` `confirm`, `paid-order-refund.service.ts` `assertRefundAccess`). Mọi thao tác tạo/sửa khác của Manager vẫn khoá như cũ. **Ghi lệch đặc tả để sửa đặc tả sau**: BR-09 (`Dac-ta-v9.md:676`) chỉ cho phép pha đơn đã trả, không nêu xác nhận/hoàn tiền khi chỉ đọc |
 | 123 | (7.7b) "Đơn cần xử lý" hiển thị theo LÝ DO BE trả (`attentionReason` trên đơn): `PAYMENT_AMOUNT_MISMATCH` (BE chưa ghi, suy từ khoản `AMOUNT_MISMATCH`, #77) → "Lệch số tiền"; `PAYMENT_RECEIVED_AFTER_EXPIRY` → "Tiền về sau khi QR hết hạn"; `PAID_ITEM_OUT_OF_STOCK` → "Hết món (đơn đã trả)"; `PAID_OPTION_OUT_OF_STOCK` → "Hết tuỳ chọn (đơn đã trả)"; `PAYMENT_RECEIVED_AFTER_CANCELLATION` → "Tiền về sau khi đơn đã huỷ"; mã lạ → "Khác (<mã>)"; không có lý do và không có khoản nào gợi ra → "Chưa rõ lý do". Cột "Đã nhận/Chênh lệch" chỉ có số cho loại lệch tiền. "Đã chờ" tính từ `attentionAt`, không có thì từ lúc đặt và ghi "(từ lúc đặt)". Chi tiết đơn có giải thích theo loại; loại tiền về sau khi QR hết hạn **không có nút** (BE chưa có đường xử lý, #75): hiện "Đang chờ hệ thống hỗ trợ xử lý (#75)". Danh sách do BE sắp (`sortBy=attentionAt&sortOrder=asc`, đơn chưa có `attentionAt` xếp cuối): web không sắp lại |
 | 124 | (7.7b) #51 mới xong một phần: nghe thêm `order.finalized`, `payment.cancelled`, `payment.expired` (tên lấy từ `counter-operations.controller.ts:139,200` và `counter-payment-settlement.service.ts:38`) qua `ORDER_EVENT_TYPES`; GIỮ tải lại 60 giây dự phòng vì `POST /cashier/checkout` (đơn "Chờ thanh toán" mới) và QR hết hạn tự nhiên vẫn im lặng (#77). Cảnh báo socket thêm loại `PAYMENT_RECEIVED_AFTER_EXPIRY` |
-| 125 | (7.7b) Báo cáo: web hiện đúng số BE trả, không tự tính, không tự lọc (QĐ 77). Từ BE `fb7cae9` "Ghi nhận/Thực nhận" của "theo hình thức thanh toán" là số SAU hoàn (thêm cột "Đã hoàn"; số khoản không gồm đơn huỷ sau khi trả). Mục này còn lẫn đơn `DINE_IN` v7 (#47 phần còn lại, #76): web KHÔNG lọc; việc của BE |
+| 125 | (7.7b) Báo cáo: web hiện đúng số BE trả, không tự tính, không tự lọc (QĐ 77). Từ BE `fb7cae9` "Ghi nhận/Thực nhận" của "theo hình thức thanh toán" là số SAU hoàn (thêm cột "Đã hoàn"; số khoản không gồm đơn huỷ sau khi trả). Mục này còn lẫn đơn `DINE_IN` v7 (#47 phần còn lại, #76): web KHÔNG lọc; việc của BE. **(7.7c: BE `7d7f2dc` đã lọc, "theo hình thức" chỉ còn đơn quầy đã trả: 1 hàng CASH, 9 khoản.)** |
+| 126 | (7.7c) Lớp lỗi: `toApiError` đọc mã nghiệp vụ theo thứ tự `body.code` > `body.error` > (không có), chỉ nhận chuỗi MÃ HOA `[A-Z][A-Z0-9_]+` ("Bad Request" không phải mã). Câu tiếng Việt theo mã ở `errors.ts` `CODE_TEXT`: `STATION_NAME_ALREADY_EXISTS`, `PAIRING_CODE_INVALID/USED/EXPIRED`, `DEVICE_TOKEN_MISSING/INVALID/REVOKED/EXPIRED`, `PAYMENT_ALREADY_SETTLED`, `PAYMENT_AMOUNT_INSUFFICIENT`; 403 có mã thiết bị hiện câu thiết bị thay vì "không đủ quyền"; 429 → "Yêu cầu quá nhanh. Chờ khoảng một phút rồi thử lại." |
+| 127 | (7.7c, thay QĐ 123 phần "#75 không nút") Đơn `REQUIRES_ATTENTION` do tiền về sau QR hết hạn (khoản `REQUIRES_ATTENTION` + `failureReason = PAYMENT_RECEIVED_AFTER_EXPIRY`): hiện "Xác nhận thủ công" (nhận đủ, số nhận được điền sẵn) và "Huỷ đơn và ghi hoàn tiền" (CẢ ĐƠN, hoàn đúng số đã nhận, không chọn dòng) theo BE `7d7f2dc` (`settle` nguồn `MANAGER_MANUAL`; `cancelPaidOrder` nhận khoản này). Dùng lại hộp 7.4/7.6. Nhận thiếu → 409 `PAYMENT_AMOUNT_INSUFFICIENT`. Không khoá khi hết hạn gói (QĐ 122) |
+| 128 | (7.7c) Quầy: "Sửa" (đổi tên, kiểu và địa chỉ máy in; chỉ gửi trường đổi; tên trùng với quầy KHÁC báo sớm) và "Ngừng dùng" (hộp xác nhận nêu hệ quả) / "Dùng lại" (không hộp) qua `PATCH /stations/:id`. Trùng tên ở BE → 409 `STATION_NAME_ALREADY_EXISTS` → "Tên quầy đã có trong chi nhánh". Hết hạn gói thì khoá như mọi thao tác ghi (`ActionButton`) |
+| 129 | (7.7c) Màn hình gọi số: Manager xem danh sách từ `GET /display-devices` (tên, ghép lúc, lần cuối thấy, hạn token, trạng thái Đang dùng / Đã thu hồi / Hết hạn) và thu hồi theo `deviceId` (hộp xác nhận), kể cả máy đã thu hồi hiện "Đã thu hồi" không có nút. Màn TV: token `REVOKED`/`EXPIRED` → về bước ghép; sự kiện socket `device.revoked` → kiểm tra REST ngay; "+N số khác" dùng `counts` của BE (`pageLimit` 30); 429 khi tạo mã ghép → chờ 60 giây rồi thử lại, không lặp dồn dập. Web KHÔNG merge `origin/feat/manager-display-management` (chỉ tham khảo hướng giao diện) |
+| 130 | (7.7c) Nhân viên của Manager: cột "Đăng nhập gần nhất" có cả ở real (`user.lastLoginAt`); xoá trắng số điện thoại gửi `phone: null` (có dòng báo "Để trống sẽ xoá số điện thoại đã có"); trạng thái tách "Chưa kích hoạt (đã mời)" (tooltip hạn lời mời) / "Lời mời hết hạn" / "Đã ngừng" theo `invitationStatus`; nút "Huỷ lời mời" (lý do 3–500) cho tài khoản `INACTIVE` còn lời mời qua `POST /manager/staff/:id/invitation/cancel`. Mở khoá tài khoản `INACTIVE` chưa có mật khẩu: BE chưa đổi (vẫn đặt `ACTIVE`) |
+| 131 | (7.7c) Admin tạo gói KHÔNG gửi `maxTables` (BE `7d7f2dc`, #29 tuỳ chọn). Giữ tải lại 60 giây (QĐ 124) tới lượt chốt chứng minh sự kiện `checkout` chạy thật (#51/#52 chưa kiểm được bằng GET) |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1347,3 +1353,44 @@ Bảng đầy đủ: `docs/doi-chieu-be-20261013.md` mục 8; trạng thái: cu�
 **Việc web thêm vào 7.7c:** #75 mở xác nhận tay + huỷ cả đơn (M); `toApiError` đọc `body.code` cho `STATION_NAME_ALREADY_EXISTS`, `DEVICE_TOKEN_*`, `PAIRING_CODE_*` (S); cập nhật kỳ vọng `phase7 report` (1 hàng, 9 khoản) (S); tuỳ chọn nới tải lại 60 giây (S).
 
 **Nhờ BE (còn lại):** test webhook trùng (#58) và test đua (#74) — `docs/BE_GAPS…` nói đã kiểm tích hợp nhưng repo không có ca đó; test cho #51/#52.
+
+### Lượt 7.7c (2026-10-13): quầy, màn gọi số, nhân viên, #75 theo BE `7d7f2dc`
+
+Quyết định 126–131 ở mục 5. BE chỉ đọc; không sửa `.env`, compose. Hợp đồng: `docs/doi-chieu-be-20261013.md` mục 8.
+
+**Đã làm:**
+
+| Mục | Việc | Chỗ sửa |
+|---|---|---|
+| Lớp lỗi (QĐ 126) | `toApiError` đọc `body.code` > `body.error`; câu Việt theo mã `STATION_NAME_ALREADY_EXISTS`, `PAIRING_CODE_*`, `DEVICE_TOKEN_*`; 429 có câu riêng | `http/client.ts`, `http/errors.ts` |
+| #75 (QĐ 127) | `confirmableTransfer` nhận khoản `REQUIRES_ATTENTION` + `PAYMENT_RECEIVED_AFTER_EXPIRY`; `cancelTarget` kind `late` (cả đơn, hoàn = số đã nhận); bỏ câu "chờ hỗ trợ (#75)" | `order/{manualConfirm,paidCancel,mock}.ts`, `OrderDetail.tsx`, `RefundModals.tsx`, `ConfirmTransferModal.tsx` |
+| #27 + #34 (QĐ 128) | "Sửa" (tên, máy in), "Ngừng dùng" (hộp xác nhận) / "Dùng lại"; `updateStation` real + mock; trùng tên → câu Việt | `stations/{index,real,mock,rules,mapper}.ts`, `Stations.tsx` |
+| #28 + #68–#71 (QĐ 129) | Danh sách + thu hồi màn hình gọi số theo `deviceId` (`GET /display-devices`); TV: `DEVICE_TOKEN_REVOKED/EXPIRED` → ghép lại, `device.revoked` → kiểm tra REST, `counts` cho "+N số khác", 429 → chờ 60 giây | `Stations.tsx`, `stations/pairing.ts`, `device/session.ts`, `realtime/operations.ts`, `display/{CallScreen,callBoard}.ts(x)`, `callingDisplay.ts` |
+| #62–#64 (QĐ 130) | Cột đăng nhập gần nhất ở real; `phone: null`; nhãn "Chưa kích hoạt (đã mời)" / "Lời mời hết hạn" / "Đã ngừng"; "Huỷ lời mời" | `account/{mapper,real,mock,index}.ts`, `StaffTable.tsx`, `StaffReasonModal.tsx` |
+| #29 (QĐ 131) | Admin tạo gói không gửi `maxTables` (bỏ `MIN_MAX_TABLES`) | `admin/real.ts` |
+
+**Bỏ / không làm (lý do):** merge `origin/feat/manager-display-management` (chỉ tham khảo hướng giao diện, QĐ 129); nới tải lại 60 giây (chờ chứng minh `checkout` phát sự kiện thật ở 7.7d, QĐ 131); mở khoá tài khoản `INACTIVE` chưa có mật khẩu (BE chưa đổi); không có khối kiểm `phase8 pairing` (ghi thật thiết bị). Các nhánh `INVITED`/`INVITATION_EXPIRED`, `EXPIRED` của thiết bị kiểm bằng unit test và mock, không dựng được ở BE local (không có nhân viên chờ kích hoạt).
+
+**Test đơn vị:** thêm `src/api/be-7d7f2dc.test.ts` (20 ca: mã lỗi, ghép, token thiết bị, `fitToCapacity`, #75, sửa quầy, danh sách thiết bị, nhân viên); cập nhật `StaffTable.test.tsx`, `staffReal.test.ts`, `pairing.test.ts`, `admin.test.ts`, `OrderDetailBe7b.test.tsx`. vitest **682/682** (trước 662).
+
+**Phân tích ảnh hưởng (quy tắc 15):** `http/{client,errors}` (mọi màn) → khối đại diện; `order/{manualConfirm,paidCancel}` → `phase7` `detail`/`confirm`/`attention`; `stations/*`, `Stations.tsx` → `phase5` (khối Quầy, Thiết bị), `phase4 manager`; `StaffTable` → `phase5 --only=staff`; `callingDisplay`, `CallScreen`, `operations.ts` → `phase8 board`; `admin/real.ts` → `phase5` (khối Gói); `phase58-faults manager`. Không chạy `phase7 realtime`, `phase8 pairing`.
+
+**Kiểm real (BE `7d7f2dc`):**
+
+| Khối | Kết quả | Ghi chú |
+|---|---|---|
+| `phase4 manager` | 2/2 | |
+| `phase5 --only=staff` | 35/36 lần 1; sau sửa script nằm trong `phase5` đủ (109/109) | kỳ vọng "không có cột Đăng nhập gần nhất" → "CÓ cột" |
+| `phase5` đủ (Quầy, Thiết bị, Gói, Nhân viên, Menu) | 109/109 ×3 | lần đầu 106/109: kỳ vọng `maxTables`, đếm hàng bảng quầy lẫn bảng gọi số, ghi chú "chờ #27" → sửa script; thêm ca PATCH `{status:"INACTIVE"}` bị chặn và ca danh sách màn hình gọi số khớp `GET /display-devices` |
+| `phase7 orders` / `detail` / `confirm` / `report` | 25/25 · 18/18 · 30/30 · 14/14 | |
+| `phase7 attention` | 20/20 ×3 | lần 1 19/20: kỳ vọng "chờ hỗ trợ #75" → nút xác nhận/huỷ |
+| `phase8 board` | 12/12 | xem lưu ý dưới |
+| `phase58-faults manager` | 66/66 | lần 1 65/66: `manager/branch-info` ca mất mạng (RETRY_NOLOAD, màn không đụng tới); chạy lại riêng màn đó 4/4. 35 request ghi bị chặn ở CDP |
+
+**Chập chờn hạ tầng:** sau nhiều lượt chạy liên tiếp Chrome CDP suy giảm (attention 17/20 và 19/20, phase5 dừng ở "Chuyển chi nhánh: phiên đã hết hạn"/CDP timeout); khởi động lại `chrome.mjs` rồi chạy lại đều đạt. Không phải lỗi mã.
+
+**LƯU Ý ghi thật tới BE (đính chính 7.7a):** khối `phase8 board` GỬI THẬT 1–3 `POST /device-pairing/codes {deviceType: CALLING_DISPLAY}` (công khai, danh sách cho phép của script; tạo dòng `pairing_codes` hết hạn sau 5 phút, BE dọn ở lần tạo sau) — không phải "0 ghi". Ở 7.7a và 7.7c báo cáo "0 request ghi" chỉ đúng với bảng chặn CDP; số request thật của khối này nằm ở dòng "REQUEST GHI ĐÃ GỬI THẬT TỚI BE". Local có 3 dòng `pairing_codes` hết hạn. Không có ghi nghiệp vụ nào khác (không tạo/sửa/thu hồi thiết bị, đơn, nhân viên, quầy).
+
+**Việc cho BE (còn lại):** #58, #74 (test), #51/#52 kiểm thật bằng khối realtime ở 7.7d, mở khoá `INACTIVE`.
+
+**Việc lượt sau:** 7.7d (chốt GĐ7+8): kiểm đủ `phase2–8` mock + real, khối `realtime` tạo đơn thật (kiểm #51/#52, sau đó mới nới tải lại 60 giây), ghép TV thật (`phase8 pairing`), cập nhật ma trận use case và `PR-v9-orders-to-main.md`, quyết định về `origin/main` (`9399a35`/`d4a3c3c`).
