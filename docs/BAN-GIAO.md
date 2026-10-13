@@ -445,6 +445,11 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 129 | (7.7c) Màn hình gọi số: Manager xem danh sách từ `GET /display-devices` (tên, ghép lúc, lần cuối thấy, hạn token, trạng thái Đang dùng / Đã thu hồi / Hết hạn) và thu hồi theo `deviceId` (hộp xác nhận), kể cả máy đã thu hồi hiện "Đã thu hồi" không có nút. Màn TV: token `REVOKED`/`EXPIRED` → về bước ghép; sự kiện socket `device.revoked` → kiểm tra REST ngay; "+N số khác" dùng `counts` của BE (`pageLimit` 30); 429 khi tạo mã ghép → chờ 60 giây rồi thử lại, không lặp dồn dập. Web KHÔNG merge `origin/feat/manager-display-management` (chỉ tham khảo hướng giao diện) |
 | 130 | (7.7c) Nhân viên của Manager: cột "Đăng nhập gần nhất" có cả ở real (`user.lastLoginAt`); xoá trắng số điện thoại gửi `phone: null` (có dòng báo "Để trống sẽ xoá số điện thoại đã có"); trạng thái tách "Chưa kích hoạt (đã mời)" (tooltip hạn lời mời) / "Lời mời hết hạn" / "Đã ngừng" theo `invitationStatus`; nút "Huỷ lời mời" (lý do 3–500) cho tài khoản `INACTIVE` còn lời mời qua `POST /manager/staff/:id/invitation/cancel`. Mở khoá tài khoản `INACTIVE` chưa có mật khẩu: BE chưa đổi (vẫn đặt `ACTIVE`) |
 | 131 | (7.7c) Admin tạo gói KHÔNG gửi `maxTables` (BE `7d7f2dc`, #29 tuỳ chọn). Giữ tải lại 60 giây (QĐ 124) tới lượt chốt chứng minh sự kiện `checkout` chạy thật (#51/#52 chưa kiểm được bằng GET) |
+| 132 | (7.8, đặc tả 9.2 BM-06, BR-18, BR-49) Hộp huỷ đơn đã trả: chọn huỷ cả đơn hoặc từng dòng (BE `orderItemIds`), mỗi dòng hiện tên, số suất, giá lúc bán/suất, tuỳ chọn (`nhóm: tên (+giá)`) và, nếu dòng đã pha xong (`READY`/`DELIVERED`), ghi "Đã pha xong — huỷ sẽ ghi hao hụt" (bước xem lại nêu lại); bắt buộc lý do 3–500 và hình thức hoàn (tiền mặt tại quầy / chuyển khoản ngoài hệ thống). Số hoàn = số web ước theo giá lúc bán nhưng BE là nơi tính (`refundAmount` trả về ở chi tiết đơn); lệch thiếu và tiền về muộn chỉ huỷ cả đơn |
+| 133 | (7.8, BR-49) Owner xem danh sách khoản chờ hoàn của chuỗi: **KHÔNG làm** vì BE `7d7f2dc` không có endpoint đọc cho Owner (chỉ `POST /refunds/:id/complete`; `refunds[]` ở `/manager/orders` là role MANAGER một chi nhánh). Không dựng thay bằng cách gom nhiều chi nhánh phía web. Nhờ BE #78; khi có: bảng ở khu báo cáo Owner, dùng lại modal 7.6, không khoá khi hết hạn gói |
+| 134 | (7.8, mở lại QĐ 56/58; đặc tả 9.2 mục 6.8 chỉ có email nhắc trước 7 ngày) Dải "Gói dịch vụ sắp hết hạn" ở đầu trang của Owner và Manager khi gói `active` và còn 0–7 ngày LỊCH theo giờ Việt Nam (hết hạn lúc 23:59 ngày D vẫn là "hết hạn trong hôm nay" suốt ngày D); nêu ngày dd/MM/yyyy và "Liên hệ nhà cung cấp để gia hạn". Hết hạn/tạm ngưng: `ReadOnlyBanner` thay thế. Không hiện cho Admin; Cashier/Barista không thuộc web |
+| 135 | (7.8, OW-11, mục 20, BR-51, BR-52) Áp phích màn hình phía khách: **KHÔNG làm** vì BE `7d7f2dc` không có bảng, API hay trường `posters` (`grep -ri poster` rỗng). Không dựng mock thay thế để tránh số liệu mẫu giả. Nhờ BE #79 (hợp đồng theo mục 20.4 ghi ở `api-contract-plan.md`); khi có: trang Owner, chặn tệp ở bước chọn (PNG/JPG/WebP ≤ 5 MB, ≤ 6 áp phích, tên ≤ 50), khoá khi chỉ đọc, KHÔNG khoá theo gói |
+| 136 | (7.8, BM-01) Quầy hiện hạn token của màn hình khách đã ghép (`GET /display-devices` `tokenExpiresAt`, BE chỉ trả ở đây): "Token hết hạn dd/MM/yyyy HH:mm", quá hạn thì "Token đã hết hạn — cần ghép lại"; thu hồi vẫn qua `DELETE /display-devices/{id}` có hộp xác nhận |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1394,3 +1399,38 @@ Quyết định 126–131 ở mục 5. BE chỉ đọc; không sửa `.env`, com
 **Việc cho BE (còn lại):** #58, #74 (test), #51/#52 kiểm thật bằng khối realtime ở 7.7d, mở khoá `INACTIVE`.
 
 **Việc lượt sau:** 7.7d (chốt GĐ7+8): kiểm đủ `phase2–8` mock + real, khối `realtime` tạo đơn thật (kiểm #51/#52, sau đó mới nới tải lại 60 giây), ghép TV thật (`phase8 pairing`), cập nhật ma trận use case và `PR-v9-orders-to-main.md`, quyết định về `origin/main` (`9399a35`/`d4a3c3c`).
+
+### Lượt 7.8 (2026-10-13): lấp chỗ hở nghiệp vụ theo đặc tả 9.2
+
+Đặc tả `docs/Smart-FnB-Dac-ta-v9.2.md` (33 use case, thêm OW-11) thay `Smart-FnB-Dac-ta-v9.md`. Quyết định 132–136 ở mục 5. AI (OW-09) nhóm chưa chốt: không làm, không đụng module `ai`. BE chỉ đọc; không sửa `.env`, compose.
+
+**Bước 0 — đối chiếu BE `7d7f2dc`:**
+
+| Mục | BE có? | Căn cứ |
+|---|---|---|
+| BM-06 huỷ từng dòng, lý do, hình thức hoàn | CÓ | `POST /manager/orders/:id/cancel-paid` `{reason, refundMethod, orderItemIds?}` (`manager.dto.ts` `CancelPaidOrderDto`) |
+| BR-49 Owner xem khoản chờ hoàn | **CHƯA** | không có endpoint đọc cho Owner (chỉ `POST /refunds/:id/complete`) → #78 |
+| Dải gói sắp hết hạn | CÓ (dữ liệu) | `GET /restaurant-chains/:id/subscription` trả `status`, `expiresAt` (lượt 6.11) |
+| OW-11 áp phích | **CHƯA** | không có bảng/API/trường `posters` → #79 |
+| BM-01 xem và thu hồi màn hình phía khách | CÓ | `GET /display-devices` (cả màn hình khách, `station`, `tokenExpiresAt`, `revokedAt`), `DELETE /display-devices/:id` |
+
+**Đã làm:** QĐ 132 (hộp huỷ rõ tuỳ chọn, giá lúc bán, hao hụt), QĐ 134 (dải sắp hết hạn, `plan/expiry.ts`, `ExpiringBanner.tsx`, gắn ở `RoleShell` cho owner/manager), QĐ 136 (hạn token ở quầy). **Không làm:** QĐ 133 (Owner chờ hoàn), QĐ 135 (áp phích) — chờ BE; không có commit "áp phích".
+
+**Test đơn vị:** `plan/expiry.test.tsx` (ngày VN, ngưỡng 7, trạng thái, banner), `roles/branch/RefundModals78.test.tsx` (dòng, tuỳ chọn, hao hụt, DTO, lệch thiếu). vitest **698/698** (trước 682).
+
+**Phân tích ảnh hưởng (quy tắc 15):** `RoleShell` (mọi màn Owner/Manager) → `phase7 confirm` (đã có cơ chế trả lời giả gói); `RefundModals`, `paidCancel` → `phase7 detail/attention`, `phase76 faults`; `Stations.tsx` → `phase5` (khối Quầy, Thiết bị), `phase4 owner`. Không chạy `phase8 board/pairing` (khối đó tạo mã ghép thật), không chạy `realtime`.
+
+**Kiểm real (BE `7d7f2dc`):**
+
+| Khối | Đạt/tổng | Ghi chú |
+|---|---|---|
+| `phase7 confirm` | 33/33 | +3 ca dải sắp hết hạn bằng trả lời giả gói: còn ~3 ngày (có dải, không dải chỉ đọc), còn 20 ngày (không), hết hạn (dải chỉ đọc, không dải sắp hết hạn) |
+| `phase7 detail` / `report` | 18/18 · 14/14 | |
+| `phase7 attention` | 20/20 | lần 1 19/20: "Bơm sự kiện giả: có người nghe (0)" (socket chưa nối, chập chờn), chạy lại 20/20 |
+| `phase76 faults` | 16/16 | tiến trình thoát với lỗi libuv của Node/Windows (`UV_HANDLE_CLOSING`) sau khi in kết quả; không ảnh hưởng số ca |
+| `phase4 owner` | 34/34 | |
+| `phase5` (Quầy, Thiết bị) | không chạy lại ở 7.8 | `Stations.tsx` chỉ thêm dòng hạn token; kiểm ở 7.7d |
+
+**Request ghi tới BE:** 0 request ghi nghiệp vụ; không chạy khối nào gửi API công khai. Các request ghi do script phát đều bị chặn ở CDP (`confirm` 8, `phase76 faults` 6, `phase4 owner` 11); ghi nhận nguyên văn ở log từng khối.
+
+**Việc cho BE (mới):** #78 (danh sách khoản chờ hoàn cho Owner), #79 (API áp phích + `posters` trong ngữ cảnh màn hình phía khách), #80 (ghi để khép: `GET /display-devices` đã đủ cho BM-01).

@@ -95,3 +95,31 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | 3 | Màn hình gọi số chạy thật và an toàn: ghép thiết bị thật, đi qua `describeApiError`/refresh, quyết định giữ bản màn hình khách | màn chung `/display/call`, FE-M | Là điểm demo khu nhận món; mã main gọi `fetch` thẳng và hiện câu thô | 8 |
 | 4 | Báo cáo Owner đúng số đơn quầy (BE lọc `COMPLETED`) và trợ lý AI thật | OW-08, OW-09 | Doanh thu Owner lệch so với Manager khi demo đa chi nhánh; AI còn mock | BE #47 rồi 9 |
 | 5 | Nối nốt BE còn chặn nút: đổi tên/ngừng dùng quầy, xoá điện thoại, phân biệt "chưa kích hoạt", đổi mật khẩu | BM-01b, BM-01a, màn chung | Nhiều nút đang khoá kèm "Chờ BE"; giám khảo bấm vào sẽ thấy | nhờ BE #27, #63, #64; web 7.7 |
+
+## 8. Cập nhật 7.8 (2026-10-13) — theo đặc tả 9.2 (33 use case, mục 14.1)
+
+> Nguồn: `docs/Smart-FnB-Dac-ta-v9.2.md` (thay bản v9 ở đầu tài liệu). Mã use case đổi theo 14.1: CM-01/02 (mọi actor), GU-01, PA-01..05, OW-01..**11**, BM-01..06 (BM-01 gồm cả quầy và màn hình phía khách), CS-01..05, BA-01..03. "Nhận cảnh báo" không còn là use case riêng (chỉ ghi trong 4.5). BE local `7d7f2dc`. Bảng này **thay** các bảng 1–3 và 6 ở trên khi mâu thuẫn.
+
+| Mã | Use case | Trạng thái | Ghi chú / phụ thuộc BE |
+|---|---|---|---|
+| CM-01 | Đăng nhập, đăng xuất | Xong (thật) | |
+| CM-02 | Hồ sơ cá nhân và đổi mật khẩu | Một phần | BE chưa có endpoint đổi mật khẩu; nút khoá |
+| GU-01 | Nộp hồ sơ đăng ký (landing) | Xong (thật) | `POST /registration-applications` |
+| PA-01…PA-05 | Hồ sơ, duyệt, từ chối, gói, doanh nghiệp | Xong (thật) ×5 | #29 xong ở 7.7c (không gửi `maxTables`) |
+| OW-01…OW-07 | Chi nhánh, menu, tuỳ chọn, gán món, Manager, PayOS, nhận diện | Xong (thật) ×7 | PayOS thật chưa kiểm (thiếu `PAYOS_MASTER_KEY`) |
+| OW-08 | Báo cáo đa chi nhánh | **Một phần** | #47 đã sửa ở BE `7d7f2dc` (9 đơn, 1.090.000/950.000); màn Owner chưa có mục "theo hình thức thanh toán" (BE báo cáo Owner không trả) |
+| OW-09 | Trợ lý AI | Xong (mock) | Nhóm chưa chốt; không làm, không đụng module `ai` |
+| OW-10 | Gói đang dùng | Xong (thật) | Từ 7.8: dải sắp hết hạn 7 ngày (QĐ 134) |
+| OW-11 | Áp phích màn hình phía khách | **Chưa làm** | BE chưa có API (#79); không dựng mock |
+| BM-01 | Nhân sự (Cashier/Barista) và quầy, màn hình phía khách | Xong (thật) | #62–#64, #27, #28 xong ở 7.7c; hạn token ở 7.8 (QĐ 136) |
+| BM-02 | Bật/tắt món và tuỳ chọn | Xong (thật) | |
+| BM-03 | Báo cáo chi nhánh | Xong (thật) | #47/#76 sửa ở BE `7d7f2dc` |
+| BM-04 | Tra cứu đơn | Xong (thật) | |
+| BM-05 | Xác nhận chuyển khoản thủ công | Xong (thật) | #75 xong ở 7.7c; chưa kiểm webhook PayOS thật |
+| BM-06 | Huỷ đơn đã thanh toán | Xong (thật) | QĐ 132 (tuỳ chọn, giá lúc bán, hao hụt); BR-49 phần "Owner thấy danh sách chờ hoàn" chưa có (#78, QĐ 133) |
+| CS-01…CS-05 | Thu ngân | Ngoài phạm vi web | App Android |
+| BA-01…BA-03 | Pha chế | Ngoài phạm vi web | App Android |
+
+**Tổng 33 use case:** thuộc web **25** (CM 2, GU 1, PA 5, OW 11, BM 6) + ngoài phạm vi web **8** (CS 5, BA 3). Trong 25: **Xong (thật) 21** · **Xong (mock) 1** (OW-09) · **Một phần 2** (CM-02, OW-08) · **Chưa làm 1** (OW-11) · Hoãn 0.
+
+Khép việc thiếu (mục 7): #1 BM-06 xong (7.6); #2 đã làm (7.5, 7.7b); #3 màn hình gọi số (8.1–8.2, 7.7c); #4 báo cáo Owner đúng số đơn quầy xong ở BE, còn "theo hình thức" và AI; #5 các nút "Chờ BE" đã mở ở 7.7c (còn đổi mật khẩu).
