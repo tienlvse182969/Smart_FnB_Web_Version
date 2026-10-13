@@ -72,4 +72,6 @@ body {
 /* Màn gọi số (8.2, QĐ 112): số vừa gọi phóng nhẹ, KHÔNG đổi độ mờ (giữ tương phản); viền vàng luôn có, hoạt ảnh chỉ khi không reduce-motion. */
 @keyframes call-attention { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 @media (prefers-reduced-motion: no-preference) { .call-lit { animation: call-attention 1.2s ease-in-out infinite; } }
+/* Điện thoại (7.9, phần C): nút bấm của màn Owner/Manager cao tối thiểu 40px (khoảng chạm), kể cả nút size="small" và nút trang của bảng. */
+@media (max-width: 640px) { .ant-btn, .ant-btn.ant-btn-sm { min-height: 40px; }.ant-btn.ant-btn-icon-only { min-width: 40px; }.ant-btn.ant-btn-sm { padding-inline: 12px; }.ant-pagination .ant-pagination-item, .ant-pagination .ant-pagination-prev, .ant-pagination .ant-pagination-next, .ant-pagination .ant-pagination-item-link { min-width: 40px; min-height: 40px; height: 40px; line-height: 38px; } }
 @media (max-width: 820px) { .display-order { grid-template-columns: 1fr; overflow: auto; }.payment-panel { min-height: 300px; }.display-header { padding: 14px 18px; }.display-status { font-size: 0; }.display-status svg { margin: 0; } }
