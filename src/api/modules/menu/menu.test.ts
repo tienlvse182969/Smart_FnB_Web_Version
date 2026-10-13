@@ -56,6 +56,10 @@ describe("mapper menu", () => {
     expect(mapItem({ ...rawItem, price: "" }).price).toBe(0);
   });
 
+  it("đường dẫn ảnh upload từ BE được ghép với origin của API", () => {
+    expect(mapItem({ ...rawItem, imageUrl: "/uploads/menu/item.png" }).imageUrl).toMatch(/^https?:\/\/[^/]+\/uploads\/menu\/item\.png$/);
+  });
+
   it("branches[] và enabledBranchCount; thiếu branches (create/update) → rỗng", () => {
     expect(mapItem(rawItem).enabledBranchCount).toBe(1);
     const created = mapItem({ ...rawItem, branches: undefined, enabledBranchCount: undefined });

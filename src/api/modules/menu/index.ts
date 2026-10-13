@@ -32,6 +32,8 @@ export interface MenuApi {
   /** 409 nếu trùng SKU. */
   createItem(chainId: string, input: MenuItemInput): Promise<MenuItem>;
   updateItem(chainId: string, id: string, patch: MenuItemPatch): Promise<MenuItem>;
+  /** Tải ảnh JPEG/PNG/WebP tối đa 5 MB và gắn vào món. */
+  uploadItemImage(chainId: string, id: string, file: File): Promise<MenuItem>;
   /** Bật/tắt cấp chuỗi: tắt thì mọi chi nhánh đều không bán (OW-04). */
   setItemActive(chainId: string, id: string, isActive: boolean): Promise<MenuItem>;
   /** Xoá mềm. */

@@ -234,9 +234,13 @@ export default function StaffTable() {
                 <ActionButton size="small" icon={<Pencil size={13} />} onClick={() => setEditing(s)}>
                   Sửa
                 </ActionButton>
-                <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
-                  Gửi lại email
-                </ActionButton>
+                {s.email.includes("@") ? (
+                  <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
+                    Gửi lại email
+                  </ActionButton>
+                ) : (
+                  <Tag>Owner quản mật khẩu</Tag>
+                )}
                 {s.status === "SUSPENDED" ? (
                   <ActionButton size="small" icon={<Unlock size={13} />} consumes="accounts" data-testid={`staff-unlock-${s.id}`} onClick={() => confirmLock(s)}>
                     Mở khoá

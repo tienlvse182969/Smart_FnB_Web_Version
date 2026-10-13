@@ -108,6 +108,20 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
     expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "A", email: "a@x.vn" } });
     expect(call(fetchMock).url).toMatch(/\/employees\/managers$/);
   });
+
+  it("Owner tạo tài khoản trực tiếp và đặt lại mật khẩu không qua email", async () => {
+    const fetchMock = respond({ ...raw, user: { ...raw.user, email: "cashier_01" } });
+    vi.stubGlobal("fetch", fetchMock);
+    const account = await accountReal.createDirectAccount("c1", { branchId: "b1", name: "Nguyễn Văn An", username: "cashier_01", password: "12345678", role: "CASHIER" });
+    expect(account.email).toBe("cashier_01");
+    expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", username: "cashier_01", password: "12345678", role: "CASHIER" } });
+    expect(call(fetchMock).url).toMatch(/\/employees\/accounts$/);
+    const resetFetch = respond({ message: "ok" });
+    vi.stubGlobal("fetch", resetFetch);
+    await accountReal.setDirectPassword("e1", "87654321");
+    expect(call(resetFetch)).toMatchObject({ method: "PATCH", body: { password: "87654321" } });
+    expect(call(resetFetch).url).toMatch(/\/employees\/e1\/password$/);
+  });
 });
 
 describe("accountMock — Manager", () => {

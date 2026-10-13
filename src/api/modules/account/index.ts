@@ -18,6 +18,7 @@ import type {
   StaffPage,
   StaffPatch,
   StaffQuery,
+  DirectStaffInput,
 } from "../../../types";
 import { defineApi } from "../../define";
 import { accountMock } from "./mock";
@@ -29,6 +30,10 @@ export interface AccountApi {
   listManagers(chainId: string, query?: ManagerQuery): Promise<ManagerPage>;
   /** Không có mật khẩu: tài khoản mới nhận email đặt mật khẩu một lần. */
   createManager(chainId: string, branchId: string, name: string, email: string): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
+  /** Owner creates an immediately active account without email. */
+  createDirectAccount(chainId: string, input: DirectStaffInput): Promise<ManagerAccount>;
+  /** Owner replaces a direct-login password; existing sessions are revoked. */
+  setDirectPassword(accountId: string, password: string): Promise<void>;
   /** Khoá/mở khoá (`PATCH /employees/{id}/status`); khoá thu hồi mọi phiên của Manager. */
   setManagerActive(accountId: string, active: boolean): Promise<void>;
   /** Thu hồi phiên và xếp email đặt mật khẩu mới (`POST /employees/{id}/reset-password`, hiệu lực 24 giờ). */

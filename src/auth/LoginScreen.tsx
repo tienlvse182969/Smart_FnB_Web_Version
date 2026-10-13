@@ -5,7 +5,7 @@ import { useAppStore } from "../store";
 import { palette, onBrandAlpha } from "../theme";
 
 /**
- * Đăng nhập bằng email + mật khẩu qua backend thật. Không còn bước chọn vai
+ * Đăng nhập bằng email hoặc tên tài khoản + mật khẩu qua backend thật. Không còn bước chọn vai
  * trò — vai trò do backend quyết định và web tự đưa về đúng không gian làm việc.
  */
 export default function LoginScreen({ onLogin }: { onLogin: (email: string, password: string) => void }) {
@@ -16,7 +16,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
 
   const handleLogin = () => {
     if (!email.trim()) {
-      message.error("Nhập email");
+      message.error("Nhập email hoặc tên đăng nhập");
       return;
     }
     if (!password) {
@@ -87,7 +87,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         </div>
       </div>
 
-      {/* Right — email + password */}
+      {/* Right — login identifier + password */}
       <div
         style={{
           padding: "56px 56px",
@@ -99,13 +99,13 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
       >
         <div style={{ fontSize: 22, fontWeight: 700 }}>Đăng nhập</div>
         <div style={{ color: palette.textMuted, fontSize: 14, marginTop: 4, marginBottom: 24 }}>
-          Dùng email và mật khẩu được cấp cho tài khoản của bạn.
+          Dùng email hoặc tên đăng nhập cùng mật khẩu được cấp.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
           <Input
             size="large"
-            placeholder="Email"
+            placeholder="Email hoặc tên đăng nhập"
             autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

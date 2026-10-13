@@ -22,6 +22,20 @@ VITE_API_BASE_URL=http://localhost:3100/api/v1
 
 ## Cờ real/mock theo module
 
+### Dùng dữ liệu đang có trên Render khi chạy FE local
+
+Chạy `pnpm dev:deployed` (hoặc `npm run dev:deployed`). Chế độ này đọc
+`VITE_API_BASE_URL` từ `.env.deployed.local`, hiện trỏ tới
+`https://smart-fnb-be.onrender.com/api/v1`. Nhờ đó FE local và FE đã deploy
+cùng gọi một BE/database: đăng nhập và dữ liệu hiển thị giống nhau, không cần
+copy database hoặc chạy seed. Nếu dev server ở cổng 8443 đang chạy, dừng nó
+trước khi chạy lệnh này vì Vite dùng `strictPort`.
+
+**Lưu ý:** Chế độ này không chỉ đọc. Tạo/sửa/xóa từ FE local sẽ thay đổi dữ liệu
+trên Render ngay. Dùng `pnpm dev` để trở lại BE/database local; tài khoản tạo
+trên Render không tự xuất hiện trong database local. Không chạy `prisma:seed`
+hay `prisma:migrate` với `DATABASE_URL` production chỉ để thử giao diện.
+
 Mỗi module của lớp API (`src/api/modules/*`) có một cờ `VITE_API_<MODULE>=real|mock`, mặc định theo bảng ở `docs/BAN-GIAO.md` (mục "Bảng cờ module") và `src/api/flags.ts`. Đổi cờ không phải sửa màn hình. Khi chạy `pnpm dev`, bảng cờ được in ra console. Ví dụ chạy toàn bộ bằng dữ liệu giả lập, không cần backend:
 
 ```powershell

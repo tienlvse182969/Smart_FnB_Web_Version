@@ -1,5 +1,5 @@
 import { App, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table, Tag } from "antd";
-import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
 import type { MenuCategory, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
@@ -307,6 +307,9 @@ function ItemDrawer({
   const [price, setPrice] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [createdItem, setCreatedItem] = useState<MenuItem | null>(null);
   const [prep, setPrep] = useState<number | null>(null);
   const [branchIds, setBranchIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -342,11 +345,36 @@ function ItemDrawer({
     setPrice(existing?.price ?? null);
     setDescription(existing?.description ?? "");
     setImageUrl(existing?.imageUrl ?? "");
+    setImageFile(null);
+    setCreatedItem(null);
     setPrep(existing?.preparationMinutes ?? null);
     setNoBatch(existing ? !existing.allowBatching : false);
     // Tạo mới: mặc định chọn sẵn mọi chi nhánh và gửi branchIds tường minh.
     setBranchIds(branches.map((b) => b.id));
   }, [item]);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  const chooseImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      message.error("Chỉ chọn ảnh JPEG, PNG hoặc WebP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      message.error("Ảnh không được vượt quá 5 MB");
+      return;
+    }
+    setImageFile(file);
+  };
 
   const onName = (value: string) => {
     setName(value);
@@ -366,41 +394,50 @@ function ItemDrawer({
   const save = async () => {
     if (!chainId || !valid || !categoryId || price === null) return;
     setSaving(true);
+    let itemWasCreated = !!createdItem;
     try {
       const common = {
         categoryId,
         name: name.trim(),
         price,
         description: description.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: imageFile ? undefined : imageUrl.trim() || undefined,
         preparationMinutes: prep ?? undefined,
         // `UpdateMenuItemDto`/`CreateMenuItemDto` (menu.dto.ts:178-185, 112-119); luôn gửi tường minh.
         allowBatching: !noBatch,
       };
-      if (isNew) {
+      if (isNew && !createdItem) {
         const input: MenuItemInput = { ...common, sku, branchIds };
         const created = await menuApi.createItem(chainId, input);
+        setCreatedItem(created);
+        itemWasCreated = true;
         await saveItemOptions(created.id, true);
+        if (imageFile) await menuApi.uploadItemImage(chainId, created.id, imageFile);
         await onSaved("Đã thêm món vào menu chuỗi");
-      } else if (existing) {
+      } else if (existing || createdItem) {
+        const current = existing ?? createdItem!;
         // Chỉ gọi BE khi trường của món thật sự đổi; đổi mỗi danh sách nhóm tuỳ chọn thì chỉ có lệnh `setItemGroups`, không PATCH món.
         const changed =
-          common.allowBatching !== existing.allowBatching ||
-          categoryId !== existing.categoryId ||
-          common.name !== existing.name ||
-          price !== existing.price ||
-          (common.description ?? "") !== (existing.description ?? "") ||
-          (common.imageUrl ?? "") !== (existing.imageUrl ?? "") ||
-          (common.preparationMinutes ?? null) !== (existing.preparationMinutes ?? null);
+          common.allowBatching !== current.allowBatching ||
+          categoryId !== current.categoryId ||
+          common.name !== current.name ||
+          price !== current.price ||
+          (common.description ?? "") !== (current.description ?? "") ||
+          (!imageFile && (common.imageUrl ?? "") !== (current.imageUrl ?? "")) ||
+          (common.preparationMinutes ?? null) !== (current.preparationMinutes ?? null);
         if (changed) {
-          const patch: MenuItemPatch = common;
-          await menuApi.updateItem(chainId, existing.id, patch);
+          const patch: MenuItemPatch = {
+            ...common,
+            imageUrl: !imageFile && common.imageUrl !== (current.imageUrl ?? "") ? common.imageUrl : undefined,
+          };
+          await menuApi.updateItem(chainId, current.id, patch);
         }
-        await saveItemOptions(existing.id, false);
-        await onSaved("Đã cập nhật món");
+        await saveItemOptions(current.id, !!createdItem);
+        if (imageFile) await menuApi.uploadItemImage(chainId, current.id, imageFile);
+        await onSaved(createdItem ? "Đã thêm món vào menu chuỗi" : "Đã cập nhật món");
       }
     } catch (err) {
-      showApiError(message.error, err, "Không lưu được món");
+      showApiError(message.error, err, itemWasCreated ? "Món đã tạo nhưng chưa lưu xong ảnh hoặc tùy chọn; bấm Lưu món để thử lại" : "Không lưu được món");
     } finally {
       setSaving(false);
     }
@@ -444,11 +481,17 @@ function ItemDrawer({
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
       </Field>
-      <Field label="Ảnh (URL) — TODO(BE): chưa có tải ảnh lên">
+      <Field label="Ảnh món">
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Thumb url={imageUrl.trim() || null} size={56} />
-          <Input value={imageUrl} maxLength={500} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" />
+          <Thumb url={imagePreview || imageUrl.trim() || null} size={56} />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", border: `1px solid ${palette.textSubtle}`, borderRadius: 8, cursor: "pointer" }}>
+            <Upload size={15} /> {imageFile ? "Đổi ảnh" : "Tải ảnh từ máy"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(e) => { chooseImage(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {imageFile && <ActionButton size="small" onClick={() => setImageFile(null)}>Bỏ chọn</ActionButton>}
         </div>
+        <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>JPEG, PNG hoặc WebP · tối đa 5 MB. Ảnh được tải lên khi bấm Lưu món.</div>
+        <Input value={imageUrl} maxLength={500} disabled={!!imageFile} onChange={(e) => setImageUrl(e.target.value)} placeholder="Hoặc dán URL ảnh https://…" style={{ marginTop: 8 }} />
       </Field>
       <Field label="Thời gian pha (phút, tuỳ chọn)">
         <InputNumber value={prep} onChange={setPrep} style={{ width: "100%" }} min={0} max={1440} precision={0} />
@@ -468,7 +511,7 @@ function ItemDrawer({
           </div>
         </Field>
       )}
-      <Field label="Tuỳ chọn món — đang lưu tạm, chờ BE">
+      <Field label="Tuỳ chọn món">
         <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
       </Field>
       <Field label="Xem trước tại POS">
@@ -538,7 +581,7 @@ function ItemOptions({
       </div>
       <div data-testid="item-options-note" style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>
         {modeOf("options") === "mock"
-          ? "Tuỳ chọn đang lưu tạm trên trình duyệt, chờ BE (api-contract-plan #13). Thay đổi được lưu lại khi tải lại trang."
+          ? "Chế độ Mock: nhóm tuỳ chọn được lưu trong dữ liệu thử nghiệm của trình duyệt."
           : "Gắn nhóm và cờ \"Không gom món\" lưu thẳng lên máy chủ khi bấm Lưu món."}
       </div>
     </div>

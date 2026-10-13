@@ -1,7 +1,7 @@
 import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
 import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { AccountStatus, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
+import type { AccountStatus, DirectStaffInput, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
@@ -15,9 +15,8 @@ const PAGE_SIZE = 20;
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
 
 /**
- * OW-05: Owner quản Branch Manager — danh sách phân trang/tìm kiếm/lọc, khoá/mở khoá, gửi lại email đặt mật khẩu,
- * chuyển chi nhánh (BE `/employees`, real). Tạo Manager qua lời mời email, không đặt mật khẩu hộ.
- * Cashier/Barista: Owner chỉ XEM (OW-05), đọc thật `GET /employees?role=CASHIER|BARISTA`.
+ * Owner tạo trực tiếp Manager, Cashier và Barista với tên đăng nhập/mật khẩu.
+ * Danh sách, khoá/mở khoá và chuyển chi nhánh Manager dùng BE `/employees`.
  */
 export default function ManagerAccounts() {
   const { message, modal } = App.useApp();
@@ -33,6 +32,7 @@ export default function ManagerAccounts() {
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string } | null>(null);
 
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? id ?? "—";
 
@@ -99,6 +99,10 @@ export default function ManagerAccounts() {
   };
 
   const confirmReset = (m: ManagerAccount) => {
+    if (!m.email.includes("@")) {
+      setPasswordTarget({ id: m.id, name: m.name });
+      return;
+    }
     modal.confirm({
       title: `Gửi lại email đặt mật khẩu cho ${m.name}?`,
       content: (
@@ -145,11 +149,11 @@ export default function ManagerAccounts() {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
-        title="Tài khoản quản lý"
-        sub="Một chi nhánh có thể có nhiều Branch Manager để trực ca — không phải một người làm cả ngày"
+        title="Tài khoản nhân viên"
+        sub="Tạo Manager, Thu ngân và Pha chế cho từng chi nhánh; không cần email"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
-            Thêm tài khoản
+            Thêm nhân viên
           </ActionButton>
         }
       />
@@ -163,7 +167,7 @@ export default function ManagerAccounts() {
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
                   <Input.Search
                     allowClear
-                    placeholder="Tìm theo tên, mã hoặc email"
+                    placeholder="Tìm theo tên, mã hoặc tài khoản"
                     style={{ maxWidth: 300 }}
                     onSearch={(v) => {
                       setPage(1);
@@ -270,7 +274,7 @@ export default function ManagerAccounts() {
           },
           {
             key: "staff",
-            label: `Thu ngân & Pha chế (${staff.length}) · chỉ xem`,
+            label: `Thu ngân & Pha chế (${staff.length})`,
             children: (
               <>
                 <Table<StaffAccount>
@@ -292,6 +296,15 @@ export default function ManagerAccounts() {
                     { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r}</Tag> },
                     { title: "Chi nhánh", dataIndex: "branchName" },
                     {
+                      title: "",
+                      key: "password",
+                      render: (_, r) => !r.email.includes("@") ? (
+                        <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => setPasswordTarget({ id: r.id, name: r.name })}>
+                          Đặt lại mật khẩu
+                        </ActionButton>
+                      ) : null,
+                    },
+                    {
                       title: "Trạng thái",
                       dataIndex: "status",
                       render: (s: AccountStatus) => (s === "ACTIVE" ? <Tag color="green">{STATUS_LABEL[s]}</Tag> : <Tag>{STATUS_LABEL[s]}</Tag>),
@@ -308,23 +321,40 @@ export default function ManagerAccounts() {
         open={adding}
         branches={branches}
         onClose={() => setAdding(false)}
-        onSave={async (name, email, branchId) => {
+        onSave={async (input) => {
           if (!tenantId) return false;
           try {
-            const { account: acc, expiresAt } = await accountApi.createManager(tenantId, branchId, name, email);
+            const acc = await accountApi.createDirectAccount(tenantId, input);
             setAdding(false);
             modal.success({
-              title: "Đã tạo tài khoản Branch Manager",
+              title: "Đã tạo tài khoản nhân viên",
               content: (
                 <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                  Đã xếp email đặt mật khẩu tới <b>{acc.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}.
+                  Tài khoản <b>{acc.email}</b> đã hoạt động. Hãy cung cấp tên đăng nhập và mật khẩu vừa tạo trực tiếp cho nhân viên.
                 </div>
               ),
             });
             await loadManagers();
+            await loadStaff();
             return true;
           } catch (err) {
             showApiError(message.error, err, "Không tạo được — có thể đã vượt hạn mức gói");
+            return false;
+          }
+        }}
+      />
+      <SetPasswordDrawer
+        target={passwordTarget}
+        onClose={() => setPasswordTarget(null)}
+        onSave={async (password) => {
+          if (!passwordTarget) return false;
+          try {
+            await accountApi.setDirectPassword(passwordTarget.id, password);
+            setPasswordTarget(null);
+            message.success("Đã đổi mật khẩu và đăng xuất các phiên cũ");
+            return true;
+          } catch (err) {
+            showApiError(message.error, err, "Không đặt lại được mật khẩu");
             return false;
           }
         }}
@@ -342,11 +372,15 @@ function AddAccountDrawer({
   open: boolean;
   branches: { id: string; name: string }[];
   onClose: () => void;
-  onSave: (name: string, email: string, branchId: string) => Promise<boolean>;
+  onSave: (input: DirectStaffInput) => Promise<boolean>;
 }) {
   const { message } = App.useApp();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<DirectStaffInput["role"]>("MANAGER");
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [branchId, setBranchId] = useState(branches[0]?.id);
   const [saving, setSaving] = useState(false);
 
@@ -356,18 +390,24 @@ function AddAccountDrawer({
 
   const reset = () => {
     setName("");
-    setEmail("");
+    setUsername("");
+    setPassword("");
+    setRole("MANAGER");
+    setUsernameTouched(false);
+    setPasswordTouched(false);
   };
 
   const save = async () => {
     if (saving) return;
-    if (!name.trim() || !email.trim() || !branchId) {
-      message.error("Nhập tên, email và chọn chi nhánh");
+    if (!name.trim() || !branchId || !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) || password.length < 8) {
+      setUsernameTouched(true);
+      setPasswordTouched(true);
+      message.error("Nhập họ tên, tài khoản 3–50 ký tự, mật khẩu từ 8 ký tự và chọn chi nhánh");
       return;
     }
     setSaving(true);
     try {
-      if (await onSave(name.trim(), email.trim(), branchId)) reset();
+      if (await onSave({ name: name.trim(), username: username.trim().toLowerCase(), password, branchId, role })) reset();
     } finally {
       setSaving(false);
     }
@@ -375,7 +415,7 @@ function AddAccountDrawer({
 
   return (
     <Drawer
-      title="Thêm tài khoản Branch Manager"
+      title="Tạo tài khoản nhân viên"
       open={open}
       onClose={() => {
         reset();
@@ -386,8 +426,16 @@ function AddAccountDrawer({
       <Field label="Họ tên">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Văn A" />
       </Field>
-      <Field label="Email đăng nhập">
-        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ten@comtam.vn" />
+      <Field label="Vai trò">
+        <Select value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} />
+      </Field>
+      <Field label="Tên đăng nhập (không cần email)">
+        <Input id="staff-username" value={username} onChange={(e) => setUsername(e.target.value)} onBlur={() => setUsernameTouched(true)} placeholder="VD: thungan_cn1" autoComplete="off" status={usernameTouched && !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) ? "error" : undefined} aria-describedby="staff-username-help" />
+        <div id="staff-username-help" style={{ fontSize: 12, marginTop: 4, color: usernameTouched && !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) ? palette.error.text : palette.textMuted }}>3–50 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.</div>
+      </Field>
+      <Field label="Mật khẩu (từ 8 ký tự, có thể chỉ gồm số)">
+        <Input.Password id="staff-password" value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setPasswordTouched(true)} autoComplete="new-password" status={passwordTouched && password.length < 8 ? "error" : undefined} aria-describedby="staff-password-help" />
+        <div id="staff-password-help" style={{ fontSize: 12, marginTop: 4, color: passwordTouched && password.length < 8 ? palette.error.text : palette.textMuted }}>Mật khẩu có thể chỉ gồm số, tối thiểu 8 ký tự.</div>
       </Field>
       <Field label="Chi nhánh được gán">
         <Select value={branchId} onChange={setBranchId} style={{ width: "100%" }} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
@@ -395,6 +443,25 @@ function AddAccountDrawer({
       <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={() => void save()} loading={saving}>
         Tạo tài khoản
       </ActionButton>
+    </Drawer>
+  );
+}
+
+function SetPasswordDrawer({ target, onClose, onSave }: { target: { id: string; name: string } | null; onClose: () => void; onSave: (password: string) => Promise<boolean> }) {
+  const { message } = App.useApp();
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  return (
+    <Drawer title={`Đặt lại mật khẩu: ${target?.name ?? ""}`} open={!!target} onClose={() => { setPassword(""); onClose(); }} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
+      <Field label="Mật khẩu mới (từ 8 ký tự, có thể chỉ gồm số)">
+        <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
+      </Field>
+      <p style={{ color: palette.textMuted }}>Sau khi lưu, mọi phiên đăng nhập cũ sẽ bị thu hồi.</p>
+      <ActionButton type="primary" block loading={saving} onClick={() => {
+        if (password.length < 8) { message.error("Mật khẩu cần ít nhất 8 ký tự"); return; }
+        setSaving(true);
+        void onSave(password).then((ok) => { if (ok) setPassword(""); }).finally(() => setSaving(false));
+      }}>Lưu mật khẩu</ActionButton>
     </Drawer>
   );
 }
