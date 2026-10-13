@@ -828,6 +828,23 @@ try {
       await clickTid("order-confirm-open");
       await sleep(400);
       check("Real · Chỉ đọc (QĐ 122): bấm nút mở được hộp, chưa có request ghi", (await has("confirm-step-form")) && tab.blockedWrites.length === 0);
+
+      // 7.8 (QĐ 132): dải "gói sắp hết hạn" — 7 ngày cuối, ngày theo giờ VN; hết hạn thì dải chỉ đọc thay thế. Chỉ trả lời giả, 0 ghi.
+      const subAt = (status, ms) => [{ match: /\/restaurant-chains\/[0-9a-f-]{36}\/subscription$/, body: J({ subscription: { ...subBe.subscription, status, expiresAt: new Date(Date.now() + ms).toISOString() } }) }];
+      const DAY = 86_400_000;
+      tab.readOverride = subAt("ACTIVE", 3 * DAY + 3_600_000);
+      await tab.goto("/manager/dashboard");
+      await sleep(1800);
+      const expBanner = await q(`document.querySelector('[data-testid="expiring-banner"]')?.innerText ?? ""`);
+      check("Real · (trả lời giả) gói còn ~3 ngày: dải 'sắp hết hạn' nêu số ngày và cách gia hạn, KHÔNG dải chỉ đọc", /còn [34] ngày/.test(expBanner) && /gia hạn/.test(expBanner) && !(await has("read-only-banner")), expBanner.replace(/\s+/g, " ").slice(0, 140));
+      tab.readOverride = subAt("ACTIVE", 20 * DAY);
+      await tab.goto("/manager/dashboard");
+      await sleep(1500);
+      check("Real · (trả lời giả) gói còn 20 ngày: KHÔNG có dải sắp hết hạn", !(await has("expiring-banner")));
+      tab.readOverride = subAt("EXPIRED", -2 * DAY);
+      await tab.goto("/manager/dashboard");
+      await sleep(1500);
+      check("Real · (trả lời giả) gói đã hết hạn: dải chỉ đọc, KHÔNG dải sắp hết hạn", (await has("read-only-banner")) && !(await has("expiring-banner")));
       tab.readOverride = null;
       await tab.goto("/manager/dashboard");
       await sleep(1200);
