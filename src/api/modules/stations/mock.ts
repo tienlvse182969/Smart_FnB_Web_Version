@@ -68,26 +68,6 @@ export const stationsMock: StationsApi = {
     return { ...station };
   },
 
-  async updateStation(branchId, stationId, input) {
-    await mockDelay();
-    assertMockWritable();
-    const station = stationsOf(branchId).find((value) => value.id === stationId);
-    if (!station) throw new ApiError(404, "POS station was not found in your branch");
-    Object.assign(station, input, {
-      name: input.name?.trim() || station.name,
-      printerAddress: input.printerConnection === "NONE" ? null : input.printerAddress ?? station.printerAddress,
-    });
-    return { ...station, devices: [...station.devices] };
-  },
-
-  async listDisplayDevices(branchId) {
-    await mockDelay();
-    const stationDevices = stationsOf(branchId).flatMap((station) =>
-      station.devices.map((device) => ({ ...device, stationId: station.id, station: { id: station.id, name: station.name, status: station.status } })),
-    );
-    return [...stationDevices, ...(callingByBranch.get(branchId) ?? [])];
-  },
-
   async pairCustomerDisplay(branchId, stationId, code, deviceName) {
     await mockDelay();
     assertMockWritable();
@@ -129,5 +109,5 @@ export const stationsMock: StationsApi = {
   },
 };
 
-/** Máy gọi số đã ghép theo chi nhánh. */
+/** Máy gọi số đã ghép theo chi nhánh — chỉ để mock thu hồi/thay máy; KHÔNG có hàm liệt kê vì BE chưa có (api-contract-plan #28). */
 const callingByBranch = new Map<string, StationDevice[]>();

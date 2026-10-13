@@ -13,28 +13,15 @@ export interface RawStation {
   displayDevices?: { id: string; type: string; name: string | null; pairedAt: string; lastSeenAt: string | null }[];
 }
 
-export type RawDevice = NonNullable<RawStation["displayDevices"]>[number] & {
-  tokenExpiresAt?: string;
-  revokedAt?: string | null;
-  stationId?: string | null;
-  station?: { id: string; name: string; status: string } | null;
-};
-
 const CONNECTIONS: PrinterConnection[] = ["NONE", "WIFI", "BLUETOOTH"];
 
-export function mapDevice(raw: RawDevice): StationDevice {
+export function mapDevice(raw: NonNullable<RawStation["displayDevices"]>[number]): StationDevice {
   return {
     id: raw.id,
     type: raw.type === "CALLING_DISPLAY" ? "CALLING_DISPLAY" : "CUSTOMER_DISPLAY",
     name: raw.name ?? null,
     pairedAt: raw.pairedAt,
     lastSeenAt: raw.lastSeenAt ?? null,
-    ...(raw.tokenExpiresAt !== undefined ? { tokenExpiresAt: raw.tokenExpiresAt } : {}),
-    ...(raw.revokedAt !== undefined ? { revokedAt: raw.revokedAt } : {}),
-    ...(raw.stationId !== undefined ? { stationId: raw.stationId } : {}),
-    ...(raw.station !== undefined
-      ? { station: raw.station ? { id: raw.station.id, name: raw.station.name, status: raw.station.status === "ACTIVE" ? "ACTIVE" : "INACTIVE" } : null }
-      : {}),
   };
 }
 
@@ -46,8 +33,6 @@ export function mapStation(raw: RawStation): Station {
     status: (raw.status === "ACTIVE" ? "ACTIVE" : "INACTIVE") as StationStatus,
     printerConnection: CONNECTIONS.includes(raw.printerConnection as PrinterConnection) ? (raw.printerConnection as PrinterConnection) : "NONE",
     printerAddress: raw.printerAddress ?? null,
-    devices: (raw.displayDevices ?? []).map(({ id, type, name, pairedAt, lastSeenAt }) =>
-      mapDevice({ id, type, name, pairedAt, lastSeenAt }),
-    ),
+    devices: (raw.displayDevices ?? []).map(mapDevice),
   };
 }

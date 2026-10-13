@@ -26,10 +26,6 @@ export type StationDevice = {
   name: string | null;
   pairedAt: string;
   lastSeenAt: string | null;
-  tokenExpiresAt?: string;
-  revokedAt?: string | null;
-  stationId?: string | null;
-  station?: { id: string; name: string; status: StationStatus } | null;
 };
 
 export type Station = {
@@ -47,5 +43,3 @@ export type StationInput = {
   printerConnection: PrinterConnection;
   printerAddress?: string;
 };
-
-export type StationUpdate = Partial<StationInput> & { status?: StationStatus };

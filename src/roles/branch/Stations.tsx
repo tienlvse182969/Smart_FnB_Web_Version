@@ -1,7 +1,7 @@
 import { App, Card, Input, Modal, Radio, Table, Tag, Tooltip } from "antd";
 import { Link2, Plus, Unlink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PRINTER_CONNECTION_LABEL, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput, type StationUpdate } from "../../types";
+import { PRINTER_CONNECTION_LABEL, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput } from "../../types";
 import { showApiError, stationsApi, validateStationInput } from "../../api";
 import { describePairingError, isPairingCode } from "../../api/modules/stations/pairing";
 import ActionButton from "../../plan/ActionButton";
@@ -12,8 +12,11 @@ import { relativeTime } from "../../lib/relativeTime";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
+const PENDING_BE = "Chờ BE (api-contract-plan #27)";
+
 /**
- * BM-01: quầy, máy in và thiết bị hiển thị của chi nhánh (đặc tả 11.10).
+ * BM-01: quầy và máy in của chi nhánh (đặc tả 11.10). Real `GET/POST /stations`. Đổi tên, ngừng dùng, sửa máy in chưa có ở BE
+ * (#27) nên các nút bị khoá. Không giới hạn số quầy (Khánh đã chốt). Hết hạn gói thì chỉ đọc (ActionButton).
  */
 export default function Stations() {
   const { message, modal } = App.useApp();
@@ -21,17 +24,15 @@ export default function Stations() {
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<Station | null>(null);
-  const [displayDevices, setDisplayDevices] = useState<StationDevice[]>([]);
   // Hộp ghép: màn hình khách (gắn một quầy) hoặc màn hình gọi số (gắn chi nhánh).
   const [pairing, setPairing] = useState<{ kind: DisplayKind; station?: Station } | null>(null);
 
-  const revoke = (device: StationDevice, station?: Station) => {
+  const revoke = (station: Station, device: StationDevice) => {
     modal.confirm({
       title: `Thu hồi ${device.name ?? "màn hình khách"}?`,
       content: (
         <div data-testid="confirm-revoke" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-          <b>{device.name ?? "Màn hình"}</b>{station ? <> ở <b>{station.name}</b></> : null} (ghép {formatDateTime(device.pairedAt)}) sẽ không nhận dữ liệu nữa; muốn dùng lại phải ghép lại bằng mã mới.
+          <b>{device.name ?? "Màn hình khách"}</b> ở <b>{station.name}</b> (ghép {formatDateTime(device.pairedAt)}) sẽ không nhận được dữ liệu của quầy nữa; muốn dùng lại phải ghép lại bằng mã mới.
         </div>
       ),
       okText: "Thu hồi",
@@ -55,12 +56,7 @@ export default function Stations() {
     if (!branchId) return;
     setLoading(true);
     try {
-      const [nextStations, nextDevices] = await Promise.all([
-        stationsApi.listStations(branchId),
-        stationsApi.listDisplayDevices(branchId),
-      ]);
-      setStations(nextStations);
-      setDisplayDevices(nextDevices);
+      setStations(await stationsApi.listStations(branchId));
     } catch (err) {
       showApiError(message.error, err, "Không tải được danh sách quầy");
     } finally {
@@ -103,20 +99,6 @@ export default function Stations() {
       });
     });
 
-  const update = async (station: Station, input: StationUpdate) => {
-    if (!branchId) return;
-    try {
-      await stationsApi.updateStation(branchId, station.id, input);
-      message.success("Đã cập nhật quầy");
-      setEditing(null);
-      await load();
-    } catch (err) {
-      showApiError(message.error, err, "Không cập nhật được quầy");
-    }
-  };
-
-  const callingDisplays = displayDevices.filter((device) => device.type === "CALLING_DISPLAY" && !device.revokedAt);
-
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
@@ -128,6 +110,9 @@ export default function Stations() {
           </ActionButton>
         }
       />
+      <div data-testid="stations-pending-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+        Đổi tên, ngừng dùng quầy và sửa máy in {PENDING_BE.toLowerCase()} — hiện chỉ tạo và xem được. Ghép và thu hồi màn hình bằng mã 6 số làm được ngay ở dưới.
+      </div>
       <Table<Station>
         dataSource={stations}
         rowKey="id"
@@ -148,7 +133,7 @@ export default function Stations() {
                   <span data-testid="device-last-seen" style={{ color: palette.textMuted, fontSize: 13 }}>
                     Lần cuối thấy: {relativeTime(d.lastSeenAt)}
                   </span>
-                  <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="device-revoke" onClick={() => revoke(d, station)}>
+                  <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="device-revoke" onClick={() => revoke(station, d)}>
                     Thu hồi
                   </ActionButton>
                 </div>
@@ -194,15 +179,15 @@ export default function Stations() {
                 <ActionButton size="small" icon={<Link2 size={13} />} disabled={station.status !== "ACTIVE"} data-testid="station-pair" onClick={() => setPairing({ kind: "CUSTOMER_DISPLAY", station })}>
                   Ghép màn hình khách
                 </ActionButton>
-                <ActionButton size="small" data-testid="station-edit" onClick={() => setEditing(station)}>Sửa quầy</ActionButton>
-                <ActionButton
-                  size="small"
-                  danger={station.status === "ACTIVE"}
-                  data-testid="station-toggle"
-                  onClick={() => void update(station, { status: station.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}
-                >
-                  {station.status === "ACTIVE" ? "Ngừng dùng" : "Bật lại"}
-                </ActionButton>
+                {["Đổi tên", "Ngừng dùng", "Sửa máy in"].map((label) => (
+                  <Tooltip key={label} title={PENDING_BE}>
+                    <span style={{ display: "inline-block" }}>
+                      <ActionButton size="small" disabled data-testid="station-pending-action">
+                        {label}
+                      </ActionButton>
+                    </span>
+                  </Tooltip>
+                ))}
               </div>
             ),
           },
@@ -219,18 +204,12 @@ export default function Stations() {
             </ActionButton>
           }
         />
-        {callingDisplays.length ? callingDisplays.map((device) => (
-          <div key={device.id} data-testid="calling-display-device" style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 12px", border: `1px solid ${palette.line}`, borderRadius: 8 }}>
-            <b>{device.name ?? "Màn hình gọi số"}</b>
-            <span style={{ color: palette.textMuted }}>Lần cuối thấy: {relativeTime(device.lastSeenAt)}</span>
-            {device.tokenExpiresAt ? <span style={{ color: palette.textMuted }}>Hết hạn: {formatDateTime(device.tokenExpiresAt)}</span> : null}
-            <ActionButton size="small" danger icon={<Unlink size={13} />} onClick={() => revoke(device)}>Thu hồi</ActionButton>
-          </div>
-        )) : <div style={{ color: palette.textMuted }}>Chưa có màn hình gọi số đang hoạt động.</div>}
+        <div data-testid="calling-display-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
+          Chưa xem được danh sách màn hình gọi số đã ghép (chờ BE #28: thiếu <code>GET /display-devices</code>). Web không tự lưu danh sách ở trình duyệt.
+        </div>
       </div>
 
       <AddStationModal open={adding} existing={stations} onClose={() => setAdding(false)} onSubmit={create} />
-      <EditStationModal station={editing} onClose={() => setEditing(null)} onSubmit={update} />
       <PairModal
         target={pairing}
         onClose={() => setPairing(null)}
@@ -318,49 +297,6 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
       )}
       <ActionButton type="primary" block style={{ marginTop: 16 }} disabled={!isPairingCode(code)} data-testid="pair-submit" onClick={submit}>
         Ghép {label}
-      </ActionButton>
-    </Modal>
-  );
-}
-
-function EditStationModal({ station, onClose, onSubmit }: { station: Station | null; onClose: () => void; onSubmit: (station: Station, input: StationUpdate) => Promise<void> }) {
-  const [name, setName] = useState("");
-  const [connection, setConnection] = useState<PrinterConnection>("NONE");
-  const [address, setAddress] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!station) return;
-    setName(station.name);
-    setConnection(station.printerConnection);
-    setAddress(station.printerAddress ?? "");
-  }, [station]);
-
-  if (!station) return <Modal open={false} footer={null} />;
-  const input: StationInput = { name, printerConnection: connection, printerAddress: connection === "NONE" ? undefined : address };
-  const errors = validateStationInput(input);
-
-  return (
-    <Modal title={`Sửa ${station.name}`} open onCancel={onClose} footer={null} destroyOnHidden>
-      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Tên quầy</div>
-      <Input value={name} maxLength={100} onChange={(event) => setName(event.target.value)} />
-      <div style={{ fontSize: 12.5, fontWeight: 600, margin: "14px 0 6px" }}>Máy in</div>
-      <Radio.Group value={connection} onChange={(event) => setConnection(event.target.value as PrinterConnection)} optionType="button">
-        {(["NONE", "WIFI", "BLUETOOTH"] as PrinterConnection[]).map((value) => <Radio.Button key={value} value={value}>{PRINTER_CONNECTION_LABEL[value]}</Radio.Button>)}
-      </Radio.Group>
-      {connection !== "NONE" ? <Input style={{ marginTop: 12 }} value={address} maxLength={255} onChange={(event) => setAddress(event.target.value)} placeholder={connection === "WIFI" ? "192.168.1.50:9100" : "AA:BB:CC:DD:EE:FF"} /> : null}
-      {errors.length ? <div style={{ marginTop: 10, color: palette.error.text }}>{errors[0]}</div> : null}
-      <ActionButton
-        type="primary"
-        block
-        style={{ marginTop: 16 }}
-        disabled={errors.length > 0 || saving}
-        onClick={async () => {
-          setSaving(true);
-          try { await onSubmit(station, input); } finally { setSaving(false); }
-        }}
-      >
-        Lưu thay đổi
       </ActionButton>
     </Modal>
   );
