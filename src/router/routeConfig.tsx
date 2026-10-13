@@ -73,11 +73,7 @@ export const adminRoutes: RouteDef[] = [
     label: "Hồ sơ đăng ký",
     icon: <UserPlus size={18} />,
     code: "PA-01 · PA-02 · PA-03",
-    element: (
-      <div style={{ maxWidth: 560 }}>
-        <SignupRequests />
-      </div>
-    ),
+    element: <SignupRequests />,
   },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlansTable /> },
 ];
