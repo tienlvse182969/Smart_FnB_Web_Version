@@ -899,7 +899,7 @@ try {
     // 2b. 7.7b (QĐ 123, BE fb7cae9): lý do theo attention_reason; cột tiền chỉ cho lệch tiền; "Đã chờ" từ attentionAt.
     {
       const stock = { ...baseA, status: "REQUIRES_ATTENTION", paymentStatus: "PAID", placedAt: new Date(now - 60 * 60_000).toISOString(), attentionAt: new Date(now - 10 * 60_000).toISOString(), attentionReason: "PAID_ITEM_OUT_OF_STOCK", payments: [{ ...mismatchPay(baseA, 0), status: "SUCCESS", receivedAmount: null }] };
-      const late = { ...baseB, status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID", paidAt: null, placedAt: new Date(now - 50 * 60_000).toISOString(), attentionAt: new Date(now - 20 * 60_000).toISOString(), attentionReason: "PAYMENT_RECEIVED_AFTER_EXPIRY", payments: [{ ...mismatchPay(baseB, baseB.totalAmount), status: "REQUIRES_ATTENTION", expiresAt: new Date(now - 40 * 60_000).toISOString() }] };
+      const late = { ...baseB, status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID", paidAt: null, placedAt: new Date(now - 50 * 60_000).toISOString(), attentionAt: new Date(now - 20 * 60_000).toISOString(), attentionReason: "PAYMENT_RECEIVED_AFTER_EXPIRY", payments: [{ ...mismatchPay(baseB, baseB.totalAmount), status: "REQUIRES_ATTENTION", failureReason: "PAYMENT_RECEIVED_AFTER_EXPIRY", expiresAt: new Date(now - 40 * 60_000).toISOString() }] };
       tab.readOverride = [
         { match: /\/api\/v1\/manager\/orders\?.*status=REQUIRES_ATTENTION/, body: J({ items: [late, stock], total: 2, page: 1, limit: 100 }) },
         { match: new RegExp(`/api/v1/manager/orders/${baseB.id}$`), body: J({ ...(await be.get(`/manager/orders/${baseB.id}`)).body, ...late }) },
@@ -914,7 +914,8 @@ try {
       await tab.waitFor(`${tid("order-detail")}`, 20000, "chi tiết đơn tiền về muộn");
       await sleep(400);
       const bodyText = await q(`document.body.innerText`);
-      check("Real · Chi tiết đơn tiền về sau khi QR hết hạn: 'Đang chờ hệ thống hỗ trợ xử lý (#75)', không nút xác nhận/huỷ, khoản 'Cần xử lý'", /Đang chờ hệ thống hỗ trợ xử lý \(#75\)/.test(bodyText) && !(await has("order-confirm-open")) && !(await has("order-cancel-open")) && !(await has("order-cancel-open-attention")) && !/Khác \(/.test(bodyText), bodyText.replace(/\s+/g, " ").slice(0, 160));
+      // 7.7c (BE 7d7f2dc, #75): có "Xác nhận thủ công" và "Huỷ đơn và ghi hoàn tiền"; không còn câu "chờ hỗ trợ".
+      check("Real · Chi tiết đơn tiền về sau khi QR hết hạn: có nút xác nhận và huỷ (#75), không còn câu chờ hỗ trợ, khoản 'Cần xử lý'", !/Đang chờ hệ thống hỗ trợ xử lý/.test(bodyText) && (await has("order-confirm-open")) && (await has("order-cancel-open")) && /Cần xử lý/.test(bodyText) && (await has("order-cancel-open-attention")) && !/Khác \(/.test(bodyText), bodyText.replace(/\s+/g, " ").slice(0, 160));
       // Trả về trang danh sách cho các ca sau (cảnh báo socket cần trang này đang mở).
       tab.readOverride = null;
       await tab.goto("/manager/orders/needs-attention");
