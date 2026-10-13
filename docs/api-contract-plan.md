@@ -538,4 +538,26 @@ Việc mới sau 7.7a:
 
 **Web đã dùng ở lượt 7.7b (`07bda63`, QĐ 122–125):** #48 (khách đưa/tiền thối), #50 (hạn QR, "Hết hạn" kể cả khoản `PENDING` quá `expiresAt`), #45 (web tính hết hạn theo `expiresAt`, vì BE không có job), #51 (nghe `order.finalized`, `payment.cancelled`, `payment.expired`; GIỮ tải lại 60 giây), #52 (quầy khi BE có), #59 (QĐ 122), #60 (đọc mã `error`), #61/#67/#65 (lý do theo `attentionReason`, "Đã chờ" từ `attentionAt`; đơn tiền về sau hết hạn: "Đang chờ hệ thống hỗ trợ xử lý (#75)", không nút), #66 (`sortBy=attentionAt&sortOrder=asc`), #72 (cột "Đã hoàn", nhãn "(sau hoàn)"), #73 (tên người yêu cầu/hoàn), enum khoản `EXPIRED`/`REQUIRES_ATTENTION`. **Còn chờ BE:** #75, #76, #77, #47 (`payments[]` lẫn `DINE_IN`), #52 (tiền mặt), #45 (job). Chưa làm ở web (lượt 7.7c): #27, #28, #29, #62–#64, #68–#71.
 
+### Cập nhật 7.7c-BE (2026-10-13): BE `7d7f2dc` — trạng thái các mục còn mở (chi tiết: `docs/doi-chieu-be-20261013.md` mục 8)
+
+> BE `7d7f2dc` = `fb7cae9` + `7f73ecf` (Vũ Hà Gia Bảo) + merge PR #4. **Không có migration**; thêm 3 biến TUỲ CHỌN `PAYMENT_EXPIRY_JOB_ENABLED`, `PAYMENT_EXPIRY_JOB_INTERVAL_MS`, `PAYMENT_EXPIRY_BATCH_SIZE`. Bảng này thay dòng cùng số ở bảng "Cập nhật 7.7a".
+
+| # | Trạng thái BE `7d7f2dc` | Còn lại / web cần làm |
+|---|---|---|
+| 34 | **ĐẠT** 409 `{code: STATION_NAME_ALREADY_EXISTS}` cho `POST` và `PATCH /stations`; tên rỗng 400 | web đọc `body.code` (S) |
+| 45 | **ĐẠT** job trong tiến trình, mặc định 60 giây, `EXPIRED` + `payment.expired` | — (giữ tự tính theo `expiresAt` làm dự phòng) |
+| 47 / 76 | **ĐẠT** `payments[]` chỉ đơn quầy đã trả trong kỳ: 1 hàng, 9 khoản, gộp 1.090.000, sau hoàn 950.000 (trước: 51 khoản 8.510.000) | cập nhật kỳ vọng script (S) |
+| 49 | **CHƯA (cố ý)** giữ route nháp cho Mobile cũ | — |
+| 51 / 77 | **KHÔNG KIỂM ĐƯỢC (mã khớp)** `POST /cashier/checkout` phát `cashier.order.updated {orderId, status}` | có thể nới tải lại 60 giây (S) |
+| 52 | **KHÔNG KIỂM ĐƯỢC (mã khớp)** khoản tiền mặt lưu `stationId` (`counter-operations.service.ts:449`) | — |
+| 55 | **CHƯA (cố ý)** | — |
+| 58 | **MỘT PHẦN** khoá advisory theo `idempotencyKey`, trạng thái `RECEIVED`; chưa có test trùng | test (BE) |
+| 65 / 77 | **ĐẠT** lệch tiền ghi `attentionAt` + `PAYMENT_AMOUNT_MISMATCH` (lần đầu); đơn cũ vẫn `null` | kiểm bằng trả lời giả (S) |
+| 67 | **ĐẠT (theo thiết kế)** "QR chờ quá lâu" = hết hạn mã (job), không có lý do cần xử lý riêng | — |
+| 70 | **ĐẠT** có test | xử lý 429 (S) |
+| 74 | **CHƯA** không có test đua; `settle`/`markExpired` nay `ReadCommitted` | test đua (BE) |
+| 75 | **ĐẠT** `POST /payments/:id/confirm` (MANAGER, nhận đủ) và `POST /manager/orders/:id/cancel-paid` (cả đơn, hoàn = số đã nhận) nhận khoản `REQUIRES_ATTENTION` + `PAYMENT_RECEIVED_AFTER_EXPIRY` | web mở hai nút cho loại này (M) |
+
+**Việc BE còn lại:** #58 (test webhook trùng), #74 (test đua; `docs/BE_GAPS…` nói đã kiểm tích hợp nhưng repo không có ca đó), #52/#51 (test), #63, #29 (không đổi).
+
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.

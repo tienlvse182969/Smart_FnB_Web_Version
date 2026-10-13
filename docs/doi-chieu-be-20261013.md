@@ -114,3 +114,81 @@ Không có ca nào thuộc **(a)** (BE đổi hợp đồng làm vỡ web). Tổ
 | `d4a3c3c` | Vũ Hà Gia Bảo | 13/10 | `Revert "feat: manage branch display devices"` |
 
 Nhánh `origin/feat/manager-display-management` ở `9399a35` (không có commit riêng ngoài trên). Hai commit này chưa nằm trong `feat/v9-orders`; lượt tới cần cân nhắc khi merge (cùng tệp `Stations.tsx`, `stations/*`), KHÔNG merge ở lượt này.
+
+## 8. Cập nhật 13/10/2026 (BE `7d7f2dc`) — lượt 7.7c-BE
+
+> Bảo (BE) báo đã sửa các mục còn mở sau 7.7a (`docs/BE_GAPS_AFTER_FB7CAE9.md` của BE). Chỉ đọc mã + test BE + GET thật (Manager/Owner demo, KHÔNG ghi). Không sửa mã web, không chạy khối trình duyệt.
+
+### 8.1 BE local
+
+| Mục | Giá trị |
+|---|---|
+| Hash | `fb7cae9` → **`7d7f2dc`** (`Merge pull request #4 from Raintostorm/feat/complete-be-gaps-after-fb7cae9`), fast-forward |
+| Commit | 2: `7f73ecf` Vũ Hà Gia Bảo 13/10 `fix: complete remaining cashier payment backend gaps`; `7d7f2dc` BaoKhanh12333 13/10 merge PR #4. 22 tệp (+518/−65), không đụng `prisma/` |
+| Sao lưu | `C:\Users\KhanhNB\backup-smartfnb-20261013-165533.sql`, 792.083 byte (mốc 777.107) |
+| Migration | **0 mới** (29/29, "No pending migrations to apply"); không DROP/ALTER/UPDATE |
+| Seed | `seed.ts` không đổi; `RUN_DEMO_SEED` vẫn mặc định `false`; log container không có seed; dữ liệu giữ nguyên (84 đơn, 82 khoản, 2 khoản hoàn) |
+| Biến môi trường | `environment.validation.ts` +3 biến TUỲ CHỌN có mặc định: `PAYMENT_EXPIRY_JOB_ENABLED` (true), `PAYMENT_EXPIRY_JOB_INTERVAL_MS` (60000, ≥ 10000), `PAYMENT_EXPIRY_BATCH_SIZE` (100). `.env` local chưa đặt: dùng mặc định (job BẬT). Không thiếu biến bắt buộc |
+| Build | `docker compose up -d --build api`: healthy ở lần kiểm thứ 3, restart 0 |
+
+### 8.2 Số liệu nền trước và sau build (GET thật)
+
+| Chỉ số | Trước (`fb7cae9`) | Sau (`7d7f2dc`) |
+|---|---|---|
+| Đơn `COUNTER_PICKUP` | 13: `SUBMITTED/PAID` 7, `DELIVERED/PAID` 2, `CANCELLED/PAID` 2, `CANCELLED/UNPAID` 1, `CONFIRMED/UNPAID` 1 | giống hệt (13) |
+| Đơn có `attentionAt`/`attentionReason` | 0 | 0 |
+| Báo cáo Manager 14/09–13/10 `summary` | gộp 1.090.000 · hoàn 140.000 · ròng 950.000 · **9 đơn** · TB 105.555,56 | giống hệt |
+| `payments[]` ("theo hình thức") | **2 hàng, 51 khoản**: CASH 37 khoản (gộp 5.925.000, sau hoàn 5.785.000) + BANK_TRANSFER 14 khoản (2.585.000); cộng gộp **8.510.000**, sau hoàn 8.370.000 | **1 hàng**: CASH **9 khoản**, gộp **1.090.000**, hoàn 140.000, sau hoàn **950.000**, `cancelledAfterPaymentCount` 2 |
+| Cộng "theo hình thức" so với doanh thu | lệch (8,51 triệu so với 1,09 triệu) | **khớp**: gộp = `grossRevenue`, sau hoàn = `netRevenue` |
+| Số đơn theo giờ (cộng) | 9 | 9 |
+| Owner (OW-08) `GET /reports/revenue/comparison` | gộp 1.090.000 · hoàn 140.000 · ròng 950.000 · 9 đơn | giống hệt (Owner không có mục "theo hình thức"; cùng tập đơn đã trả với Manager) |
+| Quầy | `Quầy 1` ACTIVE, `NONE` | không đổi |
+
+### 8.3 Xác minh từng mục
+
+Quy ước kết luận như mục đầu tài liệu. "Test BE" = tên `it(...)`.
+
+| # | Kết luận | Commit / file:dòng (BE) | Test BE | Hợp đồng đổi? Vỡ web? | Web cần làm (cho 7.7c) | Cỡ |
+|---|---|---|---|---|---|---|
+| 47 / 76 | **ĐẠT** | `7f73ecf` `manager-reports.service.ts`: `payments` dùng `FROM payments p JOIN sales po` (`${sales}` = đơn đã trả trong kỳ); bỏ `LEFT JOIN orders`/nhánh `table_sessions`; mốc ngày đổi sang `zonedMidnight` (tính ở ứng dụng). GET: 1 hàng, 9 khoản, khớp doanh thu | Không có test đơn vị; kiểm tích hợp ghi trong `docs/BE_GAPS…` nhưng `scripts/test-manager.mjs` (50 dòng) không có ca đó, KHÔNG chạy (tạo/xoá DB) | Hình dạng không đổi, số đổi. Không vỡ | Không cần mã. Cập nhật kỳ vọng `phase7 report` (hàng "theo hình thức" nay 1 hàng, 9 khoản) và dòng log `#47`; bỏ ghi chú "lẫn DINE_IN" ở QĐ 125 khi duyệt | S |
+| 75 | **ĐẠT** | `counter-payment-settlement.service.ts` `settle`: nhận khoản `REQUIRES_ATTENTION` + `failureReason = PAYMENT_RECEIVED_AFTER_EXPIRY` khi `source = MANAGER_MANUAL` (→ `SUCCESS`, đơn `SUBMITTED`, xoá `attentionAt/Reason`); `paid-order-refund.service.ts:133-190`: `cancelPaidOrder` nhận khoản đó, hoàn đúng số ĐÃ NHẬN, **chỉ huỷ cả đơn** (409 "An underpaid order must be cancelled in full" nếu chọn dòng). Mã lỗi: 409 `PAYMENT_ALREADY_SETTLED`, 409 `PAYMENT_AMOUNT_INSUFFICIENT` (nhận thiếu), 409 "Payment changed concurrently…" (cạnh tranh). Endpoint không đổi: `POST /payments/:id/confirm`, `POST /manager/orders/:id/cancel-paid` | `payment-settlement.test.mjs` `lets a manager accept money received after QR expiry`; `paid-order-refund.test.mjs` `cancels a late expired payment and refunds the amount actually received` | Chỉ nới điều kiện; không vỡ. **Hiện web CHẶN**: `manualConfirm.ts` chỉ nhận `PENDING`/`AMOUNT_MISMATCH`, `paidCancel.ts` `cancelTarget` chỉ `SUCCESS`/`AMOUNT_MISMATCH`, chi tiết đơn hiện "#75" không nút | `confirmableTransfer`: thêm khoản `REQUIRES_ATTENTION` có `failureReason = PAYMENT_RECEIVED_AFTER_EXPIRY`; `cancelTarget`: kind mới "late" (cả đơn, hoàn = `receivedAmount`); bỏ câu "(#75)" và hiện hai nút; cập nhật mock, hộp xác nhận (số nhận sẵn có), test | M |
+| 65 / 77 | **ĐẠT** | `counter-payment-settlement.service.ts:165-176` `markAmountMismatch`: lần đầu vào `REQUIRES_ATTENTION` ghi `attentionAt = now`, `attentionReason = PAYMENT_AMOUNT_MISMATCH` (không ghi đè nếu đã ở trạng thái đó); `settle` xoá cả hai | `payment-settlement.test.mjs` `stores a mismatched amount…` (kiểm `attentionReason`, `attentionAt`) | Thêm dữ liệu; không vỡ. Đơn lệch tiền CŨ vẫn `null` (không có migration) | Không cần mã (QĐ 123 đã đọc `attentionAt`/`attentionReason`; "(từ lúc đặt)" tự mất cho đơn mới). Kiểm bằng trả lời giả | S |
+| 52 | **KHÔNG KIỂM ĐƯỢC** | `counter-operations.service.ts:449` `stationId: station.id` khi tạo khoản tiền mặt. Mã khớp. Lý do: không có test BE; GET chỉ có đơn cũ (`station: null`), tạo đơn mới là ghi | Không | Thêm dữ liệu; không vỡ | Không cần mã (QĐ đã hiện "Quầy: …" khi có) | — |
+| 51 | **KHÔNG KIỂM ĐƯỢC** (mã khớp) | `counter-operations.controller.ts:53-62`: `checkout` phát `cashier.order.updated { orderId: result.id, status }`; `payment.expired` do job phát (xem #45). Lý do: không có test cho controller; phát sự kiện cần tạo đơn (ghi) | Không riêng (`payment.expired` có test) | Tên sự kiện đã có trong `ORDER_EVENT_TYPES` | Có thể nới tải lại 60 giây dự phòng (QĐ 124) sau khi kiểm có socket thật ở 7.7d; không bắt buộc | S |
+| 45 | **ĐẠT** | `payment-expiry.worker.ts` (60 dòng): `setInterval` mặc định 60 giây, `runOnce` khi khởi động, lấy tối đa 100 khoản PayOS `PENDING` có `expiresAt <= now` theo `expiresAt` tăng dần, gọi `markExpired` (khoá hàng, chỉ lần đổi trạng thái đầu phát `payment.expired`); `PaymentsModule` đăng ký; có thể tắt bằng `PAYMENT_EXPIRY_JOB_ENABLED=false` | `payment-expiry.worker.test.mjs` `expires each due payment in a bounded batch` | Khoản chuyển `EXPIRED` trong ≤ ~60 giây sau `expiresAt`, không cần mở đơn | Giữ phần web tự tính "Hết hạn" theo `expiresAt` làm dự phòng; không cần mã | — |
+| 34 | **ĐẠT** | `stations.service.ts` `rethrowStationConflict`: `P2002` → 409 `{ code: 'STATION_NAME_ALREADY_EXISTS', message }` cho `POST /stations` và `PATCH /stations/:id`; tên rỗng sau trim → 400 `Station name must not be empty` | `stations.service.test.mjs` `returns a stable 409 code when a station name already exists` | Mã nằm ở `code` (như #69): `toApiError` chỉ đọc `error` → web nhận 409 chung. Không vỡ (web đã báo trùng tên trước khi gửi) | `toApiError` đọc thêm `body.code`; câu "Tên quầy đã tồn tại" theo mã `STATION_NAME_ALREADY_EXISTS` (dùng chung cho #69 `DEVICE_TOKEN_*`, `PAIRING_CODE_*`) | S |
+| 67 | **ĐẠT (theo thiết kế BE)** | Loại "QR chờ quá lâu" KHÔNG thành lý do cần xử lý riêng: ngưỡng = hạn mã QR (`expiresAt`, 10 phút ở `payos-payment.service.ts`), job (#45) chuyển khoản sang `EXPIRED` + phát `payment.expired`; đơn giữ `CONFIRMED`/`UNPAID` | như #45 | Không | Không cần mã; nhãn "Hết hạn"/"QR hết hạn" đã có (7.7b) | — |
+| 58 | **MỘT PHẦN** | `payos-payment.service.ts` webhook: `pg_advisory_xact_lock(hashtext(idempotencyKey))` trước khi đọc bản ghi; trạng thái `RECEIVED` cũng coi là đã nhận. Chưa có test webhook trùng/song song | Không (`payos-channel.test.mjs` chỉ sửa ca mã hoá) | Không | Không | — |
+| 74 | **CHƯA** | `docs/BE_GAPS…` nói đã kiểm tích hợp "concurrent payment confirmation" trên DB tạm, nhưng repo không có ca đó (`scripts/test-manager.mjs` 50 dòng, chỉ tạo/xoá DB và chạy bộ kiểm). Đổi mức cách ly `settle`/`markExpired` từ `Serializable` sang `ReadCommitted` (dựa vào `SELECT … FOR UPDATE`); `payments.service.ts` map `P2002`/`P2028`/`P2034` → 409 | Không | Không | Không | — |
+| 70 | **ĐẠT** (nâng từ KHÔNG KIỂM ĐƯỢC) | không đổi mã ở lượt này; nay có test | `stations.service.test.mjs` `cleans stale pairing codes and limits public code creation per client` | Không | Xử lý 429 ở `deviceClient` (7.7c) | S |
+| 49 | **CHƯA (cố ý)** | BE giữ `POST /cashier/orders` và các route sửa dòng cho Mobile cũ; chỉ xoá khi mọi bản Mobile ngừng gọi (`docs/BE_GAPS…`, "Draft orders #49") | Không | — | Giữ "Khác (PENDING)" | — |
+| 55 | **CHƯA (cố ý)** | Giữ `cart_snapshot` vì Render có thể ngủ/khởi động lại; đổi tên sự kiện cần phối hợp 2 repo Mobile | Không | — | Không | — |
+| 29 | **KHÔNG KIỂM ĐƯỢC** | Không đổi mã; BE chỉ nhắc lại trong tài liệu | Không | Không | Tuỳ chọn bỏ `MIN_MAX_TABLES` | S |
+| 63 | **KHÔNG KIỂM ĐƯỢC** | Không đổi mã (BE: "đã có, giữ trong hợp đồng"); vẫn không có test | Không | Không | Mở khoá xoá SĐT (`StaffTable.tsx:439`) | S |
+
+Tổng 17 mục: **ĐẠT 9** (#47, #76, #75, #65, #77, #45, #34, #67, #70) · **MỘT PHẦN 1** (#58) · **CHƯA 3** (#74, #49 cố ý, #55 cố ý) · **KHÔNG KIỂM ĐƯỢC 4** (#52, #51 — mã khớp nhưng không có test và không dựng được GET; #29, #63 — như 7.7a).
+
+### 8.4 Mọi commit khác trong khoảng và độ vỡ web
+
+| Thay đổi | Chạm mục | Hợp đồng đổi / vỡ web? |
+|---|---|---|
+| `settle`/`markExpired` đổi `Serializable` → `ReadCommitted` | #74 | Không đổi hợp đồng; rủi ro đua dựa vào khoá hàng (chưa có test đua) |
+| Báo cáo: mốc ngày tính ở ứng dụng (`zonedMidnight`) | #47 | Số liệu local giống hệt trước/sau; không vỡ |
+| `payments.service.ts` map `P2002`/`P2028` → 409 `Payment changed concurrently` | #58 | Câu đã có trong `errors.ts`; không vỡ |
+| Swagger/mô tả endpoint (`confirm`, `cancel-paid`) | #75 | Không |
+| `.env.example`, `package.json` (thêm test worker vào `pnpm test`) | #45 | Không |
+
+**BE làm VỠ web: không.** Có 1 chỗ hợp đồng mới chưa đọc được ở web: `code` (không phải `error`) cho 409 `STATION_NAME_ALREADY_EXISTS`.
+
+### 8.5 Kết quả test BE (chạy ngoài cây BE)
+
+Lý do chạy riêng: `src/generated/prisma` của BE local CŨ (không có enum `REQUIRES_ATTENTION`/`AMOUNT_MISMATCH`, `cartVersion`) nên `pnpm test` trên cây BE sẽ sinh lỗi giả, và `pnpm build`/`prisma generate` ghi vào cây BE. Đã sao chép `src`, `prisma`, `test` sang thư mục tạm ngoài repo (`%TEMP%\be7e`), `prisma generate` + `tsc` ở đó, rồi chạy đúng danh sách của `pnpm test` (không DB, không mạng): **145/145 đạt** (khớp số BE báo), `tsc` không lỗi. `test/payos-channel.test.mjs` (ca "encrypts credentials…" từng chập chờn vì đổi ký tự cuối thành `x` có thể trùng): chạy **15 lần, 0 lần trượt**; BE đã đổi sang đổi ký tự đầu của phần thứ 3 (`payos-channel.test.mjs:35-37`) nên xác định. KHÔNG chạy `scripts/test-manager.mjs` (tạo và xoá một DB trên máy chủ Postgres). Cây BE sau lượt: chỉ còn `prisma/smart-fnb.dbml` chưa theo dõi.
+
+### 8.6 Việc web cho 7.7c (cộng thêm vào kế hoạch 7.7a)
+
+| Việc | Cỡ |
+|---|---|
+| #75: mở xác nhận tay và huỷ cả đơn cho đơn tiền về sau QR hết hạn (`manualConfirm.ts`, `paidCancel.ts`, `OrderDetail.tsx`, mock, test) | M |
+| `toApiError` đọc `body.code` (cùng #34 `STATION_NAME_ALREADY_EXISTS`, #69) | S |
+| Cập nhật kỳ vọng `phase7 report` (1 hàng, 9 khoản) và bỏ ghi chú #47 khi Khánh duyệt | S |
+| (tuỳ chọn) nới tải lại 60 giây sau khi có socket thật | S |
