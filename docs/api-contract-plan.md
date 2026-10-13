@@ -3,6 +3,7 @@
 > Dành cho nhóm BE. Căn cứ: đặc tả v9 mục 13 (gói), mục 10 (nhận diện), BR-08, BR-09, BR-11.
 > Hiện web **chỉ đọc được hạn mức thật** (`subscription.quotas` trong `GET /restaurant-chains`). Mọi thứ còn lại dưới đây đang là **mock** ở web (`src/api/modules/plan`), chờ BE.
 > Kiểu TypeScript tương ứng: `src/types/plan.ts`.
+> **Trạng thái mới nhất của từng mục: mục "Cập nhật 7.7a" ở CUỐI tệp (BE `fb7cae9`, 13/10/2026).** Các bảng cũ ghi trạng thái tại thời điểm từng lượt.
 
 ## 1. Endpoint đề xuất
 
@@ -490,3 +491,49 @@ Phía web (đã làm): token thu hồi hoặc mã hết hạn → về bước g
 | Hạn mức tài khoản tính cả tài khoản đã khoá | 13.1 | `users.service.ts` (→ #26) |
 | Manager ghi được `isEnabled` của món ở chi nhánh (mức thấp, #37) | BM-02: Manager chỉ bật/tắt "hết hàng trong ngày"; BR-12 và OW-04: cờ kinh doanh và gán món thuộc Owner | `branch-menu.controller.ts:47-48` + `menu.dto.ts:194-214` cho OWNER, MANAGER gửi cả `isEnabled`, `isAvailable`, `remainingPortions` |
 | Còn dữ liệu và route v7: bàn, phiên bàn, đặt bàn, ca làm, voucher, Waiter, Kitchen, `remainingPortions` | Mục 1: đã bỏ hẳn | `schema.prisma`, `AppRole`, `/waiter/*`, `/kitchen/*` |
+
+### Cập nhật 7.7a (2026-10-13): BE `fb7cae9` — trạng thái từng mục (chi tiết ở `docs/doi-chieu-be-20261013.md`)
+
+> BE `fb7cae9` = `514c426` + 6 commit (Vũ Hà Gia Bảo, 12/10): `db49fd1`, `8f9e37c`, `edb64e6`, `297c164`, `3deff67`, `fb7cae9`. Migration mới 2 (29/29, đã áp): `20261012100000_late_expired_payos` (thêm enum `EXPIRED`, `REQUIRES_ATTENTION`; `orders.attention_at`, `attention_reason`), `20261012110000_station_device_management` (`display_devices.token_expires_at`, backfill `paired_at + 30 ngày`, NOT NULL). Seed chỉ chạy khi `RUN_DEMO_SEED=true`. Bảng này **thay** các dòng cũ của cùng số mục ở các bảng phía trên.
+
+| # | Trạng thái BE `fb7cae9` | Còn lại / việc cho BE |
+|---|---|---|
+| 27 | **ĐẠT** `PATCH /stations/:stationId` (`stations.controller.ts:91`) | không bắt `P2002` (đổi trùng tên), không kiểm IP/MAC (→ #34); chưa gọi thật vì cấm ghi |
+| 28 | **ĐẠT** `GET /display-devices` (`stations.controller.ts:104`), kèm cả thiết bị đã thu hồi | — |
+| 29 | **ĐẠT (mã; không kiểm được)** `maxTables` tuỳ chọn, mặc định 1 | — |
+| 42 | **ĐẠT** seed chỉ khi `RUN_DEMO_SEED=true` (`docker-entrypoint.sh:6`) | muốn seed lại phải bật biến; đã kiểm log, không seed |
+| 45 | **MỘT PHẦN** (b), (c), (d) có; (a) không có job: `EXPIRED` chỉ ghi lười | job hết hạn, hoặc chấp nhận và để web tính theo `expiresAt` |
+| 47 | **MỘT PHẦN** số đơn/trung bình/theo giờ đúng; `payments[]` vẫn lẫn `DINE_IN` v7 | lọc `type = COUNTER_PICKUP` (→ #76) |
+| 48 | **ĐẠT** `tenderedAmount`, `changeAmount` | — |
+| 49 | **CHƯA (cố ý)** Mobile POS còn dùng `PENDING` | quyết định cùng Mobile |
+| 50 | **ĐẠT** `expiresAt` trong `paymentSelect` | — |
+| 51 | **MỘT PHẦN** `order.finalized`, `payment.cancelled`, `order.cancelled`, `payment.expired`; `POST /cashier/checkout` vẫn không phát | phát sự kiện cho checkout (→ #77) |
+| 52 | **MỘT PHẦN** `stationId`/`station` có; khoản tiền mặt không lưu quầy | lưu `stationId` ở `collectCash` |
+| 55 | **CHƯA (cố ý)** | đợt riêng, tương thích ngược |
+| 58 | **CHƯA** | test webhook trùng/đồng thời |
+| 59 | **ĐẠT (quyết định)** BE giữ cho Manager/Owner xác nhận tay và huỷ/hoàn khi gói hết hạn | web cần Khánh duyệt đổi QĐ 85 |
+| 60 | **ĐẠT** `PAYMENT_ALREADY_SETTLED` ở `error` (message tiếng Anh mới) | web cần đọc `err.code` (hiện rơi về câu chung) |
+| 61 | **MỘT PHẦN** phát hiện + không đẩy xuống Barista; đơn kẹt không có đường xử lý | **#75** |
+| 62 | **ĐẠT** `user.lastLoginAt` | — |
+| 63 | **ĐẠT (mã; không kiểm được)** `phone: null` | — |
+| 64 | **ĐẠT** `invitationStatus`, `invitationExpiresAt`, `POST /manager/staff/:id/invitation/cancel` | mở khoá tài khoản `INACTIVE` thành `ACTIVE` khi chưa có mật khẩu: chưa đổi |
+| 65 | **MỘT PHẦN** `attentionAt`/`attentionReason` có; lệch tiền không ghi | ghi cả `markAmountMismatch` (→ #77) |
+| 66 | **ĐẠT** `sortBy`, `sortOrder` | — |
+| 67 | **MỘT PHẦN** hết món/tuỳ chọn → `REQUIRES_ATTENTION` + lý do (`PAID_ITEM_OUT_OF_STOCK`, `PAID_OPTION_OUT_OF_STOCK`); QR chờ lâu chưa | nhóm chốt ngưỡng thời gian |
+| 68 | **ĐẠT** thu hồi ngắt socket, phát `device.revoked` | — |
+| 69 | **ĐẠT** mã lỗi ở `code`: `DEVICE_TOKEN_*`, `PAIRING_CODE_*` | web đọc `code` |
+| 70 | **ĐẠT (mã; không kiểm được)** 10/phút/IP (429), dọn mã hết hạn | giới hạn trong bộ nhớ một tiến trình |
+| 71 | **ĐẠT** `counts {preparing, ready}`, `pageLimit` | — |
+| 72 | **ĐẠT** | — |
+| 73 | **ĐẠT** `refunds[].requestedBy`, `completedBy` (chi tiết đơn) | — |
+| 74 | **CHƯA** | test đua |
+
+Việc mới sau 7.7a:
+
+| # | Mức | Việc cho BE | Căn cứ |
+|---|---|---|---|
+| 75 | Trung bình | **Đơn "tiền về sau QR hết hạn" (`REQUIRES_ATTENTION`, `PAYMENT_RECEIVED_AFTER_EXPIRY`) không có đường xử lý**: xác nhận tay 409 `PAYMENT_ALREADY_SETTLED` (`counter-payment-settlement.service.ts:205`); huỷ đã trả 409 "no received payment to refund" (`paid-order-refund.service.ts:136,142`); huỷ chưa trả 409 vì đơn không còn `CONFIRMED` (`counter-operations.service.ts:540`). Đề nghị `settle` hoặc `cancelPaidOrder` nhận khoản `REQUIRES_ATTENTION` | `8f9e37c`; `PAYOS_EXPIRY_45_61.md` |
+| 76 | Thấp | `GET /manager/reports` `payments[]` vẫn gồm đơn `DINE_IN` v7 (phần còn lại của #47): lọc `po.type = 'COUNTER_PICKUP'`, bỏ nhánh `table_sessions`. Ghi chú đổi nghĩa: `settledAmount`/`receivedAmount` nay là SAU hoàn; `paymentCount` không gồm đơn đã huỷ; thêm `gross*`, `refundAmount`, `netAmount`, `cancelledAfterPaymentCount` | `manager-reports.service.ts:78-98` |
+| 77 | Thấp | `markAmountMismatch` không ghi `attentionAt`/`attentionReason` (`counter-payment-settlement.service.ts:166-171`); `POST /cashier/checkout` không phát sự kiện nào (`counter-operations.controller.ts:52-58`) | #65, #51 |
+
+Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.
