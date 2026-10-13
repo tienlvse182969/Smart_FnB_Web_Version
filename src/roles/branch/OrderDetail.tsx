@@ -160,7 +160,7 @@ function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord |
         ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
         : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
     case "RECEIVED_AFTER_EXPIRY":
-      return `Đang chờ hệ thống hỗ trợ xử lý (#75). Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Chưa xác nhận hay huỷ được trên màn này.${since}`;
+      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Đã kiểm tra tiền vào tài khoản thì "Xác nhận thủ công" (đơn xuống pha chế), nếu không thì "Huỷ đơn và ghi hoàn tiền" (hoàn đúng số đã nhận).${since}`;
     case "ITEM_OUT_OF_STOCK":
       return `Pha chế báo hết món trong đơn đã trả tiền. Xem các dòng "Hết món" bên dưới; không làm được thì huỷ đơn (hoặc dòng) và ghi hoàn tiền.${since}`;
     case "OPTION_OUT_OF_STOCK":
@@ -506,7 +506,7 @@ export default function OrderDetail() {
           message={`Đơn cần xử lý — ${attentionReason.label}`}
           action={
             // QĐ 122: huỷ đơn đã trả không khoá khi gói hết hạn (tiền đã nhận phải xử lý được).
-            target?.kind === "mismatch" && (
+            target && target.kind !== "paid" && (
               <Button danger data-testid="order-cancel-open-attention" onClick={() => setCancelOpen(true)}>
                 Huỷ đơn và ghi hoàn tiền
               </Button>

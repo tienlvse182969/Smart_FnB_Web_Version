@@ -74,11 +74,12 @@ export function notifySessionExpired(): void {
 }
 
 export function toApiError(status: number, body: unknown): ApiError {
-  const payload = body as { message?: unknown; error?: unknown } | null;
+  const payload = body as { message?: unknown; error?: unknown; code?: unknown } | null;
   const raw = payload?.message;
-  // `error` là tên lỗi HTTP ("Bad Request") hoặc mã nghiệp vụ ("PLAN_LIMIT_REACHED").
-  const rawCode = typeof payload?.error === "string" ? payload.error : null;
-  const code = rawCode && /^[A-Z][A-Z0-9_]+$/.test(rawCode) ? rawCode : null;
+  // Mã nghiệp vụ: BE đặt ở `code` (từ `fb7cae9`: `STATION_NAME_ALREADY_EXISTS`, `DEVICE_TOKEN_*`, `PAIRING_CODE_*`) hoặc ở `error`
+  // (`PLAN_LIMIT_REACHED`, `PAYMENT_*`; `error` còn là tên lỗi HTTP "Bad Request" nên chỉ nhận dạng MÃ HOA). Ưu tiên `code` > `error` (QĐ 126).
+  const asCode = (v: unknown): string | null => (typeof v === "string" && /^[A-Z][A-Z0-9_]+$/.test(v) ? v : null);
+  const code = asCode(payload?.code) ?? asCode(payload?.error);
 
   if (Array.isArray(raw)) {
     const details = raw.map(String);

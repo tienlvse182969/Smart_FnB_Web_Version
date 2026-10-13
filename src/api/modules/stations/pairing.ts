@@ -23,6 +23,13 @@ export const isPairingCode = (code: string): boolean => /^\d{6}$/.test(code);
 /** Thông báo cho người dùng khi ghép thất bại; `null` nếu không phải lỗi ghép (để lớp gọi dùng thông báo chung của BE). */
 export function describePairingError(err: unknown, kind: DisplayKind): string | null {
   if (!(err instanceof ApiError)) return null;
+  // BE `fb7cae9` (#69): mã lỗi riêng ở `code`. Sai loại gộp vào INVALID (BE không tách).
+  if (err.status === 400 && err.code === "PAIRING_CODE_EXPIRED") return "Mã ghép đã hết hạn (5 phút). Hãy bật lại màn hình để lấy mã mới.";
+  if (err.status === 400 && err.code === "PAIRING_CODE_USED") return "Mã ghép đã được dùng. Hãy bật lại màn hình để lấy mã mới.";
+  if (err.status === 400 && err.code === "PAIRING_CODE_INVALID") {
+    const other = kind === "CUSTOMER_DISPLAY" ? "màn hình gọi số" : "màn hình khách";
+    return `Mã ghép không đúng, hoặc là mã của ${other} (đang ghép ${kind === "CUSTOMER_DISPLAY" ? "màn hình khách" : "màn hình gọi số"}). Kiểm tra lại mã trên màn hình.`;
+  }
   if (err.status === 400 && err.message === BE_PAIRING_INVALID) {
     const other = kind === "CUSTOMER_DISPLAY" ? "màn hình gọi số" : "màn hình khách";
     return `Mã ghép không dùng được: mã sai, đã hết hạn (5 phút), đã được dùng, hoặc là mã của ${other} (đang ghép ${kind === "CUSTOMER_DISPLAY" ? "màn hình khách" : "màn hình gọi số"}). Hãy bật lại màn hình để lấy mã mới.`;

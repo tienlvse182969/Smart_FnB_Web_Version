@@ -146,6 +146,10 @@ function open(): void {
   s.on("operations.updated", (event: OperationsEvent) => {
     for (const sub of [...subscribers]) sub.onEvent(event);
   });
+  // BE `fb7cae9` (#68): thu hồi thiết bị phát `device.revoked` rồi ngắt socket → màn kiểm tra bằng REST ngay (không đợi nhịp hỏi).
+  s.on("device.revoked", () => {
+    if (isDevice()) markRejected();
+  });
   s.on("connect_error", () => setStatus("disconnected"));
   s.on("disconnect", (reason: string) => {
     setStatus("disconnected");

@@ -19,6 +19,9 @@ export type CallingDisplayContext = {
   }
   preparing: CallingOrder[]
   ready: CallingOrder[]
+  /** Tổng thật theo BE `fb7cae9` (#71); mỗi cột chỉ có tối đa `pageLimit` số. Thiếu ở BE cũ. */
+  counts?: { preparing: number; ready: number }
+  pageLimit?: number
   serverTime: string
 }
 

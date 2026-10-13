@@ -95,17 +95,21 @@ export const accountReal: AccountApi = {
   },
 
   async updateStaff(_chainId, _branchId, staffId, patch) {
-    // BE không nhận giá trị null ("Null fields are not supported") nên KHÔNG gửi `phone: null`; xoá số điện thoại chưa làm được (#63).
+    // BE `fb7cae9` (#63): chỉ `phone` nhận `null` để xoá số điện thoại (các trường khác null → 400); chuỗi rỗng bị BE bỏ qua nên gửi null.
     const body: Record<string, unknown> = {};
     if (patch.firstName !== undefined) body.firstName = patch.firstName.trim();
     if (patch.lastName !== undefined) body.lastName = patch.lastName.trim();
-    if (patch.phone) body.phone = patch.phone.trim();
+    if (patch.phone !== undefined) body.phone = patch.phone && patch.phone.trim() ? patch.phone.trim() : null;
     const raw = await request<RawStaff>(`/manager/staff/${staffId}`, { method: "PATCH", body });
     return mapStaffEmployee(raw) as StaffEmployee;
   },
 
   async setStaffActive(_chainId, _branchId, staffId, active, reason) {
     await request(`/manager/staff/${staffId}/status`, { method: "PATCH", body: { status: active ? "ACTIVE" : LOCKED, reason: assertReason(reason) } });
+  },
+
+  async cancelStaffInvitation(_chainId, _branchId, staffId, reason) {
+    await request(`/manager/staff/${encodeURIComponent(staffId)}/invitation/cancel`, { method: "POST", body: { reason: assertReason(reason) } });
   },
 
   async resetStaffPassword(_chainId, _branchId, staffId, reason) {

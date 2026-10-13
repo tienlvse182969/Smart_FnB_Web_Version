@@ -47,10 +47,16 @@ export function boardOrders(
 export function fitToCapacity<T>(
   items: T[],
   capacity: number,
+  /**
+   * Tổng số BE đếm được (`counts`, #71, BE `fb7cae9`) — BE chỉ trả tối đa `pageLimit` (30) số mỗi cột, nên tổng thật có thể lớn hơn
+   * `items.length`. Thiếu hoặc nhỏ hơn số đang có thì bỏ qua (BE cũ).
+   */
+  total?: number,
 ): { shown: T[]; hidden: number } {
-  if (items.length <= capacity) return { shown: items, hidden: 0 }
+  const all = Math.max(items.length, typeof total === "number" && Number.isFinite(total) ? Math.trunc(total) : 0)
+  if (all <= capacity) return { shown: items, hidden: 0 }
   const shown = items.slice(0, Math.max(0, capacity - 1))
-  return { shown, hidden: items.length - shown.length }
+  return { shown, hidden: all - shown.length }
 }
 
 /** Số có mặt ở `next` mà chưa ở `previous`. `previous` null = lần nạp đầu: không số nào là "mới gọi". */

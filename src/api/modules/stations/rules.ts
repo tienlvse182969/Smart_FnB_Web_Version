@@ -5,7 +5,7 @@
  * Đặc tả 11.10 (dòng 1104): Bluetooth là "chọn máy đã ghép Bluetooth trên tablet POS", không phải gõ ở web. BE lại BẮT BUỘC
  * có địa chỉ cho Bluetooth nên web tạm có ô nhập MAC; khi POS chọn máy thì bỏ ô này (api-contract-plan #34).
  */
-import type { PrinterConnection, Station, StationInput } from "../../../types";
+import type { PrinterConnection, Station, StationInput, StationPatch } from "../../../types";
 
 export const STATION_NAME_MAX = 100; // CreateStationDto.name @MaxLength(100)
 export const PRINTER_ADDRESS_MAX = 255; // CreateStationDto.printerAddress @MaxLength(255)
@@ -50,6 +50,36 @@ export function validateStationInput(input: { name: string; printerConnection: P
   }
   if (address.length > PRINTER_ADDRESS_MAX) errors.push(`Địa chỉ máy in tối đa ${PRINTER_ADDRESS_MAX} ký tự`);
   return errors;
+}
+
+/**
+ * Thân `PATCH /stations/:stationId` đúng `UpdateStationDto`: chỉ trường có trong `patch`; tên trim; địa chỉ chuẩn hoá theo kiểu máy in
+ * và KHÔNG gửi khi chuyển sang `NONE` (BE đặt null). Đổi sang WiFi/Bluetooth mà thiếu địa chỉ thì BE trả 400.
+ */
+export function toPatchBody(patch: StationPatch): StationPatch {
+  const body: StationPatch = {};
+  if (patch.name !== undefined) body.name = patch.name.trim();
+  if (patch.status !== undefined) body.status = patch.status;
+  if (patch.printerConnection !== undefined) {
+    body.printerConnection = patch.printerConnection;
+    if (patch.printerConnection !== "NONE" && patch.printerAddress !== undefined) {
+      body.printerAddress = normalizeAddress(patch.printerConnection, patch.printerAddress);
+    }
+  } else if (patch.printerAddress !== undefined) {
+    body.printerAddress = patch.printerAddress.trim();
+  }
+  return body;
+}
+
+/**
+ * Lỗi nhập khi SỬA quầy (rỗng = hợp lệ): cùng luật với tạo, nhưng tên trùng chỉ tính với quầy KHÁC. `existing` gồm cả quầy đang sửa.
+ */
+export function validateStationPatch(
+  current: Pick<Station, "id" | "name">,
+  next: { name: string; printerConnection: PrinterConnection; printerAddress?: string },
+  existing: Pick<Station, "id" | "name">[] = [],
+): string[] {
+  return validateStationInput(next, existing.filter((s) => s.id !== current.id));
 }
 
 /** Thân `POST /stations` đúng DTO của BE: không gửi `printerAddress` khi không có máy in. */

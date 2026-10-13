@@ -94,20 +94,23 @@ async function show(d: OrderDetailData) {
 }
 
 describe("tiền về sau khi QR hết hạn (#61, #75)", () => {
-  it("nói rõ đang chờ hệ thống hỗ trợ (#75), KHÔNG có nút xác nhận hay huỷ", async () => {
+  it("BE 7d7f2dc (#75): có 'Xác nhận thủ công' và 'Huỷ đơn và ghi hoàn tiền', không còn câu chờ hỗ trợ", async () => {
     await show(
       detail({
         attentionReason: "PAYMENT_RECEIVED_AFTER_EXPIRY",
         attentionAt: "2026-10-12T03:20:00.000Z",
-        payments: [payment({ status: "REQUIRES_ATTENTION", receivedAmount: 75000, expiresAt: "2026-10-12T03:10:00.000Z" })],
+        payments: [
+          payment({ status: "REQUIRES_ATTENTION", receivedAmount: 75000, expiresAt: "2026-10-12T03:10:00.000Z", failureReason: "PAYMENT_RECEIVED_AFTER_EXPIRY" }),
+        ],
       }),
     );
     const text = screen.getByTestId("order-detail-attention-text").textContent ?? "";
-    expect(text).toMatch(/Đang chờ hệ thống hỗ trợ xử lý \(#75\)/);
+    expect(text).not.toMatch(/#75/);
+    expect(text).toMatch(/Xác nhận thủ công/);
     expect(screen.getByTestId("order-detail-attention").textContent).toMatch(/Tiền về sau khi QR hết hạn/);
-    expect(screen.queryByTestId("order-confirm-open")).toBeNull();
-    expect(screen.queryByTestId("order-cancel-open")).toBeNull();
-    expect(screen.queryByTestId("order-cancel-open-attention")).toBeNull();
+    expect(screen.getByTestId("order-confirm-open")).toBeTruthy();
+    expect(screen.getByTestId("order-cancel-open")).toBeTruthy();
+    expect(screen.getByTestId("order-cancel-open-attention")).toBeTruthy();
     // Khoản hiện đúng nhãn enum mới, không "Khác (…)", kèm số nhận được và hạn QR.
     const pays = screen.getByTestId("order-detail-payments").textContent ?? "";
     expect(pays).toMatch(/Cần xử lý/);

@@ -8,7 +8,7 @@ import {
   type CallingOrder,
 } from "../api/modules/callingDisplay"
 import { resolveDisplayAsset } from "../api/modules/customerDisplay"
-import { describeApiError } from "../api/http/errors"
+import { ApiError, describeApiError } from "../api/http/errors"
 import {
   classifyContextFailure,
   CODE_EXPIRED_TEXT,
@@ -91,7 +91,9 @@ export default function CallScreen() {
       setCodeFailures(0)
     } catch (reason) {
       setError(describeApiError(reason))
-      setCodeFailures((count) => count + 1)
+      // 429 (#70: BE giới hạn 10 mã/phút/địa chỉ): nhảy thẳng tới nhịp 60 giây, không lặp dồn dập.
+      const tooMany = reason instanceof ApiError && reason.status === 429
+      setCodeFailures((count) => (tooMany ? Math.max(count + 1, 5) : count + 1))
     } finally {
       creating.current = false
     }
@@ -349,10 +351,12 @@ export default function CallScreen() {
   const preparing = fitToCapacity(
     boardOrders(context.preparing, "submittedAt"),
     PREPARING_CAPACITY,
+    context.counts?.preparing,
   )
   const ready = fitToCapacity(
     boardOrders(context.ready, "readyAt"),
     READY_CAPACITY,
+    context.counts?.ready,
   )
   // Lỗi REST (mất mạng/5xx) hoặc socket hết lượt nối: GIỮ bảng cuối, chỉ đổi chỉ báo (QĐ 114).
   const offline = error !== null || (!online && realtime.exhausted)

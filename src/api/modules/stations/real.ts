@@ -1,6 +1,6 @@
 import { request } from "../../http/client";
-import { mapStation, type RawStation } from "./mapper";
-import { toCreateBody } from "./rules";
+import { mapBranchDevice, mapStation, type RawBranchDevice, type RawStation } from "./mapper";
+import { toCreateBody, toPatchBody } from "./rules";
 import type { StationsApi } from "./index";
 
 export const stationsReal: StationsApi = {
@@ -11,6 +11,15 @@ export const stationsReal: StationsApi = {
   async createStation(_branchId, input) {
     // Thân gửi đúng `CreateStationDto` (station.dto.ts:5-21); BE tạo quầy ACTIVE.
     return mapStation(await request<RawStation>("/stations", { method: "POST", body: toCreateBody(input) }));
+  },
+
+  async updateStation(_branchId, stationId, patch) {
+    // `PATCH /stations/:stationId` (`UpdateStationDto`, `forbidNonWhitelisted`): chỉ gửi trường đổi; chi nhánh lấy từ token.
+    return mapStation(await request<RawStation>(`/stations/${encodeURIComponent(stationId)}`, { method: "PATCH", body: toPatchBody(patch) }));
+  },
+
+  async listDisplayDevices() {
+    return (await request<RawBranchDevice[]>("/display-devices")).map(mapBranchDevice);
   },
 
   async pairCustomerDisplay(_branchId, stationId, code, deviceName) {

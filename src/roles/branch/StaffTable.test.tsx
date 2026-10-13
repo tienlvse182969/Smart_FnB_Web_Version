@@ -80,12 +80,12 @@ const confirmBtn = (text: string) => {
 };
 
 describe("màn Nhân viên của Manager — tài khoản thật qua email (#24)", () => {
-  it("không còn banner dữ liệu mẫu và cột 'Đăng nhập gần nhất'; nhãn trạng thái tiếng Việt", async () => {
+  it("không còn banner dữ liệu mẫu, có cột 'Đăng nhập gần nhất' (#62, BE fb7cae9); nhãn trạng thái tiếng Việt", async () => {
     mount();
     await rowsLoaded();
     expect(screen.queryByTestId("staff-mock-banner")).toBeNull();
     const heads = [...document.querySelectorAll(".ant-table-thead th")].map((t) => t.textContent?.trim());
-    expect(heads).not.toContain("Đăng nhập gần nhất");
+    expect(heads).toContain("Đăng nhập gần nhất");
     expect(document.body.textContent).toMatch(/Đang hoạt động|Chưa kích hoạt|Đã khoá/);
     expect(document.body.textContent).not.toMatch(/Chờ đặt mật khẩu/);
   });

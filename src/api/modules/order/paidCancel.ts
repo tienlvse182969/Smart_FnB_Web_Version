@@ -5,7 +5,7 @@
  */
 import type { OrderDetail, OrderDetailLine, OrderRefundRecord } from "../../../types";
 import { ApiError } from "../../http/errors";
-import { CONFIRM_REASON_MAX, CONFIRM_REASON_MIN } from "./manualConfirm";
+import { CONFIRM_REASON_MAX, CONFIRM_REASON_MIN, isLateAfterExpiry } from "./manualConfirm";
 
 export const CANCEL_REASON_MIN = CONFIRM_REASON_MIN;
 export const CANCEL_REASON_MAX = CONFIRM_REASON_MAX;
@@ -16,7 +16,7 @@ export const CANCELLABLE_ORDER_STATUSES: readonly string[] = ["SUBMITTED", "PREP
 
 export interface CancelTarget {
   /** `paid` = đã trả (SUCCESS); `mismatch` = nhận lệch số tiền (AMOUNT_MISMATCH): chỉ huỷ cả đơn, hoàn đúng số đã nhận. */
-  kind: "paid" | "mismatch";
+  kind: "paid" | "mismatch" | "late";
   paymentId: string;
   /** Số tiền thực nhận của khoản. */
   received: number;
@@ -37,12 +37,15 @@ export function cancelTarget(order: Pick<OrderDetail, "status" | "paymentStatus"
   if (!CANCELLABLE_ORDER_STATUSES.includes(order.status)) return null;
   const success = order.paymentStatus === "PAID" ? order.payments.find((p) => p.status === "SUCCESS") : undefined;
   const mismatch = success ? undefined : order.payments.find((p) => p.status === "AMOUNT_MISMATCH");
-  const payment = success ?? mismatch;
+  // #75 (BE `7d7f2dc`, `paid-order-refund.service.ts:133-190`): tiền về sau khi QR hết hạn (`REQUIRES_ATTENTION` +
+  // `PAYMENT_RECEIVED_AFTER_EXPIRY`): huỷ CẢ ĐƠN, hoàn đúng số đã nhận.
+  const late = success || mismatch ? undefined : order.payments.find((p) => isLateAfterExpiry(p));
+  const payment = success ?? mismatch ?? late;
   if (!payment) return null;
   const received = payment.receivedAmount ?? payment.amount;
   const balance = received - sumRefunds(order.refunds);
   if (balance <= 0) return null;
-  return { kind: success ? "paid" : "mismatch", paymentId: payment.id, received, balance };
+  return { kind: success ? "paid" : mismatch ? "mismatch" : "late", paymentId: payment.id, received, balance };
 }
 
 /** Dòng còn huỷ được: chưa huỷ và chưa nằm trong khoản hoàn nào (BE `activeItems`). */
@@ -56,7 +59,7 @@ export function cancellableLines(order: Pick<OrderDetail, "lines" | "refunds">):
  * `selected` rỗng = cả đơn. Khoản lệch thiếu chỉ huỷ cả đơn: số hoàn = số đã nhận.
  */
 export function refundAmountFor(target: CancelTarget, lines: OrderDetailLine[], selected: string[]): number {
-  if (target.kind === "mismatch" || selected.length === 0) return target.balance;
+  if (target.kind !== "paid" || selected.length === 0) return target.balance;
   const total = lines.filter((l) => selected.includes(l.id)).reduce((s, l) => s + l.total, 0);
   return Math.min(total, target.balance);
 }

@@ -503,14 +503,14 @@ export const orderMock: OrderApi = {
     if (reason.length < 3 || reason.length > 500) throw new ApiError(400, "reason must be longer than or equal to 3 characters");
     const cancels = cancelsOf(chainId);
     const detail = toDetail(order, overlayOf(chainId), cancels.get(orderId));
-    const payment = detail.payments.find((p) => p.status === "SUCCESS") ?? detail.payments.find((p) => p.status === "AMOUNT_MISMATCH");
+    const payment = detail.payments.find((p) => p.status === "SUCCESS") ?? detail.payments.find((p) => p.status === "AMOUNT_MISMATCH" || p.status === "REQUIRES_ATTENTION");
     if (!payment) throw new ApiError(409, "Order has no received payment to refund");
     if (!["SUBMITTED", "PREPARING", "READY", "REQUIRES_ATTENTION"].includes(detail.status)) {
       throw new ApiError(409, "Delivered, completed or already cancelled orders cannot be cancelled");
     }
     const ids = input.orderItemIds ?? [];
     const active = detail.lines.filter((l) => l.status !== "CANCELLED");
-    if (payment.status === "AMOUNT_MISMATCH" && ids.length > 0) throw new ApiError(409, "An underpaid order must be cancelled in full");
+    if (payment.status !== "SUCCESS" && ids.length > 0) throw new ApiError(409, "An underpaid order must be cancelled in full");
     const picked = ids.length === 0 ? active : active.filter((l) => ids.includes(l.id));
     if (picked.length === 0 || (ids.length > 0 && picked.length !== ids.length)) {
       throw new ApiError(409, "One or more order lines are already cancelled or unavailable");
@@ -569,7 +569,7 @@ export const orderMock: OrderApi = {
       // Webhook PayOS vừa về trước khi Manager bấm: khoản đã thanh toán, lần xác nhận bị từ chối.
       confirmations.set(paymentId, { receivedAmount: payment.amount, reason: null, transactionRef: null, at: now, manual: false });
     }
-    if (confirmations.has(paymentId) || (payment.status !== "PENDING" && payment.status !== "AMOUNT_MISMATCH")) {
+    if (confirmations.has(paymentId) || (payment.status !== "PENDING" && payment.status !== "AMOUNT_MISMATCH" && payment.status !== "REQUIRES_ATTENTION")) {
       throw new ApiError(409, "PAYMENT_ALREADY_SETTLED");
     }
     if (order.status === "cancelled") throw new ApiError(409, "Order is no longer awaiting payment");

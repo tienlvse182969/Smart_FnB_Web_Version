@@ -55,6 +55,13 @@ export type StaffEmployee = {
   status: AccountStatus;
   lastLoginAt: string | null;
   branchId: string;
+  /**
+   * Trạng thái lời mời (BE `fb7cae9`, #64; chỉ `GET/PATCH /manager/staff*`): ACTIVE, SUSPENDED, INVITED (đã mời, còn hạn),
+   * INVITATION_EXPIRED (lời mời hết hạn), DEACTIVATED (chưa kích hoạt và không còn lời mời: đã huỷ/ngừng). Thiếu ở BE cũ và mock.
+   */
+  invitationStatus?: "ACTIVE" | "SUSPENDED" | "INVITED" | "INVITATION_EXPIRED" | "DEACTIVATED" | null;
+  /** Hạn lời mời hiện tại (ISO); null khi không có lời mời chưa dùng. */
+  invitationExpiresAt?: string | null;
 };
 
 /** Tạo nhân viên: KHÔNG có mật khẩu — BE xếp email đặt mật khẩu một lần. Vai trò quyết lúc tạo, đặc tả không nói đổi vai trò. */

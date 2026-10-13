@@ -12,8 +12,6 @@ import {
 } from "./mapper";
 import type { AdminApi } from "./index";
 
-/** Giá trị nhỏ nhất BE chấp nhận cho `maxTables` (v7, `@Min(1)`). */
-export const MIN_MAX_TABLES = 1;
 
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
@@ -119,7 +117,8 @@ export const adminReal: AdminApi = {
     // nên gửi giá trị nhỏ nhất BE chấp nhận; KHÔNG hiện trên form. Hai cờ gói là bắt buộc khi tạo.
     // CreateServicePlanDto chưa nhận `isActive` và BE bật forbidNonWhitelisted. Trạng thái tạo mới mặc định là active.
     const { isActive: _isActive, ...createInput } = input;
-    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: { ...createInput, maxTables: MIN_MAX_TABLES } }));
+    // BE `fb7cae9` (#29): `maxTables` (v7) là tuỳ chọn, BE tự dùng giá trị tương thích 1 cho cột cũ → web KHÔNG gửi.
+    return mapPlan(await request<RawPlan>("/admin/service-plans", { method: "POST", body: createInput }));
   },
 
   async updatePlan(id, input) {

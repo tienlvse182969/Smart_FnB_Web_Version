@@ -124,7 +124,21 @@ export const PAYMENT_ALREADY_SETTLED_TEXT = "Khoản này đã được xác nh�
 const CODE_TEXT: Record<string, string> = {
   PAYMENT_ALREADY_SETTLED: PAYMENT_ALREADY_SETTLED_TEXT,
   PAYMENT_AMOUNT_INSUFFICIENT: PAYMENT_AMOUNT_INSUFFICIENT_TEXT,
+  // Quầy (BE `7d7f2dc`, #34): trùng tên khi tạo hoặc đổi tên (409, mã ở `code`).
+  STATION_NAME_ALREADY_EXISTS: "Tên quầy đã có trong chi nhánh. Chọn tên khác.",
+  // Mã ghép màn hình (BE `fb7cae9`, #69; 400, mã ở `code`).
+  PAIRING_CODE_INVALID: "Mã ghép không đúng hoặc không phải mã của loại màn hình này. Hãy bật lại màn hình để lấy mã mới.",
+  PAIRING_CODE_USED: "Mã ghép đã được dùng. Hãy bật lại màn hình để lấy mã mới.",
+  PAIRING_CODE_EXPIRED: "Mã ghép đã hết hạn (5 phút). Hãy bật lại màn hình để lấy mã mới.",
+  // Token thiết bị (BE `fb7cae9`, #69; 403, mã ở `code`).
+  DEVICE_TOKEN_MISSING: "Màn hình chưa có mã thiết bị. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_INVALID: "Mã thiết bị không còn hợp lệ. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_REVOKED: "Màn hình này đã bị thu hồi. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_EXPIRED: "Mã thiết bị của màn hình đã hết hạn (30 ngày). Hãy ghép lại màn hình.",
 };
+
+/** 429 khi tạo mã ghép quá nhiều (BE `fb7cae9`, #70: 10 yêu cầu/phút/địa chỉ). */
+export const TOO_MANY_REQUESTS_TEXT = "Yêu cầu quá nhanh. Chờ khoảng một phút rồi thử lại.";
 
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
@@ -161,6 +175,9 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/subscription is not active/i, "Gói dịch vụ của doanh nghiệp không còn hiệu lực."],
   [/account limit|plan limit|limit has been reached|exceed/i, "Đã đạt hạn mức của gói dịch vụ."],
   [/printer address is required/i, "Cần nhập địa chỉ máy in."],
+  [/station name must not be empty/i, "Nhập tên quầy."],
+  [/at least one station field is required/i, "Chưa có thay đổi nào để lưu."],
+  [/pos station was not found in your branch/i, "Không tìm thấy quầy này trong chi nhánh (có thể đã bị xoá)."],
   [/pairing code/i, "Mã ghép không đúng, đã hết hạn hoặc đã được dùng."],
   [/already uses this service plan/i, "Doanh nghiệp đang dùng gói này rồi."],
   [/target plan price is (higher|lower)/i, "Hướng đổi gói không khớp với giá gói mới."],
@@ -225,11 +242,14 @@ export function describeApiError(err: unknown): string {
       return specific && specific !== GENERIC_ERROR_TEXT ? specific : "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     }
     case "forbidden":
+      // 403 của màn hình thiết bị có mã riêng (`DEVICE_TOKEN_*`, #69); còn lại là thiếu quyền vai trò.
+      if (err instanceof ApiError && err.code && CODE_TEXT[err.code]) return CODE_TEXT[err.code];
       return "Bạn không đủ quyền thực hiện thao tác này.";
     case "quota":
       if (isReadOnlyError(err)) return READ_ONLY_TEXT;
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? translateBackendMessage(err) : ""}`.trim();
     default:
+      if (err instanceof ApiError && err.status === 429) return TOO_MANY_REQUESTS_TEXT;
       if (err instanceof ApiError) return err.status >= 500 ? serverErrorText(err) : translateBackendMessage(err);
       return err instanceof Error && HAS_VIETNAMESE.test(err.message) ? err.message : "Có lỗi xảy ra. Thử lại sau.";
   }

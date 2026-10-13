@@ -107,7 +107,7 @@ export function CancelPaidModal({ open, order, target, submitting, onCancel, onS
         <Descriptions column={1} size="small" style={{ marginBottom: 12 }}>
           <Descriptions.Item label="Mã đơn">{order.orderCode}</Descriptions.Item>
           <Descriptions.Item label="Số gọi">{order.callNumber ?? "—"}</Descriptions.Item>
-          <Descriptions.Item label={target.kind === "mismatch" ? "Số tiền đã nhận (lệch)" : "Số tiền đã nhận"}>
+          <Descriptions.Item label={target.kind === "mismatch" ? "Số tiền đã nhận (lệch)" : target.kind === "late" ? "Số tiền đã nhận (sau khi QR hết hạn)" : "Số tiền đã nhận"}>
             <b data-testid="cancel-received">{formatVnd(target.received)}</b>
           </Descriptions.Item>
           <Descriptions.Item label="Số tiền phải hoàn cho khách">
@@ -139,6 +139,15 @@ export function CancelPaidModal({ open, order, target, submitting, onCancel, onS
             showIcon
             style={{ marginBottom: 12 }}
             message="Đơn nhận thiếu tiền: huỷ cả đơn và hoàn lại đúng số đã nhận."
+          />
+        )}
+        {target.kind === "late" && (
+          <Alert
+            data-testid="cancel-late-note"
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="Tiền về sau khi mã QR hết hạn, đơn chưa được pha: huỷ cả đơn và hoàn lại đúng số đã nhận."
           />
         )}
 

@@ -309,6 +309,12 @@ export const accountMock: AccountApi = {
     return { ...setupNotice(), emailStatus: "SENT" as const };
   },
 
+  async cancelStaffInvitation(chainId, branchId, staffId) {
+    await mockDelay();
+    assertMockWritable();
+    findStaffOfBranch(track(chainId), branchId, staffId); // 404 nếu không thuộc chi nhánh; mock không mô phỏng lời mời
+  },
+
   async resetManagerPassword(accountId) {
     await mockDelay();
     assertMockWritable();

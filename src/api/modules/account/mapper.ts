@@ -54,7 +54,10 @@ export interface RawStaff {
   employeeCode: string;
   firstName: string;
   lastName: string;
-  user: { email: string; phone: string | null; status: string; role: { code: string } };
+  user: { email: string; phone: string | null; status: string; lastLoginAt?: string | null; role: { code: string } };
+  /** BE `fb7cae9` (#64). */
+  invitationStatus?: string;
+  invitationExpiresAt?: string | null;
 }
 
 export interface RawStaffPage {
@@ -77,10 +80,17 @@ export function mapStaffEmployee(raw: RawStaff): StaffEmployee | null {
     phone: raw.user.phone ?? null,
     role,
     status: toStatus(raw.user.status),
-    // BE không trả `lastLoginAt` ở danh sách nhân viên của Manager (api-contract-plan #62): màn không hiện cột này ở real.
-    lastLoginAt: null,
+    // BE `fb7cae9` (#62) trả `user.lastLoginAt` (null = chưa từng đăng nhập).
+    lastLoginAt: typeof raw.user.lastLoginAt === "string" ? raw.user.lastLoginAt : null,
     branchId: raw.branchId,
+    invitationStatus: toInvitationStatus(raw.invitationStatus),
+    invitationExpiresAt: typeof raw.invitationExpiresAt === "string" ? raw.invitationExpiresAt : null,
   };
+}
+
+const INVITATION_STATUSES = ["ACTIVE", "SUSPENDED", "INVITED", "INVITATION_EXPIRED", "DEACTIVATED"] as const;
+function toInvitationStatus(v: unknown): (typeof INVITATION_STATUSES)[number] | null {
+  return typeof v === "string" && (INVITATION_STATUSES as readonly string[]).includes(v) ? (v as (typeof INVITATION_STATUSES)[number]) : null;
 }
 
 export function mapStaffPage(raw: RawStaffPage): StaffPage {

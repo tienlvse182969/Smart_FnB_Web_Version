@@ -71,6 +71,8 @@ export type ContextFailure =
 
 export function classifyContextFailure(err: unknown, pairing: StoredPairing, now = Date.now()): ContextFailure {
   if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
+    // BE `fb7cae9` (#69): mã riêng ở `code`. Token đã từng dùng được mà nay REVOKED/EXPIRED (30 ngày) → ghép lại.
+    if (err.code === "DEVICE_TOKEN_REVOKED" || err.code === "DEVICE_TOKEN_EXPIRED") return "revoked";
     if (pairing.paired) return "revoked";
     return isCodeExpired(pairing, now) ? "code-expired" : "waiting";
   }

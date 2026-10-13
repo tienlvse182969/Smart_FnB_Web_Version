@@ -7,7 +7,7 @@ interface Props {
   open: boolean;
   /** Đang gọi API: khoá nút (bấm đúp chỉ gửi 1 request) và không cho đóng. */
   busy: boolean;
-  kind: "lock" | "unlock" | "reset";
+  kind: "lock" | "unlock" | "reset" | "cancel-invite";
   staffName: string;
   email: string;
   roleLabel: string;
@@ -40,10 +40,12 @@ export default function StaffReasonModal({ open, busy, kind, staffName, email, r
       ? `Khoá tài khoản ${staffName}?`
       : kind === "unlock"
         ? `Mở khoá tài khoản ${staffName}?`
+        : kind === "cancel-invite"
+          ? `Huỷ lời mời kích hoạt của ${staffName}?`
         : pending
           ? `Gửi lại lời mời kích hoạt cho ${staffName}?`
           : `Gửi lại email đặt mật khẩu cho ${staffName}?`;
-  const okText = kind === "lock" ? "Khoá tài khoản" : kind === "unlock" ? "Mở khoá" : "Gửi email";
+  const okText = kind === "lock" ? "Khoá tài khoản" : kind === "unlock" ? "Mở khoá" : kind === "cancel-invite" ? "Huỷ lời mời" : "Gửi email";
 
   return (
     <Modal
@@ -59,7 +61,7 @@ export default function StaffReasonModal({ open, busy, kind, staffName, email, r
         <Button
           key="ok"
           type="primary"
-          danger={kind === "lock"}
+          danger={kind === "lock" || kind === "cancel-invite"}
           loading={busy}
           disabled={busy || !!error}
           onClick={() => {
@@ -77,6 +79,7 @@ export default function StaffReasonModal({ open, busy, kind, staffName, email, r
         <br />
         {kind === "lock" && "Các phiên đang đăng nhập bị thu hồi và nhân viên không đăng nhập được nữa. Tài khoản khoá không tính vào hạn mức gói."}
         {kind === "unlock" && "Tài khoản đăng nhập được trở lại và tính lại vào hạn mức gói; nếu gói đã đủ tài khoản thì không mở khoá được."}
+        {kind === "cancel-invite" && <>Link kích hoạt đã gửi tới <b>{email}</b> không còn dùng được. Tài khoản chuyển sang "Đã ngừng"; muốn mời lại, dùng "Gửi lại email".</>}
         {kind === "reset" &&
           (pending ? (
             <>Email gửi tới <b>{email}</b>. Link kích hoạt dùng một lần, hiệu lực 24 giờ; lời mời cũ không còn dùng được.</>
