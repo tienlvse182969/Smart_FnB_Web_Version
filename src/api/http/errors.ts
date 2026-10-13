@@ -125,6 +125,13 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/a logo file is required/i, "Chưa chọn tệp logo."],
   [/logo must be a valid/i, "Logo phải là ảnh JPEG, PNG hoặc WebP."],
   [/logo must not exceed/i, "Logo tối đa 5 MB."],
+  // Poster màn hình phụ (BE `display-posters.service.ts`; 413 của Multer rơi vào câu "Tệp quá lớn" bên dưới). Đặt trước luật `exceed` chung.
+  [/a poster file is required/i, "Chưa chọn tệp poster."],
+  [/poster must be a jpeg/i, "Poster phải là ảnh JPEG, PNG hoặc WebP hợp lệ."],
+  [/poster must not exceed/i, "Poster tối đa 5 MB."],
+  [/at most \d+ posters/i, "Chuỗi đã có đủ số poster tối đa. Xoá bớt một poster trước khi thêm."],
+  [/poster not found/i, "Không tìm thấy poster (có thể đã bị xoá). Đã tải lại danh sách."],
+  [/at least one poster field/i, "Chưa có thay đổi nào để lưu."],
   // 413 do Multer (`FileInterceptor` limits.fileSize, branding.controller.ts:79) trả "File too large" trước khi tới service.
   [/file too large|payload too large/i, "Tệp quá lớn (máy chủ nhận tối đa 5 MB; web giới hạn logo 1 MB)."],
   [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],

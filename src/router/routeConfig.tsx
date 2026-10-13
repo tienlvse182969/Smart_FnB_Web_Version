@@ -9,6 +9,7 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
+  Images,
   LayoutDashboard,
   ListChecks,
   Package,
@@ -36,6 +37,7 @@ import CategoriesTable from "../roles/owner/CategoriesTable";
 import OptionGroups from "../roles/owner/OptionGroups";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
+import Posters from "../roles/owner/Posters";
 import AiAssistant from "../roles/owner/AiAssistant";
 import PayosLink from "../roles/owner/PayosLink";
 import MyPlan from "../roles/owner/MyPlan";
@@ -97,6 +99,7 @@ export const ownerRoutes: RouteDef[] = [
     element: <PayosLink />,
   },
   { path: "branding", label: "Nhận diện", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
+  { path: "posters", label: "Poster màn hình sau", icon: <Images size={18} />, code: "OW-11", element: <Posters /> },
   { path: "ai", label: "Trợ lý số liệu", icon: <Bot size={18} />, code: "OW-09", element: <AiAssistant /> },
   {
     path: "plan",
