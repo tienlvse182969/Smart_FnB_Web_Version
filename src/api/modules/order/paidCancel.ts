@@ -48,6 +48,14 @@ export function cancelTarget(order: Pick<OrderDetail, "status" | "paymentStatus"
   return { kind: success ? "paid" : mismatch ? "mismatch" : "late", paymentId: payment.id, received, balance };
 }
 
+/**
+ * Dòng ĐÃ pha xong (BE ghi `isWastage` khi huỷ, `paid-order-refund.service.ts` `:218-221`, BR-49): vẫn huỷ được nhưng tính là hao hụt.
+ * Web chỉ báo trước; BE là nơi quyết định.
+ */
+export function isWastageLine(line: Pick<OrderDetailLine, "status">): boolean {
+  return line.status === "READY" || line.status === "DELIVERED";
+}
+
 /** Dòng còn huỷ được: chưa huỷ và chưa nằm trong khoản hoàn nào (BE `activeItems`). */
 export function cancellableLines(order: Pick<OrderDetail, "lines" | "refunds">): OrderDetailLine[] {
   const refunded = new Set(order.refunds.flatMap((r) => r.lines.map((l) => l.orderItemId)));

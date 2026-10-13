@@ -55,6 +55,7 @@ export default function Stations() {
   // Màn hình gọi số của chi nhánh (BE `GET /display-devices`, #28). null = chưa tải; lỗi tải không chặn phần quầy.
   const [calling, setCalling] = useState<BranchDevice[] | null>(null);
   const [callingError, setCallingError] = useState(false);
+  const [deviceMeta, setDeviceMeta] = useState<Record<string, BranchDevice>>({});
 
   const load = useCallback(async () => {
     if (!branchId) return;
@@ -69,6 +70,8 @@ export default function Stations() {
     try {
       const devices = await stationsApi.listDisplayDevices(branchId);
       setCalling(devices.filter((d) => d.type === "CALLING_DISPLAY"));
+      // BM-01: hạn token của màn hình phía khách đã ghép (BE chỉ trả ở `GET /display-devices`, không ở `GET /stations`).
+      setDeviceMeta(Object.fromEntries(devices.map((d) => [d.id, d])));
       setCallingError(false);
     } catch {
       setCalling(null);
@@ -202,6 +205,11 @@ export default function Stations() {
                   <span data-testid="device-last-seen" style={{ color: palette.textMuted, fontSize: 13 }}>
                     Lần cuối thấy: {relativeTime(d.lastSeenAt)}
                   </span>
+                  {deviceMeta[d.id]?.tokenExpiresAt && (
+                    <span data-testid="device-token-expiry" style={{ color: branchDeviceState(deviceMeta[d.id]) === "EXPIRED" ? palette.error.text : palette.textMuted, fontSize: 13 }}>
+                      {branchDeviceState(deviceMeta[d.id]) === "EXPIRED" ? "Token đã hết hạn — cần ghép lại" : `Token hết hạn ${formatDateTime(deviceMeta[d.id].tokenExpiresAt)}`}
+                    </span>
+                  )}
                   <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="device-revoke" onClick={() => revoke(station, d)}>
                     Thu hồi
                   </ActionButton>

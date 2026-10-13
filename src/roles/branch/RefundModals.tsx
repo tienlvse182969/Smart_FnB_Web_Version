@@ -5,6 +5,7 @@ import {
   CANCEL_REASON_MAX,
   REFUND_NOTE_MAX,
   cancellableLines,
+  isWastageLine,
   refundAmountFor,
   validateCancelReason,
   validateRefundNote,
@@ -125,6 +126,13 @@ export function CancelPaidModal({ open, order, target, submitting, onCancel, onS
                   {wholeOrder ? "Cả đơn" : lines.filter((l) => selected.includes(l.id)).map((l) => `${l.name} ×${l.quantity}`).join(", ")}
                 </span>
               </Descriptions.Item>
+              {(wholeOrder ? lines : lines.filter((l) => selected.includes(l.id))).some(isWastageLine) && (
+                <Descriptions.Item label="Hao hụt">
+                  <span data-testid="cancel-review-wastage" style={{ color: palette.warning.text }}>
+                    {(wholeOrder ? lines : lines.filter((l) => selected.includes(l.id))).filter(isWastageLine).map((l) => `${l.name} ×${l.quantity}`).join(", ")} đã pha xong, sẽ ghi hao hụt
+                  </span>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Lý do">
                 <span data-testid="cancel-review-reason">{reason.trim()}</span>
               </Descriptions.Item>
@@ -170,10 +178,22 @@ export function CancelPaidModal({ open, order, target, submitting, onCancel, onS
             {partialAllowed && (
               <div data-testid="cancel-lines">
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>Món cần huỷ (không chọn = huỷ cả đơn)</div>
-                <Checkbox.Group value={selected} onChange={(v) => setSelected(v as string[])} style={{ display: "grid", gap: 4 }}>
+                <Checkbox.Group value={selected} onChange={(v) => setSelected(v as string[])} style={{ display: "grid", gap: 6 }}>
                   {lines.map((l) => (
                     <Checkbox key={l.id} value={l.id} data-testid="cancel-line">
-                      {l.name} ×{l.quantity} · {formatVnd(l.total)}
+                      <span data-testid="cancel-line-text">
+                        <b>{l.name}</b> ×{l.quantity} · {formatVnd(l.unitPrice)}/suất · {formatVnd(l.total)}
+                      </span>
+                      {l.options.length > 0 && (
+                        <span data-testid="cancel-line-options" style={{ display: "block", fontSize: 12, color: palette.textMuted }}>
+                          {l.options.map((o) => `${o.groupName ? `${o.groupName}: ` : ""}${o.name}${o.priceDelta ? ` (+${formatVnd(o.priceDelta)})` : ""}`).join(" · ")}
+                        </span>
+                      )}
+                      {isWastageLine(l) && (
+                        <span data-testid="cancel-line-wastage" style={{ display: "block", fontSize: 12, color: palette.warning.text }}>
+                          Đã pha xong — huỷ sẽ ghi hao hụt
+                        </span>
+                      )}
                     </Checkbox>
                   ))}
                 </Checkbox.Group>

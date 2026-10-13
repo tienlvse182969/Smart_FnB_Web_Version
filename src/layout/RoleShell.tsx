@@ -5,6 +5,7 @@ import { roleMeta } from "../data";
 import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
 import ReadOnlyBanner from "../plan/ReadOnlyBanner";
+import ExpiringBanner from "../plan/ExpiringBanner";
 import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
@@ -227,6 +228,7 @@ export default function RoleShell({
         <ChangePasswordModal open={profileOpen} onClose={() => setProfileOpen(false)} />
 
         <ReadOnlyBanner />
+        {(role === "owner" || role === "manager") && <ExpiringBanner />}
 
         <Content
           style={{
