@@ -18,7 +18,7 @@ import {
   paymentMethodInfo,
   paymentStatusInfo,
 } from "./codes";
-import { mapActorName, mapOrderDetail, mapOrderPage } from "./mapper";
+import { mapActorName, mapOrderDetail, mapOrderPage, mapOrderSummary } from "./mapper";
 import { orderMock } from "./mock";
 import { buildOrderQueryString, vnDayEndIso, vnDayStartIso } from "./query";
 import { orderReal } from "./real";
@@ -202,7 +202,7 @@ describe("mapper phản hồi BE", () => {
         },
       ],
     });
-    expect(d.payments[0]).toEqual({
+    expect(d.payments[0]).toMatchObject({
       id: "p9",
       paymentCode: "PAY-9",
       method: "BANK_TRANSFER",
@@ -222,8 +222,46 @@ describe("mapper phản hồi BE", () => {
   it("chi tiết: đơn huỷ giữ thời điểm huỷ; không có station/tiền khách đưa (BE chưa trả)", () => {
     const d = mapOrderDetail({ ...rawOrder, status: "CANCELLED", cancelledAt: "2026-10-08T06:30:00.000Z", cancellationReason: "Khách đổi ý", cancelledBy: { employeeCode: "M1", firstName: "Bình", lastName: "Quản lý" } });
     expect(d).toMatchObject({ cancelledAt: "2026-10-08T06:30:00.000Z", cancellationReason: "Khách đổi ý", cancelledBy: "Bình Quản lý" });
-    expect(d.payments[0]).not.toHaveProperty("tenderedAmount");
+    // BE `fb7cae9` có `tenderedAmount`/`changeAmount`/`expiresAt`/`station`; thiếu thì null (không suy ra).
+    expect(d.payments[0]).toMatchObject({ tenderedAmount: null, changeAmount: null, expiresAt: null, stationName: null });
     expect(d).not.toHaveProperty("station");
+  });
+
+  it("BE fb7cae9: khách đưa/tiền thối, hạn QR, quầy, thời điểm và lý do cần xử lý, tên người ở khoản hoàn", () => {
+    const d = mapOrderDetail({
+      ...rawOrder,
+      status: "REQUIRES_ATTENTION",
+      attentionAt: "2026-10-12T03:00:00.000Z",
+      attentionReason: "PAID_ITEM_OUT_OF_STOCK",
+      payments: [
+        { id: "c1", paymentCode: "PAY-C", method: "CASH", status: "SUCCESS", amount: "65000.00", tenderedAmount: "100000", changeAmount: "35000", expiresAt: null, stationId: null, station: null },
+        { id: "q1", paymentCode: "PAY-Q", method: "BANK_TRANSFER", status: "EXPIRED", amount: "75000", expiresAt: "2026-10-12T03:10:00.000Z", stationId: "s1", station: { id: "s1", name: "Quầy 1", status: "ACTIVE" } },
+      ],
+      refunds: [
+        {
+          id: "r1",
+          amount: "65000",
+          status: "COMPLETED",
+          method: "CASH",
+          source: "MANAGER_CANCELLATION",
+          reason: "Khách đổi ý",
+          requestedByRole: "MANAGER",
+          completedByRole: "MANAGER",
+          requestedBy: { id: "u1", email: "m@x.vn", profile: { id: "e1", employeeCode: "DEMO-MANAGER-01", firstName: "Minh", lastName: "Quản lý" } },
+          completedBy: { id: "u2", email: "o@x.vn", profile: { id: "o1", ownerCode: "OWN-1", firstName: null, lastName: null } },
+          items: [],
+        },
+      ],
+    });
+    expect(d).toMatchObject({ attentionAt: "2026-10-12T03:00:00.000Z", attentionReason: "PAID_ITEM_OUT_OF_STOCK" });
+    expect(d.payments[0]).toMatchObject({ tenderedAmount: 100000, changeAmount: 35000, stationName: null });
+    expect(d.payments[1]).toMatchObject({ status: "EXPIRED", expiresAt: "2026-10-12T03:10:00.000Z", stationName: "Quầy 1" });
+    expect(d.refunds[0].requestedByName).toBe("Minh Quản lý");
+    expect(d.refunds[0].completedByName).toBe("OWN-1");
+  });
+
+  it("danh sách: attentionAt/attentionReason null khi BE không trả", () => {
+    expect(mapOrderSummary(rawOrder)).toMatchObject({ attentionAt: null, attentionReason: null });
   });
 
   it("họ tên: thiếu tên thì dùng mã nhân viên", () => {

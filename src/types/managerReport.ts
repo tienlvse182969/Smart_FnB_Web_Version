@@ -31,11 +31,18 @@ export interface ManagerReportBucket {
 export interface ManagerReportPayment {
   /** Mã BE PaymentMethod. */
   method: string;
-  /** Số tiền ghi nhận (đã chốt vào đơn). */
+  /** Số tiền ghi nhận (đã chốt vào đơn). Từ BE `fb7cae9` (#72) là số SAU hoàn; BE cũ trả số gộp. */
   settledAmount: number;
-  /** Số tiền thực nhận. */
+  /** Số tiền thực nhận (cũng sau hoàn từ `fb7cae9`). */
   receivedAmount: number;
+  /** Số khoản; từ `fb7cae9` KHÔNG gồm khoản của đơn đã huỷ sau khi trả (`cancelledAfterPaymentCount`). */
   paymentCount: number;
+  /** Số ghi nhận trước hoàn (BE `fb7cae9`); thiếu ở BE cũ và mock. */
+  grossSettledAmount?: number;
+  /** Số hoàn của hình thức này (BE `fb7cae9`). */
+  refundAmount?: number;
+  /** Số khoản của đơn đã huỷ sau khi trả (BE `fb7cae9`). */
+  cancelledAfterPaymentCount?: number;
 }
 
 export interface ManagerReportItem {

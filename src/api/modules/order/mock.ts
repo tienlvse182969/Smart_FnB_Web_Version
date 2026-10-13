@@ -472,7 +472,12 @@ export const orderMock: OrderApi = {
     const cancels = cancelsOf(chainId);
     const rows = allOrders(chainId, branchId)
       .filter((o) => matches(o, query, confirmations, cancels))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => {
+        const dir = query.sortOrder === "asc" ? 1 : -1;
+        if (query.sortBy === "totalAmount") return (a.total - b.total) * dir || b.createdAt.localeCompare(a.createdAt);
+        // placedAt, attentionAt (mock không có thời điểm lệch riêng nên dùng lúc đặt) hoặc mặc định: mới nhất trước.
+        return query.sortBy ? a.createdAt.localeCompare(b.createdAt) * dir : b.createdAt.localeCompare(a.createdAt);
+      });
     const start = (query.page - 1) * query.limit;
     return {
       items: rows.slice(start, start + query.limit).map((o) => applyCancel(toSummary(o, confirmations), o, cancels.get(o.id))),

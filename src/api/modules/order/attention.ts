@@ -2,11 +2,14 @@
  * "Đơn cần xử lý" của Branch Manager (BM-05, lượt 7.5, quyết định 99–102): các hàm THUẦN, không React, có test ở `attention.test.ts`.
  *
  * BE `d98b4c1` chỉ đặt `OrderStatus.REQUIRES_ATTENTION` khi webhook/Kiểm tra lại báo SỐ TIỀN LỆCH (`counter-payment-settlement.service.ts:38-92`,
- * khoản → `AMOUNT_MISMATCH`, `receivedAmount` = số nhận được) và bỏ khi Manager xác nhận (→ `SUBMITTED`). Các loại "cần xử lý" khác của
- * đặc tả (đơn chờ xác nhận thủ công, tiền về sau khi đơn đã huỷ, hết món) BE CHƯA đánh dấu bằng trạng thái đơn: web KHÔNG giả lập (QĐ 64).
+ * khoản → `AMOUNT_MISMATCH`, `receivedAmount` = số nhận được) và bỏ khi Manager xác nhận (→ `SUBMITTED`).
+ * BE `fb7cae9` (QĐ 123) thêm hai loại có `attentionReason` + `attentionAt`: hết món/tuỳ chọn khi đơn đã trả (`PAID_ITEM_OUT_OF_STOCK`,
+ * `PAID_OPTION_OUT_OF_STOCK`) và tiền về sau khi QR hết hạn (`PAYMENT_RECEIVED_AFTER_EXPIRY`, khoản `REQUIRES_ATTENTION`). Mỗi dòng hiện
+ * theo LÝ DO; cột tiền chỉ có nghĩa với loại lệch tiền. Loại chưa có ở BE (đơn QR chờ xác nhận tay quá lâu, #67a) web KHÔNG giả lập (QĐ 64).
  */
 import type { OperationsEvent } from "../../realtime/operations";
 import type { OrderSummary } from "../../../types";
+import { attentionReasonInfo, type AttentionReasonKind } from "./codes";
 
 export const ATTENTION_STATUS = "REQUIRES_ATTENTION";
 /** Sự kiện của BE báo Manager (`manager.order.attention-required`): payload theo `reason`. */
@@ -23,38 +26,53 @@ export interface AttentionRow {
   orderCode: string;
   callNumber: number | null;
   placedAt: string | null;
-  /** Đã chờ tính từ lúc đặt đơn (BE không trả thời điểm lệch tiền — #65). */
+  /** Đã chờ: từ `attentionAt` khi BE có (#65), không thì từ lúc đặt đơn (`waitedFromPlaced`). */
   waitedMs: number | null;
+  /** true = `waitedMs` tính từ lúc đặt đơn (BE chưa ghi `attentionAt`, #77): màn ghi "(từ lúc đặt)". */
+  waitedFromPlaced: boolean;
   total: number;
-  /** Số tiền nhận được theo khoản `AMOUNT_MISMATCH`; null nếu BE không trả. */
+  /** Lý do hiện cho Manager (QĐ 123): mã BE hoặc suy từ khoản; nhãn tiếng Việt; mã lạ → "Khác (<mã>)". */
+  reasonCode: string | null;
+  reasonKind: AttentionReasonKind;
+  reasonLabel: string;
+  /** Số tiền nhận được theo khoản `AMOUNT_MISMATCH`; null nếu không phải loại lệch tiền hoặc BE không trả. */
   received: number | null;
-  /** received − total: âm = thiếu, dương = dư. */
+  /** received − total: âm = thiếu, dương = dư. Chỉ có ở loại lệch tiền. */
   difference: number | null;
   kind: AttentionKind;
 }
 
-/** Cũ nhất trước (đơn chờ lâu nhất lên đầu); đơn không rõ thời gian xuống cuối. Chỉ lấy đơn đang `REQUIRES_ATTENTION`. */
+/**
+ * Thứ tự do BE sắp (`sortBy=attentionAt&sortOrder=asc`, #66; đơn chưa có `attentionAt` xếp cuối) — web KHÔNG sắp lại.
+ * Chỉ lấy đơn đang `REQUIRES_ATTENTION`.
+ */
 export function toAttentionRows(items: OrderSummary[], now: number): AttentionRow[] {
   return items
     .filter((o) => o.status === ATTENTION_STATUS)
     .map((o): AttentionRow => {
-      const mismatch = o.payments.find((p) => p.status === "AMOUNT_MISMATCH") ?? null;
+      const reason = attentionReasonInfo(o);
+      // Cột tiền chỉ cho loại lệch tiền (QĐ 123).
+      const mismatch = reason.kind === "AMOUNT_MISMATCH" ? (o.payments.find((p) => p.status === "AMOUNT_MISMATCH") ?? null) : null;
       const received = mismatch?.receivedAmount ?? null;
       const difference = received === null ? null : received - o.total;
-      const placed = o.placedAt ? new Date(o.placedAt).getTime() : NaN;
+      const since = o.attentionAt ?? o.placedAt;
+      const sinceMs = since ? new Date(since).getTime() : NaN;
       return {
         id: o.id,
         orderCode: o.orderCode,
         callNumber: o.callNumber,
         placedAt: o.placedAt,
-        waitedMs: Number.isFinite(placed) ? Math.max(0, now - placed) : null,
+        waitedMs: Number.isFinite(sinceMs) ? Math.max(0, now - sinceMs) : null,
+        waitedFromPlaced: !o.attentionAt,
         total: o.total,
+        reasonCode: reason.code,
+        reasonKind: reason.kind,
+        reasonLabel: reason.label,
         received,
         difference,
         kind: difference === null ? "unknown" : difference < 0 ? "short" : difference > 0 ? "over" : "exact",
       };
-    })
-    .sort((a, b) => (a.placedAt ?? "9999").localeCompare(b.placedAt ?? "9999"));
+    });
 }
 
 /** "vừa xong" / "12 phút" / "1 giờ 5 phút" / "2 ngày 3 giờ". */
@@ -73,7 +91,13 @@ export function formatWaited(ms: number | null): string {
 // Cảnh báo từ socket
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type AttentionReason = "PAYMENT_AMOUNT_MISMATCH" | "PAYMENT_RECEIVED_AFTER_CANCELLATION" | "ITEM_OUT_OF_STOCK" | "OPTION_OUT_OF_STOCK" | "OTHER";
+export type AttentionReason =
+  | "PAYMENT_AMOUNT_MISMATCH"
+  | "PAYMENT_RECEIVED_AFTER_CANCELLATION"
+  | "PAYMENT_RECEIVED_AFTER_EXPIRY"
+  | "ITEM_OUT_OF_STOCK"
+  | "OPTION_OUT_OF_STOCK"
+  | "OTHER";
 
 export interface AttentionAlertItem {
   /** Khoá chống trùng: `reason:orderId`. */
@@ -84,7 +108,7 @@ export interface AttentionAlertItem {
   receivedAmount?: number;
 }
 
-const REASONS: AttentionReason[] = ["PAYMENT_AMOUNT_MISMATCH", "PAYMENT_RECEIVED_AFTER_CANCELLATION", "ITEM_OUT_OF_STOCK", "OPTION_OUT_OF_STOCK"];
+const REASONS: AttentionReason[] = ["PAYMENT_AMOUNT_MISMATCH", "PAYMENT_RECEIVED_AFTER_CANCELLATION", "PAYMENT_RECEIVED_AFTER_EXPIRY", "ITEM_OUT_OF_STOCK", "OPTION_OUT_OF_STOCK"];
 const asNumber = (v: unknown): number | undefined => {
   const n = typeof v === "string" ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) ? n : undefined;
@@ -165,7 +189,7 @@ export interface AttentionAlertText {
 const ORDERS_PATH = "/manager/orders";
 const ATTENTION_PATH = "/manager/orders/needs-attention";
 
-/** Một lượt gom → tối đa 2 thông báo: lệch số tiền (đỏ) và hết món (vàng). Tiếng Việt, kèm nơi "Xem". */
+/** Một lượt gom → tối đa 4 thông báo: lệch số tiền, tiền về muộn (sau huỷ / sau hết hạn QR) và hết món. Tiếng Việt, kèm nơi "Xem". */
 export function describeAttentionBatch(items: AttentionAlertItem[], formatMoney: (n: number) => string): AttentionAlertText[] {
   const out: AttentionAlertText[] = [];
   const mismatch = items.filter((i) => i.reason === "PAYMENT_AMOUNT_MISMATCH");
@@ -184,6 +208,15 @@ export function describeAttentionBatch(items: AttentionAlertItem[], formatMoney:
     out.push({ key: "attention-late", text: `Có khoản tiền về sau khi đơn đã huỷ${detail}.`, to: `${ORDERS_PATH}/${l.orderId}`, tone: "error" });
   } else if (late.length > 1) {
     out.push({ key: "attention-late", text: `Có ${late.length} khoản tiền về sau khi đơn đã huỷ, cần hoàn lại cho khách.`, to: ATTENTION_PATH, tone: "error" });
+  }
+  // Tiền về SAU khi QR hết hạn (BE `fb7cae9`, #61): đơn KHÔNG vào hàng đợi pha; chờ xử lý (đường xử lý của BE: #75).
+  const expired = items.filter((i) => i.reason === "PAYMENT_RECEIVED_AFTER_EXPIRY");
+  if (expired.length === 1) {
+    const e = expired[0];
+    const detail = e.receivedAmount !== undefined ? `: nhận ${formatMoney(e.receivedAmount)}` : "";
+    out.push({ key: "attention-expired", text: `Có khoản tiền về sau khi mã QR hết hạn${detail}. Đơn chưa được đưa xuống pha chế.`, to: `${ORDERS_PATH}/${e.orderId}`, tone: "error" });
+  } else if (expired.length > 1) {
+    out.push({ key: "attention-expired", text: `Có ${expired.length} khoản tiền về sau khi mã QR hết hạn, đơn chưa được đưa xuống pha chế.`, to: ATTENTION_PATH, tone: "error" });
   }
   const stock = items.filter((i) => i.reason === "ITEM_OUT_OF_STOCK" || i.reason === "OPTION_OUT_OF_STOCK");
   if (stock.length > 0) {

@@ -321,7 +321,8 @@ describe("xác nhận chuyển khoản thủ công (BM-05, quyết định 82–
     }
   });
 
-  it("gói hết hạn (chỉ đọc): nút khoá, không mở được hộp", async () => {
+  // QĐ 122 (đổi QĐ 85, theo #59): tiền đã nhận phải xử lý được, nên xác nhận tay KHÔNG khoá khi gói hết hạn.
+  it("gói hết hạn (chỉ đọc): nút xác nhận thủ công vẫn mở (QĐ 122)", async () => {
     act(() =>
       useAppStore.setState({
         plan: { chainId: "c", tier: "STANDARD", planName: "Demo", status: "expired", expiresAt: "2020-01-01T00:00:00.000Z", limits: [], features: {}, source: { limits: "real", features: "real" } } as never,
@@ -329,7 +330,9 @@ describe("xác nhận chuyển khoản thủ công (BM-05, quyết định 82–
     );
     mount(scn("scn-qr-waiting"));
     await waitDetail();
-    expect((openBtn() as HTMLButtonElement).disabled).toBe(true);
+    expect((openBtn() as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(openBtn()!);
+    await waitFor(() => expect(screen.getByTestId("confirm-step-form")).toBeTruthy());
     act(() => useAppStore.setState({ plan: null }));
   });
 });

@@ -46,7 +46,7 @@ const order = (id: string, over: Partial<OrderSummary> = {}): OrderSummary => ({
 describe("danh sách đơn Cần xử lý (QĐ 99)", () => {
   const now = new Date("2026-10-11T06:00:00.000Z").getTime();
 
-  it("cũ nhất trước; chỉ lấy REQUIRES_ATTENTION; đã chờ tính từ lúc đặt", () => {
+  it("giữ nguyên thứ tự BE (#66, không sắp lại); chỉ lấy REQUIRES_ATTENTION; đã chờ tính từ lúc đặt khi chưa có attentionAt", () => {
     const rows = toAttentionRows(
       [
         order("new", { placedAt: "2026-10-11T05:50:00.000Z" }),
@@ -56,8 +56,9 @@ describe("danh sách đơn Cần xử lý (QĐ 99)", () => {
       ],
       now,
     );
-    expect(rows.map((r) => r.id)).toEqual(["old", "new", "nodate"]);
-    expect(rows[0].waitedMs).toBe(90 * 60_000);
+    expect(rows.map((r) => r.id)).toEqual(["new", "old", "nodate"]);
+    expect(rows[1].waitedMs).toBe(90 * 60_000);
+    expect(rows[1].waitedFromPlaced).toBe(true);
     expect(rows[2].waitedMs).toBeNull();
   });
 

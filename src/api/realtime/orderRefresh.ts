@@ -19,7 +19,11 @@ import type { OperationsEvent } from "./operations";
  *  - `preparation.batch.started` { unitIds }, `preparation.batch.completed` { …, readyOrders }, `preparation.item.started|completed|undone` { unitId }: pha chế;
  *  - `preparation.order.delivered` { orderId }: pha chế bấm Đã giao;
  *  - `manager.order.attention-required` { reason, orderIds }: hết món/tuỳ chọn khi còn đơn đã trả.
- * KHÔNG có sự kiện cho: chốt đơn (`POST /cashier/checkout`) và huỷ đơn chưa trả (`POST /cashier/orders/:id/cancel`) — BE chưa phát (#51).
+ *  - BE `fb7cae9` (#51, QĐ 124; `counter-operations.controller.ts:139,200,216`, `counter-payment-settlement.service.ts:38`):
+ *    `order.finalized` { orderId, status }, `payment.cancelled` { orderId, paymentId, status }, `order.cancelled` { orderId, reason },
+ *    `payment.expired` { orderId, paymentId, status }.
+ * CÒN THIẾU ở BE (#51 một phần, #77): `POST /cashier/checkout` (đơn mới "Chờ thanh toán") không phát sự kiện nào, và QR hết hạn chỉ phát
+ * khi có người mở/kiểm tra lại đơn → các màn GIỮ tải lại 60 giây dự phòng.
  */
 export const ORDER_EVENT_TYPES: ReadonlySet<string> = new Set([
   "cashier.order.updated",
@@ -38,6 +42,10 @@ export const ORDER_EVENT_TYPES: ReadonlySet<string> = new Set([
   "order.cancelled",
   "refund.pending",
   "refund.completed",
+  // BE `fb7cae9` (#51): khoá đơn để thanh toán, huỷ QR, QR hết hạn.
+  "order.finalized",
+  "payment.cancelled",
+  "payment.expired",
 ]);
 
 export const REFRESH_DEBOUNCE_MS = 500;

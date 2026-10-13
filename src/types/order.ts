@@ -97,6 +97,14 @@ export type OrderPaymentRecord = {
   failureReason: string | null;
   /** Người xử lý/xác nhận (thu ngân hoặc Manager). */
   processedBy: string | null;
+  /** Tiền mặt: khách đưa (BE `fb7cae9`, #48). Thiếu/null với khoản không phải tiền mặt. */
+  tenderedAmount?: number | null;
+  /** Tiền mặt: tiền thối (BE `fb7cae9`, #48). */
+  changeAmount?: number | null;
+  /** Hạn của mã QR (BE `fb7cae9`, #50); null với tiền mặt. */
+  expiresAt?: string | null;
+  /** Quầy thu tiền (BE `fb7cae9`, #52): chỉ có ở khoản QR; khoản tiền mặt BE chưa lưu. */
+  stationName?: string | null;
 };
 
 /**
@@ -140,6 +148,9 @@ export type OrderRefundRecord = {
   completedAt: string | null;
   note: string | null;
   lines: OrderRefundLine[];
+  /** Họ tên người yêu cầu / người hoàn (BE `fb7cae9`, #73; chỉ có ở chi tiết đơn). Thiếu → hiện vai trò. */
+  requestedByName?: string | null;
+  completedByName?: string | null;
 };
 
 /** Thân `POST /manager/orders/:orderId/cancel-paid` (BE `CancelPaidOrderDto`, `manager.dto.ts`; `forbidNonWhitelisted`). */
@@ -176,6 +187,10 @@ export type OrderSummary = {
   cancellationReason: string | null;
   /** Khoản phải hoàn (rỗng khi chưa huỷ sau khi trả). */
   refunds: OrderRefundRecord[];
+  /** Thời điểm đơn chuyển "Cần xử lý" (BE `fb7cae9`, #65). BE chưa ghi cho đơn lệch tiền (#77) → null. */
+  attentionAt?: string | null;
+  /** Lý do BE ghi (QĐ 123): PAID_ITEM_OUT_OF_STOCK, PAID_OPTION_OUT_OF_STOCK, PAYMENT_RECEIVED_AFTER_EXPIRY… */
+  attentionReason?: string | null;
 };
 
 export type OrderDetailOption = {
@@ -223,6 +238,9 @@ export type OrderQuery = {
   paymentMethod?: string;
   /** Mã BE RefundStatus (PENDING = còn khoản chờ hoàn). */
   refundStatus?: string;
+  /** Sắp xếp phía BE (`fb7cae9`, #66); mặc định `placedAt` giảm dần. */
+  sortBy?: "placedAt" | "attentionAt" | "status" | "totalAmount";
+  sortOrder?: "asc" | "desc";
   page: number;
   limit: number;
 };

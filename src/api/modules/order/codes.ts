@@ -13,7 +13,7 @@ export const ORDER_STATUS_CODES = ["PENDING", "SUBMITTED", "CONFIRMED", "PREPARI
 export const ORDER_PAYMENT_STATUS_CODES = ["UNPAID", "PARTIALLY_PAID", "PAID", "REFUNDED"] as const;
 export const ORDER_ITEM_STATUS_CODES = ["PENDING", "QUEUED", "CONFIRMED", "PREPARING", "READY", "SERVED", "DELIVERED", "OUT_OF_STOCK", "CANCELLED"] as const;
 export const PAYMENT_METHOD_CODES = ["CASH", "CARD", "BANK_TRANSFER", "E_WALLET", "OTHER"] as const;
-export const PAYMENT_STATUS_CODES = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED", "AMOUNT_MISMATCH"] as const;
+export const PAYMENT_STATUS_CODES = ["PENDING", "SUCCESS", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED", "AMOUNT_MISMATCH", "EXPIRED", "REQUIRES_ATTENTION"] as const;
 
 export interface StatusInfo {
   label: string;
@@ -84,17 +84,58 @@ export function paymentMethodInfo(code: string): StatusInfo {
  * Một khoản thanh toán (5.5). PENDING của tiền mặt = "Khởi tạo", của chuyển khoản = "Chờ chuyển khoản"; AMOUNT_MISMATCH = "Lệch số tiền"
  * (BR-28). FAILED, REFUNDED, PARTIALLY_REFUNDED chưa có trong đặc tả (huỷ đơn đã trả không đổi trạng thái thanh toán, 5.5).
  */
-export function paymentStatusInfo(code: string, methodCode?: string): StatusInfo {
+export function paymentStatusInfo(code: string, methodCode?: string, expiresAt?: string | null, now: number = Date.now()): StatusInfo {
   switch (code) {
     case "SUCCESS":
       return known("Đã thanh toán", "success");
     case "PENDING":
-      return methodCode === "CASH" ? known("Khởi tạo", "neutral") : known("Chờ chuyển khoản", "warning");
+      if (methodCode === "CASH") return known("Khởi tạo", "neutral");
+      // BE không có job hết hạn (#45): khoản QR còn PENDING nhưng quá `expiresAt` thì hiện "Hết hạn" (QĐ 124 / #50).
+      if (isQrExpired({ status: code, method: methodCode ?? "", expiresAt }, now)) return known("Hết hạn", "neutral");
+      return known("Chờ chuyển khoản", "warning");
     case "AMOUNT_MISMATCH":
       return known("Lệch số tiền", "error");
+    // BE `fb7cae9` (migration `20261012100000_late_expired_payos`): QR hết hạn; tiền về sau khi hết hạn cần Manager xem.
+    case "EXPIRED":
+      return known("Hết hạn", "neutral");
+    case "REQUIRES_ATTENTION":
+      return known("Cần xử lý", "error");
     default:
       return other(code);
   }
+}
+
+/** Khoản QR (không phải tiền mặt) còn `PENDING` nhưng đã quá hạn mã. Thiếu `expiresAt` → không coi là hết hạn. */
+export function isQrExpired(p: { status: string; method: string; expiresAt?: string | null }, now: number = Date.now()): boolean {
+  if (p.status !== "PENDING" || p.method === "CASH" || !p.expiresAt) return false;
+  const at = new Date(p.expiresAt).getTime();
+  return Number.isFinite(at) && at <= now;
+}
+
+/**
+ * Lý do "Cần xử lý" (QĐ 123). Mã BE ghi ở `orders.attention_reason` (`fb7cae9`): PAID_ITEM_OUT_OF_STOCK, PAID_OPTION_OUT_OF_STOCK,
+ * PAYMENT_RECEIVED_AFTER_EXPIRY. Đơn lệch tiền BE chưa ghi lý do (#77): suy từ khoản AMOUNT_MISMATCH. Mã lạ → "Khác (<mã>)".
+ * Trả `null` khi đơn không có lý do nào biết được (đơn không ở trạng thái cần xử lý).
+ */
+export type AttentionReasonKind = "AMOUNT_MISMATCH" | "RECEIVED_AFTER_EXPIRY" | "ITEM_OUT_OF_STOCK" | "OPTION_OUT_OF_STOCK" | "RECEIVED_AFTER_CANCELLATION" | "UNKNOWN";
+
+const ATTENTION_REASON: Record<string, { kind: AttentionReasonKind; label: string }> = {
+  PAYMENT_AMOUNT_MISMATCH: { kind: "AMOUNT_MISMATCH", label: "Lệch số tiền" },
+  PAYMENT_RECEIVED_AFTER_EXPIRY: { kind: "RECEIVED_AFTER_EXPIRY", label: "Tiền về sau khi QR hết hạn" },
+  PAID_ITEM_OUT_OF_STOCK: { kind: "ITEM_OUT_OF_STOCK", label: "Hết món (đơn đã trả)" },
+  PAID_OPTION_OUT_OF_STOCK: { kind: "OPTION_OUT_OF_STOCK", label: "Hết tuỳ chọn (đơn đã trả)" },
+  PAYMENT_RECEIVED_AFTER_CANCELLATION: { kind: "RECEIVED_AFTER_CANCELLATION", label: "Tiền về sau khi đơn đã huỷ" },
+};
+
+export function attentionReasonInfo(order: { attentionReason?: string | null; payments: { status: string }[] }): { code: string | null; kind: AttentionReasonKind; label: string; known: boolean } {
+  const code = order.attentionReason ?? null;
+  if (code) {
+    const hit = ATTENTION_REASON[code];
+    return hit ? { code, ...hit, known: true } : { code, kind: "UNKNOWN", label: `Khác (${code})`, known: false };
+  }
+  if (order.payments.some((p) => p.status === "AMOUNT_MISMATCH")) return { code: null, ...ATTENTION_REASON.PAYMENT_AMOUNT_MISMATCH, known: true };
+  if (order.payments.some((p) => p.status === "REQUIRES_ATTENTION")) return { code: null, ...ATTENTION_REASON.PAYMENT_RECEIVED_AFTER_EXPIRY, known: true };
+  return { code: null, kind: "UNKNOWN", label: "Chưa rõ lý do", known: false };
 }
 
 /**
@@ -105,15 +146,18 @@ export function paymentStatusInfo(code: string, methodCode?: string): StatusInfo
 export function orderPaymentInfo(order: {
   status: string;
   paymentStatus: string;
-  payments: { method: string; status: string }[];
-}): StatusInfo {
+  payments: { method: string; status: string; expiresAt?: string | null }[];
+}, now: number = Date.now()): StatusInfo {
   switch (order.paymentStatus) {
     case "PAID":
       return known("Đã thanh toán", "success");
     case "UNPAID":
       if (order.status === "CANCELLED") return known("Đã huỷ", "neutral");
       if (order.payments.some((p) => p.status === "AMOUNT_MISMATCH")) return known("Lệch số tiền", "error");
-      if (order.payments.some((p) => p.status === "PENDING" && p.method !== "CASH")) return known("Chờ chuyển khoản", "warning");
+      if (order.payments.some((p) => p.status === "REQUIRES_ATTENTION")) return known("Cần xử lý", "error");
+      // Còn khoản chờ chưa quá hạn → "Chờ chuyển khoản"; mọi khoản QR đã hết hạn (EXPIRED hoặc PENDING quá `expiresAt`) → "QR hết hạn".
+      if (order.payments.some((p) => p.status === "PENDING" && p.method !== "CASH" && !isQrExpired(p, now))) return known("Chờ chuyển khoản", "warning");
+      if (order.payments.some((p) => p.method !== "CASH" && (p.status === "EXPIRED" || isQrExpired(p, now)))) return known("QR hết hạn", "neutral");
       return known("Khởi tạo", "neutral");
     default:
       return other(order.paymentStatus);

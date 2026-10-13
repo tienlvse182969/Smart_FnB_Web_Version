@@ -38,7 +38,16 @@ function mapBucket(r: Raw): ManagerReportBucket {
 }
 
 function mapPayment(r: Raw): ManagerReportPayment {
-  return { method: str(r.method) ?? "OTHER", settledAmount: money(r.settledAmount), receivedAmount: money(r.receivedAmount), paymentCount: num(r.paymentCount) };
+  return {
+    method: str(r.method) ?? "OTHER",
+    settledAmount: money(r.settledAmount),
+    receivedAmount: money(r.receivedAmount),
+    paymentCount: num(r.paymentCount),
+    // BE `fb7cae9` (#72): chỉ đọc khi có, không tự suy ra (QĐ 77/125).
+    ...(r.grossSettledAmount !== undefined ? { grossSettledAmount: money(r.grossSettledAmount) } : {}),
+    ...(r.refundAmount !== undefined ? { refundAmount: money(r.refundAmount) } : {}),
+    ...(r.cancelledAfterPaymentCount !== undefined ? { cancelledAfterPaymentCount: num(r.cancelledAfterPaymentCount) } : {}),
+  };
 }
 
 function mapItem(r: Raw): ManagerReportItem {

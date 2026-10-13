@@ -36,7 +36,22 @@ function mapPayment(raw: Raw): OrderPaymentRecord {
     createdAt: str(raw.createdAt),
     failureReason: str(raw.failureReason),
     processedBy: mapActorName(raw.processedBy),
+    tenderedAmount: raw.tenderedAmount == null ? null : parseAmount(raw.tenderedAmount as string | number),
+    changeAmount: raw.changeAmount == null ? null : parseAmount(raw.changeAmount as string | number),
+    expiresAt: str(raw.expiresAt),
+    stationName: isObject(raw.station) ? str(raw.station.name) : null,
   };
+}
+
+/**
+ * Người trong khoản hoàn (BE `fb7cae9`, #73): `{ id, email, profile: { firstName, lastName, employeeCode | ownerCode } }`.
+ * Hiện họ tên; thiếu tên thì mã nhân viên/chủ chuỗi, rồi email; không có gì → null (màn hiện vai trò).
+ */
+export function mapRefundActor(v: unknown): string | null {
+  if (!isObject(v)) return null;
+  const profile = isObject(v.profile) ? v.profile : null;
+  const name = profile ? `${str(profile.firstName) ?? ""} ${str(profile.lastName) ?? ""}`.trim() : "";
+  return name || (profile ? (str(profile.employeeCode) ?? str(profile.ownerCode)) : null) || str(v.email);
 }
 
 /** Khoản thanh toán của đơn, bỏ trùng theo id. */
@@ -72,6 +87,8 @@ function mapRefund(raw: Raw): OrderRefundRecord {
       refundAmount: parseAmount(i.refundAmount as string | number | null),
       isWastage: i.isWastage === true,
     })),
+    requestedByName: mapRefundActor(raw.requestedBy),
+    completedByName: mapRefundActor(raw.completedBy),
   };
 }
 
@@ -90,6 +107,8 @@ export function mapOrderSummary(raw: Raw): OrderSummary {
     cancelledAt: str(raw.cancelledAt),
     cancellationReason: str(raw.cancellationReason),
     refunds: list(raw.refunds).map(mapRefund),
+    attentionAt: str(raw.attentionAt),
+    attentionReason: str(raw.attentionReason),
   };
 }
 

@@ -45,8 +45,8 @@ export default function AttentionOrders() {
         setError(null);
       }
       try {
-        // BE không có tham số sắp xếp (mới nhất trước) và `limit` ≤ 100: lấy trang đầu 100 đơn rồi sắp cũ nhất trước ở web.
-        const page = await orderApi.listOrders({ chainId, branchId }, { status: ATTENTION_STATUS, page: 1, limit: 100 });
+        // #66 (BE `fb7cae9`): BE sắp cũ nhất trước theo `attentionAt` (đơn chưa có `attentionAt` xếp cuối, #77); web không sắp lại.
+        const page = await orderApi.listOrders({ chainId, branchId }, { status: ATTENTION_STATUS, sortBy: "attentionAt", sortOrder: "asc", page: 1, limit: 100 });
         if (mine !== seq.current) return;
         setRows(toAttentionRows(page.items, Date.now()));
         setTotal(page.total);
@@ -89,9 +89,31 @@ export default function AttentionOrders() {
   const columns: ColumnsType<AttentionRow> = [
     { title: "Số gọi", dataIndex: "callNumber", width: 90, render: (v: number | null) => v ?? "—" },
     { title: "Mã đơn", dataIndex: "orderCode", render: (v: string) => <span style={{ fontFamily: "monospace" }}>{v}</span> },
-    // BE không trả thời điểm đơn chuyển "Cần xử lý" (#65): tạm tính từ lúc đặt đơn, ghi rõ trên tiêu đề.
-    { title: "Đã chờ (từ lúc đặt)", dataIndex: "waitedMs", width: 130, render: (v: number | null) => <span data-testid="attention-waited">{formatWaited(v)}</span> },
+    // Lý do theo BE (QĐ 123): mỗi loại một nhãn riêng; mã lạ → "Khác (<mã>)".
+    {
+      title: "Lý do",
+      key: "reason",
+      width: 210,
+      render: (_: unknown, r) => (
+        <Tag color={r.reasonKind === "ITEM_OUT_OF_STOCK" || r.reasonKind === "OPTION_OUT_OF_STOCK" ? "warning" : r.reasonKind === "UNKNOWN" ? "default" : "error"} data-testid="attention-reason">
+          {r.reasonLabel}
+        </Tag>
+      ),
+    },
+    // "Đã chờ" từ `attentionAt` (#65); BE chưa ghi cho đơn lệch tiền (#77) thì tính từ lúc đặt và ghi rõ trong ô.
+    {
+      title: "Đã chờ",
+      dataIndex: "waitedMs",
+      width: 170,
+      render: (v: number | null, r) => (
+        <span data-testid="attention-waited">
+          {formatWaited(v)}
+          {v !== null && r.waitedFromPlaced && <span style={{ color: palette.textMuted }}> (từ lúc đặt)</span>}
+        </span>
+      ),
+    },
     { title: "Tổng đơn", dataIndex: "total", align: "right", width: 130, render: (v: number) => formatVnd(v) },
+    // Hai cột tiền chỉ có nghĩa với loại lệch tiền (QĐ 123).
     { title: "Đã nhận", dataIndex: "received", align: "right", width: 130, render: (v: number | null) => (v === null ? "—" : formatVnd(v)) },
     {
       title: "Chênh lệch",
@@ -123,7 +145,7 @@ export default function AttentionOrders() {
     <div data-testid="attention-page">
       <SectionTitle
         title="Đơn cần xử lý"
-        sub="Chuyển khoản lệch số tiền: không tự xác nhận (BR-28). Cũ nhất ở trên."
+        sub="Lệch số tiền (không tự xác nhận, BR-28), hết món khi đơn đã trả, tiền về sau khi QR hết hạn. Cũ nhất ở trên."
         extra={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {realtimeOn && <RealtimeBadge {...realtime} />}
@@ -158,7 +180,7 @@ export default function AttentionOrders() {
             columns={columns}
             dataSource={rows ?? []}
             pagination={false}
-            scroll={{ x: 760 }}
+            scroll={{ x: 1000 }}
             locale={{ emptyText: loading ? " " : <span data-testid="attention-empty">Không có đơn nào cần xử lý.</span> }}
           />
           {rows !== null && total > rows.length && (

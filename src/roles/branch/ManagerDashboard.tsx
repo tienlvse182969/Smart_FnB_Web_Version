@@ -68,9 +68,11 @@ function Bars({ rows, testId, tooltip, valueLabel }: { rows: { key: string; labe
 
 const paymentColumns: ColumnsType<ManagerReportPayment> = [
   { title: "Hình thức", dataIndex: "method", render: (v: string) => paymentMethodInfo(v).label },
+  // BE `fb7cae9` (#72): "Ghi nhận"/"Thực nhận" là số SAU hoàn; số khoản không gồm đơn đã huỷ sau khi trả. Web hiện đúng số BE trả (QĐ 77, 125).
   { title: "Số khoản", dataIndex: "paymentCount", align: "right", render: (v: number) => formatCount(v) },
-  { title: "Ghi nhận", dataIndex: "settledAmount", align: "right", render: (v: number) => formatVnd(v) },
-  { title: "Thực nhận", dataIndex: "receivedAmount", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Đã hoàn", dataIndex: "refundAmount", align: "right", render: (v: number | undefined) => (v === undefined ? "—" : formatVnd(v)) },
+  { title: "Ghi nhận (sau hoàn)", dataIndex: "settledAmount", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Thực nhận (sau hoàn)", dataIndex: "receivedAmount", align: "right", render: (v: number) => formatVnd(v) },
 ];
 
 const itemColumns: ColumnsType<ManagerReportItem> = [
