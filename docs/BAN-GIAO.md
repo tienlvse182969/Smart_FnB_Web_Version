@@ -452,7 +452,7 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 134 | (7.8, mở lại QĐ 56/58; đặc tả 9.2 mục 6.8 chỉ có email nhắc trước 7 ngày) Dải "Gói dịch vụ sắp hết hạn" ở đầu trang của Owner và Manager khi gói `active` và còn 0–7 ngày LỊCH theo giờ Việt Nam (hết hạn lúc 23:59 ngày D vẫn là "hết hạn trong hôm nay" suốt ngày D); nêu ngày dd/MM/yyyy và "Liên hệ nhà cung cấp để gia hạn". Hết hạn/tạm ngưng: `ReadOnlyBanner` thay thế. Không hiện cho Admin; Cashier/Barista không thuộc web |
 | 135 | (7.8, OW-11, mục 20, BR-51, BR-52) Áp phích màn hình phía khách: **KHÔNG làm ở 7.8 (đã làm ở 7.9, xem QĐ 137)** vì BE `7d7f2dc` không có bảng, API hay trường `posters` (`grep -ri poster` rỗng). Không dựng mock thay thế để tránh số liệu mẫu giả. Nhờ BE #79 (hợp đồng theo mục 20.4 ghi ở `api-contract-plan.md`); khi có: trang Owner, chặn tệp ở bước chọn (PNG/JPG/WebP ≤ 5 MB, ≤ 6 áp phích, tên ≤ 50), khoá khi chỉ đọc, KHÔNG khoá theo gói |
 | 136 | (7.8, BM-01) Quầy hiện hạn token của màn hình khách đã ghép (`GET /display-devices` `tokenExpiresAt`, BE chỉ trả ở đây): "Token hết hạn dd/MM/yyyy HH:mm", quá hạn thì "Token đã hết hạn — cần ghép lại"; thu hồi vẫn qua `DELETE /display-devices/{id}` có hộp xác nhận |
-| 137 | (7.9, OW-11, BR-51; thay QĐ 135) Áp phích làm theo hợp đồng THẬT của BE `4b81e48` (`GET/POST/PATCH/DELETE /restaurant-chains/:id/display-posters`, migration `20261013110000`), không theo đường dẫn `/posters` của #79. BE lệch đặc tả 20.4 (#82, chờ nhóm chốt) nên giới hạn đặt ở MỘT chỗ `src/api/modules/posters/rules.ts` (`POSTER_LIMITS`: tối đa 10, tên ≤ 120, 5 MB, PNG/JPG/WebP, 8 giây): đổi số chỉ sửa hằng số. BE không có "đổi ảnh" và "đổi thứ tự" riêng nên web ghép: đổi ảnh = POST ảnh mới + PATCH + DELETE cũ; lên/xuống = hai PATCH `sortOrder` tuần tự. Kiểm tệp ngay khi chọn; xoá có hộp xác nhận; khoá khi chỉ đọc, KHÔNG khoá theo gói. Cờ `posters=real` |
+| 137 | (7.9, sửa sau merge `a8bad1e`; OW-11, BR-51; thay QĐ 135) Áp phích dùng BẢN CỦA TIẾN trên main (`9e9b3af`, module `api/modules/posters/` gồm `validate.ts`, `persist.ts`, trang `roles/owner/Posters.tsx`); bản áp phích riêng của Khánh (`9c4ec26`) đã bỏ khi merge. Hợp đồng BE thật `display-posters` (`GET/POST/PATCH/DELETE /restaurant-chains/:id/display-posters`). Giới hạn theo BE (#82 chờ nhóm chốt, đặc tả 20.4 là 6 ảnh, tên ≤ 50): tối đa 10 ảnh, ≤ 5 MB, PNG/JPG/WebP, tên 1–120, thời lượng 3–60 giây (mặc định 8), đặt ở `validate.ts`: đổi số chỉ sửa hằng số. BE không có "đổi ảnh" riêng (thêm mới rồi xoá cũ) và không có sắp xếp hàng loạt (lên/xuống = các PATCH `sortOrder`). Kiểm tệp ngay khi chọn; xoá có hộp xác nhận; khoá khi chỉ đọc (`ActionButton`, `writeGuard`), KHÔNG khoá theo gói. Sau merge bổ sung duy nhất: xem trước dùng ẢNH MẶC ĐỊNH (`theme/posterAssets.ts`) khi không có ảnh bật (commit `e682597`) |
 | 138 | (7.9) Phần điện thoại của 7.9 đã bỏ theo yêu cầu Khánh; chỉ giữ `b7b3e75` (thanh bên thu thành ngăn kéo dưới 768px, nút ≥ 40px ở ≤ 640px) và `RoleShell` dùng token màu cho lớp phủ ngăn kéo (lint không cho màu cứng). Không kiểm thêm khối `mobile` của `phase79` |
 | 139 | (9.1, OW-08, BR-50) Báo cáo Owner đọc đúng số BE `4b81e48`: doanh thu SAU hoàn (`revenue` = `netRevenue`), `grossRevenue`, `refundAmount` (trừ vào ngày huỷ, đã do BE gom), `pendingRefundAmount`, `paidCancellationCount` ở thẻ số, từng chi nhánh và từng cột biểu đồ. Giá trị đơn trung bình chỉ lấy số BE của từng chi nhánh: hiện khi phạm vi đúng một chi nhánh, nhiều chi nhánh hiện "—" kèm gợi ý (BE không trả ở tổng, web không tự chia → #98). Cờ gói (so sánh đa chi nhánh) giữ như cũ: lấy từ cờ BE, khoá kèm nhãn "Cần gói … trở lên" |
 | 140 | (9.1) KHÔNG làm: (a) doanh thu theo hình thức thanh toán (#94, BE chưa có), (b) topping bán chạy (#97), (c) bảng khoản chờ hoàn của Owner BR-49 (#78/#99, BE chưa có endpoint đọc; QĐ 133 giữ nguyên). OW-10 đã đủ ý đặc tả (gói, hạn, hạn mức, tính năng có/chưa có) nên giữ nguyên. BR-09: rà `src/roles/owner/*`, mọi nút/công tắc ghi đã qua `ActionButton`/`ActionSwitch`; còn lại chỉ là nút "Sửa" (vào chế độ sửa cục bộ, nút Lưu đã khoá) và "Thử lại" — không đổi |
@@ -1445,15 +1445,30 @@ Quyết định 126–131 ở mục 5. BE chỉ đọc; không sửa `.env`, com
 
 BE local `4b81e48` (đã có `display-posters`, migration `20261013110000`). Quyết định 137–138 ở mục 5. AI (OW-09) không đụng.
 
-**Đã làm:** module `posters` (`src/api/modules/posters/`: real, mock, mapper, rules), trang Owner `Posters.tsx` + `PosterPreview.tsx` (khung 16:9 xoay 8 giây, nền mờ, ảnh mặc định), cờ `posters=real`, câu lỗi BE mới trong `BACKEND_TEXT` (đủ số áp phích). Commit `9c4ec26`. Phần điện thoại: `b7b3e75`; sửa lint lớp phủ ở `RoleShell` (`0c993e5`).
+**Đã làm (cập nhật sau merge `a8bad1e`):** áp phích do bản của Tiến (`9e9b3af`) đảm nhiệm (QĐ 137); bản `9c4ec26` của Khánh đã bỏ khi merge, chỉ còn xem trước dùng ảnh mặc định (`e682597`). Phần điện thoại: `b7b3e75`; sửa lint lớp phủ ở `RoleShell` (`0c993e5`).
 
-**Kiểm real (BE `4b81e48`):** `phase79 --only=posters` **18/18** (blockWrites suốt khối; readOverride cho danh sách giả và gói hết hạn; setFault cho 400/409/403/500; `fulfillWrites` chỉ cho ca "Xuống"). Khối `mobile` của `phase79` KHÔNG chạy (QĐ 138). Vitest **748/748**.
+**Kiểm real (BE `4b81e48`):** `phase79 --only=posters` **18/18** chạy lại trên bản sau merge (`phase79.mjs` đã sửa theo test id của bản Tiến; blockWrites suốt khối; readOverride cho danh sách giả, mọi ảnh tắt và gói hết hạn; setFault cho 400/409/403/500; `fulfillWrites` chỉ cho ca "Xuống"; bỏ ca đổi tên tại chỗ). Khối `mobile` KHÔNG chạy (QĐ 138). Vitest **729/729** sau merge.
 
 **Request ghi tới BE:** 0 gửi thật; 10 request ghi (5 POST, 4 PATCH, 1 DELETE tới `display-posters`) đều bị chặn ở CDP. Không tải ảnh thật lên BE.
 
 **Ghi nhận:** `OrderDetailCancel.test.tsx` trượt 1 lần khi chạy cả bộ (chập chờn do tải), chạy riêng 2/2 lần 8/8 và chạy lại cả bộ 748/748.
 
-**Việc cho BE:** #82 (đúng 20.4: tối đa 6, tên ≤ 50, đổi ảnh/thứ tự riêng, `display.update`, audit log) — web chỉ cần đổi `POSTER_LIMITS` khi nhóm chốt.
+**Việc cho BE:** #82 (đúng 20.4: tối đa 6, tên ≤ 50, đổi ảnh/thứ tự riêng, `display.update`, audit log) — web chỉ cần đổi hằng số giới hạn ở `api/modules/posters/validate.ts` khi nhóm chốt.
+
+### Merge `origin/main` `a8bad1e` vào `feat/v9-orders` (2026-10-14, commit `4190eda`)
+
+Main đã có áp phích riêng của Lê Văn Tiến (`9e9b3af`) cùng gọi `display-posters`, nên trùng với `9c4ec26`. Chọn phương án A: giữ bản của Tiến.
+
+| File xung đột | Cách giải |
+|---|---|
+| `api/modules/posters/{index,mock,real}.ts`, `posters.test.ts`, `types/poster.ts`, `roles/owner/Posters.tsx` (add/add) | Lấy bản của main; xoá `compose.ts`, `mapper.ts`, `rules.ts`, `PosterPreview.tsx`, `Posters.test.tsx` cũ |
+| `api/flags.ts` (cờ `posters`) | Giữ dòng của main (BE `77526c3`, `VITE_API_POSTERS`) |
+| `roles/branch/StaffTable.tsx` | Giữ cả hai: "Gửi lại email" hoặc nhãn "Owner quản mật khẩu" (main) cộng "Huỷ lời mời" |
+| `docs/api-contract-plan.md` | Giữ cả hai phần |
+
+Dọn kèm: bỏ export `postersApi` trùng ở `api/index.ts`; bỏ 4 câu lỗi áp phích trùng ở `errors.ts`. Báo cáo hoàn tiền OW-08 giữ nguyên. **`scripts/browser/cdp.mjs`:** main đổi placeholder ô đăng nhập thành "Email hoặc tên đăng nhập" nên selector `placeholder="Email"` hỏng mọi khối kiểm trình duyệt; đã đổi thành `placeholder^="Email"`.
+
+Ghi chú vận hành: ba file `.docx` trong `src/imports/` là con trỏ LFS trên `feat/v9-orders` nhưng là nhị phân trên `main`, nên chuyển nhánh bị chặn; bản gốc đã sao lưu ngoài repo ở `C:\Capstone_Project\_docx_backup_20261014\` (3 file, 45574 byte mỗi file).
 
 ### Lượt 9.1 (2026-10-14): báo cáo Owner hiện hoàn tiền (OW-08, BR-50); phần BE chưa có thì không làm
 
