@@ -28,6 +28,7 @@
 | OW-07 | Nhận diện thương hiệu (logo, màu, tên hiển thị, khôi phục) | `/owner/branding` · `Branding.tsx` | `branding` · real | Xong (thật) | #39 (`isCustom`/`version`), #33 (chặn theo gói) | Web tự suy và tự khoá theo gói |
 | OW-08 | Báo cáo đa chi nhánh (ngày/tuần/tháng, thanh toán, món, đơn huỷ; so sánh từ gói Tiêu chuẩn) | `/owner/reports` · `Reports.tsx` | `report` · real | Một phần | #47 (BE báo cáo Owner lọc `COMPLETED`, không đếm đơn quầy `DELIVERED`) | Số liệu Owner sai cho đơn quầy tới khi BE sửa; Manager (`manager_report`) đúng (BM-03). GĐ9 |
 | OW-09 | Trợ lý AI hỏi đáp số liệu (Nâng cao) | `/owner/ai` · `AiAssistant.tsx` | `ai` · **mock** | Xong (mock, chờ BE OW-09) | BE chưa có endpoint | Mock đọc bộ đơn mock; khoá theo cờ gói; làm real ở GĐ9 |
+| OW-11 | Poster màn hình sau của thu ngân (thêm, xoá, bật/tắt, tên, thời lượng, thứ tự) | `/owner/posters` · `Posters.tsx` | `posters` · real | Xong (thật) | BE `77526c3` đã có | Mã mới, chưa có trong đặc tả v9; BE chưa có đổi ảnh tại chỗ, sắp xếp hàng loạt, realtime (xem api-contract-plan.md) |
 | OW-10 | Gói đang dùng, hạn, hạn mức, tính năng | `/owner/plan` · `MyPlan.tsx` | `plan` · real | Xong (thật) | #38 đã có | Không có nút gia hạn/đổi gói (đúng 4.4) |
 
 ## 3. Branch Manager (BM)

@@ -161,6 +161,22 @@ export const menuMock: MenuApi = {
     return view(s, item);
   },
 
+  async uploadItemImage(chainId, id, file) {
+    await mockDelay();
+    assertMockWritable();
+    const item = itemOf(getChainState(chainId), id);
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      throw new ApiError(400, 'Ảnh phải là JPEG, PNG hoặc WebP và không quá 5 MB');
+    }
+    item.imageUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new ApiError(400, 'Không đọc được tệp ảnh'));
+      reader.readAsDataURL(file);
+    });
+    return view(getChainState(chainId), item);
+  },
+
   async setItemActive(chainId, id, isActive) {
     await mockDelay();
     assertMockWritable();

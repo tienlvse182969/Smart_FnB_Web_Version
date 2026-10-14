@@ -599,3 +599,22 @@ Việc mới sau 7.7a:
 | 99 | Trung bình | Lập lại #78 theo hiện trạng `4b81e48`: vẫn KHÔNG có endpoint đọc danh sách khoản chờ hoàn cho Owner (chỉ có tổng `pendingRefundAmount` ở `/reports/*` và `POST /refunds/:id/complete`); web chưa làm bảng BR-49 (QĐ 140) | Nên có trước demo |
 
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.
+
+### Poster màn hình phụ (OW-11) — ĐÃ NỐI BE (`77526c3`, 13/10/2026)
+
+Owner quản lý danh sách poster của CHUỖI; màn hình phụ của thu ngân ở mọi chi nhánh xoay các poster đang bật, mỗi poster theo `durationSeconds` của nó. Web: `src/api/modules/posters` (real mặc định, `VITE_API_POSTERS=mock` để dùng dữ liệu giả); BE: `display-posters.controller.ts`, doc `docs/display-posters.md` của repo backend, migration `20261013110000_display_posters`.
+
+| Endpoint (chỉ OWNER) | Ghi chú |
+|---|---|
+| `GET /restaurant-chains/:chainId/display-posters` | Gồm cả poster đang tắt, theo `sortOrder` rồi `createdAt` rồi `id`. Đọc được cả khi hết hạn |
+| `POST …/display-posters` | multipart, field `file` DUY NHẤT (không có `title`); JPEG/PNG/WebP ≤ 5 MB (413 của Multer nếu quá), kiểm chữ ký tệp; tối đa **10** poster/chuỗi, vượt thì **409**. BE đặt tên "Poster", `durationSeconds` 8, `sortOrder` = số poster hiện có |
+| `PATCH …/display-posters/:posterId` | `title` (1–120, không rỗng, không `null`), `enabled`, `sortOrder` (0–10000), `durationSeconds` (3–60); trường lạ hoặc body rỗng là 400. `sortOrder` chỉ đặt cho MỘT dòng |
+| `DELETE …/display-posters/:posterId` | Xoá mềm, 200 `{ deleted: true }`; tệp ảnh vẫn nằm trên máy chủ |
+
+Ghi lúc doanh nghiệp hết hạn/tạm ngưng: 403 (câu "The business subscription is read-only…", không có mã `SUBSCRIPTION_READ_ONLY`). Không khoá theo gói.
+
+**Web khớp BE như sau:** không có đổi ảnh tại chỗ nên UI chỉ có Thêm và Xoá (đổi ảnh = thêm mới rồi xoá cũ); đổi thứ tự = hoán đổi hai poster kề nhau rồi PATCH `sortOrder` = vị trí mới cho mọi poster còn lệch (vì `sortOrder` có thể trùng nhau sau khi xoá); tên mặc định "Poster", đổi bằng PATCH; thêm ô thời lượng 3–60 giây.
+
+**Chờ BE (đề nghị):** (1) endpoint sắp xếp hàng loạt hoặc tự chuẩn hoá `sortOrder`, hiện phải PATCH từng poster; (2) đổi ảnh tại chỗ; (3) đẩy realtime (`display.update` hoặc tương đương) khi Owner đổi poster, hiện màn hình sau chỉ tự làm mới mỗi 60 giây; (4) dọn tệp ảnh của poster đã xoá mềm.
+
+Phía màn hình phụ (repo `smart_fnb_backscreen`): `GET /public/customer-display/context` trả thêm `posters: [{ id, title, imageUrl (tương đối), durationSeconds }]` (chỉ poster bật, đã sắp thứ tự, tối đa 10). App ghép `imageUrl` với origin máy chủ, xoay theo `durationSeconds`, làm mới mỗi 60 giây và khi nối lại socket; không có poster thì dùng ảnh mặc định.

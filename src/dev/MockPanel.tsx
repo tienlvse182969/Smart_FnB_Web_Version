@@ -16,6 +16,7 @@ import {
 import { clearPersistedAccounts } from "../api/modules/account/persist";
 import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
 import { clearPersistedBranding } from "../api/modules/branding/persist";
+import { clearPersistedPosters } from "../api/modules/posters/persist";
 import { clearPersistedOptions } from "../api/modules/options/persist";
 import { clearPersistedPayos, isPayosErrorSimulated, setPayosErrorSimulated } from "../api/modules/payos/persist";
 import { createMockPairingCode } from "../api/modules/stations/pairingMock";
@@ -189,6 +190,7 @@ export default function MockPanel() {
               clearPersistedAccounts();
               clearPersistedBranding();
               clearPersistedPayos();
+              clearPersistedPosters();
               window.location.reload();
             }}
           >

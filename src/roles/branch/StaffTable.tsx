@@ -261,9 +261,13 @@ export default function StaffTable() {
                 <ActionButton size="small" icon={<Pencil size={13} />} onClick={() => setEditing(s)}>
                   Sửa
                 </ActionButton>
-                <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
-                  Gửi lại email
-                </ActionButton>
+                {s.email.includes("@") ? (
+                  <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
+                    Gửi lại email
+                  </ActionButton>
+                ) : (
+                  <Tag>Owner quản mật khẩu</Tag>
+                )}
                 {canCancelInvite(s) && (
                   <ActionButton size="small" danger data-testid={`staff-cancel-invite-${s.id}`} onClick={() => setReasonFor({ kind: "cancel-invite", staff: s })}>
                     Huỷ lời mời

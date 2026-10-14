@@ -1,24 +1,16 @@
-/**
- * Áp phích màn hình phía khách (OW-11, đặc tả 9.2 mục 20, BR-51, BR-52). Một danh sách cho cả doanh nghiệp, không theo chi nhánh/quầy.
- * Hình dạng theo `GET /restaurant-chains/:chainId/display-posters` của BE `4b81e48` (`display-poster.dto.ts`).
- */
-export type Poster = {
+/** Poster hiển thị trên màn hình phụ (backscreen) của thu ngân; Owner quản lý, áp cho mọi chi nhánh trong chuỗi. */
+export interface Poster {
   id: string;
-  /** Tên để Owner phân biệt, không hiện cho khách. BE đặt "Poster" khi tải lên. */
-  title: string;
-  /** URL tuyệt đối (BE trả đường dẫn tương đối `/uploads/posters/…`, ghép với gốc máy chủ). */
+  /** URL tuyệt đối (real) hoặc data URL (mock). */
   imageUrl: string;
+  /** Luôn có (BE đặt "Poster" khi tải lên), 1–120 ký tự. */
+  title: string;
+  /** false = tạm ẩn, màn hình sau bỏ qua khi xoay vòng. */
   enabled: boolean;
-  /** Tăng dần; trùng thì theo ngày tạo rồi id (BE sắp). Web chỉ dựa vào thứ tự mảng đã được BE sắp. */
+  /** Thứ tự xoay vòng tăng dần, 0–10000. KHÔNG đảm bảo liên tục hay khác nhau (BE xếp hoà theo `createdAt`, rồi `id`). */
   sortOrder: number;
-  /** Thời lượng mỗi ảnh (giây), BE 3–60, mặc định 8 (đặc tả cố định 8, #82). */
+  /** Thời gian poster hiện trước khi chuyển sang ảnh kế, 3–60 giây (mặc định 8). */
   durationSeconds: number;
-  updatedAt: string | null;
-};
-
-/** Trường đổi được qua `PATCH` (BE `UpdateDisplayPosterDto`). */
-export type PosterPatch = {
-  title?: string;
-  enabled?: boolean;
-  sortOrder?: number;
-};
+  createdAt: string;
+  updatedAt: string;
+}

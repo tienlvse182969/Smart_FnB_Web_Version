@@ -58,6 +58,12 @@ export const menuReal: MenuApi = {
     return mapItem(await request<RawItem>(`${base(chainId)}/items/${id}`, { method: "PATCH", body: patch }));
   },
 
+  async uploadItemImage(chainId, id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return mapItem(await request<RawItem>(`${base(chainId)}/items/${id}/image`, { method: "POST", body: form }));
+  },
+
   async setItemActive(chainId, id, isActive) {
     return mapItem(await request<RawItem>(`${base(chainId)}/items/${id}/active`, { method: "PATCH", body: { isActive } }));
   },

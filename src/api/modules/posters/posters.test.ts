@@ -1,301 +1,243 @@
-/**
- * Áp phích (OW-11, lượt 7.9): quy tắc, mapper, real (đúng DTO BE `4b81e48`), thao tác GHÉP, mock.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Poster } from "../../../types";
+import { ApiError, translateBackendMessage } from "../../http/errors";
 import { mockControl } from "../../mock/control";
-import { replaceImage, reorder, type PosterPrimitives } from "./compose";
-import { mapPoster, mapPosterList } from "./mapper";
-import { postersMock, resetPostersMock } from "./mock";
-import { postersReal, toPatchBody } from "./real";
+import { setScenario } from "../../mock/scenario";
+import { resetMockStates } from "../../mock/store";
+import { postersMock, resetMockPosters } from "./mock";
+import { POSTERS_STORAGE_PREFIX, clearPersistedPosters } from "./persist";
+import { mapPoster, postersReal, type RawPoster } from "./real";
 import {
-  POSTER_LIMITS,
-  describePosterRejection,
-  enabledInOrder,
-  moveOrder,
-  nextSlideIndex,
-  slideSeconds,
+  MAX_POSTERS,
+  MAX_POSTER_BYTES,
+  comparePosters,
+  validatePosterDuration,
   validatePosterFile,
-  validatePosterImage,
+  validatePosterPatch,
+  validatePosterSortOrder,
   validatePosterTitle,
-} from "./rules";
+} from "./validate";
 
 mockControl.latency = [0, 0];
 mockControl.failure = null;
 
-const poster = (over: Partial<Poster> = {}): Poster => ({
-  id: "p",
-  title: "Tên",
-  imageUrl: "http://x/y.png",
+const file = (type = "image/png", bytes = 1000, name = "poster.png") => new File([new Uint8Array(bytes)], name, { type });
+
+const raw = (over: Partial<RawPoster> = {}): RawPoster => ({
+  id: "p1",
+  chainId: "c1",
+  title: "Poster",
+  imageUrl: "/uploads/posters/c1-a.png",
   enabled: true,
   sortOrder: 0,
   durationSeconds: 8,
-  updatedAt: null,
+  createdAt: "2026-10-13T11:14:32.000Z",
+  updatedAt: "2026-10-13T11:14:32.000Z",
   ...over,
 });
-const file = (type: string, size: number, name = "a.png") => ({ type, size, name });
 
-describe("giới hạn lấy theo BE 4b81e48 (#82 chờ nhóm chốt)", () => {
-  it("một hằng số: 10 áp phích, tên 120, 5 MB, PNG/JPG/WebP", () => {
-    expect(POSTER_LIMITS.maxCount).toBe(10);
-    expect(POSTER_LIMITS.maxTitle).toBe(120);
-    expect(POSTER_LIMITS.maxBytes).toBe(5 * 1024 * 1024);
-    expect([...POSTER_LIMITS.types]).toEqual(["image/png", "image/jpeg", "image/webp"]);
-    expect(POSTER_LIMITS.defaultSeconds).toBe(8);
+describe("kiểm poster (theo BE display-posters)", () => {
+  it("nhận PNG/JPG/WebP ≤ 5 MB; từ chối loại khác, quá lớn, rỗng", () => {
+    expect(validatePosterFile(file("image/png"))).toBeNull();
+    expect(validatePosterFile(file("image/jpeg"))).toBeNull();
+    expect(validatePosterFile(file("image/webp"))).toBeNull();
+    expect(validatePosterFile(file("image/gif"))).toMatch(/PNG, JPG hoặc WebP/);
+    expect(validatePosterFile({ type: "image/png", size: MAX_POSTER_BYTES })).toBeNull();
+    expect(validatePosterFile({ type: "image/png", size: MAX_POSTER_BYTES + 1 })).toMatch(/5 MB/);
+    expect(validatePosterFile({ type: "image/png", size: 0 })).toMatch(/rỗng/);
+  });
+
+  it("tên 1–120 ký tự sau khi cắt khoảng trắng", () => {
+    expect(validatePosterTitle(undefined)).toBeNull();
+    expect(validatePosterTitle("a".repeat(120))).toBeNull();
+    expect(validatePosterTitle("a".repeat(121))).toMatch(/120/);
+    expect(validatePosterTitle("   ")).toMatch(/không được để trống/);
+    expect(validatePosterTitle("")).toMatch(/không được để trống/);
+  });
+
+  it("thời lượng là số nguyên 3–60; thứ tự là số nguyên 0–10000", () => {
+    expect(validatePosterDuration(undefined)).toBeNull();
+    for (const ok of [3, 8, 60]) expect(validatePosterDuration(ok)).toBeNull();
+    for (const bad of [2, 61, 7.5, Number.NaN]) expect(validatePosterDuration(bad)).toMatch(/3 đến 60/);
+    for (const ok of [0, 5, 10000]) expect(validatePosterSortOrder(ok)).toBeNull();
+    for (const bad of [-1, 10001, 1.5]) expect(validatePosterSortOrder(bad)).toMatch(/0 đến 10000/);
+  });
+
+  it("sửa rỗng bị từ chối (BE trả 400); có ít nhất một trường hợp lệ thì qua", () => {
+    expect(validatePosterPatch({})).toMatch(/ít nhất một trường/);
+    expect(validatePosterPatch({ enabled: false })).toBeNull();
+    expect(validatePosterPatch({ durationSeconds: 90 })).toMatch(/3 đến 60/);
+  });
+
+  it("sắp theo sortOrder, rồi createdAt, rồi id (như BE)", () => {
+    const a = { id: "b", sortOrder: 1, createdAt: "2026-10-13T10:00:00Z" };
+    const b = { id: "a", sortOrder: 1, createdAt: "2026-10-13T11:00:00Z" };
+    const c = { id: "c", sortOrder: 0, createdAt: "2026-10-13T12:00:00Z" };
+    const d = { id: "a", sortOrder: 1, createdAt: "2026-10-13T10:00:00Z" };
+    // c (sortOrder 0) trước; trong sortOrder 1: cùng 10:00 thì theo id (d "a" trước a "b"), rồi b (11:00).
+    expect([a, b, c, d].sort(comparePosters)).toEqual([c, d, a, b]);
   });
 });
 
-describe("kiểm tệp ngay khi chọn", () => {
-  it("định dạng sai: câu nêu tên tệp và các định dạng nhận", () => {
-    const msg = validatePosterFile(file("image/gif", 1000, "anh.gif"), 0)!;
-    expect(msg).toMatch(/PNG, JPG hoặc WebP/);
-    expect(msg).toMatch(/anh\.gif/);
-    expect(validatePosterFile(file("application/pdf", 10), 0)).not.toBeNull();
-  });
-
-  it("quá 5 MB: nêu dung lượng thật và giới hạn; đúng 5 MB thì qua", () => {
-    const over = validatePosterFile(file("image/png", 5 * 1024 * 1024 + 1), 0)!;
-    expect(over).toMatch(/vượt giới hạn 5 MB/);
-    expect(over).toMatch(/5\.0 MB/);
-    expect(validatePosterFile(file("image/png", 5 * 1024 * 1024), 0)).toBeNull();
-  });
-
-  it("tệp rỗng bị chặn", () => {
-    expect(validatePosterImage(file("image/jpeg", 0))).toBe("Tệp ảnh rỗng.");
-  });
-
-  it("đủ số lượng: chặn trước cả loại tệp, nêu số tối đa", () => {
-    const msg = validatePosterFile(file("image/png", 10), POSTER_LIMITS.maxCount)!;
-    expect(msg).toMatch(/Đã đủ 10 áp phích/);
-    expect(validatePosterFile(file("image/webp", 10), POSTER_LIMITS.maxCount - 1)).toBeNull();
-  });
-
-  it("tên: không rỗng, ≤ 120 sau trim", () => {
-    expect(validatePosterTitle("   ")).toMatch(/Nhập tên/);
-    expect(validatePosterTitle("a".repeat(121))).toMatch(/tối đa 120/);
-    expect(validatePosterTitle(`  ${"a".repeat(120)}  `)).toBeNull();
+describe("dịch thông báo BE sang tiếng Việt", () => {
+  const t = (status: number, message: string) => translateBackendMessage(new ApiError(status, message));
+  it("409 vượt số poster, 404, 400 tệp", () => {
+    expect(t(409, "A chain may have at most 10 posters; remove one before uploading")).toMatch(/đủ số poster tối đa/);
+    expect(t(404, "Poster not found in this chain")).toMatch(/Không tìm thấy poster/);
+    expect(t(400, "Poster must not exceed 5 MB")).toBe("Poster tối đa 5 MB.");
+    expect(t(400, "A poster file is required")).toBe("Chưa chọn tệp poster.");
+    expect(t(400, "Poster must be a JPEG, PNG, or WebP image with a matching file signature")).toMatch(/JPEG, PNG hoặc WebP/);
   });
 });
 
-describe("thứ tự và vòng xoay", () => {
-  const list = [poster({ id: "a", sortOrder: 0 }), poster({ id: "b", sortOrder: 1 }), poster({ id: "c", sortOrder: 2 })];
-
-  it("moveOrder: đổi chỗ hai áp phích, chỉ gửi áp phích đổi sortOrder", () => {
-    expect(moveOrder(list, "b", -1)).toEqual([
-      { id: "b", sortOrder: 0 },
-      { id: "a", sortOrder: 1 },
-    ]);
-    expect(moveOrder(list, "b", 1)).toEqual([
-      { id: "c", sortOrder: 1 },
-      { id: "b", sortOrder: 2 },
-    ]);
-  });
-
-  it("moveOrder: đầu/cuối danh sách hoặc id lạ → không có gì để gửi", () => {
-    expect(moveOrder(list, "a", -1)).toEqual([]);
-    expect(moveOrder(list, "c", 1)).toEqual([]);
-    expect(moveOrder(list, "zzz", 1)).toEqual([]);
-  });
-
-  it("moveOrder: sortOrder đang trùng/lệch (sau khi xoá) được chuẩn hoá thành 0..n−1", () => {
-    const messy = [poster({ id: "a", sortOrder: 0 }), poster({ id: "b", sortOrder: 0 }), poster({ id: "c", sortOrder: 5 })];
-    const patches = moveOrder(messy, "c", -1);
-    // mảng mới: a, c, b → chỉ số 0,1,2; a đã 0 nên bỏ qua
-    expect(patches).toEqual([
-      { id: "c", sortOrder: 1 },
-      { id: "b", sortOrder: 2 },
-    ]);
-  });
-
-  it("enabledInOrder giữ thứ tự mảng và bỏ áp phích tắt", () => {
-    const mixed = [poster({ id: "a" }), poster({ id: "b", enabled: false }), poster({ id: "c" })];
-    expect(enabledInOrder(mixed).map((p) => p.id)).toEqual(["a", "c"]);
-  });
-
-  it("nextSlideIndex quay vòng, an toàn khi rỗng", () => {
-    expect(nextSlideIndex(0, 3)).toBe(1);
-    expect(nextSlideIndex(2, 3)).toBe(0);
-    expect(nextSlideIndex(0, 1)).toBe(0);
-    expect(nextSlideIndex(5, 0)).toBe(0);
-  });
-
-  it("slideSeconds: mặc định 8, kẹp 3–60", () => {
-    expect(slideSeconds(undefined)).toBe(8);
-    expect(slideSeconds({ durationSeconds: 12 })).toBe(12);
-    expect(slideSeconds({ durationSeconds: 1 })).toBe(3);
-    expect(slideSeconds({ durationSeconds: 999 })).toBe(60);
-    expect(slideSeconds({ durationSeconds: Number.NaN })).toBe(8);
-  });
-});
-
-describe("mapper", () => {
-  it("ghép gốc máy chủ cho đường dẫn tương đối, bỏ trường lạ", () => {
-    const p = mapPoster(
-      { id: "1", title: "T", imageUrl: "/uploads/posters/c-1.png", enabled: false, sortOrder: 3, durationSeconds: 12, updatedAt: "2026-10-13T00:00:00.000Z", ...({ chainId: "c", deletedAt: null } as object) },
-      "http://localhost:3100",
-    );
-    expect(p).toEqual({ id: "1", title: "T", imageUrl: "http://localhost:3100/uploads/posters/c-1.png", enabled: false, sortOrder: 3, durationSeconds: 12, updatedAt: "2026-10-13T00:00:00.000Z" });
-  });
-
-  it("thiếu trường: mặc định an toàn; bỏ dòng không có id; không phải mảng → rỗng", () => {
-    expect(mapPoster({ id: "x" }, "http://h")).toMatchObject({ title: "", imageUrl: "", enabled: true, sortOrder: 0, durationSeconds: 8 });
-    expect(mapPosterList([{ id: "a" }, { title: "không id" }, null], "http://h")).toHaveLength(1);
-    expect(mapPosterList({ items: [] })).toEqual([]);
-  });
-});
-
-describe("real — đúng DTO của BE", () => {
+describe("real posters — fetch giả, không gọi BE", () => {
   afterEach(() => vi.unstubAllGlobals());
-  const respond = (body: unknown, status = 200) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
-  const call = (fn: ReturnType<typeof vi.fn>, n = 0) => {
-    const [url, init] = fn.mock.calls[n] as [string, RequestInit];
-    return { path: new URL(url).pathname, method: init.method, body: init.body };
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  const stub = (...responses: Response[]) => {
+    const fn = vi.fn();
+    responses.forEach((r) => fn.mockResolvedValueOnce(r));
+    fn.mockImplementation(async () => json(raw()));
+    vi.stubGlobal("fetch", fn);
+    return fn;
   };
-  const raw = { id: "p1", title: "Poster", imageUrl: "/uploads/posters/c-1.png", enabled: true, sortOrder: 0, durationSeconds: 8 };
+  const calls = (fn: ReturnType<typeof vi.fn>) =>
+    (fn.mock.calls as [string, RequestInit][]).map(([url, init]) => ({
+      path: new URL(url).pathname.replace(/^\/api\/v1/, ""),
+      method: init.method ?? "GET",
+      body: init.body,
+      contentType: new Headers(init.headers).get("content-type"),
+    }));
 
-  it("liệt kê: GET …/display-posters, ánh xạ", async () => {
-    const fn = respond([raw]);
-    vi.stubGlobal("fetch", fn);
-    const list = await postersReal.listPosters("chain-1");
-    expect(call(fn)).toMatchObject({ path: "/api/v1/restaurant-chains/chain-1/display-posters", method: "GET" });
-    expect(list[0]).toMatchObject({ id: "p1", enabled: true });
-    expect(list[0].imageUrl).toMatch(/\/uploads\/posters\/c-1\.png$/);
+  it("ánh xạ: imageUrl tương đối → tuyệt đối; giữ nguyên title, enabled, sortOrder, durationSeconds", () => {
+    const p = mapPoster(raw({ imageUrl: "/uploads/posters/x.webp", sortOrder: 3, durationSeconds: 15, title: "Matcha" }), "http://localhost:3100");
+    expect(p).toMatchObject({ imageUrl: "http://localhost:3100/uploads/posters/x.webp", sortOrder: 3, durationSeconds: 15, title: "Matcha", enabled: true });
   });
 
-  it("tải lên: POST multipart, field `file`, không có trường nào khác", async () => {
-    const fn = respond(raw, 201);
-    vi.stubGlobal("fetch", fn);
-    const f = new File([new Uint8Array(10)], "a.png", { type: "image/png" });
-    await postersReal.uploadPoster("chain-1", f);
-    const c = call(fn);
-    expect(c).toMatchObject({ path: "/api/v1/restaurant-chains/chain-1/display-posters", method: "POST" });
-    expect(c.body).toBeInstanceOf(FormData);
-    const form = c.body as FormData;
-    expect([...form.keys()]).toEqual(["file"]);
-    expect((form.get("file") as File).name).toBe("a.png");
+  it("GET: đúng route display-posters, sắp theo thứ tự xoay vòng của BE", async () => {
+    const fn = stub(json([raw({ id: "b", sortOrder: 1 }), raw({ id: "a", sortOrder: 0 }), raw({ id: "c", sortOrder: 1, createdAt: "2026-10-13T09:00:00.000Z" })]));
+    const list = await postersReal.listPosters("c1");
+    expect(calls(fn)[0]).toMatchObject({ path: "/restaurant-chains/c1/display-posters", method: "GET" });
+    expect(list.map((p) => p.id)).toEqual(["a", "c", "b"]);
+    expect(list[0].imageUrl).toMatch(/\/uploads\/posters\/c1-a\.png$/);
   });
 
-  it("tải lên tệp sai định dạng/quá nặng: 400 tiếng Việt, KHÔNG gửi request", async () => {
-    const fn = respond(raw, 201);
-    vi.stubGlobal("fetch", fn);
-    await expect(postersReal.uploadPoster("c", new File([new Uint8Array(4)], "a.gif", { type: "image/gif" }))).rejects.toMatchObject({ status: 400 });
+  it("POST: multipart, field `file` DUY NHẤT, không đặt Content-Type tay", async () => {
+    const fn = stub(json(raw({ id: "n1" }), 201));
+    const out = await postersReal.addPoster("c1", { file: file("image/jpeg", 2000, "a.jpg") });
+    const [only] = calls(fn);
+    expect(calls(fn)).toHaveLength(1);
+    expect(only).toMatchObject({ path: "/restaurant-chains/c1/display-posters", method: "POST", contentType: null });
+    expect(only.body).toBeInstanceOf(FormData);
+    expect([...(only.body as FormData).keys()]).toEqual(["file"]);
+    expect(out.id).toBe("n1");
+  });
+
+  it("POST sai tệp: 400 tiếng Việt, KHÔNG có request nào", async () => {
+    const fn = stub();
+    await expect(postersReal.addPoster("c1", { file: file("image/gif") })).rejects.toMatchObject({ status: 400 });
+    await expect(postersReal.addPoster("c1", { file: file("image/png", MAX_POSTER_BYTES + 1) })).rejects.toMatchObject({ status: 400 });
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("PATCH: chỉ title/enabled/sortOrder, tên được trim, không gửi durationSeconds", async () => {
-    const fn = respond(raw);
-    vi.stubGlobal("fetch", fn);
-    await postersReal.updatePoster("c", "p1", { title: "  Mới  ", enabled: false, sortOrder: 2 });
-    expect(call(fn)).toMatchObject({ path: "/api/v1/restaurant-chains/c/display-posters/p1", method: "PATCH" });
-    expect(JSON.parse(String(call(fn).body))).toEqual({ title: "Mới", enabled: false, sortOrder: 2 });
-    expect(toPatchBody({ enabled: true })).toEqual({ enabled: true });
+  it("POST vượt 10 poster: BE trả 409, lỗi được ném lại với status 409", async () => {
+    stub(json({ statusCode: 409, message: "A chain may have at most 10 posters; remove one before uploading" }, 409));
+    await expect(postersReal.addPoster("c1", { file: file() })).rejects.toMatchObject({ status: 409 });
   });
 
-  it("PATCH tên rỗng: 400, không gửi", async () => {
-    const fn = respond(raw);
-    vi.stubGlobal("fetch", fn);
-    await expect(postersReal.updatePoster("c", "p1", { title: "   " })).rejects.toMatchObject({ status: 400 });
+  it("PATCH: chỉ gửi khoá có mặt (tên đã cắt khoảng trắng), đúng route và phương thức", async () => {
+    const fn = stub(json(raw({ durationSeconds: 20, title: "Khuyến mãi" })));
+    const out = await postersReal.updatePoster("c1", "p1", { title: " Khuyến mãi ", durationSeconds: 20 });
+    expect(calls(fn)[0]).toMatchObject({ path: "/restaurant-chains/c1/display-posters/p1", method: "PATCH", contentType: "application/json" });
+    expect(JSON.parse(String(calls(fn)[0].body))).toEqual({ title: "Khuyến mãi", durationSeconds: 20 });
+    expect(out.durationSeconds).toBe(20);
+    await postersReal.updatePoster("c1", "p1", { enabled: false });
+    expect(JSON.parse(String(calls(fn)[1].body))).toEqual({ enabled: false });
+    await postersReal.updatePoster("c1", "p1", { sortOrder: 0 });
+    expect(JSON.parse(String(calls(fn)[2].body))).toEqual({ sortOrder: 0 });
+  });
+
+  it("PATCH rỗng, tên rỗng, thời lượng ngoài 3–60: 400, KHÔNG có request nào", async () => {
+    const fn = stub();
+    await expect(postersReal.updatePoster("c1", "p1", {})).rejects.toMatchObject({ status: 400 });
+    await expect(postersReal.updatePoster("c1", "p1", { title: "  " })).rejects.toMatchObject({ status: 400 });
+    await expect(postersReal.updatePoster("c1", "p1", { durationSeconds: 2 })).rejects.toMatchObject({ status: 400 });
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("xoá: DELETE …/display-posters/:id", async () => {
-    const fn = respond({ deleted: true });
-    vi.stubGlobal("fetch", fn);
-    await postersReal.deletePoster("c", "p1");
-    expect(call(fn)).toMatchObject({ path: "/api/v1/restaurant-chains/c/display-posters/p1", method: "DELETE" });
+  it("DELETE: chấp nhận thân `{ deleted: true }` của BE, không body gửi đi", async () => {
+    const fn = stub(json({ deleted: true }));
+    await expect(postersReal.deletePoster("c1", "p1")).resolves.toBeUndefined();
+    expect(calls(fn)[0]).toMatchObject({ path: "/restaurant-chains/c1/display-posters/p1", method: "DELETE", body: undefined });
   });
 
-  it("409 đủ số lượng của BE → ApiError 409 (câu Việt do lớp lỗi dịch)", async () => {
-    vi.stubGlobal("fetch", respond({ statusCode: 409, message: "A chain may have at most 10 posters; remove one before uploading", error: "Conflict" }, 409));
-    const f = new File([new Uint8Array(10)], "a.png", { type: "image/png" });
-    await expect(postersReal.uploadPoster("c", f)).rejects.toMatchObject({ status: 409 });
-  });
-
-  it("câu BE → câu tiếng Việt chuyên biệt", () => {
-    expect(describePosterRejection(409, "A chain may have at most 10 posters; remove one before uploading")).toMatch(/Đã đủ 10 áp phích/);
-    expect(describePosterRejection(413, "File too large")).toMatch(/5 MB/);
-    expect(describePosterRejection(400, "Poster must be a JPEG, PNG, or WebP image with a matching file signature")).toMatch(/PNG, JPG hoặc WebP/);
-    expect(describePosterRejection(500, "x")).toBeNull();
+  it("403 chỉ đọc (hết hạn) được ném lại", async () => {
+    stub(json({ statusCode: 403, message: "The business subscription is read-only; renew it before making this change" }, 403));
+    await expect(postersReal.deletePoster("c1", "p1")).rejects.toMatchObject({ status: 403 });
   });
 });
 
-describe("thao tác ghép (BE chưa có endpoint, #82)", () => {
-  const make = () => {
-    const calls: string[] = [];
-    const api: PosterPrimitives = {
-      upload: vi.fn(async () => {
-        calls.push("POST");
-        return poster({ id: "new", title: "Poster", enabled: true, sortOrder: 9 });
-      }),
-      update: vi.fn(async (_c, id, patch) => {
-        calls.push(`PATCH ${id} ${JSON.stringify(patch)}`);
-        return poster({ id, ...patch });
-      }),
-      remove: vi.fn(async (_c, id) => {
-        calls.push(`DELETE ${id}`);
-      }),
-    };
-    return { api, calls };
-  };
-
-  it("đổi ảnh: POST → PATCH chép tên/bật/vị trí → DELETE cũ, đúng thứ tự", async () => {
-    const { api, calls } = make();
-    const current = poster({ id: "old", title: "KM tháng 10", enabled: false, sortOrder: 1 });
-    const result = await replaceImage(api, "c", current, new File([new Uint8Array(3)], "n.png", { type: "image/png" }));
-    expect(calls).toEqual(["POST", `PATCH new ${JSON.stringify({ title: "KM tháng 10", enabled: false, sortOrder: 1 })}`, "DELETE old"]);
-    expect(result).toMatchObject({ id: "new", title: "KM tháng 10", enabled: false, sortOrder: 1 });
+describe("mock posters — phản chiếu BE", () => {
+  beforeEach(() => {
+    clearPersistedPosters();
+    resetMockPosters();
+    resetMockStates();
+    setScenario({ profile: "A", tier: "STANDARD", expired: false });
   });
 
-  it("đổi ảnh: PATCH lỗi thì xoá bản mới, KHÔNG xoá bản cũ, ném lỗi", async () => {
-    const { api, calls } = make();
-    (api.update as ReturnType<typeof vi.fn>).mockRejectedValueOnce(Object.assign(new Error("boom"), { status: 500 }));
-    await expect(replaceImage(api, "c", poster({ id: "old" }), new File([], "n.png"))).rejects.toThrow("boom");
-    expect(calls).toEqual(["POST", "DELETE new"]);
+  it("chuỗi mới chưa có poster", async () => {
+    expect(await postersMock.listPosters("c1")).toEqual([]);
   });
 
-  it("đổi ảnh: POST lỗi (đủ số lượng) thì không đụng áp phích cũ", async () => {
-    const { api, calls } = make();
-    (api.upload as ReturnType<typeof vi.fn>).mockRejectedValueOnce(Object.assign(new Error("full"), { status: 409 }));
-    await expect(replaceImage(api, "c", poster({ id: "old" }), new File([], "n.png"))).rejects.toThrow("full");
-    expect(calls).toEqual([]);
+  it("thêm: tên mặc định, 8 giây, bật, sortOrder = số poster hiện có; lưu qua lần đọc kế tiếp", async () => {
+    const a = await postersMock.addPoster("c1", { file: file() });
+    const b = await postersMock.addPoster("c1", { file: file("image/jpeg") });
+    expect(a).toMatchObject({ title: "Poster", enabled: true, durationSeconds: 8, sortOrder: 0 });
+    expect(b.sortOrder).toBe(1);
+    expect(a.imageUrl).toMatch(/^data:/);
+    expect((await postersMock.listPosters("c1")).map((p) => p.id)).toEqual([a.id, b.id]);
+    expect(localStorage.getItem(`${POSTERS_STORAGE_PREFIX}c1`)).not.toBeNull();
   });
 
-  it("đổi thứ tự: PATCH sortOrder tuần tự theo mảng", async () => {
-    const { api, calls } = make();
-    await reorder(api, "c", [
-      { id: "b", sortOrder: 0 },
-      { id: "a", sortOrder: 1 },
-    ]);
-    expect(calls).toEqual([`PATCH b ${JSON.stringify({ sortOrder: 0 })}`, `PATCH a ${JSON.stringify({ sortOrder: 1 })}`]);
+  it("poster của chuỗi này không lẫn sang chuỗi khác", async () => {
+    await postersMock.addPoster("c1", { file: file() });
+    expect(await postersMock.listPosters("c2")).toEqual([]);
   });
-});
 
-describe("mock", () => {
-  beforeEach(() => resetPostersMock());
+  it("tệp sai: 400; đủ 10 poster: 409", async () => {
+    await expect(postersMock.addPoster("c1", { file: file("image/gif") })).rejects.toMatchObject({ status: 400 });
+    for (let i = 0; i < MAX_POSTERS; i++) await postersMock.addPoster("c1", { file: file() });
+    await expect(postersMock.addPoster("c1", { file: file() })).rejects.toMatchObject({ status: 409 });
+  });
 
-  it("có sẵn 3 áp phích mẫu (2 bật, 1 tắt), đúng thứ tự", async () => {
+  it("PATCH đổi tên, bật/tắt, thời lượng, thứ tự; sửa rỗng, tên rỗng, ngoài khoảng, không tồn tại đều bị từ chối", async () => {
+    const a = await postersMock.addPoster("c1", { file: file() });
+    expect(await postersMock.updatePoster("c1", a.id, { title: " Matcha ", enabled: false, durationSeconds: 15, sortOrder: 7 })).toMatchObject({
+      title: "Matcha",
+      enabled: false,
+      durationSeconds: 15,
+      sortOrder: 7,
+    });
+    await expect(postersMock.updatePoster("c1", a.id, {})).rejects.toMatchObject({ status: 400 });
+    await expect(postersMock.updatePoster("c1", a.id, { title: "" })).rejects.toMatchObject({ status: 400 });
+    await expect(postersMock.updatePoster("c1", a.id, { durationSeconds: 61 })).rejects.toMatchObject({ status: 400 });
+    await expect(postersMock.updatePoster("c1", "khong-co", { enabled: true })).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("danh sách theo sortOrder; PATCH sortOrder chỉ đổi một dòng (không dịch dòng khác)", async () => {
+    const a = await postersMock.addPoster("c1", { file: file() });
+    const b = await postersMock.addPoster("c1", { file: file() });
+    await postersMock.updatePoster("c1", a.id, { sortOrder: 5 });
     const list = await postersMock.listPosters("c1");
-    expect(list.map((p) => p.enabled)).toEqual([true, true, false]);
-    expect(list.map((p) => p.sortOrder)).toEqual([0, 1, 2]);
+    expect(list.map((p) => [p.id, p.sortOrder])).toEqual([[b.id, 1], [a.id, 5]]);
   });
 
-  it("thêm tới đủ giới hạn rồi 409; tệp sai loại 400", async () => {
-    const png = new File([new Uint8Array(8)], "a.png", { type: "image/png" });
-    for (let i = (await postersMock.listPosters("c1")).length; i < POSTER_LIMITS.maxCount; i++) await postersMock.uploadPoster("c1", png);
-    await expect(postersMock.uploadPoster("c1", png)).rejects.toMatchObject({ status: 409 });
-    await expect(postersMock.uploadPoster("c2", new File([new Uint8Array(8)], "a.gif", { type: "image/gif" }))).rejects.toMatchObject({ status: 400 });
-  });
-
-  it("bật/tắt, đổi tên, xoá, đổi thứ tự", async () => {
-    const [a, b] = await postersMock.listPosters("c1");
-    await postersMock.updatePoster("c1", a.id, { enabled: false, title: "Đã đổi" });
-    await postersMock.reorder("c1", moveOrder(await postersMock.listPosters("c1"), b.id, -1));
-    let list = await postersMock.listPosters("c1");
-    expect(list[0].id).toBe(b.id);
-    expect(list.find((p) => p.id === a.id)).toMatchObject({ enabled: false, title: "Đã đổi" });
+  it("xoá không đánh số lại, nên thêm sau đó có thể trùng sortOrder", async () => {
+    const a = await postersMock.addPoster("c1", { file: file() });
+    const b = await postersMock.addPoster("c1", { file: file() });
     await postersMock.deletePoster("c1", a.id);
-    list = await postersMock.listPosters("c1");
-    expect(list.find((p) => p.id === a.id)).toBeUndefined();
-    await expect(postersMock.updatePoster("c1", a.id, { enabled: true })).rejects.toMatchObject({ status: 404 });
+    const c = await postersMock.addPoster("c1", { file: file() });
+    expect(c.sortOrder).toBe(b.sortOrder);
+    // Hoà sortOrder thì BE xếp theo createdAt rồi id; hai poster có thể cùng mili giây nên chỉ kiểm tập hợp.
+    expect((await postersMock.listPosters("c1")).map((p) => p.id).sort()).toEqual([b.id, c.id].sort());
+    await expect(postersMock.deletePoster("c1", a.id)).rejects.toMatchObject({ status: 404 });
   });
 });

@@ -3,6 +3,7 @@
  * các trường lạ KHÔNG được chép sang. Tiền qua `parseAmount` (BE trả chuỗi thập phân).
  */
 import { parseAmount } from "../../../lib/reportFormat";
+import { absoluteLogoUrl } from "../branding/mapper";
 import type { BranchMenuItem, MenuCategory, MenuItem, MenuItemBranch } from "../../../types";
 
 export interface RawCategory {
@@ -83,7 +84,7 @@ export function mapItem(raw: RawItem): MenuItem {
     name: raw.name,
     description: raw.description ?? null,
     price: parseAmount(raw.price),
-    imageUrl: raw.imageUrl ?? null,
+    imageUrl: absoluteLogoUrl(raw.imageUrl) ?? null,
     preparationMinutes: raw.preparationMinutes ?? null,
     allowBatching: raw.allowBatching ?? true,
     isActive: raw.isActive,
@@ -101,7 +102,7 @@ export function mapBranchMenu(raw: RawBranchMenu): BranchMenuItem[] {
       name: item.name,
       categoryName: category.name,
       price: parseAmount(item.price),
-      imageUrl: item.imageUrl ?? null,
+      imageUrl: absoluteLogoUrl(item.imageUrl) ?? null,
       isAvailable: item.isAvailable,
       ownerDisabled: false, // BE ẩn hẳn món Owner đã tắt (#19)
     })),

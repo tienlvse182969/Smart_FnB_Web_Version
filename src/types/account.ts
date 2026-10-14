@@ -30,6 +30,14 @@ export type ManagerQuery = {
 
 export type ManagerPage = Paginated<ManagerAccount>;
 
+export type DirectStaffInput = {
+  branchId: string;
+  name: string;
+  username: string;
+  password: string;
+  role: "MANAGER" | "CASHIER" | "BARISTA";
+};
+
 /** Cashier/Barista cho Owner XEM (OW-05: Owner không tạo/sửa), cùng whitelist như `ManagerAccount`. */
 export type StaffAccount = Omit<ManagerAccount, "lastLoginAt"> & { role: "Cashier" | "Barista" };
 

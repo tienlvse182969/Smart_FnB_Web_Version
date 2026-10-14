@@ -12,7 +12,6 @@ export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { branchOptionsApi, groupBranchOptions, type BranchOptionsApi } from "./modules/branchOptions";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
-export { postersApi, type PostersApi } from "./modules/posters";
 export { accountApi, type AccountApi } from "./modules/account";
 export { stationsApi, type StationsApi } from "./modules/stations";
 export { isIpv4, isMac, validateStationInput, validateStationPatch } from "./modules/stations/rules";
@@ -22,6 +21,7 @@ export { managerReportApi, type ManagerReportApi, type ManagerReportScope } from
 export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "./modules/payos";
+export { postersApi, type PostersApi, type PosterAddInput, type PosterPatch } from "./modules/posters";
 
 export {
   ApiError,

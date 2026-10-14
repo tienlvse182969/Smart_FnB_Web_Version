@@ -24,6 +24,13 @@ function assertReason(reason: string | undefined): string {
 }
 
 export const accountReal: AccountApi = {
+  async createDirectAccount(_chainId, input) {
+    return mapManager(await request<RawEmployee>("/employees/accounts", { method: "POST", body: input }));
+  },
+
+  async setDirectPassword(accountId, password) {
+    await request(`/employees/${accountId}/password`, { method: "PATCH", body: { password } });
+  },
   // --- Manager: thật ---------------------------------------------------------------------------------------------
   async listManagers(_chainId, query = {}) {
     // BE lấy phạm vi từ token Owner (mọi chuỗi được gán) nên `_chainId` không gửi đi.
