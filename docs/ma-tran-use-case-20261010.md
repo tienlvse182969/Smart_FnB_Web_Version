@@ -110,7 +110,7 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | OW-08 | Báo cáo đa chi nhánh | **Một phần** | #47 đã sửa ở BE `7d7f2dc` (9 đơn, 1.090.000/950.000); màn Owner chưa có mục "theo hình thức thanh toán" (BE báo cáo Owner không trả) |
 | OW-09 | Trợ lý AI | Xong (mock) | Nhóm chưa chốt; không làm, không đụng module `ai` |
 | OW-10 | Gói đang dùng | Xong (thật) | Từ 7.8: dải sắp hết hạn 7 ngày (QĐ 134) |
-| OW-11 | Áp phích màn hình phía khách | **Chưa làm** | BE chưa có API (#79); không dựng mock |
+| OW-11 | Áp phích màn hình phía khách | Xong (thật) | 7.9, QĐ 137: BE `4b81e48` `display-posters`; giới hạn BE 10/120 lệch đặc tả 6/50 (#82 chờ nhóm chốt, một hằng số `POSTER_LIMITS`) |
 | BM-01 | Nhân sự (Cashier/Barista) và quầy, màn hình phía khách | Xong (thật) | #62–#64, #27, #28 xong ở 7.7c; hạn token ở 7.8 (QĐ 136) |
 | BM-02 | Bật/tắt món và tuỳ chọn | Xong (thật) | |
 | BM-03 | Báo cáo chi nhánh | Xong (thật) | #47/#76 sửa ở BE `7d7f2dc` |
@@ -120,6 +120,6 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | CS-01…CS-05 | Thu ngân | Ngoài phạm vi web | App Android |
 | BA-01…BA-03 | Pha chế | Ngoài phạm vi web | App Android |
 
-**Tổng 33 use case:** thuộc web **25** (CM 2, GU 1, PA 5, OW 11, BM 6) + ngoài phạm vi web **8** (CS 5, BA 3). Trong 25: **Xong (thật) 21** · **Xong (mock) 1** (OW-09) · **Một phần 2** (CM-02, OW-08) · **Chưa làm 1** (OW-11) · Hoãn 0.
+**Tổng 33 use case:** thuộc web **25** (CM 2, GU 1, PA 5, OW 11, BM 6) + ngoài phạm vi web **8** (CS 5, BA 3). Trong 25: **Xong (thật) 22** (thêm OW-11 ở 7.9) · **Xong (mock) 1** (OW-09) · **Một phần 2** (CM-02, OW-08) · **Chưa làm 0** · Hoãn 0.
 
 Khép việc thiếu (mục 7): #1 BM-06 xong (7.6); #2 đã làm (7.5, 7.7b); #3 màn hình gọi số (8.1–8.2, 7.7c); #4 báo cáo Owner đúng số đơn quầy xong ở BE, còn "theo hình thức" và AI; #5 các nút "Chờ BE" đã mở ở 7.7c (còn đổi mật khẩu).

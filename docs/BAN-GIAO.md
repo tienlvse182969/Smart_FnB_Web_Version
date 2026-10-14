@@ -448,8 +448,10 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 132 | (7.8, đặc tả 9.2 BM-06, BR-18, BR-49) Hộp huỷ đơn đã trả: chọn huỷ cả đơn hoặc từng dòng (BE `orderItemIds`), mỗi dòng hiện tên, số suất, giá lúc bán/suất, tuỳ chọn (`nhóm: tên (+giá)`) và, nếu dòng đã pha xong (`READY`/`DELIVERED`), ghi "Đã pha xong — huỷ sẽ ghi hao hụt" (bước xem lại nêu lại); bắt buộc lý do 3–500 và hình thức hoàn (tiền mặt tại quầy / chuyển khoản ngoài hệ thống). Số hoàn = số web ước theo giá lúc bán nhưng BE là nơi tính (`refundAmount` trả về ở chi tiết đơn); lệch thiếu và tiền về muộn chỉ huỷ cả đơn |
 | 133 | (7.8, BR-49) Owner xem danh sách khoản chờ hoàn của chuỗi: **KHÔNG làm** vì BE `7d7f2dc` không có endpoint đọc cho Owner (chỉ `POST /refunds/:id/complete`; `refunds[]` ở `/manager/orders` là role MANAGER một chi nhánh). Không dựng thay bằng cách gom nhiều chi nhánh phía web. Nhờ BE #78; khi có: bảng ở khu báo cáo Owner, dùng lại modal 7.6, không khoá khi hết hạn gói |
 | 134 | (7.8, mở lại QĐ 56/58; đặc tả 9.2 mục 6.8 chỉ có email nhắc trước 7 ngày) Dải "Gói dịch vụ sắp hết hạn" ở đầu trang của Owner và Manager khi gói `active` và còn 0–7 ngày LỊCH theo giờ Việt Nam (hết hạn lúc 23:59 ngày D vẫn là "hết hạn trong hôm nay" suốt ngày D); nêu ngày dd/MM/yyyy và "Liên hệ nhà cung cấp để gia hạn". Hết hạn/tạm ngưng: `ReadOnlyBanner` thay thế. Không hiện cho Admin; Cashier/Barista không thuộc web |
-| 135 | (7.8, OW-11, mục 20, BR-51, BR-52) Áp phích màn hình phía khách: **KHÔNG làm** vì BE `7d7f2dc` không có bảng, API hay trường `posters` (`grep -ri poster` rỗng). Không dựng mock thay thế để tránh số liệu mẫu giả. Nhờ BE #79 (hợp đồng theo mục 20.4 ghi ở `api-contract-plan.md`); khi có: trang Owner, chặn tệp ở bước chọn (PNG/JPG/WebP ≤ 5 MB, ≤ 6 áp phích, tên ≤ 50), khoá khi chỉ đọc, KHÔNG khoá theo gói |
+| 135 | (7.8, OW-11, mục 20, BR-51, BR-52) Áp phích màn hình phía khách: **KHÔNG làm ở 7.8 (đã làm ở 7.9, xem QĐ 137)** vì BE `7d7f2dc` không có bảng, API hay trường `posters` (`grep -ri poster` rỗng). Không dựng mock thay thế để tránh số liệu mẫu giả. Nhờ BE #79 (hợp đồng theo mục 20.4 ghi ở `api-contract-plan.md`); khi có: trang Owner, chặn tệp ở bước chọn (PNG/JPG/WebP ≤ 5 MB, ≤ 6 áp phích, tên ≤ 50), khoá khi chỉ đọc, KHÔNG khoá theo gói |
 | 136 | (7.8, BM-01) Quầy hiện hạn token của màn hình khách đã ghép (`GET /display-devices` `tokenExpiresAt`, BE chỉ trả ở đây): "Token hết hạn dd/MM/yyyy HH:mm", quá hạn thì "Token đã hết hạn — cần ghép lại"; thu hồi vẫn qua `DELETE /display-devices/{id}` có hộp xác nhận |
+| 137 | (7.9, OW-11, BR-51; thay QĐ 135) Áp phích làm theo hợp đồng THẬT của BE `4b81e48` (`GET/POST/PATCH/DELETE /restaurant-chains/:id/display-posters`, migration `20261013110000`), không theo đường dẫn `/posters` của #79. BE lệch đặc tả 20.4 (#82, chờ nhóm chốt) nên giới hạn đặt ở MỘT chỗ `src/api/modules/posters/rules.ts` (`POSTER_LIMITS`: tối đa 10, tên ≤ 120, 5 MB, PNG/JPG/WebP, 8 giây): đổi số chỉ sửa hằng số. BE không có "đổi ảnh" và "đổi thứ tự" riêng nên web ghép: đổi ảnh = POST ảnh mới + PATCH + DELETE cũ; lên/xuống = hai PATCH `sortOrder` tuần tự. Kiểm tệp ngay khi chọn; xoá có hộp xác nhận; khoá khi chỉ đọc, KHÔNG khoá theo gói. Cờ `posters=real` |
+| 138 | (7.9) Phần điện thoại của 7.9 đã bỏ theo yêu cầu Khánh; chỉ giữ `b7b3e75` (thanh bên thu thành ngăn kéo dưới 768px, nút ≥ 40px ở ≤ 640px) và `RoleShell` dùng token màu cho lớp phủ ngăn kéo (lint không cho màu cứng). Không kiểm thêm khối `mobile` của `phase79` |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1434,3 +1436,17 @@ Quyết định 126–131 ở mục 5. BE chỉ đọc; không sửa `.env`, com
 **Request ghi tới BE:** 0 request ghi nghiệp vụ; không chạy khối nào gửi API công khai. Các request ghi do script phát đều bị chặn ở CDP (`confirm` 8, `phase76 faults` 6, `phase4 owner` 11); ghi nhận nguyên văn ở log từng khối.
 
 **Việc cho BE (mới):** #78 (danh sách khoản chờ hoàn cho Owner), #79 (API áp phích + `posters` trong ngữ cảnh màn hình phía khách), #80 (ghi để khép: `GET /display-devices` đã đủ cho BM-01).
+
+### Lượt 7.9 (2026-10-14): áp phích màn hình phía khách (OW-11) theo BE `4b81e48`; điện thoại chỉ giữ `b7b3e75`
+
+BE local `4b81e48` (đã có `display-posters`, migration `20261013110000`). Quyết định 137–138 ở mục 5. AI (OW-09) không đụng.
+
+**Đã làm:** module `posters` (`src/api/modules/posters/`: real, mock, mapper, rules), trang Owner `Posters.tsx` + `PosterPreview.tsx` (khung 16:9 xoay 8 giây, nền mờ, ảnh mặc định), cờ `posters=real`, câu lỗi BE mới trong `BACKEND_TEXT` (đủ số áp phích). Commit `9c4ec26`. Phần điện thoại: `b7b3e75`; sửa lint lớp phủ ở `RoleShell` (`0c993e5`).
+
+**Kiểm real (BE `4b81e48`):** `phase79 --only=posters` **18/18** (blockWrites suốt khối; readOverride cho danh sách giả và gói hết hạn; setFault cho 400/409/403/500; `fulfillWrites` chỉ cho ca "Xuống"). Khối `mobile` của `phase79` KHÔNG chạy (QĐ 138). Vitest **748/748**.
+
+**Request ghi tới BE:** 0 gửi thật; 10 request ghi (5 POST, 4 PATCH, 1 DELETE tới `display-posters`) đều bị chặn ở CDP. Không tải ảnh thật lên BE.
+
+**Ghi nhận:** `OrderDetailCancel.test.tsx` trượt 1 lần khi chạy cả bộ (chập chờn do tải), chạy riêng 2/2 lần 8/8 và chạy lại cả bộ 748/748.
+
+**Việc cho BE:** #82 (đúng 20.4: tối đa 6, tên ≤ 50, đổi ảnh/thứ tự riêng, `display.update`, audit log) — web chỉ cần đổi `POSTER_LIMITS` khi nhóm chốt.
