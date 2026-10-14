@@ -452,6 +452,8 @@ Nhánh `feat/v9-owner` bắt đầu từ `f701bb8`. BE local vẫn `0083289` (kh
 | 136 | (7.8, BM-01) Quầy hiện hạn token của màn hình khách đã ghép (`GET /display-devices` `tokenExpiresAt`, BE chỉ trả ở đây): "Token hết hạn dd/MM/yyyy HH:mm", quá hạn thì "Token đã hết hạn — cần ghép lại"; thu hồi vẫn qua `DELETE /display-devices/{id}` có hộp xác nhận |
 | 137 | (7.9, OW-11, BR-51; thay QĐ 135) Áp phích làm theo hợp đồng THẬT của BE `4b81e48` (`GET/POST/PATCH/DELETE /restaurant-chains/:id/display-posters`, migration `20261013110000`), không theo đường dẫn `/posters` của #79. BE lệch đặc tả 20.4 (#82, chờ nhóm chốt) nên giới hạn đặt ở MỘT chỗ `src/api/modules/posters/rules.ts` (`POSTER_LIMITS`: tối đa 10, tên ≤ 120, 5 MB, PNG/JPG/WebP, 8 giây): đổi số chỉ sửa hằng số. BE không có "đổi ảnh" và "đổi thứ tự" riêng nên web ghép: đổi ảnh = POST ảnh mới + PATCH + DELETE cũ; lên/xuống = hai PATCH `sortOrder` tuần tự. Kiểm tệp ngay khi chọn; xoá có hộp xác nhận; khoá khi chỉ đọc, KHÔNG khoá theo gói. Cờ `posters=real` |
 | 138 | (7.9) Phần điện thoại của 7.9 đã bỏ theo yêu cầu Khánh; chỉ giữ `b7b3e75` (thanh bên thu thành ngăn kéo dưới 768px, nút ≥ 40px ở ≤ 640px) và `RoleShell` dùng token màu cho lớp phủ ngăn kéo (lint không cho màu cứng). Không kiểm thêm khối `mobile` của `phase79` |
+| 139 | (9.1, OW-08, BR-50) Báo cáo Owner đọc đúng số BE `4b81e48`: doanh thu SAU hoàn (`revenue` = `netRevenue`), `grossRevenue`, `refundAmount` (trừ vào ngày huỷ, đã do BE gom), `pendingRefundAmount`, `paidCancellationCount` ở thẻ số, từng chi nhánh và từng cột biểu đồ. Giá trị đơn trung bình chỉ lấy số BE của từng chi nhánh: hiện khi phạm vi đúng một chi nhánh, nhiều chi nhánh hiện "—" kèm gợi ý (BE không trả ở tổng, web không tự chia → #98). Cờ gói (so sánh đa chi nhánh) giữ như cũ: lấy từ cờ BE, khoá kèm nhãn "Cần gói … trở lên" |
+| 140 | (9.1) KHÔNG làm: (a) doanh thu theo hình thức thanh toán (#94, BE chưa có), (b) topping bán chạy (#97), (c) bảng khoản chờ hoàn của Owner BR-49 (#78/#99, BE chưa có endpoint đọc; QĐ 133 giữ nguyên). OW-10 đã đủ ý đặc tả (gói, hạn, hạn mức, tính năng có/chưa có) nên giữ nguyên. BR-09: rà `src/roles/owner/*`, mọi nút/công tắc ghi đã qua `ActionButton`/`ActionSwitch`; còn lại chỉ là nút "Sửa" (vào chế độ sửa cục bộ, nút Lưu đã khoá) và "Thử lại" — không đổi |
 
 **Kiểm 6.6 (BE `91867ae`, gói thật "Demo Operations": 2/5 chi nhánh, 7/20 tài khoản, nhận diện + so sánh bật):**
 - Lượt này xác nhận `3afb12c` (docs 6.5) **không chạy chuỗi kiểm tra** (chỉ `git add && git commit`); chạy lại chuỗi trên HEAD đó: tsc, lint, build ổn, vitest **353/353**. Ca trượt ở 6.5 đã sửa trước.
@@ -1450,3 +1452,11 @@ BE local `4b81e48` (đã có `display-posters`, migration `20261013110000`). Quy
 **Ghi nhận:** `OrderDetailCancel.test.tsx` trượt 1 lần khi chạy cả bộ (chập chờn do tải), chạy riêng 2/2 lần 8/8 và chạy lại cả bộ 748/748.
 
 **Việc cho BE:** #82 (đúng 20.4: tối đa 6, tên ≤ 50, đổi ảnh/thứ tự riêng, `display.update`, audit log) — web chỉ cần đổi `POSTER_LIMITS` khi nhóm chốt.
+
+### Lượt 9.1 (2026-10-14): báo cáo Owner hiện hoàn tiền (OW-08, BR-50); phần BE chưa có thì không làm
+
+BE local `4b81e48`. Quyết định 139–140 ở mục 5. Làm: `types/report.ts`, `api/modules/report/mock.ts`, `roles/owner/Reports.tsx`, `reportKpi.ts` (+ test). Không đụng AI, áp phích, Manager, Admin, BE.
+
+**Đối chiếu:** thẻ số có sau hoàn / gộp / đã hoàn / chờ hoàn / đơn huỷ sau thanh toán; biểu đồ đánh dấu hoàn theo ngày huỷ; so sánh từng chi nhánh kèm "huỷ N đơn, hoàn X". Không làm: theo hình thức thanh toán (#94), topping (#97), bảng chờ hoàn (#99), OW-10/BR-09 đã đủ (QĐ 140).
+
+**Kiểm real:** `phase91` **10/10** (real + readOverride gói Cơ bản / Tiêu chuẩn, setFault 500); `phase58-faults --only=owner/reports` 4/4. Vitest **751/751** (+3, `reportKpi.test.ts`); khi chạy cả bộ lần 1 có 8 test trượt ở file không liên quan do máy quá tải, chạy riêng 63/63 và cả bộ lại 751/751. Request ghi thật tới BE: 0.

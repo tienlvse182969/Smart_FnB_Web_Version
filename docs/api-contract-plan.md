@@ -594,5 +594,8 @@ Việc mới sau 7.7a:
 | 94 | Trung bình | Báo cáo Owner theo hình thức thanh toán (OW-08) | Nên có trước demo |
 | 95 | Trung bình | Đổi mật khẩu và cập nhật hồ sơ (CM-02) | Nên có trước demo |
 | 96 | Thấp | Nhóm sau demo: gỡ route/role v7, tiền số nguyên, log webhook sai chữ ký, tương phản ở BE, GU-01 số chi nhánh + trùng MST, báo In thất bại, ràng buộc quầy ở sự kiện giỏ, adapter Redis, cảnh báo Owner khi PayOS lỗi | Sau demo |
+| 97 | Trung bình | **Món và topping bán chạy cho Owner (OW-08)**: `GET /reports/top-items` chỉ gom theo `menuItemId`, không có topping/tuỳ chọn; thêm danh sách tuỳ chọn bán chạy (tên, số lượng, doanh thu) | Nên có trước demo |
+| 98 | Thấp | `GET /reports/revenue/comparison` thêm `averageOrderValue` ở `totals` (hiện chỉ có từng chi nhánh; web không tự chia, QĐ 139) | Nên có trước demo |
+| 99 | Trung bình | Lập lại #78 theo hiện trạng `4b81e48`: vẫn KHÔNG có endpoint đọc danh sách khoản chờ hoàn cho Owner (chỉ có tổng `pendingRefundAmount` ở `/reports/*` và `POST /refunds/:id/complete`); web chưa làm bảng BR-49 (QĐ 140) | Nên có trước demo |
 
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.

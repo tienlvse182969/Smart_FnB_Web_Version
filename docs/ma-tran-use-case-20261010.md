@@ -107,7 +107,7 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | GU-01 | Nộp hồ sơ đăng ký (landing) | Xong (thật) | `POST /registration-applications` |
 | PA-01…PA-05 | Hồ sơ, duyệt, từ chối, gói, doanh nghiệp | Xong (thật) ×5 | #29 xong ở 7.7c (không gửi `maxTables`) |
 | OW-01…OW-07 | Chi nhánh, menu, tuỳ chọn, gán món, Manager, PayOS, nhận diện | Xong (thật) ×7 | PayOS thật chưa kiểm (thiếu `PAYOS_MASTER_KEY`) |
-| OW-08 | Báo cáo đa chi nhánh | **Một phần** | #47 đã sửa ở BE `7d7f2dc` (9 đơn, 1.090.000/950.000); màn Owner chưa có mục "theo hình thức thanh toán" (BE báo cáo Owner không trả) |
+| OW-08 | Báo cáo đa chi nhánh | **Một phần** | #47 đã sửa ở BE `7d7f2dc` (9 đơn, 1.090.000/950.000); màn Owner chưa có mục "theo hình thức thanh toán" (#94) và topping (#97): BE báo cáo Owner không trả. Từ 9.1 (QĐ 139): hiện doanh thu sau hoàn, gộp, đã hoàn, chờ hoàn, đơn huỷ sau thanh toán; bảng chờ hoàn của Owner chờ #99 |
 | OW-09 | Trợ lý AI | Xong (mock) | Nhóm chưa chốt; không làm, không đụng module `ai` |
 | OW-10 | Gói đang dùng | Xong (thật) | Từ 7.8: dải sắp hết hạn 7 ngày (QĐ 134) |
 | OW-11 | Áp phích màn hình phía khách | Xong (thật) | 7.9, QĐ 137: BE `4b81e48` `display-posters`; giới hạn BE 10/120 lệch đặc tả 6/50 (#82 chờ nhóm chốt, một hằng số `POSTER_LIMITS`) |
