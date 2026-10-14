@@ -64,9 +64,10 @@ const confirmOk = async (okText) => {
     await sleep(250);
     const clicked = await q(`(() => { const b = document.querySelector('[data-testid="staff-reason-ok"]'); if (!b || b.disabled) return false; b.click(); return true })()`);
     // Chờ hộp lý do đóng hẳn (hiệu ứng đóng của antd còn giữ phần tử vài trăm ms) để thao tác sau không đọc nhầm hộp cũ.
-    for (let i = 0; i < 25; i++) {
+    // Tối đa 1,5 giây: khi BE/giả lập trả LỖI hộp còn mở và thông báo lỗi chỉ sống ~3 giây — chờ lâu hơn làm ca đọc thông báo bị trượt.
+    for (let i = 0; i < 10; i++) {
       if (!(await q(`!!document.querySelector('[data-testid="staff-reason"]')`))) break;
-      await sleep(200);
+      await sleep(150);
     }
     return clicked;
   }
@@ -463,7 +464,8 @@ try {
     await sleep(1000);
     let stList = await waitRows((r) => r.length >= 2);
     check("Quầy (mock): bảng có 2 quầy mẫu, hiện máy in và số màn hình đã ghép", stList.length >= 2 && stList.some((r) => r.includes("Quầy 1") && r.includes("WiFi") && r.includes("192.168.1.50:9100") && /1 màn hình/.test(r)) && stList.some((r) => r.includes("Quầy 2") && r.includes("Chưa khai báo")), stList.join(" // ").slice(0, 160));
-    check("Quầy: đổi tên / ngừng dùng / sửa máy in bị khoá, có chú thích 'Chờ BE (api-contract-plan #27)'", /#27/.test(await q(`${tid("stations-pending-note")}?.innerText ?? ""`)) && (await q(`[...document.querySelectorAll('[data-testid="station-pending-action"]')].every((b) => b.disabled) && document.querySelectorAll('[data-testid="station-pending-action"]').length >= 3`)));
+    // 7.7c (QĐ 128): đã mở khoá Sửa và Ngừng dùng/Dùng lại (chưa chạy lại ở mock, kiểm theo real).
+    check("Quầy: có nút Sửa và Ngừng dùng/Dùng lại cho mỗi quầy (mở), không còn chú thích chờ BE #27", !(await has("stations-pending-note")) && (await q(`document.querySelectorAll('[data-testid="station-edit"]').length >= 1 && [...document.querySelectorAll('[data-testid="station-edit"], [data-testid="station-toggle"]')].every((b) => !b.disabled)`)));
     const addStation = async (name, conn, address) => {
       await clickTid("station-add");
       await sleep(700);
@@ -968,9 +970,9 @@ try {
     await sleep(1800);
     const createWrite = tab.blockedWrites.find((w) => w.method === "POST" && /\/admin\/service-plans$/.test(w.path));
     const createBody = createWrite ? JSON.parse(createWrite.body ?? "null") : null;
-    const expectCreate = { name: "Gói Kiểm Thử", code: "GOI_KIEM_THU", monthlyPrice: 123000, maxBranches: 2, maxAccounts: 10, brandingEnabled: true, multiBranchComparisonEnabled: false, maxTables: 1 }; // từ main (7.4b): không gửi `isActive` (CreateServicePlanDto không nhận, BE forbidNonWhitelisted)
+    const expectCreate = { name: "Gói Kiểm Thử", code: "GOI_KIEM_THU", monthlyPrice: 123000, maxBranches: 2, maxAccounts: 10, brandingEnabled: true, multiBranchComparisonEnabled: false }; // 7.7c (BE 7d7f2dc, #29): KHÔNG gửi maxTables. Từ main (7.4b): không gửi `isActive` (CreateServicePlanDto không nhận, BE forbidNonWhitelisted)
     check(
-      "Real · Gói: request định gửi = POST /admin/service-plans khớp CreateServicePlanDto (platform-admin.dto.ts:114-172: hai cờ bắt buộc, maxTables @Min(1) → 1)",
+      "Real · Gói: request định gửi = POST /admin/service-plans khớp CreateServicePlanDto (hai cờ bắt buộc, KHÔNG maxTables: tuỳ chọn từ BE 7d7f2dc, #29)",
       !!createBody && J(Object.fromEntries(Object.entries(createBody).sort())) === J(Object.fromEntries(Object.entries(expectCreate).sort())),
       createWrite ? createWrite.body : "không có request",
     );
@@ -1025,7 +1027,7 @@ try {
     const realStaffRows = await rows();
     const STATUS_VN = { ACTIVE: "Đang hoạt động", INACTIVE: "Chưa kích hoạt", SUSPENDED: "Đã khoá" };
     check("Real · Manager · Nhân viên: số dòng, họ tên, email, mã, vai trò, trạng thái từng dòng khớp GET /manager/staff", realStaffRows.length === beStaff.items.length && beStaff.items.length > 0 && beStaff.items.every((e) => realStaffRows.some((r) => r.includes(`${e.firstName} ${e.lastName}`.trim()) && r.includes(e.user.email) && r.includes(e.employeeCode) && r.includes(e.user.role.code === "CASHIER" ? "Cashier" : "Barista") && r.includes(STATUS_VN[e.user.status]))), `${realStaffRows.length}/${beStaff.items.length}`);
-    check("Real · Manager · Nhân viên: không có cột 'Đăng nhập gần nhất' (BE không trả, #62)", !(await q(`[...document.querySelectorAll(".ant-table-thead th")].some((t) => /Đăng nhập gần nhất/.test(t.innerText))`)));
+    check("Real · Manager · Nhân viên: CÓ cột 'Đăng nhập gần nhất' (BE fb7cae9 trả user.lastLoginAt, #62)", (await q(`[...document.querySelectorAll(".ant-table-thead th")].some((t) => /Đăng nhập gần nhất/.test(t.innerText))`)));
     check("Real · Manager · Nhân viên: 0 toast lỗi", (await toasts()) === "", await toasts());
     check("Real · Manager · Nhân viên: 0 request ghi bị chặn ở CDP", tab.blockedWrites.length === 0, `${tab.blockedWrites.length}`);
     check("Real · Manager · Nhân viên: bảng có dòng và dòng hạn mức, không hiện mật khẩu", (await rows()).length >= 1 && /Đã dùng \d+\//.test(await q(`${tid("staff-quota")}?.innerText ?? ""`)) && !SECRET.test(await pageText()));
@@ -1221,7 +1223,7 @@ try {
       await tab.waitFor(tid("staff-reason"), 6000, "hộp lý do khoá");
       tab.setFault({ kind, match: /^$/, ...(fbody && { body: fbody }) });
       await confirmOk("Khoá tài khoản");
-      await sleep(1600);
+      await sleep(500);
       tab.setFault(null);
       const t = await toasts();
       check(`Real · Khoá (lỗi giả ${label}): 1 PATCH bị giả lập, câu tiếng Việt, không tiếng Anh thô`, writesTo(/\/status$/).length === 1 && re.test(t) && !/Internal|Concurrent|not found|Forbidden/i.test(t), t.slice(0, 140));
@@ -1248,14 +1250,29 @@ try {
     await tab.clickMenu("Quầy và máy in");
     await sleep(1800);
     const beStations = await beGet("/stations", "manager");
-    const stationRows = async () => q(`[...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].filter((r) => r.offsetParent !== null).map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    // Chỉ bảng quầy (7.7c thêm bảng màn hình gọi số `calling-devices` cùng trang).
+    const stationRows = async () => q(`[...document.querySelectorAll(".ant-table-tbody > tr.ant-table-row")].filter((r) => !r.closest('[data-testid="calling-devices"]')).filter((r) => r.offsetParent !== null).map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
     const stRows = await stationRows();
     if (beStations.length === 0) {
       check("Real · Quầy: BE chưa có quầy nào → bảng trống hiển thị đúng ('Chưa có quầy nào')", stRows.length === 0 && /Chưa có quầy nào/.test(await pageText()), `${stRows.length} dòng`);
     } else {
       check("Real · Quầy: số dòng, tên, máy in khớp GET /stations", stRows.length === beStations.length && beStations.every((s) => stRows.some((r) => r.includes(s.name) && (s.printerConnection === "NONE" || r.includes(s.printerAddress)))), `${stRows.length}/${beStations.length}`);
     }
-    check("Real · Quầy: đổi tên / ngừng dùng / sửa máy in bị khoá kèm chú thích #27", /#27/.test(await q(`${tid("stations-pending-note")}?.innerText ?? ""`)) && (await q(`[...document.querySelectorAll('[data-testid="station-pending-action"]')].every((b) => b.disabled)`)));
+    // 7.7c (BE 7d7f2dc, #27): đã mở khoá "Sửa" và "Ngừng dùng/Dùng lại"; không còn chú thích chờ BE.
+    check("Real · Quầy: mỗi quầy có nút Sửa và Ngừng dùng/Dùng lại (mở), không còn chú thích chờ BE #27", !(await has("stations-pending-note")) && (await q(`document.querySelectorAll('[data-testid="station-edit"]').length`)) === beStations.length && (await q(`[...document.querySelectorAll('[data-testid="station-edit"], [data-testid="station-toggle"]')].every((b) => !b.disabled)`)));
+    if (beStations.length > 0) {
+      tab.blockedWrites.length = 0;
+      const stationName = beStations[0].name;
+      await q(`document.querySelector('[data-testid="station-toggle"]').click()`);
+      await sleep(600);
+      check("Real · Quầy: 'Ngừng dùng' mở hộp xác nhận nêu tên quầy", new RegExp(stationName).test(await q(`${tid("confirm-station-off")}?.innerText ?? ""`)));
+      await confirmOk("Ngừng dùng");
+      await sleep(1500);
+      const patch = tab.blockedWrites.find((w) => w.method === "PATCH" && /\/stations\/[0-9a-f-]{36}$/.test(w.path));
+      check("Real · Quầy: request định gửi = PATCH /stations/:id {status: INACTIVE} khớp UpdateStationDto (chặn ở CDP)", !!patch && J(JSON.parse(patch.body ?? "null")) === J({ status: "INACTIVE" }), patch ? patch.body : "không có request");
+      await q(`document.querySelectorAll(".ant-notification-notice-close, .ant-message-notice-close").forEach((b) => b.click())`);
+      check("Real · Quầy: GET lại /stations sau PATCH bị chặn — dữ liệu không đổi", J(await beGet("/stations", "manager")) === J(beStations));
+    }
     tab.blockedWrites.length = 0;
     await clickTid("station-add");
     await sleep(800);
@@ -1285,7 +1302,10 @@ try {
     const beDevices = beStations.flatMap((s) => s.displayDevices ?? []);
     const uiDeviceCount = await q(`[...document.querySelectorAll('[data-testid="station-devices"]')].reduce((n, e) => n + Number(e.textContent.match(/\\d+/)?.[0] ?? 0), 0)`);
     check("Real · Thiết bị: tổng số màn hình đã ghép trên bảng khớp GET /stations", uiDeviceCount === beDevices.length, `${uiDeviceCount} (BE ${beDevices.length})`);
-    check("Real · Thiết bị: khu Màn hình gọi số có chú thích 'chờ BE #28', không có token trên trang", /#28/.test(await q(`${tid("calling-display-note")}?.innerText ?? ""`)) && !/deviceToken|token thiết bị|tokenHash/i.test(await pageText()));
+    // 7.7c (BE 7d7f2dc, #28): danh sách màn hình gọi số lấy từ GET /display-devices (kể cả máy đã thu hồi), không token trên trang.
+    const beCalling = (await beGet("/display-devices", "manager")).filter((d) => d.type === "CALLING_DISPLAY");
+    const callingRows = await q(`[...document.querySelectorAll('[data-testid="calling-devices"] tr.ant-table-row')].map((r) => r.innerText.replace(/\\s+/g, " ").trim())`);
+    check("Real · Thiết bị: danh sách màn hình gọi số khớp GET /display-devices (số dòng, tên, trạng thái 'Đã thu hồi'), không token trên trang", callingRows.length === beCalling.length && beCalling.every((d) => callingRows.some((r) => r.includes(d.name ?? "Màn hình gọi số") && (d.revokedAt ? /Đã thu hồi/.test(r) : true))) && !/deviceToken|token thiết bị|tokenHash/i.test(await pageText()), J(callingRows));
     tab.blockedWrites.length = 0;
     await clickTid("calling-pair");
     await sleep(800);

@@ -39,6 +39,10 @@ try {
   await tab.goto("/khong-co-gi-ca");
   await sleep(700);
   check("Đối chứng: route lạ khác cũng về trang chủ", (await q(`location.pathname`)) === "/");
+  // 7.5b (QĐ 104): route v7 `/branch/*` đã gỡ, không còn chuyển hướng sang /manager.
+  await tab.goto("/branch/orders");
+  await sleep(700);
+  check("/branch/orders (route v7 đã gỡ) về trang chủ như route lạ, không sang /manager", (await q(`location.pathname`)) === "/", await q(`location.pathname`));
 
   // 3. Owner: Giờ & khu vực (BranchOperations) — mở ngăn kéo, nạp chi tiết bằng GET (không bấm Lưu/Xoá/Thêm).
   await tab.goto("/login");

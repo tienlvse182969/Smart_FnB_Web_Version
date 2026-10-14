@@ -43,9 +43,21 @@ function Bars({ rows, testId, tooltip, valueLabel }: { rows: { key: string; labe
     <div data-testid={testId} style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, marginTop: 12, overflowX: "auto" }}>
       {rows.map((row) => (
         <div key={row.key} data-key={row.key} data-value={row.value} style={{ flex: "1 0 28px", textAlign: "center", minWidth: 28 }}>
-          <div style={{ fontSize: 10.5, color: palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>{row.value > 0 ? valueLabel(row.value) : ""}</div>
+          {/* Ngày chỉ có khoản hoàn (BE #43 tính hoàn vào NGÀY HUỶ) có doanh thu ÂM: hiện nhãn "−…" và thanh nhỏ màu cảnh báo. */}
+          <div style={{ fontSize: 10.5, color: row.value < 0 ? palette.error.text : palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>
+            {row.value > 0 ? valueLabel(row.value) : row.value < 0 ? `−${valueLabel(-row.value)}` : ""}
+          </div>
           <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
-            <div title={tooltip(row)} style={{ width: "100%", height: `${Math.max((row.value / max) * 100, row.value > 0 ? 3 : 0)}%`, background: palette.brandPrimary, borderRadius: "4px 4px 0 0" }} />
+            <div
+              title={tooltip(row)}
+              data-negative={row.value < 0}
+              style={{
+                width: "100%",
+                height: `${row.value < 0 ? 3 : Math.max((row.value / max) * 100, row.value > 0 ? 3 : 0)}%`,
+                background: row.value < 0 ? palette.error.text : palette.brandPrimary,
+                borderRadius: "4px 4px 0 0",
+              }}
+            />
           </div>
           <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>{row.label}</div>
         </div>
@@ -56,9 +68,11 @@ function Bars({ rows, testId, tooltip, valueLabel }: { rows: { key: string; labe
 
 const paymentColumns: ColumnsType<ManagerReportPayment> = [
   { title: "Hình thức", dataIndex: "method", render: (v: string) => paymentMethodInfo(v).label },
+  // BE `fb7cae9` (#72): "Ghi nhận"/"Thực nhận" là số SAU hoàn; số khoản không gồm đơn đã huỷ sau khi trả. Web hiện đúng số BE trả (QĐ 77, 125).
   { title: "Số khoản", dataIndex: "paymentCount", align: "right", render: (v: number) => formatCount(v) },
-  { title: "Ghi nhận", dataIndex: "settledAmount", align: "right", render: (v: number) => formatVnd(v) },
-  { title: "Thực nhận", dataIndex: "receivedAmount", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Đã hoàn", dataIndex: "refundAmount", align: "right", render: (v: number | undefined) => (v === undefined ? "—" : formatVnd(v)) },
+  { title: "Ghi nhận (sau hoàn)", dataIndex: "settledAmount", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Thực nhận (sau hoàn)", dataIndex: "receivedAmount", align: "right", render: (v: number) => formatVnd(v) },
 ];
 
 const itemColumns: ColumnsType<ManagerReportItem> = [
@@ -86,6 +100,7 @@ const cancelColumns: ColumnsType<ManagerReportCancelledOrder> = [
   },
   { title: "Thời điểm huỷ", dataIndex: "cancelledAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "totalAmount", align: "right", width: 120, render: (v: number) => formatVnd(v) },
+  { title: "Đã hoàn / phải hoàn", dataIndex: "refundAmount", align: "right", width: 150, render: (v: number) => (v > 0 ? formatVnd(v) : "—") },
   { title: "Lý do", dataIndex: "reason", render: (v: string | null) => v ?? "—" },
 ];
 
@@ -96,7 +111,8 @@ function isEmptyReport(r: ManagerReport): boolean {
 /**
  * BM-03: báo cáo chi nhánh của Branch Manager. Real `GET /manager/reports` (module `managerReport`). Hiện ĐÚNG số BE trả, không tính lại
  * hay lọc lại (quyết định 78); giờ và ngày BE đã cắt theo giờ Việt Nam. Khoảng thời gian nằm trên URL (F5 giữ nguyên). Không tự làm
- * tươi qua socket (quyết định 79): có nút Làm mới. Chưa có mục hoàn tiền (BR-49/50) vì BE chưa có (#43).
+ * tươi qua socket (quyết định 79): có nút Làm mới. Hoàn tiền (BR-49/50, BE `514c426` #43): doanh thu là số SAU hoàn của BE, kèm gộp,
+ * đã hoàn và chờ hoàn; web không tự trừ.
  */
 export default function ManagerDashboard() {
   const chainId = useAppStore((s) => s.chainId);
@@ -207,7 +223,7 @@ export default function ManagerDashboard() {
           <Row gutter={[16, 16]}>
             <Col xs={12} lg={6}>
               <div data-testid="report-kpi-revenue" style={{ height: "100%" }}>
-                <StatCard label="Doanh thu" value={formatVnd(data.summary.revenue)} icon={<Banknote size={18} />} hint="đơn đã thanh toán, chưa huỷ" />
+                <StatCard label="Doanh thu (sau hoàn tiền)" value={formatVnd(data.summary.revenue)} icon={<Banknote size={18} />} hint="đơn đã thanh toán, đã trừ khoản hoàn" />
               </div>
             </Col>
             <Col xs={12} lg={6}>
@@ -228,6 +244,29 @@ export default function ManagerDashboard() {
                   icon={<Clock size={18} />}
                   hint={data.preparation.averageSeconds === null ? undefined : `${formatCount(data.preparation.completedUnits)} suất đã xong · phút:giây`}
                 />
+              </div>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-gross" style={{ height: "100%" }}>
+                <StatCard label="Doanh thu gộp" value={formatVnd(data.summary.grossRevenue)} icon={<Banknote size={18} />} hint="theo ngày thanh toán, chưa trừ hoàn tiền" />
+              </div>
+            </Col>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-refund" style={{ height: "100%" }}>
+                <StatCard
+                  label="Đã trừ hoàn tiền"
+                  value={formatVnd(data.summary.refundAmount)}
+                  icon={<Wallet size={18} />}
+                  hint={`${formatCount(data.cancellations.paidCancellationCount)} đơn huỷ sau khi trả · theo ngày huỷ`}
+                />
+              </div>
+            </Col>
+            <Col xs={12} lg={8}>
+              <div data-testid="report-kpi-refund-pending" style={{ height: "100%" }}>
+                <StatCard label="Còn chờ hoàn" value={formatVnd(data.summary.pendingRefundAmount)} icon={<Clock size={18} />} hint="chuyển khoản chưa đánh dấu đã hoàn" />
               </div>
             </Col>
           </Row>

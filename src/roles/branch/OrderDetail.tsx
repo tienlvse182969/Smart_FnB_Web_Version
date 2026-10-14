@@ -1,20 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, App, Button, Card, Descriptions, Table } from "antd";
+import { Alert, App, Button, Card, Descriptions, Space, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError, describeApiError, modeOf, orderApi, showApiError } from "../../api";
 import { confirmErrorInfo, confirmableTransfer } from "../../api/modules/order/manualConfirm";
-import ActionButton from "../../plan/ActionButton";
+import { pendingRefundTotal, paidActionErrorInfo, cancelTarget, refundCompletable } from "../../api/modules/order/paidCancel";
 import ConfirmTransferModal from "./ConfirmTransferModal";
+import { CancelPaidModal, CompleteRefundModal } from "./RefundModals";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
-import { orderItemStatusInfo, orderPaymentInfo, orderStatusInfo, paymentMethodInfo, paymentStatusInfo } from "../../api/modules/order/codes";
+import {
+  attentionReasonInfo,
+  type AttentionReasonKind,
+  orderItemStatusInfo,
+  orderPaymentInfo,
+  orderStatusInfo,
+  paymentMethodInfo,
+  paymentStatusInfo,
+  refundMethodInfo,
+  refundSourceInfo,
+  refundStatusInfo,
+} from "../../api/modules/order/codes";
 import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
-import type { ConfirmPaymentInput, OrderDetail as OrderDetailData, OrderDetailLine, OrderPaymentRecord } from "../../types";
+import type {
+  CancelPaidInput,
+  CompleteRefundInput,
+  ConfirmPaymentInput,
+  OrderDetail as OrderDetailData,
+  OrderDetailLine,
+  OrderPaymentRecord,
+  OrderRefundRecord,
+} from "../../types";
 import { Chip } from "../admin/adminUi";
 
 /** Danh sách đặt `state.from` (chuỗi truy vấn đang lọc) khi mở chi tiết, để "Quay lại" về đúng bộ lọc và trang. */
@@ -79,7 +99,7 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
     key: "status",
     width: 160,
     render: (_: unknown, p) => {
-      const info = paymentStatusInfo(p.status, p.method);
+      const info = paymentStatusInfo(p.status, p.method, p.expiresAt);
       return <Chip tone={info.tone}>{info.label}</Chip>;
     },
   },
@@ -90,6 +110,17 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
     key: "detail",
     render: (_: unknown, p) => {
       const bits: string[] = [];
+      // #48: tiền mặt — khách đưa / tiền thối (BE `fb7cae9`).
+      if (p.method === "CASH" && p.tenderedAmount != null) {
+        bits.push(`Khách đưa: ${formatVnd(p.tenderedAmount)}${p.changeAmount != null ? ` · Tiền thối: ${formatVnd(p.changeAmount)}` : ""}`);
+      }
+      // #52: quầy thu tiền (BE chỉ lưu cho khoản QR; khoản tiền mặt chưa có).
+      if (p.stationName) bits.push(`Quầy: ${p.stationName}`);
+      // #50: hạn mã QR.
+      if (p.method !== "CASH" && p.expiresAt) bits.push(`Mã QR hết hạn lúc: ${formatDateTime(p.expiresAt)}`);
+      if (p.status === "REQUIRES_ATTENTION" && p.receivedAmount !== null) {
+        bits.push(`Tiền nhận được sau khi QR hết hạn: ${formatVnd(p.receivedAmount)}`);
+      }
       if (p.confirmationReason) {
         bits.push(`Xác nhận thủ công${p.processedBy ? ` bởi ${p.processedBy}` : ""}: ${p.confirmationReason}`);
         if (p.receivedAmount !== null) bits.push(`Số tiền thực nhận: ${formatVnd(p.receivedAmount)}`);
@@ -112,12 +143,40 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
   },
 ];
 
+/** Vai trò BE ghi ở khoản hoàn (BE không trả tên người): hiện bằng tiếng Việt. */
+const ROLE_LABEL: Record<string, string> = { MANAGER: "Quản lý chi nhánh", OWNER: "Chủ chuỗi", SYSTEM: "Hệ thống" };
+const roleLabel = (role: string | null) => (role ? (ROLE_LABEL[role] ?? role) : "—");
+/** #73 (BE `fb7cae9`): tên người kèm vai trò, "Họ tên (Quản lý chi nhánh)"; BE không trả tên (hoặc hệ thống) thì chỉ vai trò. */
+const actorLabel = (name: string | null | undefined, role: string | null) => (name ? (role ? `${name} (${roleLabel(role)})` : name) : roleLabel(role));
+
 type LoadError = { kind: "notfound" } | { kind: "other"; text: string };
+
+/** Giải thích theo lý do "Cần xử lý" (QĐ 123). Loại tiền về sau khi QR hết hạn chưa có đường xử lý ở BE (#75): không có nút, nói rõ. */
+function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord | null, attentionAt: string | null): string {
+  const since = attentionAt ? ` Ghi nhận lúc ${formatDateTime(attentionAt)}.` : "";
+  switch (kind) {
+    case "AMOUNT_MISMATCH":
+      return mismatch && mismatch.receivedAmount !== null
+        ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
+        : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
+    case "RECEIVED_AFTER_EXPIRY":
+      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Đã kiểm tra tiền vào tài khoản thì "Xác nhận thủ công" (đơn xuống pha chế), nếu không thì "Huỷ đơn và ghi hoàn tiền" (hoàn đúng số đã nhận).${since}`;
+    case "ITEM_OUT_OF_STOCK":
+      return `Pha chế báo hết món trong đơn đã trả tiền. Xem các dòng "Hết món" bên dưới; không làm được thì huỷ đơn (hoặc dòng) và ghi hoàn tiền.${since}`;
+    case "OPTION_OUT_OF_STOCK":
+      return `Một tuỳ chọn trong đơn đã trả tiền được báo hết. Xem các dòng "Hết món" bên dưới; không làm được thì huỷ đơn (hoặc dòng) và ghi hoàn tiền.${since}`;
+    case "RECEIVED_AFTER_CANCELLATION":
+      return `Tiền về sau khi đơn đã huỷ. Hoàn lại cho khách rồi đánh dấu đã hoàn.${since}`;
+    default:
+      return `Đơn đang ở trạng thái cần xử lý nhưng chưa rõ lý do.${since}`;
+  }
+}
 
 /**
  * BM-04: chi tiết một đơn của chi nhánh (quyết định 63, 73). Real `GET /manager/orders/:id`. Hành động duy nhất: "Xác nhận thủ công"
- * (BM-05, quyết định 82–85) cho khoản chuyển khoản chờ/lệch số tiền; Huỷ đơn đã trả ở 7.6. Không có khối audit log (đặc tả loại trừ), không hiện tiền khách đưa/tiền thối
- * (BE chưa trả, #48) và không hiện quầy (BE không trả quầy trong chi tiết đơn, #52).
+ * (BM-05, quyết định 82–85) cho khoản chuyển khoản chờ/lệch số tiền; Huỷ đơn đã trả ở 7.6. Không có khối audit log (đặc tả loại trừ). Từ BE `fb7cae9` hiện khách đưa/tiền thối
+ * (#48), hạn QR (#50), quầy khi có (#52, chỉ khoản QR), tên người ở khoản hoàn (#73). Xác nhận tay và huỷ đơn đã trả KHÔNG khoá khi
+ * gói hết hạn (QĐ 122).
  */
 export default function OrderDetail() {
   const { orderId = "" } = useParams();
@@ -129,6 +188,9 @@ export default function OrderDetail() {
   const { message } = App.useApp();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  /** Id khoản hoàn đang mở hộp "Đánh dấu đã hoàn". */
+  const [completeId, setCompleteId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Bấm đúp nhanh chỉ gửi 1 request (state cập nhật bất đồng bộ nên giữ thêm ref).
   const inFlight = useRef(false);
@@ -178,7 +240,33 @@ export default function OrderDetail() {
   const realtimeOn = modeOf("order") === "real" && !!branchId && !!orderId;
   const realtime = useOrderRealtime(() => void load(true), { orderId, enabled: realtimeOn });
 
-  const back = () => navigate(`${LIST_PATH}${from}`);
+  // Quyết định 102: hộp xác nhận tay đang mở mà dữ liệu mới (socket/Thử lại) cho thấy đơn hết điều kiện xác nhận (webhook về, đã huỷ…)
+  // → đóng hộp và nói rõ. Không chạy khi đang gửi (kết quả của chính request đó do `submitConfirm` xử lý).
+  useEffect(() => {
+    if (!confirmOpen || submitting || !order) return;
+    if (confirmableTransfer(order)) return;
+    setConfirmOpen(false);
+    message.info(`Đơn vừa được cập nhật (${orderStatusInfo(order.status).label}), không cần xác nhận nữa.`);
+  }, [confirmOpen, submitting, order, message]);
+
+  // Cùng ý quyết định 102 cho hộp huỷ / đánh dấu đã hoàn: dữ liệu mới cho thấy hết điều kiện (đơn đã giao, đã huỷ ở nơi khác, khoản
+  // đã hoàn) → đóng hộp và nói rõ. Không chạy khi đang gửi.
+  useEffect(() => {
+    if (submitting || !order) return;
+    if (cancelOpen && !cancelTarget(order)) {
+      setCancelOpen(false);
+      message.info(`Đơn vừa được cập nhật (${orderStatusInfo(order.status).label}), không huỷ được nữa.`);
+    }
+    if (completeId) {
+      const r = order.refunds.find((x) => x.id === completeId);
+      if (!r || !refundCompletable(r)) {
+        setCompleteId(null);
+        message.info("Khoản hoàn này vừa được cập nhật, không cần đánh dấu nữa.");
+      }
+    }
+  }, [cancelOpen, completeId, submitting, order, message]);
+
+  const back =() => navigate(`${LIST_PATH}${from}`);
 
   /**
    * Xác nhận thủ công (quyết định 84): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi);
@@ -197,6 +285,56 @@ export default function OrderDetail() {
       showApiError(message.error, err, "Không xác nhận được thanh toán. Thử lại sau.");
       if (confirmErrorInfo(err).refresh) {
         setConfirmOpen(false);
+        await load(true);
+      }
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  /**
+   * Huỷ đơn đã trả (BM-06): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi); 409/404 → câu tiếng Việt qua
+   * `showApiError`, GET lại, đóng hộp; 400/403/5xx/mạng → báo và giữ hộp để sửa hoặc thử lại.
+   */
+  const submitCancel = async (input: CancelPaidInput) => {
+    if (inFlight.current || !chainId || !branchId) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    try {
+      await orderApi.cancelPaidOrder({ chainId, branchId }, orderId, input);
+      setCancelOpen(false);
+      message.success(
+        input.refundMethod === "CASH"
+          ? "Đã huỷ đơn và ghi hoàn tiền mặt. Hãy trả tiền lại cho khách."
+          : "Đã huỷ đơn và ghi khoản chờ hoàn tiền. Sau khi chuyển khoản, bấm “Đánh dấu đã hoàn”.",
+      );
+      await load(true);
+    } catch (err) {
+      showApiError(message.error, err, "Không huỷ được đơn. Thử lại sau.");
+      if (paidActionErrorInfo(err).refresh) {
+        setCancelOpen(false);
+        await load(true);
+      }
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const submitComplete = async (refundId: string, input: CompleteRefundInput) => {
+    if (inFlight.current || !chainId || !branchId) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    try {
+      await orderApi.completeRefund({ chainId, branchId }, refundId, input);
+      setCompleteId(null);
+      message.success("Đã đánh dấu khoản hoàn là đã hoàn tiền.");
+      await load(true);
+    } catch (err) {
+      showApiError(message.error, err, "Không đánh dấu được khoản hoàn. Thử lại sau.");
+      if (paidActionErrorInfo(err).refresh) {
+        setCompleteId(null);
         await load(true);
       }
     } finally {
@@ -268,6 +406,60 @@ export default function OrderDetail() {
   const cancelled = order.status === "CANCELLED";
   const confirmable = confirmableTransfer(order);
   const mismatch = order.payments.find((p) => p.status === "AMOUNT_MISMATCH");
+  const attentionReason = attentionReasonInfo(order);
+  const target = cancelTarget(order);
+  const pendingTotal = pendingRefundTotal(order.refunds);
+  const completing = completeId ? (order.refunds.find((r) => r.id === completeId) ?? null) : null;
+
+  const refundColumns: ColumnsType<OrderRefundRecord> = [
+    { title: "Số tiền", dataIndex: "amount", align: "right", width: 130, render: (v: number) => <b>{formatVnd(v)}</b> },
+    {
+      title: "Trạng thái",
+      key: "status",
+      width: 150,
+      render: (_: unknown, r) => {
+        const info = refundStatusInfo(r.status);
+        return <Chip tone={info.tone}>{info.label}</Chip>;
+      },
+    },
+    { title: "Cách hoàn", dataIndex: "method", width: 150, render: (v: string) => refundMethodInfo(v).label },
+    {
+      title: "Chi tiết",
+      key: "detail",
+      render: (_: unknown, r) => (
+        <div data-testid="order-refund-detail" style={{ fontSize: 13, lineHeight: 1.6 }}>
+          <div>Nguồn: {refundSourceInfo(r.source).label}</div>
+          <div>
+            Lý do: {r.reason} · <span data-testid="refund-requested-by">{actorLabel(r.requestedByName, r.requestedByRole)}</span>, {formatDateTime(r.requestedAt)}
+          </div>
+          {r.lines.length > 0 && (
+            <div>
+              Món huỷ: {r.lines.length} dòng{r.lines.some((l) => l.isWastage) ? " (có món đã pha xong, tính hao hụt)" : ""}
+            </div>
+          )}
+          {r.status === "COMPLETED" && (
+            <div>
+              Đã hoàn bởi <span data-testid="refund-completed-by">{actorLabel(r.completedByName, r.completedByRole)}</span>, {formatDateTime(r.completedAt)}
+              {r.note ? ` · ${r.note}` : ""}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "",
+      key: "action",
+      width: 170,
+      render: (_: unknown, r) =>
+        // KHÔNG dùng ActionButton: BE chủ ý để khoản phải hoàn vẫn xử lý được khi gói hết hạn/tạm ngưng
+        // (`paid-order-refund.service.ts` `assertRefundAccess`: "Refund obligations remain actionable"), nên không khoá theo chế độ chỉ đọc.
+        refundCompletable(r) ? (
+          <Button size="small" type="primary" data-testid="refund-complete-open" onClick={() => setCompleteId(r.id)}>
+            Đánh dấu đã hoàn
+          </Button>
+        ) : null,
+    },
+  ];
 
   return (
     <div data-testid="order-detail">
@@ -311,11 +503,19 @@ export default function OrderDetail() {
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Đơn cần xử lý"
+          message={`Đơn cần xử lý — ${attentionReason.label}`}
+          action={
+            // QĐ 122: huỷ đơn đã trả không khoá khi gói hết hạn (tiền đã nhận phải xử lý được).
+            target && target.kind !== "paid" && (
+              <Button danger data-testid="order-cancel-open-attention" onClick={() => setCancelOpen(true)}>
+                Huỷ đơn và ghi hoàn tiền
+              </Button>
+            )
+          }
           description={
-            mismatch && mismatch.receivedAmount !== null
-              ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
-              : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán."
+            <div data-testid="order-detail-attention-text">
+              {attentionText(attentionReason.kind, mismatch ?? null, order.attentionAt ?? null)}
+            </div>
           }
         />
       )}
@@ -370,10 +570,20 @@ export default function OrderDetail() {
         style={{ borderRadius: 14 }}
         styles={{ body: { padding: 0 } }}
         extra={
-          confirmable && (
-            <ActionButton type="primary" data-testid="order-confirm-open" onClick={() => setConfirmOpen(true)}>
-              Xác nhận thủ công
-            </ActionButton>
+          (confirmable || target) && (
+            <Space>
+              {target && (
+                // QĐ 122 (đổi QĐ 85, theo #59): KHÔNG khoá khi gói hết hạn/tạm ngưng — BE không kiểm gói cho huỷ đơn đã trả và xác nhận tay.
+                <Button danger data-testid="order-cancel-open" onClick={() => setCancelOpen(true)}>
+                  Huỷ đơn và ghi hoàn tiền
+                </Button>
+              )}
+              {confirmable && (
+                <Button type="primary" data-testid="order-confirm-open" onClick={() => setConfirmOpen(true)}>
+                  Xác nhận thủ công
+                </Button>
+              )}
+            </Space>
           )
         }
       >
@@ -388,6 +598,54 @@ export default function OrderDetail() {
           locale={{ emptyText: "Chưa có khoản thanh toán" }}
         />
       </Card>
+
+      {order.refunds.length > 0 && (
+        <Card
+          title="Khoản phải hoàn"
+          data-testid="order-refunds"
+          style={{ borderRadius: 14, marginTop: 16 }}
+          styles={{ body: { padding: 0 } }}
+          extra={
+            pendingTotal > 0 && (
+              <span data-testid="order-refund-pending" style={{ color: palette.warning.text, fontWeight: 600 }}>
+                Còn chờ hoàn {formatVnd(pendingTotal)}
+              </span>
+            )
+          }
+        >
+          <Table<OrderRefundRecord>
+            data-testid="order-refunds-table"
+            rowKey="id"
+            size="middle"
+            columns={refundColumns}
+            dataSource={order.refunds}
+            pagination={false}
+            scroll={{ x: 760 }}
+          />
+        </Card>
+      )}
+
+      {target && (
+        <CancelPaidModal
+          open={cancelOpen}
+          order={order}
+          target={target}
+          submitting={submitting}
+          onCancel={() => setCancelOpen(false)}
+          onSubmit={(input) => void submitCancel(input)}
+        />
+      )}
+
+      {completing && (
+        <CompleteRefundModal
+          open
+          order={order}
+          refund={completing}
+          submitting={submitting}
+          onCancel={() => setCompleteId(null)}
+          onSubmit={(input) => void submitComplete(completing.id, input)}
+        />
+      )}
 
       {confirmable && (
         <ConfirmTransferModal

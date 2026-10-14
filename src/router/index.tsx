@@ -111,10 +111,6 @@ export function buildRoutes(flags: RouteFlags): RouteObject[] {
     ],
   },
   {
-    path: "/branch/*",
-    element: <Navigate to="/manager" replace />,
-  },
-  {
     path: "*",
     element: <Navigate to="/" replace />,
   },

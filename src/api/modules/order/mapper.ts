@@ -3,7 +3,7 @@
  * Mọi trường đọc phòng thủ: thiếu hoặc sai kiểu thì rơi về mặc định, không ném lỗi (BE là nguồn ngoài).
  * Tiền BE là chuỗi thập phân ("65000", "280000.00") → số.
  */
-import type { OrderDetail, OrderDetailLine, OrderDetailOption, OrderPage, OrderPaymentRecord, OrderSummary } from "../../../types";
+import type { OrderDetail, OrderDetailLine, OrderDetailOption, OrderPage, OrderPaymentRecord, OrderRefundRecord, OrderSummary } from "../../../types";
 import { parseAmount } from "../../../lib/reportFormat";
 
 type Raw = Record<string, unknown>;
@@ -36,22 +36,60 @@ function mapPayment(raw: Raw): OrderPaymentRecord {
     createdAt: str(raw.createdAt),
     failureReason: str(raw.failureReason),
     processedBy: mapActorName(raw.processedBy),
+    tenderedAmount: raw.tenderedAmount == null ? null : parseAmount(raw.tenderedAmount as string | number),
+    changeAmount: raw.changeAmount == null ? null : parseAmount(raw.changeAmount as string | number),
+    expiresAt: str(raw.expiresAt),
+    stationName: isObject(raw.station) ? str(raw.station.name) : null,
   };
 }
 
-/** Khoản thanh toán của đơn: của đơn và của phiên bàn (v7) gộp lại, bỏ trùng theo id. */
+/**
+ * Người trong khoản hoàn (BE `fb7cae9`, #73): `{ id, email, profile: { firstName, lastName, employeeCode | ownerCode } }`.
+ * Hiện họ tên; thiếu tên thì mã nhân viên/chủ chuỗi, rồi email; không có gì → null (màn hiện vai trò).
+ */
+export function mapRefundActor(v: unknown): string | null {
+  if (!isObject(v)) return null;
+  const profile = isObject(v.profile) ? v.profile : null;
+  const name = profile ? `${str(profile.firstName) ?? ""} ${str(profile.lastName) ?? ""}`.trim() : "";
+  return name || (profile ? (str(profile.employeeCode) ?? str(profile.ownerCode)) : null) || str(v.email);
+}
+
+/** Khoản thanh toán của đơn, bỏ trùng theo id. */
 function mapPayments(raw: Raw): OrderPaymentRecord[] {
-  const own = list(raw.payments);
-  const session = isObject(raw.tableSession) ? list(raw.tableSession.payments) : [];
   const seen = new Set<string>();
   const out: OrderPaymentRecord[] = [];
-  for (const p of [...own, ...session]) {
+  for (const p of list(raw.payments)) {
     const mapped = mapPayment(p);
     if (mapped.id && seen.has(mapped.id)) continue;
     seen.add(mapped.id);
     out.push(mapped);
   }
   return out;
+}
+
+function mapRefund(raw: Raw): OrderRefundRecord {
+  return {
+    id: strOr(raw.id, ""),
+    paymentId: str(raw.paymentId),
+    amount: parseAmount(raw.amount as string | number | null),
+    status: strOr(raw.status, "PENDING"),
+    method: strOr(raw.method, "BANK_TRANSFER"),
+    source: strOr(raw.source, "MANAGER_CANCELLATION"),
+    reason: strOr(raw.reason, ""),
+    requestedByRole: str(raw.requestedByRole),
+    requestedAt: str(raw.requestedAt),
+    completedByRole: str(raw.completedByRole),
+    completedAt: str(raw.completedAt),
+    note: str(raw.note),
+    lines: list(raw.items).map((i) => ({
+      orderItemId: strOr(i.orderItemId, ""),
+      quantity: num(i.quantity) ?? 0,
+      refundAmount: parseAmount(i.refundAmount as string | number | null),
+      isWastage: i.isWastage === true,
+    })),
+    requestedByName: mapRefundActor(raw.requestedBy),
+    completedByName: mapRefundActor(raw.completedBy),
+  };
 }
 
 export function mapOrderSummary(raw: Raw): OrderSummary {
@@ -65,9 +103,12 @@ export function mapOrderSummary(raw: Raw): OrderSummary {
     status: strOr(raw.status, "UNKNOWN"),
     paymentStatus: strOr(raw.paymentStatus, "UNKNOWN"),
     payments: mapPayments(raw),
-    cashierName: mapActorName(raw.createdByCashier) ?? mapActorName(raw.createdByWaiter),
+    cashierName: mapActorName(raw.createdByCashier),
     cancelledAt: str(raw.cancelledAt),
     cancellationReason: str(raw.cancellationReason),
+    refunds: list(raw.refunds).map(mapRefund),
+    attentionAt: str(raw.attentionAt),
+    attentionReason: str(raw.attentionReason),
   };
 }
 

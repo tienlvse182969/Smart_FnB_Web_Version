@@ -8,7 +8,9 @@
  * (token đã làm mới bởi request REST); nếu máy chủ ngắt vì token hết hạn (`io server disconnect`, socket.io không tự nối lại) thì làm
  * mới phiên rồi nối lại, tối đa `MAX_SERVER_RETRIES` lần.
  *
- * Màn hình gọi số (giai đoạn 8) dùng token thiết bị chỉ đọc (đặc tả 11.10/BR-45); gateway nhận cả token thiết bị.
+ * Màn hình gọi số (giai đoạn 8, QĐ 106) dùng token thiết bị chỉ đọc (đặc tả 11.10/BR-45); gateway nhận cả token thiết bị
+ * (`realtime.gateway.ts:71-84`). Cùng một kết nối dùng chung, chỉ khác NGUỒN TOKEN (`OperationsCredential`): thiết bị không đọc phiên
+ * người dùng, không làm mới phiên; máy chủ ngắt = token bị từ chối/thu hồi → không tự thử lại bằng chính token đó (`rejected`).
  */
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL } from "../../config";
@@ -31,7 +33,16 @@ export interface OperationsSubscriber {
    * `reconnected` = true khi đây là lần nối lại sau một lần đã nối được (cần tải lại dữ liệu vì có thể bỏ lỡ sự kiện).
    * `exhausted` = true khi đã hết số lần tự nối lại: socket không tự thử nữa, màn hiện nút "Kết nối lại" (`reconnectOperations`).
    */
-  onStatus?(status: RealtimeStatus, info: { reconnected: boolean; exhausted: boolean }): void;
+  onStatus?(status: RealtimeStatus, info: { reconnected: boolean; exhausted: boolean; rejected?: boolean }): void;
+}
+
+/**
+ * Nguồn token của kết nối. Mặc định (không truyền) = phiên người dùng. `kind: "device"` = token thiết bị: `token()` đọc từ nơi màn hình
+ * tự giữ; máy chủ ngắt thì báo `rejected` và dừng (người gọi quyết định bằng REST: 403 = thu hồi), KHÔNG gọi làm mới phiên người dùng.
+ */
+export interface OperationsCredential {
+  kind: "user" | "device";
+  token: () => string | null;
 }
 
 /** Số lần tự nối lại tối đa (cả khi đường truyền rớt lẫn khi máy chủ ngắt); hết lượt thì chỉ báo "Mất kết nối" kèm nút "Kết nối lại". */
@@ -54,6 +65,21 @@ let everConnected = false;
 let serverRetries = 0;
 let exhausted = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+/** Nguồn token của người nghe đầu tiên (một trang chỉ có một loại: màn vận hành của người dùng HOẶC màn thiết bị). */
+let credential: OperationsCredential | null = null;
+
+function currentToken(): string | null {
+  return credential ? credential.token() : getAccessToken();
+}
+
+function isDevice(): boolean {
+  return credential?.kind === "device";
+}
+
+/** Làm mới phiên người dùng; thiết bị không có phiên để làm mới. */
+function refreshForReconnect(): Promise<unknown> {
+  return isDevice() ? Promise.resolve() : refreshSession(getAccessToken()).catch(() => undefined);
+}
 
 /** Gốc (origin) của backend, suy từ `VITE_API_BASE_URL`. */
 function getApiOrigin(): string | null {
@@ -84,10 +110,17 @@ function markExhausted(): void {
   for (const sub of [...subscribers]) sub.onStatus?.(status, { reconnected: false, exhausted: true });
 }
 
+/** Thiết bị bị từ chối: đã bỏ cuộc (không tự nối lại), kèm `rejected` để màn kiểm tra bằng REST xem có bị thu hồi không. */
+function markRejected(): void {
+  exhausted = true;
+  status = "disconnected";
+  for (const sub of [...subscribers]) sub.onStatus?.(status, { reconnected: false, exhausted: true, rejected: true });
+}
+
 function open(): void {
   if (socket) return;
   const origin = getApiOrigin();
-  if (!origin || !getAccessToken()) {
+  if (!origin || !currentToken()) {
     setStatus("disconnected");
     return;
   }
@@ -95,7 +128,7 @@ function open(): void {
   const s = createSocket(`${origin}/operations`, {
     path: import.meta.env.VITE_REALTIME_PATH || "/socket.io",
     // Hàm: socket.io gọi lại ở MỖI lần nối (kể cả nối lại), nên luôn dùng token mới nhất.
-    auth: (cb: (data: { token: string | null }) => void) => cb({ token: getAccessToken() }),
+    auth: (cb: (data: { token: string | null }) => void) => cb({ token: currentToken() }),
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: MAX_AUTO_RECONNECTS,
@@ -113,17 +146,25 @@ function open(): void {
   s.on("operations.updated", (event: OperationsEvent) => {
     for (const sub of [...subscribers]) sub.onEvent(event);
   });
+  // BE `fb7cae9` (#68): thu hồi thiết bị phát `device.revoked` rồi ngắt socket → màn kiểm tra bằng REST ngay (không đợi nhịp hỏi).
+  s.on("device.revoked", () => {
+    if (isDevice()) markRejected();
+  });
   s.on("connect_error", () => setStatus("disconnected"));
   s.on("disconnect", (reason: string) => {
     setStatus("disconnected");
+    // Thiết bị bị máy chủ ngắt = token bị từ chối hoặc đã thu hồi: không có phiên để làm mới, nối lại bằng chính token đó vô ích.
+    if (reason === "io server disconnect" && isDevice()) {
+      markRejected();
+      return;
+    }
     // Máy chủ chủ động ngắt (token hết hạn → không còn xác thực được): socket.io không tự nối lại. Làm mới phiên rồi nối lại.
     if (reason === "io server disconnect" && serverRetries >= MAX_SERVER_RETRIES) markExhausted();
     if (reason === "io server disconnect" && serverRetries < MAX_SERVER_RETRIES && subscribers.size > 0) {
       serverRetries++;
       retryTimer = setTimeout(() => {
         retryTimer = null;
-        refreshSession(getAccessToken())
-          .catch(() => undefined)
+        refreshForReconnect()
           .finally(() => {
             if (socket === s && subscribers.size > 0) {
               setStatus("connecting");
@@ -145,6 +186,7 @@ function close(): void {
   serverRetries = 0;
   exhausted = false;
   status = "disconnected";
+  credential = null;
 }
 
 /**
@@ -164,20 +206,21 @@ export function reconnectOperations(): void {
   exhausted = false;
   serverRetries = 0;
   setStatus("connecting");
-  void refreshSession(getAccessToken())
-    .catch(() => undefined)
-    .finally(() => {
-      if (subscribers.size > 0 && !socket) open();
-    });
+  void refreshForReconnect().finally(() => {
+    if (subscribers.size > 0 && !socket) open();
+  });
 }
 
 /**
  * Nghe sự kiện vận hành của chi nhánh. Kết nối mở khi có người nghe đầu tiên và đóng khi người nghe cuối cùng rời đi. Trả về hàm huỷ
- * đăng ký (gọi khi rời màn, tránh rò listener).
+ * đăng ký (gọi khi rời màn, tránh rò listener). `source` chỉ có hiệu lực ở người nghe ĐẦU TIÊN (người sau dùng chung kết nối).
  */
-export function subscribeOperations(subscriber: OperationsSubscriber): () => void {
+export function subscribeOperations(subscriber: OperationsSubscriber, source?: OperationsCredential): () => void {
   subscribers.add(subscriber);
-  if (subscribers.size === 1) open();
+  if (subscribers.size === 1) {
+    credential = source ?? null;
+    open();
+  }
   else subscriber.onStatus?.(status, { reconnected: false, exhausted });
   return () => {
     subscribers.delete(subscriber);
@@ -196,4 +239,17 @@ export function connectOperationsRealtime(onUpdate: (event: OperationsEvent) => 
 export function disconnectOperationsRealtime(): void {
   legacyUnsubscribe?.();
   legacyUnsubscribe = null;
+}
+
+/**
+ * CHỈ DEV (lượt 7.5): kiểm trình duyệt bơm sự kiện vận hành giả cho các người nghe (BE local không có đơn lệch tiền để phát sự kiện thật).
+ * `import.meta.env.DEV` viết thẳng tại chỗ để bản build production thay bằng `false` và bỏ hẳn khối này (kiểm bằng grep bundle, BAN-GIAO 7.5).
+ * KHÔNG mở kết nối, KHÔNG gọi BE: chỉ gọi `onEvent` của những người đã đăng ký.
+ */
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as { __injectOperationsEvent?: (event: OperationsEvent) => number }).__injectOperationsEvent = (event) => {
+    const listeners = [...subscribers];
+    for (const sub of listeners) sub.onEvent(event);
+    return listeners.length;
+  };
 }

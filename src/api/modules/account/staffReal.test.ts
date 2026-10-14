@@ -66,13 +66,13 @@ describe("accountReal — Cashier/Barista của Manager qua /manager/staff* (#24
     expect(describeApiError(await run(400, { statusCode: 400, message: ["employeeCode must be shorter than or equal to 50 characters", "email must be an email"], error: "Bad Request" }))).toBe("Mã nhân viên tối đa 50 ký tự; Email không hợp lệ.");
   });
 
-  it("sửa: PATCH /manager/staff/:id chỉ gửi họ tên và điện thoại; không bao giờ gửi null", async () => {
+  it("sửa: PATCH /manager/staff/:id gửi họ tên và điện thoại; chỉ `phone` được null để xoá số (#63, BE fb7cae9)", async () => {
     const fn = respond(RAW);
     vi.stubGlobal("fetch", fn);
     await accountReal.updateStaff("c", "b", "e1", { firstName: "Bình", lastName: "Trần", phone: "0912345678" });
     expect(call(fn)).toMatchObject({ path: "/manager/staff/e1", method: "PATCH", body: { firstName: "Bình", lastName: "Trần", phone: "0912345678" } });
     await accountReal.updateStaff("c", "b", "e1", { firstName: "Bình", lastName: "Trần", phone: null });
-    expect(call(fn, 1).body).toEqual({ firstName: "Bình", lastName: "Trần" });
+    expect(call(fn, 1).body).toEqual({ firstName: "Bình", lastName: "Trần", phone: null });
   });
 
   it("khoá / mở khoá: PATCH /manager/staff/:id/status {status, reason}; thiếu lý do thì KHÔNG gửi request", async () => {

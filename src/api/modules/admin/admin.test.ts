@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { mockControl } from "../../mock/control";
 import { adminMock } from "./mock";
-import { adminReal, MIN_MAX_TABLES } from "./real";
+import { adminReal } from "./real";
 import {
   mapPlan,
   deriveSubscriptionState,
@@ -287,7 +287,7 @@ describe("adminReal — gói dịch vụ khớp DTO của BE dfe8100", () => {
     vi.unstubAllGlobals();
   });
 
-  it("tạo gói: POST bỏ isActive, kèm hai cờ bắt buộc và maxTables = giá trị nhỏ nhất BE chấp nhận", async () => {
+  it("tạo gói: POST bỏ isActive, kèm hai cờ bắt buộc và KHÔNG gửi maxTables (BE `fb7cae9`, #29)", async () => {
     const fetchMock = respond({ ...input, id: "p1", description: null, monthlyPrice: "500000.00", maxTables: 1 });
     vi.stubGlobal("fetch", fetchMock);
     const plan = await adminReal.createPlan(input);
@@ -304,9 +304,8 @@ describe("adminReal — gói dịch vụ khớp DTO của BE dfe8100", () => {
       maxAccounts: input.maxAccounts,
       brandingEnabled: input.brandingEnabled,
       multiBranchComparisonEnabled: input.multiBranchComparisonEnabled,
-      maxTables: MIN_MAX_TABLES,
     });
-    expect(MIN_MAX_TABLES).toBe(1);
+    expect(body).not.toHaveProperty("maxTables");
     expect(plan).toMatchObject({ brandingEnabled: true, multiBranchComparisonEnabled: false });
     vi.unstubAllGlobals();
   });

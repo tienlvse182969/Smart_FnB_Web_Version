@@ -58,7 +58,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   branding: "real (6.4, OW-07): GET/PUT/DELETE restaurant-chains/{id}/branding + POST …/branding/logo (multipart); BE chưa có isCustom/version (#39) và chưa chặn theo gói (#33) nên web tự suy và tự khoá; mock = VITE_API_BRANDING=mock",
   account: "real (7.4c): Owner quản Manager qua /employees (list, tạo bằng lời mời, khoá, gửi lại email, chuyển chi nhánh); Manager quản Cashier/Barista qua /manager/staff* (#24: list, tạo bằng email, sửa họ tên/điện thoại, khoá/mở kèm lý do, gửi lại email kích hoạt kèm lý do); mock = VITE_API_ACCOUNT=mock",
   stations: "real (5.5): GET/POST /stations; đổi tên, ngừng dùng, sửa máy in chờ BE (#27); ghép/thu hồi thiết bị ở 5.6",
-  order: "real (7.1, BM-04): GET /manager/orders (luôn type=COUNTER_PICKUP) và /manager/orders/:id; real (7.4, BM-05): POST /payments/:id/confirm (xác nhận chuyển khoản thủ công); huỷ đơn đã trả chờ BE (#43); mock = VITE_API_ORDER=mock",
+  order: "real (7.1, BM-04): GET /manager/orders (luôn type=COUNTER_PICKUP) và /manager/orders/:id; real (7.4, BM-05): POST /payments/:id/confirm (xác nhận chuyển khoản thủ công); real (7.6, BM-06, BE #43): POST /manager/orders/:id/cancel-paid (huỷ đơn đã trả + ghi khoản hoàn) và POST /refunds/:id/complete (đánh dấu đã hoàn); mock = VITE_API_ORDER=mock",
   manager_report: "real (7.3, BM-03): GET /manager/reports (từ/đến theo ngày giờ Việt Nam, kỳ ngày/tuần/tháng, top 10), chỉ đọc; tách khỏi `report` của Owner (/reports/*); mock = VITE_API_MANAGER_REPORT=mock",
   ai: "mock — BE chưa có (OW-09), chờ giai đoạn 9",
   admin: "real (hồ sơ + doanh nghiệp, giai đoạn 3.2); gói và nộp hồ sơ công khai còn chờ BE (xem api-contract-plan.md)",

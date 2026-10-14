@@ -5,12 +5,12 @@ const TODAY = "2026-10-08";
 
 describe("bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69)", () => {
   it("mặc định: 7 ngày gần nhất giờ Việt Nam, 20 dòng, trang 1", () => {
-    expect(defaultFilters(TODAY)).toEqual({ from: "2026-10-02", to: "2026-10-08", callNumber: "", orderCode: "", status: "", payment: "", method: "", page: 1, limit: 20 });
+    expect(defaultFilters(TODAY)).toEqual({ from: "2026-10-02", to: "2026-10-08", callNumber: "", orderCode: "", status: "", payment: "", method: "", refund: "", page: 1, limit: 20 });
     expect(parseFilters("", TODAY)).toEqual(defaultFilters(TODAY));
   });
 
   it("vòng tròn bộ lọc → URL → bộ lọc", () => {
-    const f = { from: "2026-09-01", to: "2026-09-30", callNumber: "12", orderCode: "CTR-9", status: "CANCELLED", payment: "UNPAID", method: "CASH", page: 3, limit: 50 };
+    const f = { from: "2026-09-01", to: "2026-09-30", callNumber: "12", orderCode: "CTR-9", status: "CANCELLED", payment: "UNPAID", method: "CASH", refund: "PENDING", page: 3, limit: 50 };
     const search = filtersToSearch(f, TODAY).toString();
     expect(parseFilters(search, TODAY)).toEqual(f);
   });

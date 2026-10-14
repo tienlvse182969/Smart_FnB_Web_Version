@@ -17,6 +17,7 @@ dayjs.extend(customParseFormat);
 export const ORDER_TYPE = "COUNTER_PICKUP";
 export const ORDER_PAGE_SIZES = [20, 50, 100] as const;
 export const ORDER_MAX_LIMIT = 100;
+export const ORDER_SORT_FIELDS: readonly string[] = ["placedAt", "attentionAt", "status", "totalAmount"];
 
 /** `2026-10-08` → `2026-10-08T00:00:00.000+07:00` (đầu ngày giờ Việt Nam). */
 export function vnDayStartIso(day: string): string {
@@ -40,6 +41,12 @@ export function buildOrderQueryString(query: OrderQuery): string {
   if (query.status) search.set("status", query.status);
   if (query.paymentStatus) search.set("paymentStatus", query.paymentStatus);
   if (query.paymentMethod) search.set("paymentMethod", query.paymentMethod);
+  if (query.refundStatus) search.set("refundStatus", query.refundStatus);
+  // #66 (BE `fb7cae9`): `sortBy` ∈ placedAt/attentionAt/status/totalAmount, `sortOrder` ∈ asc/desc; không gửi = placedAt giảm dần.
+  if (query.sortBy && ORDER_SORT_FIELDS.includes(query.sortBy)) {
+    search.set("sortBy", query.sortBy);
+    search.set("sortOrder", query.sortOrder === "asc" ? "asc" : "desc");
+  }
   search.set("page", String(Math.max(1, Math.trunc(query.page) || 1)));
   search.set("limit", String(Math.min(ORDER_MAX_LIMIT, Math.max(1, Math.trunc(query.limit) || ORDER_PAGE_SIZES[0]))));
   return `?${search.toString()}`;

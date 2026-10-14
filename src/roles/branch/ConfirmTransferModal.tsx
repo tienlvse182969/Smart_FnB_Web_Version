@@ -50,7 +50,8 @@ export default function ConfirmTransferModal({ open, order, payment, submitting,
       setTouched(false);
       sent.current = false;
       // Khoản "Lệch số tiền": gợi ý số BE đã ghi nhận; Manager vẫn phải tự xác nhận con số thực nhận.
-      setReceived(payment.status === "AMOUNT_MISMATCH" && payment.receivedAmount ? String(payment.receivedAmount) : "");
+      // Khoản lệch tiền hoặc tiền về sau khi QR hết hạn (#75): BE đã ghi số nhận được, điền sẵn.
+      setReceived((payment.status === "AMOUNT_MISMATCH" || payment.status === "REQUIRES_ATTENTION") && payment.receivedAmount ? String(payment.receivedAmount) : "");
     }
   }, [open, payment.id, payment.status, payment.receivedAmount]);
 

@@ -8,7 +8,6 @@ export interface ReportBundle {
   comparison: RevenueComparison;
   timeseries: RevenueTimeseries;
   topItems: TopItems;
-  // TODO(BE): thẻ khách đã ẩn — /reports/customers đang đếm lượt bàn (v7). Thêm lại khi BE có số khách theo đơn.
 }
 
 export interface ReportQuery extends DateRange {

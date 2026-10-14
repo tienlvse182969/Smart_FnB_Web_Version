@@ -1,8 +1,8 @@
 import { App, Card, Input, Modal, Radio, Table, Tag, Tooltip } from "antd";
-import { Link2, Plus, Unlink } from "lucide-react";
+import { Link2, Pencil, Plus, Unlink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PRINTER_CONNECTION_LABEL, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput } from "../../types";
-import { showApiError, stationsApi, validateStationInput } from "../../api";
+import { PRINTER_CONNECTION_LABEL, type BranchDevice, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput, type StationPatch } from "../../types";
+import { branchDeviceState, showApiError, stationsApi, validateStationInput, validateStationPatch } from "../../api";
 import { describePairingError, isPairingCode } from "../../api/modules/stations/pairing";
 import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
@@ -12,11 +12,10 @@ import { relativeTime } from "../../lib/relativeTime";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
-const PENDING_BE = "Chờ BE (api-contract-plan #27)";
-
 /**
- * BM-01: quầy và máy in của chi nhánh (đặc tả 11.10). Real `GET/POST /stations`. Đổi tên, ngừng dùng, sửa máy in chưa có ở BE
- * (#27) nên các nút bị khoá. Không giới hạn số quầy (Khánh đã chốt). Hết hạn gói thì chỉ đọc (ActionButton).
+ * BM-01: quầy và máy in của chi nhánh (đặc tả 11.10). Real `GET/POST/PATCH /stations`, `GET /display-devices`. Từ BE `fb7cae9`
+ * (#27, #28, QĐ 126): đổi tên, ngừng/mở lại quầy (có hộp xác nhận), sửa máy in; xem và thu hồi màn hình gọi số theo `deviceId`.
+ * Không giới hạn số quầy (Khánh đã chốt). Hết hạn gói thì chỉ đọc (ActionButton).
  */
 export default function Stations() {
   const { message, modal } = App.useApp();
@@ -52,6 +51,12 @@ export default function Stations() {
     });
   };
 
+  const [editing, setEditing] = useState<Station | null>(null);
+  // Màn hình gọi số của chi nhánh (BE `GET /display-devices`, #28). null = chưa tải; lỗi tải không chặn phần quầy.
+  const [calling, setCalling] = useState<BranchDevice[] | null>(null);
+  const [callingError, setCallingError] = useState(false);
+  const [deviceMeta, setDeviceMeta] = useState<Record<string, BranchDevice>>({});
+
   const load = useCallback(async () => {
     if (!branchId) return;
     setLoading(true);
@@ -62,7 +67,77 @@ export default function Stations() {
     } finally {
       setLoading(false);
     }
+    try {
+      const devices = await stationsApi.listDisplayDevices(branchId);
+      setCalling(devices.filter((d) => d.type === "CALLING_DISPLAY"));
+      // BM-01: hạn token của màn hình phía khách đã ghép (BE chỉ trả ở `GET /display-devices`, không ở `GET /stations`).
+      setDeviceMeta(Object.fromEntries(devices.map((d) => [d.id, d])));
+      setCallingError(false);
+    } catch {
+      setCalling(null);
+      setCallingError(true);
+    }
   }, [branchId, message]);
+
+  /** Sửa quầy; `confirmText` có nghĩa là thao tác cần hộp xác nhận (ngừng dùng). */
+  const patchStation = async (station: Station, patch: StationPatch, success: string) => {
+    if (!branchId) return false;
+    try {
+      await stationsApi.updateStation(branchId, station.id, patch);
+      message.success(success);
+      await load();
+      return true;
+    } catch (err) {
+      showApiError(message.error, err, "Không sửa được quầy");
+      return false;
+    }
+  };
+
+  const toggleStatus = (station: Station) => {
+    if (station.status === "ACTIVE") {
+      modal.confirm({
+        title: `Ngừng dùng ${station.name}?`,
+        content: (
+          <div data-testid="confirm-station-off" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+            Thu ngân không chọn được <b>{station.name}</b> trên POS và không ghép thêm màn hình khách vào quầy này. Mở lại bất cứ lúc nào.
+          </div>
+        ),
+        okText: "Ngừng dùng",
+        okButtonProps: { danger: true },
+        cancelText: "Huỷ",
+        onOk: async () => {
+          await patchStation(station, { status: "INACTIVE" }, `Đã ngừng dùng ${station.name}`);
+        },
+      });
+    } else {
+      void patchStation(station, { status: "ACTIVE" }, `Đã mở lại ${station.name}`);
+    }
+  };
+
+  const revokeCalling = (device: BranchDevice) => {
+    modal.confirm({
+      title: `Thu hồi ${device.name ?? "màn hình gọi số"}?`,
+      content: (
+        <div data-testid="confirm-revoke-calling" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+          <b>{device.name ?? "Màn hình gọi số"}</b> (ghép {formatDateTime(device.pairedAt)}) sẽ ngừng hiển thị số của chi nhánh ngay; muốn dùng lại phải ghép lại bằng mã mới.
+        </div>
+      ),
+      okText: "Thu hồi",
+      okButtonProps: { danger: true },
+      cancelText: "Huỷ",
+      onOk: async () => {
+        if (!branchId) return;
+        try {
+          await stationsApi.revokeDevice(branchId, device.id);
+          message.success("Đã thu hồi màn hình gọi số");
+        } catch (err) {
+          showApiError(message.error, err, "Không thu hồi được màn hình gọi số");
+        } finally {
+          await load();
+        }
+      },
+    });
+  };
 
   useEffect(() => {
     void load();
@@ -110,9 +185,6 @@ export default function Stations() {
           </ActionButton>
         }
       />
-      <div data-testid="stations-pending-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-        Đổi tên, ngừng dùng quầy và sửa máy in {PENDING_BE.toLowerCase()} — hiện chỉ tạo và xem được. Ghép và thu hồi màn hình bằng mã 6 số làm được ngay ở dưới.
-      </div>
       <Table<Station>
         dataSource={stations}
         rowKey="id"
@@ -133,6 +205,11 @@ export default function Stations() {
                   <span data-testid="device-last-seen" style={{ color: palette.textMuted, fontSize: 13 }}>
                     Lần cuối thấy: {relativeTime(d.lastSeenAt)}
                   </span>
+                  {deviceMeta[d.id]?.tokenExpiresAt && (
+                    <span data-testid="device-token-expiry" style={{ color: branchDeviceState(deviceMeta[d.id]) === "EXPIRED" ? palette.error.text : palette.textMuted, fontSize: 13 }}>
+                      {branchDeviceState(deviceMeta[d.id]) === "EXPIRED" ? "Token đã hết hạn — cần ghép lại" : `Token hết hạn ${formatDateTime(deviceMeta[d.id].tokenExpiresAt)}`}
+                    </span>
+                  )}
                   <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="device-revoke" onClick={() => revoke(station, d)}>
                     Thu hồi
                   </ActionButton>
@@ -179,15 +256,12 @@ export default function Stations() {
                 <ActionButton size="small" icon={<Link2 size={13} />} disabled={station.status !== "ACTIVE"} data-testid="station-pair" onClick={() => setPairing({ kind: "CUSTOMER_DISPLAY", station })}>
                   Ghép màn hình khách
                 </ActionButton>
-                {["Đổi tên", "Ngừng dùng", "Sửa máy in"].map((label) => (
-                  <Tooltip key={label} title={PENDING_BE}>
-                    <span style={{ display: "inline-block" }}>
-                      <ActionButton size="small" disabled data-testid="station-pending-action">
-                        {label}
-                      </ActionButton>
-                    </span>
-                  </Tooltip>
-                ))}
+                <ActionButton size="small" icon={<Pencil size={13} />} data-testid="station-edit" onClick={() => setEditing(station)}>
+                  Sửa
+                </ActionButton>
+                <ActionButton size="small" danger={station.status === "ACTIVE"} data-testid="station-toggle" onClick={() => toggleStatus(station)}>
+                  {station.status === "ACTIVE" ? "Ngừng dùng" : "Dùng lại"}
+                </ActionButton>
               </div>
             ),
           },
@@ -204,10 +278,54 @@ export default function Stations() {
             </ActionButton>
           }
         />
-        <div data-testid="calling-display-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
-          Chưa xem được danh sách màn hình gọi số đã ghép (chờ BE #28: thiếu <code>GET /display-devices</code>). Web không tự lưu danh sách ở trình duyệt.
-        </div>
+        {callingError ? (
+          <div data-testid="calling-display-note" style={{ fontSize: 12.5, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
+            Chưa tải được danh sách màn hình gọi số. Bấm "Thử lại" hoặc tải lại trang.{" "}
+            <a onClick={() => void load()} data-testid="calling-retry">
+              Thử lại
+            </a>
+          </div>
+        ) : (
+          <Table<BranchDevice>
+            data-testid="calling-devices"
+            rowKey="id"
+            size="small"
+            loading={calling === null}
+            pagination={false}
+            dataSource={calling ?? []}
+            locale={{ emptyText: <span data-testid="calling-empty">Chi nhánh chưa ghép màn hình gọi số nào.</span> }}
+            columns={[
+              { title: "Tên máy", dataIndex: "name", render: (v: string | null) => <span style={{ fontWeight: 600 }}>{v ?? "Màn hình gọi số"}</span> },
+              { title: "Ghép lúc", dataIndex: "pairedAt", render: (v: string) => formatDateTime(v) },
+              { title: "Lần cuối thấy", dataIndex: "lastSeenAt", render: (v: string | null) => relativeTime(v) },
+              { title: "Hạn token", dataIndex: "tokenExpiresAt", render: (v: string | null) => (v ? formatDateTime(v) : "—") },
+              {
+                title: "Trạng thái",
+                key: "state",
+                render: (_: unknown, d: BranchDevice) => {
+                  const state = branchDeviceState(d);
+                  return (
+                    <Tag data-testid="calling-state" color={state === "ACTIVE" ? "green" : undefined}>
+                      {state === "ACTIVE" ? "Đang dùng" : state === "REVOKED" ? "Đã thu hồi" : "Hết hạn (cần ghép lại)"}
+                    </Tag>
+                  );
+                },
+              },
+              {
+                title: "",
+                align: "right",
+                render: (_: unknown, d: BranchDevice) =>
+                  branchDeviceState(d) === "REVOKED" ? null : (
+                    <ActionButton size="small" danger icon={<Unlink size={13} />} data-testid="calling-revoke" onClick={() => revokeCalling(d)}>
+                      Thu hồi
+                    </ActionButton>
+                  ),
+              },
+            ]}
+          />
+        )}
       </div>
+      <EditStationModal station={editing} existing={stations} onClose={() => setEditing(null)} onSubmit={async (patch) => (editing ? patchStation(editing, patch, "Đã lưu quầy") : false)} />
 
       <AddStationModal open={adding} existing={stations} onClose={() => setAdding(false)} onSubmit={create} />
       <PairModal
@@ -297,6 +415,81 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
       )}
       <ActionButton type="primary" block style={{ marginTop: 16 }} disabled={!isPairingCode(code)} data-testid="pair-submit" onClick={submit}>
         Ghép {label}
+      </ActionButton>
+    </Modal>
+  );
+}
+
+/** Sửa tên và máy in của một quầy (#27). Trạng thái đổi bằng nút "Ngừng dùng/Dùng lại" ở dòng quầy. Chỉ gửi trường đã đổi. */
+function EditStationModal({ station, existing, onClose, onSubmit }: { station: Station | null; existing: Station[]; onClose: () => void; onSubmit: (patch: StationPatch) => Promise<boolean> }) {
+  const [name, setName] = useState("");
+  const [connection, setConnection] = useState<PrinterConnection>("NONE");
+  const [address, setAddress] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (station) {
+      setName(station.name);
+      setConnection(station.printerConnection);
+      setAddress(station.printerAddress ?? "");
+    }
+  }, [station]);
+
+  if (!station) return <Modal open={false} footer={null} />;
+  const next = { name, printerConnection: connection, printerAddress: connection === "NONE" ? undefined : address };
+  const errors = validateStationPatch(station, next, existing);
+  const patch: StationPatch = {};
+  if (name.trim() !== station.name) patch.name = name.trim();
+  const addressNow = connection === "NONE" ? null : address.trim();
+  if (connection !== station.printerConnection || addressNow !== station.printerAddress) {
+    patch.printerConnection = connection;
+    if (connection !== "NONE") patch.printerAddress = address;
+  }
+  const changed = Object.keys(patch).length > 0;
+  const label = (text: string) => <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, margin: "14px 0 6px" }}>{text}</div>;
+
+  return (
+    <Modal data-testid="edit-station-modal" title={`Sửa quầy · ${station.name}`} open onCancel={onClose} footer={null} destroyOnHidden>
+      {label("Tên quầy")}
+      <Input data-testid="edit-station-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+      {label("Máy in")}
+      <Radio.Group data-testid="edit-station-connection" value={connection} onChange={(e) => setConnection(e.target.value as PrinterConnection)} optionType="button">
+        {(["NONE", "WIFI", "BLUETOOTH"] as PrinterConnection[]).map((c) => (
+          <Radio.Button key={c} value={c}>
+            {c === "NONE" ? "Không khai báo" : c === "WIFI" ? "WiFi" : "Bluetooth"}
+          </Radio.Button>
+        ))}
+      </Radio.Group>
+      {connection !== "NONE" && (
+        <>
+          {label(connection === "WIFI" ? "Địa chỉ IP (có thể kèm cổng)" : "Địa chỉ MAC")}
+          <Input data-testid="edit-station-address" value={address} maxLength={255} onChange={(e) => setAddress(e.target.value)} />
+        </>
+      )}
+      {errors.length > 0 && (
+        <ul data-testid="edit-station-errors" style={{ margin: "12px 0 0", paddingLeft: 18, color: palette.error.text, fontSize: 12.5 }}>
+          {errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
+      <ActionButton
+        type="primary"
+        block
+        style={{ marginTop: 16 }}
+        loading={saving}
+        disabled={!changed || errors.length > 0 || saving}
+        data-testid="edit-station-save"
+        onClick={async () => {
+          setSaving(true);
+          try {
+            if (await onSubmit(patch)) onClose();
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        Lưu thay đổi
       </ActionButton>
     </Modal>
   );

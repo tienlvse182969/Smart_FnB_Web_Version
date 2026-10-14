@@ -19,18 +19,30 @@ export interface ManagerReportQuery {
 export interface ManagerReportBucket {
   /** Đầu kỳ `YYYY-MM-DD` (ngày; thứ Hai của tuần; mùng 1 của tháng). */
   bucket: string;
+  /** Doanh thu SAU hoàn tiền (BE `514c426`: `revenue` = `netRevenue`). */
   revenue: number;
+  /** Doanh thu gộp (đơn đã trả theo ngày trả), chưa trừ hoàn. */
+  grossRevenue: number;
+  /** Tổng hoàn theo NGÀY HUỶ (kể cả khoản chuyển khoản chờ hoàn). */
+  refundAmount: number;
   orderCount: number;
 }
 
 export interface ManagerReportPayment {
   /** Mã BE PaymentMethod. */
   method: string;
-  /** Số tiền ghi nhận (đã chốt vào đơn). */
+  /** Số tiền ghi nhận (đã chốt vào đơn). Từ BE `fb7cae9` (#72) là số SAU hoàn; BE cũ trả số gộp. */
   settledAmount: number;
-  /** Số tiền thực nhận. */
+  /** Số tiền thực nhận (cũng sau hoàn từ `fb7cae9`). */
   receivedAmount: number;
+  /** Số khoản; từ `fb7cae9` KHÔNG gồm khoản của đơn đã huỷ sau khi trả (`cancelledAfterPaymentCount`). */
   paymentCount: number;
+  /** Số ghi nhận trước hoàn (BE `fb7cae9`); thiếu ở BE cũ và mock. */
+  grossSettledAmount?: number;
+  /** Số hoàn của hình thức này (BE `fb7cae9`). */
+  refundAmount?: number;
+  /** Số khoản của đơn đã huỷ sau khi trả (BE `fb7cae9`). */
+  cancelledAfterPaymentCount?: number;
 }
 
 export interface ManagerReportItem {
@@ -60,13 +72,25 @@ export interface ManagerReportCancelledOrder {
   totalAmount: number;
   cancelledAt: string | null;
   reason: string | null;
+  /** Tổng khoản hoàn của đơn (0 với đơn huỷ khi chưa trả). */
+  refundAmount: number;
 }
 
 export interface ManagerReport {
   branchName: string;
   timezone: string;
   range: { from: string; to: string; granularity: ManagerReportGranularity };
-  summary: { revenue: number; orderCount: number; averageOrderValue: number };
+  summary: {
+    /** Doanh thu sau hoàn (= `netRevenue` của BE). */
+    revenue: number;
+    grossRevenue: number;
+    refundAmount: number;
+    /** Phần `refundAmount` còn chờ hoàn (chuyển khoản chưa đánh dấu). */
+    pendingRefundAmount: number;
+    netRevenue: number;
+    orderCount: number;
+    averageOrderValue: number;
+  };
   revenue: ManagerReportBucket[];
   payments: ManagerReportPayment[];
   topItems: ManagerReportItem[];
@@ -74,5 +98,13 @@ export interface ManagerReport {
   ordersByHour: ManagerReportHour[];
   /** Thời gian pha trung bình từ lúc bắt đầu tới lúc xong của từng suất, tính bằng giây; null = chưa có suất nào xong trong kỳ. */
   preparation: { averageSeconds: number | null; completedUnits: number };
-  cancellations: { total: number; limit: number; items: ManagerReportCancelledOrder[] };
+  cancellations: {
+    total: number;
+    /** Số đơn có khoản hoàn trong kỳ (đã huỷ SAU khi trả). */
+    paidCancellationCount: number;
+    refundAmount: number;
+    pendingRefundAmount: number;
+    limit: number;
+    items: ManagerReportCancelledOrder[];
+  };
 }

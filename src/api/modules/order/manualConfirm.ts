@@ -15,7 +15,15 @@ export const CONFIRM_AMOUNT_MAX = 999_999_999_999;
 /** Câu BR-28 khi nhận thiếu (cả ở ô nhập lẫn khi BE trả 409 `PAYMENT_AMOUNT_INSUFFICIENT`). Việc huỷ đơn thuộc 7.6. */
 export const SHORT_RECEIVED_TEXT = PAYMENT_AMOUNT_INSUFFICIENT_TEXT;
 /** GĐ-04: nhắc kiểm tiền thật trước khi xác nhận. */
-export const CONFIRM_REMINDER = "Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
+/**
+ * Khoản tiền về SAU khi QR hết hạn (BE `fb7cae9`/`7d7f2dc`, #61/#75): `REQUIRES_ATTENTION` + `failureReason` `PAYMENT_RECEIVED_AFTER_EXPIRY`.
+ * BE cho Manager xác nhận tay (`settle` nguồn `MANAGER_MANUAL`, `counter-payment-settlement.service.ts`) hoặc huỷ cả đơn và hoàn số đã nhận.
+ */
+export function isLateAfterExpiry(p: Pick<OrderPaymentRecord, "status" | "failureReason">): boolean {
+  return p.status === "REQUIRES_ATTENTION" && p.failureReason === "PAYMENT_RECEIVED_AFTER_EXPIRY";
+}
+
+export const CONFIRM_REMINDER ="Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
 
 /**
  * Khoản mà nút "Xác nhận thủ công" áp dụng (quyết định 82), hoặc null nếu không có nút:
@@ -28,9 +36,9 @@ export function confirmableTransfer(order: Pick<OrderDetail, "status" | "payment
   if (order.paymentStatus !== "UNPAID") return null;
   if (order.status !== "CONFIRMED" && order.status !== "REQUIRES_ATTENTION") return null;
   if (order.payments.some((p) => p.status === "SUCCESS")) return null;
-  const eligible = order.payments.filter((p) => p.method === "BANK_TRANSFER" && (p.status === "PENDING" || p.status === "AMOUNT_MISMATCH"));
+  const eligible = order.payments.filter((p) => p.method === "BANK_TRANSFER" && (p.status === "PENDING" || p.status === "AMOUNT_MISMATCH" || isLateAfterExpiry(p)));
   if (eligible.length === 0) return null;
-  const rank = (p: OrderPaymentRecord) => (p.status === "AMOUNT_MISMATCH" ? 1 : 0);
+  const rank = (p: OrderPaymentRecord) => (p.status === "PENDING" ? 0 : 1);
   return [...eligible].sort((a, b) => rank(b) - rank(a) || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
 }
 

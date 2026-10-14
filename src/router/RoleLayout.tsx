@@ -4,6 +4,8 @@ import { page } from "../components/bits";
 import DirtyWatcher from "../components/DirtyWatcher";
 import RefreshBoundary from "../components/RefreshBoundary";
 import { useAppStore } from "../store";
+import AttentionWatcher from "../roles/branch/AttentionWatcher";
+import { useAttentionCount } from "../roles/branch/attentionStore";
 import { roleRoutes, type WebRole } from "./routeConfig";
 
 const SEARCH_PLACEHOLDER: Record<WebRole, string> = {
@@ -24,10 +26,18 @@ export default function RoleLayout({ role }: { role: WebRole }) {
   const branches = useAppStore((s) => s.branches);
   const currentBranchId = useAppStore((s) => s.currentBranchId);
 
+  // Số đơn "Cần xử lý" (BM-05, lượt 7.5): chỉ Manager; `null` khi chưa biết thì không hiện số.
+  const attentionCount = useAttentionCount();
+
   const defs = roleRoutes[role];
   const nav: NavItem[] = defs
     .filter((d) => d.nav !== false)
-    .map((d) => ({ key: d.path, label: d.label, icon: d.icon }));
+    .map((d) => ({
+      key: d.path,
+      label: d.label,
+      icon: d.icon,
+      badge: role === "manager" && d.path === "orders/needs-attention" ? attentionCount : undefined,
+    }));
 
   // Mục sidebar trùng dài nhất với URL: /manager/orders/needs-attention sáng
   // "orders/needs-attention", còn /manager/orders/123 sáng "orders".
@@ -56,6 +66,7 @@ export default function RoleLayout({ role }: { role: WebRole }) {
     >
       <div style={page}>
         <DirtyWatcher />
+        {role === "manager" && <AttentionWatcher />}
         <RefreshBoundary>
           <Outlet />
         </RefreshBoundary>

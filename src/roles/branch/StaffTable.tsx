@@ -15,6 +15,28 @@ import StaffReasonModal from "./StaffReasonModal";
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
 const statusLabel = (code: string) => STATUS_LABEL[code as AccountStatus] ?? `Khác (${code})`;
 
+/**
+ * #64 (BE `fb7cae9`): tách "chưa kích hoạt" (đã mời, còn hạn) khỏi "đã ngừng" (không còn lời mời) và "lời mời hết hạn". Thiếu
+ * `invitationStatus` (BE cũ, mock) → null để dùng nhãn theo `status`.
+ */
+export function invitationLabel(s: Pick<StaffEmployee, "status" | "invitationStatus">): string | null {
+  if (s.status !== "INACTIVE") return null;
+  switch (s.invitationStatus) {
+    case "INVITED":
+      return "Chưa kích hoạt (đã mời)";
+    case "INVITATION_EXPIRED":
+      return "Lời mời hết hạn";
+    case "DEACTIVATED":
+      return "Đã ngừng";
+    default:
+      return null;
+  }
+}
+
+/** Còn lời mời chưa dùng để huỷ (BE: chỉ tài khoản `INACTIVE` có token chưa dùng; còn hạn hay đã hết hạn đều huỷ được). */
+export const canCancelInvite = (s: Pick<StaffEmployee, "status" | "invitationStatus">): boolean =>
+  s.status === "INACTIVE" && (s.invitationStatus === "INVITED" || s.invitationStatus === "INVITATION_EXPIRED");
+
 const EMAIL_NOTE: Record<"SENT" | "PENDING" | "FAILED", string> = {
   SENT: "Email đã được gửi.",
   PENDING: "Email đã xếp hàng nhưng CHƯA gửi (máy chủ chưa cấu hình gửi thư). Dùng \"Gửi lại email\" sau khi cấu hình.",
@@ -47,7 +69,7 @@ export default function StaffTable() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffEmployee | null>(null);
   /** Hộp nhập lý do cho khoá / mở khoá / gửi lại email (BE bắt buộc `reason`). */
-  const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; staff: StaffEmployee } | null>(null);
+  const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset" | "cancel-invite"; staff: StaffEmployee } | null>(null);
   const [reasonBusy, setReasonBusy] = useState(false);
   const reasonInFlight = useRef(false);
 
@@ -114,12 +136,15 @@ export default function StaffTable() {
                 </div>
               ),
             });
+          } else if (kind === "cancel-invite") {
+            await accountApi.cancelStaffInvitation(chainId!, branchId!, s.id, reason);
+            message.success(`Đã huỷ lời mời kích hoạt của ${staffName(s)}`);
           } else {
             await accountApi.setStaffActive(chainId!, branchId!, s.id, kind === "unlock", reason);
             message.success(kind === "lock" ? `Đã khoá tài khoản ${staffName(s)}` : `Đã mở khoá tài khoản ${staffName(s)}`);
           }
         },
-        kind === "lock" ? "Không khoá được tài khoản" : kind === "unlock" ? "Không mở khoá được tài khoản" : "Không gửi được email đặt mật khẩu",
+        kind === "lock" ? "Không khoá được tài khoản" : kind === "unlock" ? "Không mở khoá được tài khoản" : kind === "cancel-invite" ? "Không huỷ được lời mời" : "Không gửi được email đặt mật khẩu",
       );
       if (ok) setReasonFor(null);
     } finally {
@@ -208,8 +233,10 @@ export default function StaffTable() {
           {
             title: "Trạng thái",
             dataIndex: "status",
-            render: (st: AccountStatus) => (
+            render: (st: AccountStatus, s: StaffEmployee) => (
               <span
+                data-testid="staff-status"
+                title={s.invitationExpiresAt && s.invitationStatus === "INVITED" ? `Lời mời có hạn tới ${formatDateTime(s.invitationExpiresAt)}` : undefined}
                 style={{
                   background: st === "ACTIVE" ? palette.success.bg : st === "SUSPENDED" ? palette.error.bg : palette.paperSubtle,
                   color: st === "ACTIVE" ? palette.success.text : st === "SUSPENDED" ? palette.error.text : palette.textMuted,
@@ -220,12 +247,12 @@ export default function StaffTable() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {statusLabel(st)}
+                {invitationLabel(s) ?? statusLabel(st)}
               </span>
             ),
           },
-          // BE không trả `lastLoginAt` ở danh sách nhân viên của Manager (#62) nên cột này chỉ có ở mock.
-          ...(realAccount ? [] : [{ title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") }]),
+          // BE `fb7cae9` (#62) trả `user.lastLoginAt`: cột có ở cả real lẫn mock.
+          { title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") },
           {
             title: "",
             align: "right",
@@ -240,6 +267,11 @@ export default function StaffTable() {
                   </ActionButton>
                 ) : (
                   <Tag>Owner quản mật khẩu</Tag>
+                )}
+                {canCancelInvite(s) && (
+                  <ActionButton size="small" danger data-testid={`staff-cancel-invite-${s.id}`} onClick={() => setReasonFor({ kind: "cancel-invite", staff: s })}>
+                    Huỷ lời mời
+                  </ActionButton>
                 )}
                 {s.status === "SUSPENDED" ? (
                   <ActionButton size="small" icon={<Unlock size={13} />} consumes="accounts" data-testid={`staff-unlock-${s.id}`} onClick={() => confirmLock(s)}>
@@ -306,7 +338,6 @@ export default function StaffTable() {
       />
       <EditDrawer
         staff={editing}
-        realAccount={realAccount}
         onClose={() => setEditing(null)}
         onSubmit={(patch) =>
           new Promise<void>((resolve) => {
@@ -425,7 +456,7 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
   );
 }
 
-function EditDrawer({ staff, realAccount, onClose, onSubmit }: { staff: StaffEmployee | null; realAccount: boolean; onClose: () => void; onSubmit: (patch: { firstName: string; lastName: string; phone: string | null }) => Promise<void> }) {
+function EditDrawer({ staff, onClose, onSubmit }: { staff: StaffEmployee | null; onClose: () => void; onSubmit: (patch: { firstName: string; lastName: string; phone: string | null }) => Promise<void> }) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
@@ -439,8 +470,8 @@ function EditDrawer({ staff, realAccount, onClose, onSubmit }: { staff: StaffEmp
 
   const parts = splitName(fullName);
   const errors = staff ? validateStaffPatch({ ...parts, phone: phone.trim() || null }) : [];
-  // BE không nhận null ("Null fields are not supported", manager-staff.service.ts:209) nên chưa xoá được số điện thoại đã có (#63).
-  if (staff && realAccount && staff.phone && !phone.trim()) errors.push("Chưa xoá được số điện thoại đã có (chờ BE #63). Nhập số mới hoặc để nguyên.");
+  // BE `fb7cae9` (#63): `PATCH` nhận `phone: null` nên xoá trắng ô số điện thoại là xoá số đã có (cả real lẫn mock).
+  const clearsPhone = !!staff && !!staff.phone && !phone.trim();
   return (
     <Drawer title={staff ? `Sửa · ${staffName(staff)}` : ""} open={!!staff} onClose={onClose} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
       {staff && (
@@ -450,6 +481,11 @@ function EditDrawer({ staff, realAccount, onClose, onSubmit }: { staff: StaffEmp
           </Field>
           <Field label="Điện thoại">
             <Input data-testid="staff-edit-phone" value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} />
+            {clearsPhone && (
+              <div data-testid="staff-edit-phone-clear" style={{ fontSize: 12, color: palette.warning.text, marginTop: 4 }}>
+                Để trống sẽ xoá số điện thoại đã có.
+              </div>
+            )}
           </Field>
           <Field label="Email đăng nhập (không đổi được)">
             <Input value={staff.email} disabled />

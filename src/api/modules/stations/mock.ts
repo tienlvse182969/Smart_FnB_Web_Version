@@ -1,4 +1,4 @@
-import type { Station, StationDevice } from "../../../types";
+import type { BranchDevice, Station, StationDevice } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockWritable } from "../../mock/guards";
@@ -6,7 +6,7 @@ import { genId, nowISO } from "../../mock/util";
 import type { StationsApi } from "./index";
 import { BE_PAIRING_INVALID } from "./pairing";
 import { consumeMockPairingCode } from "./pairingMock";
-import { toCreateBody } from "./rules";
+import { toCreateBody, toPatchBody } from "./rules";
 
 /** Quầy mock theo chi nhánh; lần đầu gặp một chi nhánh thì có sẵn 2 quầy mẫu (một quầy có màn hình khách đã ghép). */
 const byBranch = new Map<string, Station[]>();
@@ -55,7 +55,7 @@ export const stationsMock: StationsApi = {
     const list = stationsOf(branchId);
     // BE có ràng buộc duy nhất (chi nhánh, tên) nhưng `create` không bắt lỗi trùng nên thật ra trả 500 (api-contract-plan #34);
     // mock trả 409 như BE nên làm. Web đã báo trùng tên trước khi gọi.
-    if (list.some((s) => s.name === body.name)) throw new ApiError(409, "A station with this name already exists in the branch");
+    if (list.some((s) => s.name === body.name)) throw new ApiError(409, "A station with this name already exists in the branch", [], "STATION_NAME_ALREADY_EXISTS");
     const station: Station = {
       id: genId("mock-st"),
       name: body.name,
@@ -66,6 +66,37 @@ export const stationsMock: StationsApi = {
     };
     list.push(station);
     return { ...station };
+  },
+
+  async updateStation(branchId, stationId, patch) {
+    await mockDelay();
+    assertMockWritable();
+    const list = stationsOf(branchId);
+    const station = list.find((s) => s.id === stationId);
+    if (!station) throw new ApiError(404, "POS station was not found in your branch");
+    const body = toPatchBody(patch);
+    if (Object.keys(body).length === 0) throw new ApiError(400, "At least one station field is required");
+    if (body.name !== undefined) {
+      if (!body.name) throw new ApiError(400, "Station name must not be empty");
+      if (list.some((s) => s.id !== station.id && s.name === body.name)) {
+        throw new ApiError(409, "A station with this name already exists in the branch", [], "STATION_NAME_ALREADY_EXISTS");
+      }
+    }
+    const connection = body.printerConnection ?? station.printerConnection;
+    const address = connection === "NONE" ? null : body.printerAddress !== undefined ? body.printerAddress || null : station.printerAddress;
+    if (connection !== "NONE" && !address) throw new ApiError(400, "Printer address is required for WiFi or Bluetooth");
+    if (body.name !== undefined) station.name = body.name;
+    if (body.status !== undefined) station.status = body.status;
+    station.printerConnection = connection;
+    station.printerAddress = address;
+    return { ...station, devices: [...station.devices] };
+  },
+
+  async listDisplayDevices(branchId) {
+    await mockDelay();
+    const customer = stationsOf(branchId).flatMap((s) => s.devices.map((d): BranchDevice => ({ ...d, stationName: s.name, tokenExpiresAt: new Date(Date.parse(d.pairedAt) + 30 * 86_400_000).toISOString(), revokedAt: null })));
+    const calling = (callingByBranch.get(branchId) ?? []).map((d): BranchDevice => ({ ...d, stationName: null, tokenExpiresAt: new Date(Date.parse(d.pairedAt) + 30 * 86_400_000).toISOString(), revokedAt: null }));
+    return [...calling, ...customer].sort((a, b) => b.pairedAt.localeCompare(a.pairedAt));
   },
 
   async pairCustomerDisplay(branchId, stationId, code, deviceName) {

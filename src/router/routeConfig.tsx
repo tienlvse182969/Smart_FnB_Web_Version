@@ -25,7 +25,6 @@ import {
   UsersRound,
   UtensilsCrossed,
 } from "lucide-react";
-import RoutePlaceholder from "./RoutePlaceholder";
 import AdminOverview from "../roles/admin/AdminOverview";
 import TenantsTable from "../roles/admin/TenantsTable";
 import SignupRequests from "../roles/admin/SignupRequests";
@@ -48,6 +47,7 @@ import StaffTable from "../roles/branch/StaffTable";
 import Stations from "../roles/branch/Stations";
 import OrderSearch from "../roles/branch/OrderSearch";
 import OrderDetail from "../roles/branch/OrderDetail";
+import AttentionOrders from "../roles/branch/AttentionOrders";
 
 export type WebRole = "admin" | "owner" | "manager";
 
@@ -62,8 +62,6 @@ export interface RouteDef {
   /** false = có route nhưng không hiện trên sidebar. */
   nav?: boolean;
 }
-
-const placeholder = (code: string, title: string) => <RoutePlaceholder code={code} title={title} />;
 
 export const adminRoutes: RouteDef[] = [
   { path: "overview", label: "Tổng quan", icon: <LayoutDashboard size={18} />, element: <AdminOverview /> },
@@ -134,7 +132,7 @@ export const managerRoutes: RouteDef[] = [
     label: "Đơn cần xử lý",
     icon: <ListChecks size={18} />,
     code: "BM-05",
-    element: placeholder("BM-05", "Xác nhận chuyển khoản thủ công"),
+    element: <AttentionOrders />,
   },
   {
     path: "orders/:orderId",

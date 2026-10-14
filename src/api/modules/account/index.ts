@@ -60,6 +60,11 @@ export interface AccountApi {
    * `ManagerResetPasswordDto`); cũng dùng để gửi lại lời mời cho tài khoản chưa kích hoạt.
    */
   resetStaffPassword(chainId: string, branchId: string, staffId: string, reason?: string): Promise<PasswordSetupNotice>;
+  /**
+   * Huỷ lời mời kích hoạt chưa dùng (`POST /manager/staff/:employeeId/invitation/cancel` `{reason 3–500}`, BE `fb7cae9`, #64): chỉ tài khoản
+   * `INACTIVE` còn lời mời; 409 nếu đã kích hoạt hoặc không có lời mời. Tài khoản chuyển "Đã ngừng" (DEACTIVATED); gửi lại email để mời lại.
+   */
+  cancelStaffInvitation(chainId: string, branchId: string, staffId: string, reason?: string): Promise<void>;
   /** Đã dùng / tối đa của hạn mức tài khoản (mock theo kịch bản gói). Đếm CẢ DOANH NGHIỆP (Owner, Manager, Cashier, Barista), trừ tài khoản khoá. */
   getAccountQuota(chainId: string): Promise<AccountQuota>;
   /** Số tài khoản đang hoạt động của doanh nghiệp (Owner + Manager + Cashier + Barista — mục 13.1). */

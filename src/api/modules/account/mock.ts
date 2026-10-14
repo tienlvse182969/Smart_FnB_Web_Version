@@ -122,7 +122,7 @@ function accountCap(): { limit: number; plan: ApiPlan; suggested: ApiPlan | null
   const tier = mockPlanBase().tier;
   const toApi = (code: string): ApiPlan => {
     const p = MOCK_PLAN_CATALOG.find((x) => x.code === code)!;
-    return { id: `plan-${p.tier.toLowerCase()}`, code: p.code, name: p.name, description: null, monthlyPrice: String(p.monthlyPrice), maxBranches: p.maxBranches, maxAccounts: p.maxAccounts, maxTables: 0 };
+    return { id: `plan-${p.tier.toLowerCase()}`, code: p.code, name: p.name, description: null, monthlyPrice: String(p.monthlyPrice), maxBranches: p.maxBranches, maxAccounts: p.maxAccounts };
   };
   const current = MOCK_PLAN_CATALOG.find((p) => p.tier === tier)!;
   const next = MOCK_PLAN_CATALOG.find((p) => p.tier === PLAN_TIER_ORDER[PLAN_TIER_ORDER.indexOf(tier) + 1]);
@@ -325,6 +325,12 @@ export const accountMock: AccountApi = {
     assertMockWritable();
     findStaffOfBranch(track(chainId), branchId, staffId); // 404 nếu không thuộc chi nhánh; trạng thái không đổi (như BE)
     return { ...setupNotice(), emailStatus: "SENT" as const };
+  },
+
+  async cancelStaffInvitation(chainId, branchId, staffId) {
+    await mockDelay();
+    assertMockWritable();
+    findStaffOfBranch(track(chainId), branchId, staffId); // 404 nếu không thuộc chi nhánh; mock không mô phỏng lời mời
   },
 
   async resetManagerPassword(accountId) {

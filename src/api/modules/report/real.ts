@@ -19,7 +19,6 @@
  * dùng lại làm "tool" cho trợ lý AI hỏi đáp số liệu.
  */
 import type {
-  CustomerTraffic,
   ReportGranularity,
   ReportRangeParams,
   RevenueComparison,
@@ -73,17 +72,8 @@ function getTopItems(
   return request<TopItems>(`/reports/top-items${buildQuery(params)}`);
 }
 
-/**
- * Lượt khách đã phục vụ theo chi nhánh, đếm từ các lượt bàn đã sang trạng thái
- * PAID hoặc CLOSED trong kỳ.
- */
-function getCustomerTraffic(params: ReportRangeParams = {}): Promise<CustomerTraffic> {
-  return request<CustomerTraffic>(`/reports/customers${buildQuery(params)}`);
-}
-
 export const reportReal: ReportApi = {
   getRevenueComparison,
   getRevenueTimeseries,
   getTopItems,
-  getCustomerTraffic,
 };

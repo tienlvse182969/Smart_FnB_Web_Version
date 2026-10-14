@@ -97,6 +97,14 @@ export type OrderPaymentRecord = {
   failureReason: string | null;
   /** Người xử lý/xác nhận (thu ngân hoặc Manager). */
   processedBy: string | null;
+  /** Tiền mặt: khách đưa (BE `fb7cae9`, #48). Thiếu/null với khoản không phải tiền mặt. */
+  tenderedAmount?: number | null;
+  /** Tiền mặt: tiền thối (BE `fb7cae9`, #48). */
+  changeAmount?: number | null;
+  /** Hạn của mã QR (BE `fb7cae9`, #50); null với tiền mặt. */
+  expiresAt?: string | null;
+  /** Quầy thu tiền (BE `fb7cae9`, #52): chỉ có ở khoản QR; khoản tiền mặt BE chưa lưu. */
+  stationName?: string | null;
 };
 
 /**
@@ -107,6 +115,57 @@ export type ConfirmPaymentInput = {
   reason: string;
   receivedAmount: number;
   transactionRef?: string;
+};
+
+/** Chi tiết một dòng món bị huỷ trong một khoản hoàn (`refund_items`). */
+export type OrderRefundLine = {
+  orderItemId: string;
+  quantity: number;
+  refundAmount: number;
+  /** Món đã pha xong rồi mới huỷ (hao hụt). */
+  isWastage: boolean;
+};
+
+/**
+ * Khoản phải hoàn của đơn đã trả (BM-06, BR-49/50; BE `#43` `refundSelect`, `manager-operations.service.ts`). Nền tảng KHÔNG chuyển
+ * tiền: chỉ ghi quán phải trả lại bao nhiêu và đã trả chưa.
+ */
+export type OrderRefundRecord = {
+  id: string;
+  paymentId: string | null;
+  amount: number;
+  /** Mã BE RefundStatus: PENDING | COMPLETED. */
+  status: string;
+  /** Mã BE RefundMethod: CASH | BANK_TRANSFER. */
+  method: string;
+  /** Mã BE RefundSource: MANAGER_CANCELLATION | LATE_PAYMENT. */
+  source: string;
+  reason: string;
+  /** Vai trò người yêu cầu (MANAGER, hoặc SYSTEM với tiền về sau khi huỷ). BE không trả tên. */
+  requestedByRole: string | null;
+  requestedAt: string | null;
+  completedByRole: string | null;
+  completedAt: string | null;
+  note: string | null;
+  lines: OrderRefundLine[];
+  /** Họ tên người yêu cầu / người hoàn (BE `fb7cae9`, #73; chỉ có ở chi tiết đơn). Thiếu → hiện vai trò. */
+  requestedByName?: string | null;
+  completedByName?: string | null;
+};
+
+/** Thân `POST /manager/orders/:orderId/cancel-paid` (BE `CancelPaidOrderDto`, `manager.dto.ts`; `forbidNonWhitelisted`). */
+export type CancelPaidInput = {
+  /** 3–500 ký tự sau khi trim. */
+  reason: string;
+  refundMethod: "CASH" | "BANK_TRANSFER";
+  /** Bỏ trống/không gửi = huỷ cả đơn. */
+  orderItemIds?: string[];
+};
+
+/** Thân `POST /refunds/:refundId/complete` (BE `CompleteRefundDto`). */
+export type CompleteRefundInput = {
+  /** Tối đa 500 ký tự, không bắt buộc. */
+  note?: string;
 };
 
 /** Một dòng của danh sách tra cứu. */
@@ -126,6 +185,12 @@ export type OrderSummary = {
   cashierName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  /** Khoản phải hoàn (rỗng khi chưa huỷ sau khi trả). */
+  refunds: OrderRefundRecord[];
+  /** Thời điểm đơn chuyển "Cần xử lý" (BE `fb7cae9`, #65). BE chưa ghi cho đơn lệch tiền (#77) → null. */
+  attentionAt?: string | null;
+  /** Lý do BE ghi (QĐ 123): PAID_ITEM_OUT_OF_STOCK, PAID_OPTION_OUT_OF_STOCK, PAYMENT_RECEIVED_AFTER_EXPIRY… */
+  attentionReason?: string | null;
 };
 
 export type OrderDetailOption = {
@@ -171,6 +236,11 @@ export type OrderQuery = {
   paymentStatus?: string;
   /** Mã BE PaymentMethod. */
   paymentMethod?: string;
+  /** Mã BE RefundStatus (PENDING = còn khoản chờ hoàn). */
+  refundStatus?: string;
+  /** Sắp xếp phía BE (`fb7cae9`, #66); mặc định `placedAt` giảm dần. */
+  sortBy?: "placedAt" | "attentionAt" | "status" | "totalAmount";
+  sortOrder?: "asc" | "desc";
   page: number;
   limit: number;
 };

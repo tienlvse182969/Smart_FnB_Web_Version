@@ -17,6 +17,7 @@ import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
+import { DEFAULT_POSTER_IMAGE } from "../../theme/posterAssets";
 
 /**
  * Poster màn hình sau (OW-11): Owner thêm, bật/tắt, đặt tên, chỉnh thời lượng, đổi thứ tự và xoá poster hiện trên màn hình phụ của thu ngân.
@@ -290,9 +291,12 @@ function Preview({ posters }: { posters: Poster[] }) {
             <img src={current.imageUrl} alt={current.title} style={{ position: "relative", width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
           </>
         ) : (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: palette.textSubtle, fontSize: 13, textAlign: "center", padding: 16 }}>
-            {posters.length === 0 ? "Chưa có poster — màn hình sau dùng ảnh mặc định" : "Mọi poster đang tắt — màn hình sau dùng ảnh mặc định"}
-          </div>
+          <>
+            <img src={DEFAULT_POSTER_IMAGE} alt="Ảnh mặc định của nền tảng" data-testid="poster-preview-default" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "6px 10px", background: palette.ink, color: palette.surface, fontSize: 12, textAlign: "center", opacity: 0.85 }}>
+              {posters.length === 0 ? "Chưa có poster — màn hình sau dùng ảnh mặc định" : "Mọi poster đang tắt — màn hình sau dùng ảnh mặc định"}
+            </div>
+          </>
         )}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 10, minHeight: 8 }}>

@@ -102,12 +102,14 @@ describe("stationsMock — ghép và thu hồi (BR-45)", () => {
     await expect(stationsMock.pairCustomerDisplay(branchId, "khong-co", createMockPairingCode("CUSTOMER_DISPLAY").code)).rejects.toMatchObject({ status: 404 });
   });
 
-  it("màn hình gọi số: ghép bằng mã loại CALLING_DISPLAY, ghép máy mới thay máy cũ, thu hồi được; không có hàm liệt kê (#28)", async () => {
+  it("màn hình gọi số: ghép bằng mã loại CALLING_DISPLAY, ghép máy mới thay máy cũ, thu hồi được; liệt kê qua listDisplayDevices (#28, BE fb7cae9)", async () => {
     const a = await stationsMock.pairCallingDisplay(branchId, createMockPairingCode("CALLING_DISPLAY").code, "TV 1");
     const b = await stationsMock.pairCallingDisplay(branchId, createMockPairingCode("CALLING_DISPLAY").code, "TV 2");
     await expect(stationsMock.revokeDevice(branchId, a.deviceId)).rejects.toMatchObject({ status: 404 });
+    const listed = (await stationsMock.listDisplayDevices(branchId)).filter((d) => d.type === "CALLING_DISPLAY");
+    expect(listed.map((d) => d.id)).toEqual([b.deviceId]);
     await stationsMock.revokeDevice(branchId, b.deviceId);
-    expect(Object.keys(stationsMock).some((k) => /callingDisplays|listDisplayDevices/i.test(k))).toBe(false);
+    expect((await stationsMock.listDisplayDevices(branchId)).filter((d) => d.type === "CALLING_DISPLAY")).toEqual([]);
   });
 
   it("hết hạn gói: mọi thao tác ghép/thu hồi bị chặn (chỉ đọc), vẫn xem được quầy", async () => {

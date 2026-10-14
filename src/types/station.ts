@@ -37,6 +37,35 @@ export type Station = {
   devices: StationDevice[];
 };
 
+/**
+ * Màn hình đã ghép của chi nhánh (`GET /display-devices`, MANAGER; BE `fb7cae9`, #28): cả màn hình khách (gắn quầy) lẫn màn hình gọi số
+ * (không quầy), KỂ CẢ máy đã thu hồi. Không có token thiết bị.
+ */
+export type BranchDevice = {
+  id: string;
+  type: DisplayKind;
+  name: string | null;
+  /** Tên quầy (màn hình khách); null với màn hình gọi số. */
+  stationName: string | null;
+  pairedAt: string;
+  lastSeenAt: string | null;
+  /** Hạn token (30 ngày kể từ lúc ghép); null nếu BE không trả. */
+  tokenExpiresAt: string | null;
+  revokedAt: string | null;
+};
+
+/** Trạng thái hiển thị của một màn hình: đang dùng, đã thu hồi, hoặc token hết hạn (cần ghép lại). */
+export type BranchDeviceState = "ACTIVE" | "REVOKED" | "EXPIRED";
+
+/** Thân `PATCH /stations/:stationId` (`UpdateStationDto`, BE `fb7cae9`, #27). Chỉ gửi trường đổi. */
+export type StationPatch = {
+  name?: string;
+  status?: StationStatus;
+  printerConnection?: PrinterConnection;
+  /** Không gửi khi `printerConnection = NONE` (BE đặt null). */
+  printerAddress?: string;
+};
+
 /** Dữ liệu tạo quầy (`POST /stations`, `CreateStationDto`). `printerAddress` chỉ gửi khi có máy in. */
 export type StationInput = {
   name: string;

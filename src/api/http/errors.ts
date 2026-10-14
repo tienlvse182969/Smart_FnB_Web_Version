@@ -114,6 +114,32 @@ const HAS_VIETNAMESE = /[àáạảãâầấậẩẫăằắặẳẵèéẹ�
 /** BR-28: nhận thiếu so với tổng đơn (409 `PAYMENT_AMOUNT_INSUFFICIENT` của BE, hoặc web tự chặn ở hộp xác nhận thủ công). Huỷ đơn thuộc 7.6. */
 export const PAYMENT_AMOUNT_INSUFFICIENT_TEXT = "Nhận thiếu so với tổng đơn. Không xác nhận được — cần huỷ đơn và ghi khoản phải hoàn.";
 
+/** Khoản đã được xác nhận / không còn chờ xác nhận (409). */
+export const PAYMENT_ALREADY_SETTLED_TEXT = "Khoản này đã được xác nhận hoặc không còn chờ xác nhận. Đã tải lại đơn.";
+
+/**
+ * Mã nghiệp vụ BE đặt ở trường `error` (`ApiError.code`) → câu tiếng Việt. Từ BE `fb7cae9` (#60) CẢ HAI mã thanh toán nằm ở `error`
+ * và `message` là câu tiếng Anh mới, nên khớp theo mã trước, theo câu sau (câu cũ còn dùng ở mock và BE trước `fb7cae9`).
+ */
+const CODE_TEXT: Record<string, string> = {
+  PAYMENT_ALREADY_SETTLED: PAYMENT_ALREADY_SETTLED_TEXT,
+  PAYMENT_AMOUNT_INSUFFICIENT: PAYMENT_AMOUNT_INSUFFICIENT_TEXT,
+  // Quầy (BE `7d7f2dc`, #34): trùng tên khi tạo hoặc đổi tên (409, mã ở `code`).
+  STATION_NAME_ALREADY_EXISTS: "Tên quầy đã có trong chi nhánh. Chọn tên khác.",
+  // Mã ghép màn hình (BE `fb7cae9`, #69; 400, mã ở `code`).
+  PAIRING_CODE_INVALID: "Mã ghép không đúng hoặc không phải mã của loại màn hình này. Hãy bật lại màn hình để lấy mã mới.",
+  PAIRING_CODE_USED: "Mã ghép đã được dùng. Hãy bật lại màn hình để lấy mã mới.",
+  PAIRING_CODE_EXPIRED: "Mã ghép đã hết hạn (5 phút). Hãy bật lại màn hình để lấy mã mới.",
+  // Token thiết bị (BE `fb7cae9`, #69; 403, mã ở `code`).
+  DEVICE_TOKEN_MISSING: "Màn hình chưa có mã thiết bị. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_INVALID: "Mã thiết bị không còn hợp lệ. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_REVOKED: "Màn hình này đã bị thu hồi. Hãy ghép lại màn hình.",
+  DEVICE_TOKEN_EXPIRED: "Mã thiết bị của màn hình đã hết hạn (30 ngày). Hãy ghép lại màn hình.",
+};
+
+/** 429 khi tạo mã ghép quá nhiều (BE `fb7cae9`, #70: 10 yêu cầu/phút/địa chỉ). */
+export const TOO_MANY_REQUESTS_TEXT = "Yêu cầu quá nhanh. Chờ khoảng một phút rồi thử lại.";
+
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
   [/invalid email or password/i, "Email hoặc mật khẩu không đúng."],
@@ -133,6 +159,8 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/poster not found/i, "Không tìm thấy poster (có thể đã bị xoá). Đã tải lại danh sách."],
   [/at least one poster field/i, "Chưa có thay đổi nào để lưu."],
   // 413 do Multer (`FileInterceptor` limits.fileSize, branding.controller.ts:79) trả "File too large" trước khi tới service.
+  [/poster not found in this chain/i, "Áp phích không còn tồn tại (có thể đã bị xoá)."],
+  [/at least one poster field is required/i, "Chưa có thay đổi nào để lưu."],
   [/file too large|payload too large/i, "Tệp quá lớn (máy chủ nhận tối đa 5 MB; web giới hạn logo 1 MB)."],
   [/could not allocate a pairing code/i, "Không tạo được mã ghép, thử lại."],
   [/^from must be earlier than to$/i, "Ngày bắt đầu phải trước ngày kết thúc."],
@@ -156,11 +184,15 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/subscription is not active/i, "Gói dịch vụ của doanh nghiệp không còn hiệu lực."],
   [/account limit|plan limit|limit has been reached|exceed/i, "Đã đạt hạn mức của gói dịch vụ."],
   [/printer address is required/i, "Cần nhập địa chỉ máy in."],
+  [/station name must not be empty/i, "Nhập tên quầy."],
+  [/at least one station field is required/i, "Chưa có thay đổi nào để lưu."],
+  [/pos station was not found in your branch/i, "Không tìm thấy quầy này trong chi nhánh (có thể đã bị xoá)."],
   [/pairing code/i, "Mã ghép không đúng, đã hết hạn hoặc đã được dùng."],
   [/already uses this service plan/i, "Doanh nghiệp đang dùng gói này rồi."],
   [/target plan price is (higher|lower)/i, "Hướng đổi gói không khớp với giá gói mới."],
   // Xác nhận thủ công chuyển khoản (BM-05, BE `d98b4c1`: `payments.service.ts`, `counter-payment-settlement.service.ts`; quyết định 89).
-  [/PAYMENT_ALREADY_SETTLED/, "Khoản này đã được xác nhận hoặc không còn chờ xác nhận. Đã tải lại đơn."],
+  [/PAYMENT_ALREADY_SETTLED|payment has already been settled/i, PAYMENT_ALREADY_SETTLED_TEXT],
+  [/payment is no longer awaiting reconciliation|order is no longer awaiting payment review|payment is not an expired payos payment/i, "Khoản thanh toán vừa thay đổi ở nơi khác. Đã tải lại đơn."],
   [/PAYMENT_AMOUNT_INSUFFICIENT|thực nhận thấp hơn tổng/i, PAYMENT_AMOUNT_INSUFFICIENT_TEXT],
   [/only bank transfers can be confirmed manually/i, "Chỉ xác nhận thủ công được khoản chuyển khoản, không xác nhận được tiền mặt."],
   [/order is no longer awaiting payment/i, "Đơn không còn ở trạng thái chờ thanh toán (có thể đã huỷ hoặc đã trả)."],
@@ -173,6 +205,18 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/staff role is not configured/i, "Hệ thống chưa cấu hình vai trò nhân viên. Liên hệ quản trị nền tảng."],
   [/manual confirmation reason/i, "Lý do xác nhận phải từ 3 đến 500 ký tự."],
   [/actual received amount is required/i, "Chưa nhập số tiền thực nhận."],
+  // Huỷ đơn đã trả + khoản hoàn (BM-06, BE `514c426` #43, `paid-order-refund.service.ts`; 7.6). Đặt TRƯỚC `not found` chung.
+  [/order has no received payment to refund/i, "Đơn chưa có khoản tiền đã nhận nên không có gì để hoàn."],
+  [/payment is no longer eligible for a refund/i, "Khoản thanh toán vừa thay đổi, không còn hoàn được. Đã tải lại đơn."],
+  [/counter order was not found in your branch/i, "Không tìm thấy đơn quầy này trong chi nhánh của bạn."],
+  [/delivered, completed or already cancelled/i, "Đơn đã giao, đã hoàn tất hoặc đã huỷ nên không huỷ được nữa. Đã tải lại đơn."],
+  [/order is no longer recorded as paid/i, "Đơn không còn ở trạng thái đã thanh toán. Đã tải lại đơn."],
+  [/underpaid order must be cancelled in full/i, "Đơn nhận thiếu tiền chỉ huỷ được cả đơn, không huỷ từng món."],
+  [/order lines are already cancelled or unavailable/i, "Có món đã bị huỷ hoặc không còn huỷ được. Đã tải lại đơn."],
+  [/refund amount must be positive/i, "Không còn số tiền nào để hoàn cho đơn này."],
+  [/refund not found/i, "Không tìm thấy khoản hoàn này (có thể thuộc chi nhánh khác)."],
+  [/only a pending refund can be completed/i, "Khoản hoàn này không còn ở trạng thái chờ hoàn tiền. Đã tải lại đơn."],
+  [/cash refunds are completed when the order is cancelled/i, "Hoàn tiền mặt đã được ghi ngay lúc huỷ đơn, không cần đánh dấu."],
   [/not found/i, "Không tìm thấy dữ liệu cần thao tác (có thể đã bị xoá)."],
   [/already exists|already used|duplicate|in use/i, "Dữ liệu bị trùng hoặc đang được dùng ở nơi khác."],
   [/should not be empty|must be|is required|must contain|invalid/i, "Thông tin nhập chưa hợp lệ. Kiểm tra lại rồi thử lại."],
@@ -186,7 +230,7 @@ export function translateBackendMessage(err: ApiError): string {
     return err.details.every((d) => HAS_VIETNAMESE.test(d)) ? err.details.join("; ") : summarizeValidation(err.details);
   }
   // BE gửi câu tiếng Việt ngắn kèm mã `PAYMENT_AMOUNT_INSUFFICIENT`; web dùng câu BR-28 đầy đủ (cùng câu ô nhập đã hiện trước khi gửi).
-  if (err.code === "PAYMENT_AMOUNT_INSUFFICIENT") return PAYMENT_AMOUNT_INSUFFICIENT_TEXT;
+  if (err.code && CODE_TEXT[err.code]) return CODE_TEXT[err.code];
   if (HAS_VIETNAMESE.test(message)) return message;
   const hit = BACKEND_TEXT.find(([re]) => re.test(message));
   if (hit) return hit[1];
@@ -207,11 +251,14 @@ export function describeApiError(err: unknown): string {
       return specific && specific !== GENERIC_ERROR_TEXT ? specific : "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     }
     case "forbidden":
+      // 403 của màn hình thiết bị có mã riêng (`DEVICE_TOKEN_*`, #69); còn lại là thiếu quyền vai trò.
+      if (err instanceof ApiError && err.code && CODE_TEXT[err.code]) return CODE_TEXT[err.code];
       return "Bạn không đủ quyền thực hiện thao tác này.";
     case "quota":
       if (isReadOnlyError(err)) return READ_ONLY_TEXT;
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? translateBackendMessage(err) : ""}`.trim();
     default:
+      if (err instanceof ApiError && err.status === 429) return TOO_MANY_REQUESTS_TEXT;
       if (err instanceof ApiError) return err.status >= 500 ? serverErrorText(err) : translateBackendMessage(err);
       return err instanceof Error && HAS_VIETNAMESE.test(err.message) ? err.message : "Có lỗi xảy ra. Thử lại sau.";
   }

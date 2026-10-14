@@ -100,13 +100,13 @@ export interface ApiPlan {
   monthlyPrice: string;
   maxBranches: number;
   maxAccounts: number;
-  maxTables: number;
   /** Cờ tính năng của gói, `GET /restaurant-chains` → `subscription.plan` (BE `dfe8100`). Thiếu = BE cũ → suy từ mã gói. */
   brandingEnabled?: boolean;
   multiBranchComparisonEnabled?: boolean;
 }
 
 export interface ApiQuota {
+  /** `tables` là dữ liệu v7 BE còn trả; web LỌC BỎ khi dựng hạn mức (`plan/real.ts`, test `bỏ "tables"`), không bao giờ hiện. */
   resource: "branches" | "accounts" | "tables";
   used: number;
   limit: number;

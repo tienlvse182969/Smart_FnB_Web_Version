@@ -6,7 +6,7 @@
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import type { OrderQuery } from "../../types";
-import { ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER } from "../../api/modules/order/codes";
+import { ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER, REFUND_STATUS_FILTER } from "../../api/modules/order/codes";
 import { ORDER_PAGE_SIZES, vnDayEndIso, vnDayStartIso } from "../../api/modules/order/query";
 import { todayInVn } from "../../lib/reportFormat";
 
@@ -28,6 +28,8 @@ export interface OrderFilters {
   payment: string;
   /** CASH | BANK_TRANSFER. */
   method: string;
+  /** PENDING | COMPLETED (trạng thái khoản hoàn, BE `refundStatus`). */
+  refund: string;
   page: number;
   limit: number;
 }
@@ -41,6 +43,7 @@ export function defaultFilters(today: string = todayInVn()): OrderFilters {
     status: "",
     payment: "",
     method: "",
+    refund: "",
     page: 1,
     limit: ORDER_PAGE_SIZES[0],
   };
@@ -79,6 +82,7 @@ export function parseFilters(search: string | URLSearchParams, today: string = t
     status: oneOf(params.get("status"), ORDER_STATUS_FILTER),
     payment: oneOf(params.get("payment"), ORDER_PAYMENT_FILTER),
     method: oneOf(params.get("method"), PAYMENT_METHOD_FILTER),
+    refund: oneOf(params.get("refund"), REFUND_STATUS_FILTER),
     page,
     limit,
   };
@@ -97,6 +101,7 @@ export function filtersToSearch(filters: OrderFilters, today: string = todayInVn
   if (filters.status) out.set("status", filters.status);
   if (filters.payment) out.set("payment", filters.payment);
   if (filters.method) out.set("method", filters.method);
+  if (filters.refund) out.set("refund", filters.refund);
   if (filters.limit !== base.limit) out.set("limit", String(filters.limit));
   if (filters.page !== 1) out.set("page", String(filters.page));
   return out;
@@ -104,7 +109,7 @@ export function filtersToSearch(filters: OrderFilters, today: string = todayInVn
 
 /** Có bộ lọc nào ngoài khoảng ngày mặc định (dùng cho nút Xoá bộ lọc và câu "không có đơn"). */
 export function hasExtraFilters(filters: OrderFilters): boolean {
-  return !!(filters.callNumber || filters.orderCode || filters.status || filters.payment || filters.method);
+  return !!(filters.callNumber || filters.orderCode || filters.status || filters.payment || filters.method || filters.refund);
 }
 
 export function isDefaultFilters(filters: OrderFilters, today: string = todayInVn()): boolean {
@@ -120,5 +125,6 @@ export function toOrderQuery(filters: OrderFilters): OrderQuery {
   if (filters.status) query.status = filters.status;
   if (filters.payment) query.paymentStatus = filters.payment;
   if (filters.method) query.paymentMethod = filters.method;
+  if (filters.refund) query.refundStatus = filters.refund;
   return query;
 }

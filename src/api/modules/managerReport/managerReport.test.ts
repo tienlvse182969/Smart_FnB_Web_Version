@@ -42,10 +42,11 @@ describe("mapper báo cáo chi nhánh (đúng dạng BE)", () => {
   it("tiền chuỗi → số, giữ nguyên số liệu BE (không tính lại), giờ 0–23 theo BE", () => {
     const r = mapManagerReport(rawReport, fallback);
     expect(r.branchName).toBe("Smart F&B Nguyễn Huệ");
-    expect(r.summary).toEqual({ revenue: 1090000, orderCount: 11, averageOrderValue: 99090.91 });
+    // Bản BE trước #43 không có trường gộp/hoàn: gộp = doanh thu, hoàn = 0, không tự tính thêm.
+    expect(r.summary).toEqual({ revenue: 1090000, grossRevenue: 1090000, refundAmount: 0, pendingRefundAmount: 0, netRevenue: 1090000, orderCount: 11, averageOrderValue: 99090.91 });
     expect(r.revenue).toEqual([
-      { bucket: "2026-10-07", revenue: 0, orderCount: 0 },
-      { bucket: "2026-10-08", revenue: 1090000, orderCount: 11 },
+      { bucket: "2026-10-07", revenue: 0, grossRevenue: 0, refundAmount: 0, orderCount: 0 },
+      { bucket: "2026-10-08", revenue: 1090000, grossRevenue: 1090000, refundAmount: 0, orderCount: 11 },
     ]);
     expect(r.payments[0]).toEqual({ method: "CASH", settledAmount: 1090000, receivedAmount: 1155000, paymentCount: 11 });
     expect(r.payments[1].settledAmount).toBe(75000);
@@ -55,9 +56,33 @@ describe("mapper báo cáo chi nhánh (đúng dạng BE)", () => {
     expect(r.ordersByHour[12]).toEqual({ hour: 12, orderCount: 11 });
     expect(r.cancellations).toEqual({
       total: 1,
+      paidCancellationCount: 0,
+      refundAmount: 0,
+      pendingRefundAmount: 0,
       limit: 10,
-      items: [{ id: "c1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-08T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền" }],
+      items: [{ id: "c1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-08T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền", refundAmount: 0 }],
     });
+  });
+
+  it("BE 514c426 (#43): doanh thu sau hoàn, gộp, hoàn, chờ hoàn, đơn huỷ sau khi trả — đúng số BE, không tính lại", () => {
+    const raw = {
+      ...rawReport,
+      summary: { grossRevenue: "1090000.00", refundAmount: "65000.00", pendingRefundAmount: "30000.00", netRevenue: "1025000.00", revenue: "1025000.00", orderCount: 11, averageOrderValue: "93181.82" },
+      revenue: [{ bucket: "2026-10-08", grossRevenue: "1090000.00", refundAmount: "65000.00", netRevenue: "1025000.00", revenue: "1025000.00", orderCount: 11 }],
+      cancellations: {
+        total: 2,
+        paidCancellationCount: 1,
+        refundAmount: "65000.00",
+        pendingRefundAmount: "30000.00",
+        limit: 10,
+        items: [{ id: "c2", orderCode: "CTR-2", callNumber: 5, totalAmount: "65000.00", cancelledAt: "2026-10-08T06:00:00Z", reason: "Khách bỏ về", refundAmount: "65000.00" }],
+      },
+    };
+    const r = mapManagerReport(raw, fallback);
+    expect(r.summary).toEqual({ revenue: 1025000, grossRevenue: 1090000, refundAmount: 65000, pendingRefundAmount: 30000, netRevenue: 1025000, orderCount: 11, averageOrderValue: 93181.82 });
+    expect(r.revenue[0]).toEqual({ bucket: "2026-10-08", revenue: 1025000, grossRevenue: 1090000, refundAmount: 65000, orderCount: 11 });
+    expect(r.cancellations).toMatchObject({ total: 2, paidCancellationCount: 1, refundAmount: 65000, pendingRefundAmount: 30000 });
+    expect(r.cancellations.items[0].refundAmount).toBe(65000);
   });
 
   it("thời gian pha: giữ số giây (0,02 là số thật), null khi chưa có suất xong", () => {
@@ -68,12 +93,12 @@ describe("mapper báo cáo chi nhánh (đúng dạng BE)", () => {
 
   it("mục rỗng hoặc thiếu không làm vỡ", () => {
     const empty = mapManagerReport({}, fallback);
-    expect(empty.summary).toEqual({ revenue: 0, orderCount: 0, averageOrderValue: 0 });
+    expect(empty.summary).toEqual({ revenue: 0, grossRevenue: 0, refundAmount: 0, pendingRefundAmount: 0, netRevenue: 0, orderCount: 0, averageOrderValue: 0 });
     expect(empty.revenue).toEqual([]);
     expect(empty.payments).toEqual([]);
     expect(empty.topItems).toEqual([]);
     expect(empty.ordersByHour).toEqual([]);
-    expect(empty.cancellations).toEqual({ total: 0, limit: 0, items: [] });
+    expect(empty.cancellations).toEqual({ total: 0, paidCancellationCount: 0, refundAmount: 0, pendingRefundAmount: 0, limit: 0, items: [] });
     expect(empty.range).toEqual({ from: "2026-10-03", to: "2026-10-09", granularity: "day" });
     expect(mapManagerReport(null, fallback).branchName).toBe("Chi nhánh");
     expect(mapManagerReport("lỗi", fallback).summary.orderCount).toBe(0);
@@ -145,7 +170,7 @@ describe("managerReportMock — đủ mục BM-03", () => {
     const r = await managerReportMock.getReport(scope, { from: "2000-01-01", to: "2000-01-07", granularity: "day", limit: 10 });
     expect(r.revenue).toHaveLength(7);
     expect(r.revenue.every((b) => b.revenue === 0 && b.orderCount === 0)).toBe(true);
-    expect(r.summary).toEqual({ revenue: 0, orderCount: 0, averageOrderValue: 0 });
+    expect(r.summary).toEqual({ revenue: 0, grossRevenue: 0, refundAmount: 0, pendingRefundAmount: 0, netRevenue: 0, orderCount: 0, averageOrderValue: 0 });
     expect(r.payments).toEqual([]);
     expect(r.topItems).toEqual([]);
     expect(r.preparation.averageSeconds).toBeNull();

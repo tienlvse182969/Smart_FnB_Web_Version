@@ -1,15 +1,17 @@
 import { useState, type ReactNode } from "react";
-import { Avatar, Badge, Dropdown, Input, Layout, Menu } from "antd";
-import { Bell, CalendarDays, LogOut, Search, Store, User, UtensilsCrossed } from "lucide-react";
+import { Avatar, Badge, Button, Dropdown, Grid, Input, Layout, Menu } from "antd";
+import { Bell, CalendarDays, LogOut, Menu as MenuIcon, Search, Store, User, UtensilsCrossed } from "lucide-react";
 import { roleMeta } from "../data";
 import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
 import ReadOnlyBanner from "../plan/ReadOnlyBanner";
+import ExpiringBanner from "../plan/ExpiringBanner";
 import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
 
-export type NavItem = { key: string; label: string; icon: ReactNode };
+/** `badge` > 0 hiện số đếm cạnh nhãn (ví dụ "Đơn cần xử lý", lượt 7.5); 0/null/không có = không hiện. */
+export type NavItem = { key: string; label: string; icon: ReactNode; badge?: number | null };
 
 const today = new Date().toLocaleDateString("vi-VN", {
   weekday: "long",
@@ -41,6 +43,9 @@ export default function RoleShell({
   const meta = roleMeta[role];
   const [profileOpen, setProfileOpen] = useState(false);
   const brand = useBrand();
+  // Điện thoại (7.9): dưới 768px thanh bên thu thành ngăn kéo, mở bằng nút ở đầu trang.
+  const narrow = Grid.useBreakpoint().md === false;
+  const [navOpen, setNavOpen] = useState(false);
 
   // Nhận diện đã được giải quyết ở một chỗ (theme/resolveBrand): Admin và doanh nghiệp không
   // có/không được dùng nhận diện riêng nhận nhận diện nền tảng (BR-41, BR-44).
@@ -55,13 +60,25 @@ export default function RoleShell({
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
+      {narrow && navOpen && (
+        <div
+          data-testid="nav-backdrop"
+          onClick={() => setNavOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 999, background: `color-mix(in srgb, ${palette.ink} 45%, transparent)` }}
+        />
+      )}
       <Sider
         width={244}
+        collapsedWidth={0}
+        collapsed={narrow && !navOpen}
+        trigger={null}
         style={{
           height: "100vh",
           display: "flex",
           flexDirection: "column",
-          flex: "0 0 244px",
+          ...(narrow
+            ? { position: "fixed" as const, left: 0, top: 0, zIndex: 1000, visibility: navOpen ? ("visible" as const) : ("hidden" as const) }
+            : { flex: "0 0 244px" }),
           ["--sider-fg" as string]: siderFg,
           ["--sider-fg-dim" as string]: siderFgDim,
           ["--sider-btn-bg" as string]: siderBtnBg,
@@ -110,9 +127,24 @@ export default function RoleShell({
             theme="dark"
             mode="inline"
             selectedKeys={[section]}
-            onClick={(e) => onSection(e.key)}
+            onClick={(e) => {
+              onSection(e.key);
+              setNavOpen(false);
+            }}
             style={{ border: "none", background: "transparent", padding: "0 12px" }}
-            items={nav.map((n) => ({ key: n.key, icon: n.icon, label: n.label }))}
+            items={nav.map((n) => ({
+              key: n.key,
+              icon: n.icon,
+              label:
+                n.badge && n.badge > 0 ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    {n.label}
+                    <Badge count={n.badge} overflowCount={99} data-testid={`nav-badge-${n.key}`} style={{ boxShadow: "none" }} />
+                  </span>
+                ) : (
+                  n.label
+                ),
+            }))}
           />
         </div>
 
@@ -123,7 +155,7 @@ export default function RoleShell({
         <Header
           style={{
             height: 68,
-            padding: "0 24px",
+            padding: narrow ? "0 12px" : "0 24px",
             display: "flex",
             alignItems: "center",
             gap: 16,
@@ -131,9 +163,18 @@ export default function RoleShell({
             flexShrink: 0,
           }}
         >
-          <div style={{ lineHeight: 1.2 }}>
+          {narrow && (
+            <Button
+              type="text"
+              aria-label="Mở menu"
+              data-testid="nav-toggle"
+              icon={<MenuIcon size={20} />}
+              onClick={() => setNavOpen(true)}
+            />
+          )}
+          <div style={{ lineHeight: 1.2, minWidth: 0, whiteSpace: "nowrap", display: narrow && branchChip ? "none" : undefined }}>
             <div style={{ fontWeight: 700, fontSize: 17 }}>{meta.label}</div>
-            <div style={{ fontSize: 12, color: palette.textMuted }}>{meta.scope}</div>
+            {!narrow && <div style={{ fontSize: 12, color: palette.textMuted }}>{meta.scope}</div>}
           </div>
 
           {branchChip && (
@@ -145,6 +186,11 @@ export default function RoleShell({
                 background: palette.brandPrimary,
                 color: palette.onBrand,
                 padding: "5px 12px",
+                lineHeight: 1.3,
+                minWidth: 0,
+                maxWidth: narrow ? "58vw" : undefined,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
                 borderRadius: 999,
                 fontSize: 12.5,
                 fontWeight: 600,
@@ -160,7 +206,7 @@ export default function RoleShell({
             prefix={<Search size={16} color={palette.textSubtle} />}
             placeholder={searchPlaceholder}
             variant="filled"
-            style={{ maxWidth: 340, marginLeft: 24 }}
+            style={{ maxWidth: 340, marginLeft: 24, display: narrow ? "none" : undefined }}
           />
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 18 }}>
@@ -174,8 +220,8 @@ export default function RoleShell({
                 textTransform: "capitalize",
               }}
             >
-              <CalendarDays size={16} color={palette.textSubtle} />
-              {today}
+              {!narrow && <CalendarDays size={16} color={palette.textSubtle} />}
+              {!narrow && today}
             </div>
             <Badge dot color={palette.brandPrimary}>
               <Bell size={19} color={palette.textStrong} />
@@ -214,6 +260,7 @@ export default function RoleShell({
         <ChangePasswordModal open={profileOpen} onClose={() => setProfileOpen(false)} />
 
         <ReadOnlyBanner />
+        {(role === "owner" || role === "manager") && <ExpiringBanner />}
 
         <Content
           style={{
