@@ -64,7 +64,7 @@ export default function RoleShell({
         <div
           data-testid="nav-backdrop"
           onClick={() => setNavOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.45)" }}
+          style={{ position: "fixed", inset: 0, zIndex: 999, background: `color-mix(in srgb, ${palette.ink} 45%, transparent)` }}
         />
       )}
       <Sider
