@@ -304,10 +304,10 @@ class Tab {
   }
   async login(role) {
     const [email, pw] = this.accounts[role];
-    await this.waitFor(`document.querySelector('input[placeholder="Email"]')`, 15000, "login form");
+    await this.waitFor(`document.querySelector('input[placeholder^="Email"]')`, 15000, "login form");
     await this.eval(`(() => {
       const set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); };
-      set(document.querySelector('input[placeholder="Email"]'), ${JSON.stringify(email)});
+      set(document.querySelector('input[placeholder^="Email"]'), ${JSON.stringify(email)});
       set(document.querySelector('input[placeholder="Mật khẩu"]'), ${JSON.stringify(pw)});
       [...document.querySelectorAll("button")].find((b) => /đăng nhập/i.test(b.textContent)).click();
     })()`);
@@ -416,7 +416,7 @@ export async function newTab(url = "about:blank", authMode, opts = {}) {
   try {
     if (opts.warm !== false) {
       await tab.send("Page.navigate", { url: ORIGIN + "/login" });
-      await tab.waitFor(`!!document.querySelector('input[placeholder="Email"]')`, 90000, "Vite biên dịch xong (trang đăng nhập)");
+      await tab.waitFor(`!!document.querySelector('input[placeholder^="Email"]')`, 90000, "Vite biên dịch xong (trang đăng nhập)");
     }
   } catch {
     // dev server chưa chạy hoặc trang không có form đăng nhập — để script tự báo lỗi ở bước của nó

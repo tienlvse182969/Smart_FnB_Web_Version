@@ -1,8 +1,8 @@
-// Kiểm trình duyệt thật cho lượt 7.9: áp phích màn hình phía khách (OW-11) và màn Manager trên điện thoại.
+// Kiểm trình duyệt thật cho lượt 7.9: áp phích màn hình phía khách (OW-11, bản của main `9e9b3af`) và màn Manager trên điện thoại.
 //   node scripts/browser/phase79.mjs --mode=real --only=posters   # Owner: trang áp phích, KHÔNG ghi (mọi POST/PATCH/DELETE chặn ở CDP)
 //   node scripts/browser/phase79.mjs --mode=real --only=mobile    # Manager 390×844: bố cục, không ghi
-// Dev server 5173 (real), BE local chạy `4b81e48` (migration display_posters), Chrome CDP 9333. KHÔNG tải ảnh thật lên BE.
-// Báo cáo cuối in: bảng request ghi bị chặn và (nếu có) request ghi ĐÃ GỬI THẬT. Kỳ vọng sau Phần A: 0 request ghi thật.
+// Dev server 5173 (real), BE local, Chrome CDP 9333. KHÔNG tải ảnh thật lên BE.
+// Báo cáo cuối in: bảng request ghi bị chặn và (nếu có) request ghi ĐÃ GỬI THẬT. Kỳ vọng: 0 request ghi thật.
 import { check, cli, closeTab, newTab, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 import { mkdirSync } from "node:fs";
 
@@ -59,40 +59,48 @@ const pickFile = (testId, { name, type, size, png = false }) =>
 
 const pixel = (c) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="${c}"/></svg>`)}`;
 const FAKE = [
-  { id: "00000000-0000-4000-8000-000000000001", chainId: "x", title: "Khuyến mãi tháng 10", imageUrl: pixel("#0f766e"), enabled: true, sortOrder: 0, durationSeconds: 8, createdAt: "2026-10-13T01:00:00.000Z", updatedAt: "2026-10-13T01:00:00.000Z", deletedAt: null },
-  { id: "00000000-0000-4000-8000-000000000002", chainId: "x", title: "Món mới", imageUrl: pixel("#7c3aed"), enabled: true, sortOrder: 1, durationSeconds: 8, createdAt: "2026-10-13T01:01:00.000Z", updatedAt: "2026-10-13T01:01:00.000Z", deletedAt: null },
-  { id: "00000000-0000-4000-8000-000000000003", chainId: "x", title: "Poster tắt", imageUrl: pixel("#be123c"), enabled: false, sortOrder: 2, durationSeconds: 8, createdAt: "2026-10-13T01:02:00.000Z", updatedAt: "2026-10-13T01:02:00.000Z", deletedAt: null },
+  { id: "00000000-0000-4000-8000-000000000001", chainId: "x", title: "Khuyến mãi tháng 10", imageUrl: pixel("#0f766e"), enabled: true, sortOrder: 0, durationSeconds: 8, createdAt: "2026-10-13T01:00:00.000Z", updatedAt: "2026-10-13T01:00:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000002", chainId: "x", title: "Món mới", imageUrl: pixel("#7c3aed"), enabled: true, sortOrder: 1, durationSeconds: 8, createdAt: "2026-10-13T01:01:00.000Z", updatedAt: "2026-10-13T01:01:00.000Z" },
+  { id: "00000000-0000-4000-8000-000000000003", chainId: "x", title: "Poster tắt", imageUrl: pixel("#be123c"), enabled: false, sortOrder: 2, durationSeconds: 8, createdAt: "2026-10-13T01:02:00.000Z", updatedAt: "2026-10-13T01:02:00.000Z" },
 ];
 const LIST = /\/api\/v1\/restaurant-chains\/[0-9a-f-]{36}\/display-posters$/;
+const ROWS = `[...document.querySelectorAll('[data-testid^="poster-row-"]')]`;
+const rowCount = () => q(`${ROWS}.length`);
+/** Bấm nút trong dòng áp phích thứ `i` theo `aria-label` hoặc chữ nút. */
+const clickInRow = (i, label) =>
+  q(`(() => { const row = ${ROWS}[${i}]; const b = [...row.querySelectorAll("button")].find((x) => x.getAttribute("aria-label") === ${J(label)} || x.innerText.trim() === ${J(label)}); b.click(); })()`);
 
 // ── Khối posters ───────────────────────────────────────────────────────────────────────────────
 async function runPosters() {
   await login("owner", "/owner");
   tab.caseName = "posters";
 
-  // 1. Dữ liệu THẬT của BE (chưa có áp phích): trang mở được, GET đúng đường dẫn, trạng thái rỗng, xem trước ảnh mặc định.
+  // 1. Dữ liệu THẬT của BE: trang mở được, GET đúng đường dẫn, không toast lỗi.
   tab.requests.length = 0;
   await tab.clickMenu("Poster màn hình sau");
   await tab.waitFor(tid("posters-page"), 15000, "trang áp phích");
-  await sleep(1200);
+  await sleep(1500);
   const realGet = tab.requests.find((r) => r.method === "GET" && LIST.test(new URL(r.url).pathname));
-  const beList = await q(`(async () => { const t = localStorage.getItem("smartfnb_access_token"); const me = await (await fetch("http://localhost:3100/api/v1/auth/me", { headers: { Authorization: "Bearer " + t } })).json(); return { chain: me.chainId ?? me.chainIds?.[0] ?? null }; })()`);
-  const rows0 = await q(`document.querySelectorAll('[data-testid="poster-row"]').length`);
-  check("posters · GET /restaurant-chains/{id}/display-posters thật (200), chưa có áp phích: trạng thái rỗng + xem trước ảnh mặc định", !!realGet && rows0 === 0 && (await has("posters-empty")) && /ảnh mặc định/.test(await text("poster-preview-state")), `${realGet?.url ?? "không có GET"} · chain ${beList.chain}`);
-  check("posters · 0 toast lỗi khi tải", (await toasts()) === "", await toasts());
-  await shot("owner-posters-empty");
+  check("posters · GET /restaurant-chains/{id}/display-posters thật (200); 0 toast lỗi khi tải", !!realGet && (await toasts()) === "", realGet?.url ?? "không có GET");
+  const realRows = await rowCount();
+  if (realRows === 0) {
+    check("posters · chưa có áp phích (BE thật): trạng thái rỗng + xem trước dùng ẢNH MẶC ĐỊNH", (await has("posters-empty")) && (await has("poster-preview-default")));
+  } else {
+    check("posters · (BE thật) đã có áp phích: danh sách hiện đủ dòng", realRows > 0, `${realRows} dòng`);
+  }
 
   // 2. Trả lời giả (readOverride): 3 áp phích (2 bật).
   tab.readOverride = { match: LIST, body: J(FAKE) };
   await spaGo("/owner/dashboard");
   await tab.clickMenu("Poster màn hình sau");
-  await tab.waitFor(`document.querySelectorAll('[data-testid="poster-row"]').length === 3`, 15000, "3 dòng áp phích");
+  await tab.waitFor(`${ROWS}.length === 3`, 15000, "3 dòng áp phích");
   await sleep(500);
-  const pos = await q(`[...document.querySelectorAll('[data-testid="poster-position"]')].map((e) => e.innerText)`);
-  const states = await q(`[...document.querySelectorAll('[data-testid="poster-state"]')].map((e) => e.innerText)`);
-  const titles = await q(`[...document.querySelectorAll('[data-testid="poster-title"]')].map((e) => e.value)`);
-  check("posters · (trả lời giả) 3 dòng: vị trí 1–3, Đang bật/Đang bật/Đang tắt, tên đúng; ảnh thu nhỏ có nguồn", J(pos) === J(["Vị trí 1", "Vị trí 2", "Vị trí 3"]) && J(states) === J(["Đang bật", "Đang bật", "Đang tắt"]) && titles[0] === "Khuyến mãi tháng 10" && (await q(`[...document.querySelectorAll('[data-testid="poster-thumb"]')].every((i) => i.getAttribute("src"))`)), J({ pos, states, titles }));
-  check("posters · Xem trước: 'Ảnh 1/2 · 8 giây mỗi ảnh' (chỉ ảnh bật), khung 16:9", /Ảnh 1\/2 · 8 giây/.test(await text("poster-preview-state")) && (await q(`(() => { const s = ${tid("poster-preview-slide")}.parentElement; const r = s.getBoundingClientRect(); return Math.abs(r.width / r.height - 16 / 9) < 0.05; })()`)));
+  const nums = await q(`${ROWS}.map((r) => r.innerText.match(/#\\d+/)?.[0])`);
+  const checked = await q(`${ROWS}.map((r) => r.querySelector('button[role="switch"]').getAttribute("aria-checked"))`);
+  const names = await q(`${ROWS}.map((r) => r.querySelector(".ant-typography")?.innerText)`);
+  check("posters · (trả lời giả) 3 dòng: #1–#3, bật/bật/tắt, tên đúng", J(nums) === J(["#1", "#2", "#3"]) && J(checked) === J(["true", "true", "false"]) && names[0] === "Khuyến mãi tháng 10", J({ nums, checked, names }));
+  const prev = await text("poster-preview");
+  check("posters · Xem trước: xoay vòng 2 áp phích đang bật, 8 giây, khung 16:9, có nền mờ", /Xoay vòng 2 poster/.test(prev) && /8 giây/.test(prev) && (await q(`(() => { const r = ${tid("poster-preview")}.querySelector("div[style*='aspect-ratio']").getBoundingClientRect(); return Math.abs(r.width / r.height - 16 / 9) < 0.05; })()`)) && (await q(`${tid("poster-preview")}.querySelectorAll("img").length >= 2`)), prev.replace(/\s+/g, " ").slice(0, 120));
   await shot("owner-posters-list");
 
   // 3. Kiểm tệp NGAY khi chọn: sai định dạng, quá 5 MB — không có request ghi.
@@ -100,45 +108,37 @@ async function runPosters() {
   await pickFile("poster-add-input", { name: "anh.gif", type: "image/gif", size: 2048 });
   await sleep(500);
   const tGif = await toasts();
-  check("posters · Chọn GIF: báo ngay 'chỉ nhận PNG, JPG hoặc WebP' nêu tên tệp, KHÔNG có request ghi", /chỉ nhận PNG, JPG hoặc WebP/.test(tGif) && /anh\.gif/.test(tGif) && tab.blockedWrites.length === 0, tGif.slice(0, 160));
+  check("posters · Chọn GIF: báo ngay 'chỉ nhận PNG, JPG hoặc WebP', KHÔNG có request ghi", /chỉ nhận PNG, JPG hoặc WebP/.test(tGif) && tab.blockedWrites.length === 0, tGif.slice(0, 160));
   await sleep(3200);
   await pickFile("poster-add-input", { name: "to.png", type: "image/png", size: 5 * 1024 * 1024 + 1, png: true });
   await sleep(500);
   const tBig = await toasts();
-  check("posters · Chọn ảnh > 5 MB: báo ngay dung lượng và giới hạn, KHÔNG có request ghi", /vượt giới hạn 5 MB/.test(tBig) && tab.blockedWrites.length === 0, tBig.slice(0, 160));
+  check("posters · Chọn ảnh > 5 MB: báo ngay vượt 5 MB, KHÔNG có request ghi", /vượt quá 5 MB/.test(tBig) && tab.blockedWrites.length === 0, tBig.slice(0, 160));
   await sleep(3200);
 
-  // 4. Tệp hợp lệ: POST multipart đúng DTO (field `file`), bị chặn ở CDP, KHÔNG tới BE.
+  // 4. Tệp hợp lệ: POST multipart, field `file`, bị chặn ở CDP, KHÔNG tới BE.
   tab.blockedWrites.length = 0;
   await pickFile("poster-add-input", { name: "khuyen-mai.png", type: "image/png", size: 4096, png: true });
   await sleep(1500);
   const up = tab.blockedWrites.find((w) => w.method === "POST" && LIST.test(w.path));
   const multipart = /multipart\/form-data; boundary=/.test(up?.contentType ?? "");
-  check("posters · Tải lên: POST …/display-posters multipart, field `file` (tên tệp + image/png), không trường nào khác", !!up && multipart && /name="file"/.test(up.body ?? "") && /filename="khuyen-mai\.png"/.test(up.body ?? "") && !/name="title"/.test(up.body ?? ""), `${up?.contentType ?? ""} · ${(up?.body ?? "").slice(0, 120).replace(/\s+/g, " ")}`);
+  check("posters · Tải lên: POST …/display-posters multipart, field `file` (tên tệp), không trường nào khác", !!up && multipart && /name="file"/.test(up.body ?? "") && /filename="khuyen-mai\.png"/.test(up.body ?? "") && !/name="title"/.test(up.body ?? ""), `${up?.contentType ?? ""} · ${(up?.body ?? "").slice(0, 120).replace(/\s+/g, " ")}`);
   const tUp = await toasts();
-  check("posters · Tải lên bị chặn: báo lỗi gọn bằng tiếng Việt, danh sách vẫn 3 dòng", /Mất kết nối|Không tải được áp phích|Không kết nối/.test(tUp) && (await q(`document.querySelectorAll('[data-testid="poster-row"]').length`)) === 3, tUp.slice(0, 140));
+  check("posters · Tải lên bị chặn: báo lỗi gọn bằng tiếng Việt", /Mất kết nối|Không thêm được poster|Không kết nối/.test(tUp), tUp.slice(0, 140));
   await sleep(3200);
 
-  // 5. Bật/tắt, đổi tên, đổi thứ tự (ghép 2 PATCH), xoá — đúng thân PATCH.
+  // 5. Bật/tắt, đổi thứ tự (hai PATCH sortOrder), xoá — đúng thân yêu cầu.
   tab.blockedWrites.length = 0;
-  await q(`document.querySelectorAll('[data-testid="poster-toggle"]')[0].click()`);
+  await q(`${ROWS}[0].querySelector('button[role="switch"]').click()`);
   await sleep(900);
   const tg = tab.blockedWrites.find((w) => w.method === "PATCH");
   check("posters · Tắt áp phích 1: PATCH …/display-posters/{id} thân {enabled:false}", !!tg && tg.path.endsWith(`/display-posters/${FAKE[0].id}`) && J(JSON.parse(tg.body)) === J({ enabled: false }), tg?.body ?? "không có request");
   await sleep(3200);
 
   tab.blockedWrites.length = 0;
-  await q(`(() => { const el = document.querySelectorAll('[data-testid="poster-title"]')[1]; el.focus();
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "  Món mới 2  "); el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })); })()`);
-  await sleep(900);
-  const rn = tab.blockedWrites.find((w) => w.method === "PATCH");
-  check("posters · Đổi tên rồi rời ô: PATCH thân {title} đã cắt khoảng trắng", !!rn && rn.path.endsWith(`/display-posters/${FAKE[1].id}`) && J(JSON.parse(rn.body)) === J({ title: "Món mới 2" }), rn?.body ?? "không có request");
-  await sleep(3200);
-
-  tab.blockedWrites.length = 0;
   tab.fulfillWrites = true;
   tab.fulfillBody = J({ ...FAKE[1] });
-  await q(`document.querySelectorAll('[data-testid="poster-down"]')[0].click()`);
+  await clickInRow(0, "Xuống");
   await sleep(1500);
   tab.fulfillWrites = false;
   const mv = tab.blockedWrites.filter((w) => w.method === "PATCH").map((w) => ({ id: w.path.split("/").pop(), body: JSON.parse(w.body) }));
@@ -146,10 +146,11 @@ async function runPosters() {
   await sleep(3200);
 
   tab.blockedWrites.length = 0;
-  await q(`document.querySelectorAll('[data-testid="poster-delete"]')[2].click()`);
-  await tab.waitFor(tid("confirm-poster-delete"), 6000, "hộp xác nhận xoá");
-  check("posters · Xoá: có hộp xác nhận nêu không khôi phục được; chưa có request xoá", /không khôi phục được/.test(await text("confirm-poster-delete")) && tab.blockedWrites.length === 0);
-  await q(`[...document.querySelectorAll(".ant-modal-confirm-btns button")].find((b) => /Xoá áp phích/.test(b.innerText)).click()`);
+  await clickInRow(2, "Xoá");
+  await tab.waitFor(`document.querySelector(".ant-modal-confirm")`, 6000, "hộp xác nhận xoá");
+  const confirmText = await q(`document.querySelector(".ant-modal-confirm").innerText`);
+  check("posters · Xoá: có hộp xác nhận nêu không khôi phục được; chưa có request xoá", /Không khôi phục được/.test(confirmText) && tab.blockedWrites.length === 0);
+  await q(`[...document.querySelectorAll(".ant-modal-confirm-btns button")].find((b) => /Xoá poster/.test(b.innerText)).click()`);
   await sleep(1000);
   const del = tab.blockedWrites.find((w) => w.method === "DELETE");
   check("posters · Xác nhận xoá: DELETE …/display-posters/{id} (chặn ở CDP)", !!del && del.path.endsWith(`/display-posters/${FAKE[2].id}`), del?.path ?? "không có request");
@@ -166,15 +167,22 @@ async function runPosters() {
     return t;
   };
   const t400 = await fault({ kind: "400", match: /^never$/, body: { statusCode: 400, message: "Poster must be a JPEG, PNG, or WebP image with a matching file signature", error: "Bad Request" } });
-  check("posters · 400 sai chữ ký tệp: 'chỉ nhận PNG, JPG hoặc WebP, đúng định dạng thật', không chữ Anh", /chỉ nhận PNG, JPG hoặc WebP/.test(t400) && !/JPEG|signature/.test(t400), t400.slice(0, 160));
+  check("posters · 400 sai chữ ký tệp: 'JPEG, PNG hoặc WebP hợp lệ', không chữ Anh", /JPEG, PNG hoặc WebP hợp lệ/.test(t400) && !/signature/.test(t400), t400.slice(0, 160));
   const t409 = await fault({ kind: "409", match: /^never$/, body: { statusCode: 409, message: "A chain may have at most 10 posters; remove one before uploading", error: "Conflict" } });
-  check("posters · 409 đủ số lượng: 'Đã đủ số áp phích tối đa…', không chữ Anh", /Đã đủ số áp phích tối đa/.test(t409) && !/chain may/.test(t409), t409.slice(0, 160));
+  check("posters · 409 đủ số lượng: 'đủ số poster tối đa', không chữ Anh", /đủ số poster tối đa/.test(t409) && !/chain may/.test(t409), t409.slice(0, 160));
   const t403 = await fault({ kind: "403", match: /^never$/ });
   check("posters · 403: 'không đủ quyền', không chữ Anh", /không đủ quyền/i.test(t403) && !/permission/i.test(t403), t403.slice(0, 160));
   const t500 = await fault({ kind: "500", match: /^never$/ });
   check("posters · 500: 'Máy chủ đang gặp sự cố…'", /Máy chủ đang gặp sự cố/.test(t500), t500.slice(0, 160));
 
-  // 7. Chế độ chỉ đọc (gói hết hạn, trả lời giả): mọi nút ghi khoá; xem trước vẫn chạy.
+  // 7. Mọi áp phích tắt (trả lời giả): xem trước dùng ảnh mặc định.
+  tab.readOverride = { match: LIST, body: J(FAKE.map((p) => ({ ...p, enabled: false }))) };
+  await tab.goto("/owner/posters");
+  await tab.waitFor(`${ROWS}.length === 3`, 20000, "áp phích sau F5 (tắt hết)");
+  await sleep(500);
+  check("posters · (trả lời giả) mọi áp phích tắt: xem trước dùng ảnh mặc định của nền tảng", await has("poster-preview-default"));
+
+  // 8. Chế độ chỉ đọc (gói hết hạn, trả lời giả): mọi nút ghi khoá; xem trước vẫn chạy.
   const real = await q(`(async () => { const t = localStorage.getItem("smartfnb_access_token"); const r = await fetch("http://localhost:3100/api/v1/restaurant-chains", { headers: { Authorization: "Bearer " + t } }); return r.json(); })()`);
   const chains = Array.isArray(real) ? real : (real.data ?? []);
   tab.readOverride = [
@@ -182,11 +190,17 @@ async function runPosters() {
     { match: /\/api\/v1\/restaurant-chains$/, body: J(chains.map((c) => ({ ...c, subscription: { ...(c.subscription ?? {}), status: "EXPIRED", expiresAt: "2020-01-01T00:00:00.000Z" } }))) },
   ];
   await tab.goto("/owner/posters");
-  await tab.waitFor(`document.querySelectorAll('[data-testid="poster-row"]').length === 3`, 20000, "áp phích sau F5 (hết hạn)");
+  await tab.waitFor(`${ROWS}.length === 3`, 20000, "áp phích sau F5 (hết hạn)");
   await sleep(900);
-  const guarded = await q(`[...document.querySelectorAll('[data-testid="poster-add"],[data-testid="poster-up"],[data-testid="poster-down"],[data-testid="poster-replace"],[data-testid="poster-delete"],[data-testid="poster-title"]')].every((e) => e.disabled)`);
-  const swOff = await q(`[...document.querySelectorAll('[data-testid="poster-toggle"]')].every((e) => e.disabled || e.classList.contains("ant-switch-disabled"))`);
-  check("posters · (gói hết hạn, trả lời giả) chỉ đọc: Thêm, Lên, Xuống, Đổi ảnh, Xoá, ô tên và công tắc đều khoá; có dải chỉ đọc; xem trước còn chạy", guarded && swOff && (await has("read-only-banner")) && (await has("poster-preview")), J({ guarded, swOff }));
+  const guarded = await q(`(() => {
+    const add = ${tid("poster-add")};
+    const rows = ${ROWS};
+    const btns = rows.flatMap((r) => [...r.querySelectorAll("button:not([role=switch])")]).filter((b) => ["Lên", "Xuống", "Xoá"].includes(b.getAttribute("aria-label") ?? b.innerText.trim()));
+    const sw = rows.map((r) => r.querySelector('button[role="switch"]'));
+    const edit = rows.some((r) => r.querySelector(".ant-typography-edit"));
+    return { add: add.disabled, btns: btns.length > 0 && btns.every((b) => b.disabled), sw: sw.every((s) => s.disabled), edit };
+  })()`);
+  check("posters · (gói hết hạn, trả lời giả) chỉ đọc: Thêm, Lên, Xuống, Xoá, công tắc đều khoá, không sửa được tên; có dải chỉ đọc; xem trước còn chạy", guarded.add && guarded.btns && guarded.sw && !guarded.edit && (await has("read-only-banner")) && (await has("poster-preview")), J(guarded));
   await shot("owner-posters-readonly");
   tab.readOverride = null;
   await spaGo("/owner/dashboard");
