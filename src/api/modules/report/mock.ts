@@ -84,10 +84,17 @@ export const reportMock: ReportApi = {
     const rows = scope.branches.map((branch) => {
       const events = eventsOf(branch, scope);
       const revenue = events.reduce((s, e) => s + e.amount, 0);
+      const gross = events.filter((e) => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+      const refund = events.filter((e) => e.amount < 0).reduce((s, e) => s - e.amount, 0);
       const orderCount = events.filter((e) => e.amount > 0).length;
       return {
         branch: refOf(branch),
         revenue: money(revenue),
+        grossRevenue: money(gross),
+        refundAmount: money(refund),
+        pendingRefundAmount: money(0),
+        netRevenue: money(revenue),
+        paidCancellationCount: events.filter((e) => e.amount < 0).length,
         discount: money(0),
         orderCount,
         averageOrderValue: money(orderCount ? revenue / orderCount : 0),
@@ -95,11 +102,17 @@ export const reportMock: ReportApi = {
       };
     });
     rows.sort((a, b) => b.raw - a.raw);
+    const sum = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + pick(r), 0);
     return {
       range: scope.range,
       totals: {
-        revenue: money(rows.reduce((s, r) => s + r.raw, 0)),
-        orderCount: rows.reduce((s, r) => s + r.orderCount, 0),
+        revenue: money(sum((r) => r.raw)),
+        grossRevenue: money(sum((r) => Number(r.grossRevenue))),
+        refundAmount: money(sum((r) => Number(r.refundAmount))),
+        pendingRefundAmount: money(0),
+        netRevenue: money(sum((r) => r.raw)),
+        paidCancellationCount: sum((r) => r.paidCancellationCount),
+        orderCount: sum((r) => r.orderCount),
       },
       branches: rows.map(({ raw: _raw, ...row }) => row),
     };
@@ -117,22 +130,38 @@ export const reportMock: ReportApi = {
     }
 
     const series = scope.branches.map((branch) => {
-      const byBucket = new Map<string, { revenue: number; orders: number }>();
+      const byBucket = new Map<string, { gross: number; refund: number; orders: number }>();
       for (const e of eventsOf(branch, scope)) {
         const key = bucketOf(e.at, granularity);
-        const cur = byBucket.get(key) ?? { revenue: 0, orders: 0 };
-        cur.revenue += e.amount;
-        if (e.amount > 0) cur.orders += 1;
+        const cur = byBucket.get(key) ?? { gross: 0, refund: 0, orders: 0 };
+        if (e.amount > 0) {
+          cur.gross += e.amount;
+          cur.orders += 1;
+        } else {
+          cur.refund -= e.amount;
+        }
         byBucket.set(key, cur);
       }
       const points: RevenuePoint[] = buckets.map((bucket) => {
         const v = byBucket.get(bucket);
-        return { bucket, revenue: money(v?.revenue ?? 0), orderCount: v?.orders ?? 0 };
+        const net = (v?.gross ?? 0) - (v?.refund ?? 0);
+        return {
+          bucket,
+          revenue: money(net),
+          grossRevenue: money(v?.gross ?? 0),
+          refundAmount: money(v?.refund ?? 0),
+          netRevenue: money(net),
+          orderCount: v?.orders ?? 0,
+        };
       });
+      const sumOf = (pick: (p: RevenuePoint) => string) => money(points.reduce((s, p) => s + Number(pick(p)), 0));
       return {
         branch: refOf(branch),
         points,
-        total: money(points.reduce((s, p) => s + Number(p.revenue), 0)),
+        total: sumOf((p) => p.revenue),
+        grossTotal: sumOf((p) => p.grossRevenue),
+        refundTotal: sumOf((p) => p.refundAmount),
+        netTotal: sumOf((p) => p.netRevenue),
         orderCount: points.reduce((s, p) => s + p.orderCount, 0),
       };
     });

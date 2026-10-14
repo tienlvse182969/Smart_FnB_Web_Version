@@ -38,18 +38,36 @@ export interface ReportRangeParams {
 /** Một dòng so sánh doanh thu của một chi nhánh. */
 export interface BranchRevenueRow {
   branch: ReportBranchRef;
-  /** Tổng doanh thu, chuỗi thập phân. */
+  /** Doanh thu SAU hoàn (= `netRevenue`), chuỗi thập phân. */
   revenue: string;
+  /** Doanh thu trước khi trừ khoản hoàn của đơn huỷ sau thanh toán (BR-50). */
+  grossRevenue: string;
+  /** Tiền đã hoàn trong kỳ, trừ vào ngày huỷ (BR-50). */
+  refundAmount: string;
+  /** Tiền còn chờ chủ chuỗi hoàn (BR-49). */
+  pendingRefundAmount: string;
+  netRevenue: string;
+  /** Số đơn huỷ sau khi đã thanh toán trong kỳ. */
+  paidCancellationCount: number;
   /** Tổng giảm giá, chuỗi thập phân. */
   discount: string;
   orderCount: number;
-  /** Doanh thu trung bình mỗi đơn, chuỗi thập phân. */
+  /** Doanh thu thuần trung bình mỗi đơn, chuỗi thập phân (BE tính). */
   averageOrderValue: string;
 }
 
 export interface RevenueComparison {
   range: ReportRange;
-  totals: { revenue: string; orderCount: number };
+  /** BE không trả giá trị đơn trung bình ở tổng toàn phạm vi: web không tự chia (quyết định 139). */
+  totals: {
+    revenue: string;
+    grossRevenue: string;
+    refundAmount: string;
+    pendingRefundAmount: string;
+    netRevenue: string;
+    paidCancellationCount: number;
+    orderCount: number;
+  };
   /** Đã sắp theo doanh thu giảm dần. */
   branches: BranchRevenueRow[];
 }
@@ -57,7 +75,12 @@ export interface RevenueComparison {
 /** Một điểm trên trục thời gian. `bucket` là `YYYY-MM-DD` của đầu kỳ con. */
 export interface RevenuePoint {
   bucket: string;
+  /** Sau hoàn. */
   revenue: string;
+  grossRevenue: string;
+  /** Tiền hoàn của đơn huỷ TRONG kỳ con này (ngày huỷ, không phải ngày bán). */
+  refundAmount: string;
+  netRevenue: string;
   orderCount: number;
 }
 
@@ -66,6 +89,9 @@ export interface RevenueSeries {
   /** Cùng độ dài và cùng thứ tự với `buckets` ở cấp ngoài. */
   points: RevenuePoint[];
   total: string;
+  grossTotal: string;
+  refundTotal: string;
+  netTotal: string;
   orderCount: number;
 }
 

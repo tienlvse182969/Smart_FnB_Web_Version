@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton, Table } from "antd";
-import { Banknote, ReceiptText, Wallet } from "lucide-react";
+import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 import { SectionTitle, StatCard } from "../../components/bits";
 import { useAppStore } from "../../store";
@@ -19,6 +19,7 @@ import {
   type RangePreset,
 } from "../../lib/reportFormat";
 import { useReportData } from "./useReportData";
+import { summarizeKpi } from "./reportKpi";
 import { palette } from "../../theme";
 
 const ALL_BRANCHES = "__all__";
@@ -129,27 +130,50 @@ export default function Reports() {
 type BlockProps = { data: ReturnType<typeof useReportData>["data"]; loading: boolean };
 
 function KpiRow({ data, loading }: BlockProps) {
-  const totals = data?.comparison.totals;
-  const revenue = parseAmount(totals?.revenue);
-  const orders = totals?.orderCount ?? 0;
-  const aov = orders > 0 ? revenue / orders : 0;
+  const k = summarizeKpi(data?.comparison);
 
   const tiles = [
-    { label: "Doanh thu", value: formatVnd(revenue), icon: <Banknote size={16} />, emphasis: true },
-    { label: "Số đơn hoàn tất", value: formatCount(orders), icon: <ReceiptText size={16} /> },
-    { label: "Giá trị đơn trung bình", value: formatVnd(aov), icon: <Wallet size={16} /> },
+    {
+      key: "revenue",
+      label: "Doanh thu (sau hoàn)",
+      value: formatVnd(k.netRevenue),
+      hint: `Gộp ${formatVnd(k.grossRevenue)} · đã hoàn ${formatVnd(k.refundAmount)}`,
+      icon: <Banknote size={16} />,
+      emphasis: true,
+    },
+    { key: "orders", label: "Số đơn hoàn tất", value: formatCount(k.orderCount), icon: <ReceiptText size={16} /> },
+    {
+      key: "aov",
+      label: "Giá trị đơn trung bình",
+      value: k.averageOrderValue === null ? "—" : formatVnd(k.averageOrderValue),
+      hint: k.averageOrderValue === null ? "Chọn một chi nhánh để xem" : undefined,
+      icon: <Wallet size={16} />,
+    },
+    {
+      key: "cancelled",
+      label: "Đơn huỷ sau thanh toán",
+      value: formatCount(k.paidCancellationCount),
+      hint: `Đã hoàn ${formatVnd(k.refundAmount)} (trừ vào ngày huỷ)`,
+      icon: <Undo2 size={16} />,
+    },
+    {
+      key: "pending",
+      label: "Chờ chủ chuỗi hoàn",
+      value: formatVnd(k.pendingRefundAmount),
+      icon: <Hourglass size={16} />,
+    },
   ];
 
   return (
     <Row gutter={[16, 16]}>
       {tiles.map((tile) => (
-        <Col xs={12} md={8} key={tile.label}>
+        <Col xs={12} md={8} key={tile.key} data-testid={`report-kpi-${tile.key}`}>
           {loading && !data ? (
             <Card style={{ borderRadius: 14, height: "100%" }} styles={{ body: { padding: 18 } }}>
               <Skeleton active paragraph={false} title={{ width: "70%" }} />
             </Card>
           ) : (
-            <StatCard label={tile.label} value={tile.value} icon={tile.icon} emphasis={tile.emphasis} />
+            <StatCard label={tile.label} value={tile.value} hint={tile.hint} icon={tile.icon} emphasis={tile.emphasis} />
           )}
         </Col>
       ))}
@@ -196,6 +220,7 @@ function TimeseriesChart({ data, loading }: BlockProps) {
     return buckets.map((bucket, index) => ({
       bucket,
       revenue: series.reduce((sum, s) => sum + parseAmount(s.points[index]?.revenue), 0),
+      refund: series.reduce((sum, s) => sum + parseAmount(s.points[index]?.refundAmount), 0),
       orders: series.reduce((sum, s) => sum + (s.points[index]?.orderCount ?? 0), 0),
     }));
   }, [data]);
@@ -219,7 +244,7 @@ function TimeseriesChart({ data, loading }: BlockProps) {
             </div>
             <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
               <div
-                title={`${formatDayLabel(bar.bucket)} · ${formatVnd(bar.revenue)} · ${bar.orders} đơn`}
+                title={`${formatDayLabel(bar.bucket)} · ${formatVnd(bar.revenue)} · ${bar.orders} đơn${bar.refund > 0 ? ` · hoàn ${formatVnd(bar.refund)}` : ""}`}
                 style={{
                   width: "100%",
                   height: `${Math.max((bar.revenue / max) * 100, bar.revenue > 0 ? 3 : 0)}%`,
@@ -231,6 +256,14 @@ function TimeseriesChart({ data, loading }: BlockProps) {
             <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>
               {formatDayLabel(bar.bucket)}
             </div>
+            {bar.refund > 0 && (
+              <div
+                data-testid="report-bar-refund"
+                style={{ fontSize: 10.5, color: palette.error.text, marginTop: 2, whiteSpace: "nowrap" }}
+              >
+                −{formatVndCompact(bar.refund)}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -274,6 +307,8 @@ function BranchComparison({ data, loading }: BlockProps) {
               </div>
               <div style={{ fontSize: 11.5, color: palette.textMuted, marginTop: 4 }}>
                 {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)}
+                {row.paidCancellationCount > 0 &&
+                  ` · huỷ ${formatCount(row.paidCancellationCount)} đơn, hoàn ${formatVnd(row.refundAmount)}`}
               </div>
             </div>
           );
