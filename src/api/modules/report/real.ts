@@ -19,6 +19,10 @@
  * dùng lại làm "tool" cho trợ lý AI hỏi đáp số liệu.
  */
 import type {
+  ChainRefundPage,
+  ChainRefundParams,
+  PaymentMethodsReport,
+  TopToppings,
   ReportGranularity,
   ReportRangeParams,
   RevenueComparison,
@@ -27,6 +31,7 @@ import type {
 } from "../../../types";
 import { request } from "../../http/client";
 import type { ReportApi } from "./index";
+import { mapChainRefundPage } from "./refundMapper";
 
 function buildQuery(params: object): string {
   const search = new URLSearchParams();
@@ -72,8 +77,25 @@ function getTopItems(
   return request<TopItems>(`/reports/top-items${buildQuery(params)}`);
 }
 
+function getPaymentMethods(params: ReportRangeParams = {}): Promise<PaymentMethodsReport> {
+  return request<PaymentMethodsReport>(`/reports/payment-methods${buildQuery(params)}`);
+}
+
+function getTopToppings(params: ReportRangeParams & { limit?: number } = {}): Promise<TopToppings> {
+  return request<TopToppings>(`/reports/top-toppings${buildQuery(params)}`);
+}
+
+/** Khoản chờ hoàn (`status=PENDING` là mặc định của BE, vẫn gửi rõ). `from`/`to` là ISO theo `requestedAt`. */
+async function listPendingRefunds(params: ChainRefundParams = {}): Promise<ChainRefundPage> {
+  const raw = await request<unknown>(`/payments/refunds${buildQuery({ status: "PENDING", limit: 100, ...params })}`);
+  return mapChainRefundPage(raw);
+}
+
 export const reportReal: ReportApi = {
   getRevenueComparison,
   getRevenueTimeseries,
   getTopItems,
+  getPaymentMethods,
+  getTopToppings,
+  listPendingRefunds,
 };

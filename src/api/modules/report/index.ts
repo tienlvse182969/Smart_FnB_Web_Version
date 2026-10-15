@@ -1,5 +1,9 @@
 /** Module report — báo cáo doanh thu. Chỉ OWNER gọi được (real). */
 import type {
+  ChainRefundPage,
+  ChainRefundParams,
+  PaymentMethodsReport,
+  TopToppings,
   ReportGranularity,
   ReportRangeParams,
   RevenueComparison,
@@ -14,6 +18,12 @@ export interface ReportApi {
   getRevenueComparison(params?: ReportRangeParams): Promise<RevenueComparison>;
   getRevenueTimeseries(params?: ReportRangeParams & { granularity?: ReportGranularity }): Promise<RevenueTimeseries>;
   getTopItems(params?: ReportRangeParams & { limit?: number }): Promise<TopItems>;
+  /** #94: doanh thu theo hình thức thanh toán. */
+  getPaymentMethods(params?: ReportRangeParams): Promise<PaymentMethodsReport>;
+  /** #97: topping bán chạy. */
+  getTopToppings(params?: ReportRangeParams & { limit?: number }): Promise<TopToppings>;
+  /** #99 (BR-49): khoản chờ chủ chuỗi hoàn, trong phạm vi Owner. */
+  listPendingRefunds(params?: ChainRefundParams): Promise<ChainRefundPage>;
 }
 
 export const reportApi = defineApi<ReportApi>("report", { real: reportReal, mock: reportMock });

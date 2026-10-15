@@ -58,8 +58,9 @@ export interface BranchRevenueRow {
 
 export interface RevenueComparison {
   range: ReportRange;
-  /** BE không trả giá trị đơn trung bình ở tổng toàn phạm vi: web không tự chia (quyết định 139). */
+  /** Giá trị đơn trung bình ở tổng do BE tính (BE `8a315ad`, #98 = netRevenue / orderCount); web không tự chia (QĐ 77). */
   totals: {
+    averageOrderValue: string;
     revenue: string;
     grossRevenue: string;
     refundAmount: string;
@@ -115,5 +116,73 @@ export interface TopItemRow {
 export interface TopItems {
   range: ReportRange;
   items: TopItemRow[];
+}
+
+/** Một dòng theo hình thức thanh toán (BE `8a315ad`, #94). Mã `method` là PaymentMethod của BE. */
+export interface PaymentMethodRow {
+  method: string;
+  grossSettledAmount: string;
+  grossReceivedAmount: string;
+  refundAmount: string;
+  netAmount: string;
+  receivedAmount: string;
+  paymentCount: number;
+  cancelledAfterPaymentCount: number;
+}
+
+export interface PaymentMethodsReport {
+  range: ReportRange;
+  /** Tổng theo hình thức trên toàn phạm vi; cộng `netAmount` khớp doanh thu sau hoàn. */
+  methods: PaymentMethodRow[];
+  branches: { branch: ReportBranchRef; methods: PaymentMethodRow[] }[];
+}
+
+/** Topping bán chạy (BE `8a315ad`, #97), lấy từ snapshot tuỳ chọn của dòng món. */
+export interface TopToppingRow {
+  rank: number;
+  optionId: string | null;
+  name: string | null;
+  quantity: number;
+  /** Tiền cộng thêm do topping, chuỗi thập phân. */
+  additionalRevenue: string;
+}
+
+export interface TopToppings {
+  range: ReportRange;
+  items: TopToppingRow[];
+}
+
+/** Tham số danh sách khoản chờ chủ chuỗi hoàn (BE `8a315ad`, #99; `GET /payments/refunds`). `from`/`to` là ISO, lọc theo ngày yêu cầu. */
+export interface ChainRefundParams {
+  chainId?: string;
+  branchIds?: string[];
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+/** Một khoản chờ hoàn. BE chỉ trả vai trò người huỷ, không có tên (xem api-contract-plan). */
+export interface ChainRefundRow {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  callNumber: number | null;
+  branchId: string;
+  branchName: string;
+  amount: number;
+  reason: string;
+  requestedByRole: string | null;
+  requestedAt: string | null;
+  /** Mã RefundMethod: CASH | BANK_TRANSFER. */
+  method: string;
+  source: string;
+}
+
+export interface ChainRefundPage {
+  items: ChainRefundRow[];
+  total: number;
+  page: number;
+  limit: number;
 }
 

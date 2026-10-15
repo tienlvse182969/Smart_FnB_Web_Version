@@ -245,8 +245,9 @@ export function CancelPaidModal({ open, order, target, submitting, onCancel, onS
 
 interface CompleteProps {
   open: boolean;
-  order: OrderDetail;
-  refund: OrderRefundRecord;
+  /** Chỉ cần mã đơn: khối "chờ chủ chuỗi hoàn" của Owner không có chi tiết đơn đầy đủ. */
+  order: Pick<OrderDetail, "orderCode">;
+  refund: Pick<OrderRefundRecord, "id" | "amount" | "reason">;
   submitting: boolean;
   onCancel: () => void;
   onSubmit: (input: CompleteRefundInput) => void;

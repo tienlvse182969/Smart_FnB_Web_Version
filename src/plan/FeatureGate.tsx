@@ -24,9 +24,14 @@ interface FeatureGateProps {
  * (đặc tả 13.2). Đây chỉ là lớp thứ hai; BE vẫn chặn khi gọi tính năng gói không có (BR-08).
  */
 export default function FeatureGate({ feature, children, compact = false }: FeatureGateProps) {
-  const { hasFeature, requiredTierLabel, planName } = usePlan();
+  const { hasFeature } = usePlan();
   if (hasFeature(feature)) return <>{children}</>;
+  return <FeatureLock feature={feature} compact={compact} />;
+}
 
+/** Thẻ khoá của một tính năng gói không có. Dùng cả khi BE chặn (403 `PLAN_FEATURE_NOT_ENABLED`) dù cờ gói trên web chưa phản ánh. */
+export function FeatureLock({ feature, compact = false }: { feature: FeatureKey; compact?: boolean }) {
+  const { requiredTierLabel, planName } = usePlan();
   const label = FEATURE_LABEL[feature];
   const required = requiredTierLabel(feature);
   return (

@@ -135,6 +135,8 @@ const CODE_TEXT: Record<string, string> = {
   DEVICE_TOKEN_INVALID: "Mã thiết bị không còn hợp lệ. Hãy ghép lại màn hình.",
   DEVICE_TOKEN_REVOKED: "Màn hình này đã bị thu hồi. Hãy ghép lại màn hình.",
   DEVICE_TOKEN_EXPIRED: "Mã thiết bị của màn hình đã hết hạn (30 ngày). Hãy ghép lại màn hình.",
+  // Đặt mật khẩu: sai liên kết 5 lần thì khoá liên kết 15 phút (BE `8a315ad`, #86; 429, mã ở `error`).
+  PASSWORD_SETUP_ATTEMPTS_EXCEEDED: "Nhập sai quá 5 lần nên liên kết này bị khoá 15 phút. Hãy nhờ gửi lại liên kết mới.",
 };
 
 /** 429 khi tạo mã ghép quá nhiều (BE `fb7cae9`, #70: 10 yêu cầu/phút/địa chỉ). */
@@ -142,6 +144,8 @@ export const TOO_MANY_REQUESTS_TEXT = "Yêu cầu quá nhanh. Chờ khoảng m�
 
 /** Câu tiếng Anh của BE đã biết → tiếng Việt. Câu không có trong bảng rơi về câu chung theo mã trạng thái (xem `translateBackendMessage`). */
 const BACKEND_TEXT: [RegExp, string][] = [
+  // BE `8a315ad`: đăng nhập nhận email HOẶC tên đăng nhập nên câu 401 đổi thành "Invalid username/email or password".
+  [/invalid username\/email or password/i, "Email/tên đăng nhập hoặc mật khẩu không đúng."],
   [/invalid email or password/i, "Email hoặc mật khẩu không đúng."],
   [/branch code already exists/i, "Mã chi nhánh đã tồn tại."],
   [/branch cannot be archived/i, "Chi nhánh còn phiên đang mở nên chưa lưu trữ được."],
@@ -258,7 +262,7 @@ export function describeApiError(err: unknown): string {
       if (isReadOnlyError(err)) return READ_ONLY_TEXT;
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? translateBackendMessage(err) : ""}`.trim();
     default:
-      if (err instanceof ApiError && err.status === 429) return TOO_MANY_REQUESTS_TEXT;
+      if (err instanceof ApiError && err.status === 429) return (err.code && CODE_TEXT[err.code]) || TOO_MANY_REQUESTS_TEXT;
       if (err instanceof ApiError) return err.status >= 500 ? serverErrorText(err) : translateBackendMessage(err);
       return err instanceof Error && HAS_VIETNAMESE.test(err.message) ? err.message : "Có lỗi xảy ra. Thử lại sau.";
   }
@@ -337,7 +341,10 @@ export function reportApiError(err: unknown): void {
   // 5xx của thao tác GHI để màn hình tự hiện (toast tại chỗ); 5xx của thao tác ĐỌC được báo toàn cục kèm nút Thử lại.
   if (!GLOBAL_KINDS.includes(kind) && !(kind === "server" && retryable)) return;
   // Khối lỗi trong trang chỉ thay cho lỗi ĐỌC; lỗi GHI trên màn đó (ví dụ PayOS) vẫn báo toàn cục như mọi màn khác.
-  const inline = err.method === "GET" && (kind === "forbidden" || kind === "network" || kind === "server") && isInlineErrorRoute(currentRoute());
+  // Báo cáo Owner: mục bị BE chặn theo gói (BR-08, #84) tự hiện thẻ khoá tại chỗ nên không bắn thêm thông báo nổi.
+  const planBlocked = kind === "quota" && err.code === "PLAN_FEATURE_NOT_ENABLED" && currentRoute() === "/owner/reports";
+  const inline =
+    err.method === "GET" && (kind === "forbidden" || kind === "network" || kind === "server" || planBlocked) && isInlineErrorRoute(currentRoute());
   err.reported = true;
   if (inline) return;
   handler?.({ kind, error: err, canRetry: retryable });

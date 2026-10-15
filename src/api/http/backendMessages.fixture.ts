@@ -8,6 +8,7 @@
 export const BACKEND_MESSAGES: [status: number, message: string, source: string][] = [
   // 401
   [401, "Invalid email or password", "auth/auth.service.ts:173"],
+  [401, "Invalid username/email or password", "auth/auth.service.ts (BE 8a315ad)"],
   // 400
   [400, "A logo file is required", "branding/branding.service.ts:160"],
   [400, "Administrators cannot change their own account status", "users/users.service.ts:225"],
