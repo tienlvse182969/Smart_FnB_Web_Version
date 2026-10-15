@@ -600,6 +600,33 @@ Việc mới sau 7.7a:
 
 Web có việc do BE đổi (không vỡ, chi tiết ở `docs/doi-chieu-be-20261013.md` mục 2 và 5): #60 câu lỗi; #67/#61 nhãn lý do ở "Cần xử lý"; nhãn `EXPIRED`/`REQUIRES_ATTENTION` của khoản; thêm sự kiện #51; mở khoá #27, #28, #62, #63, #64; màn gọi số #68–#71.
 
+### Cập nhật 9.2 (2026-10-15): BE `8a315ad` — trạng thái #81–#99 (đọc mã + test BE + web real; chưa chạy lại test BE)
+
+BE doc: `docs/OWNER_REPORTS_SECURITY_V92.md`. Test BE thêm: "enforces disabled plan features with a stable error code", "calculates total average order value from total net revenue", "lists pending refunds only inside the Owner branch scope", "marks a pending QR with a stable reason before switching to cash", "records a pending refund when PayOS arrives after the cashier switched to cash", "locks a repeatedly invalid password setup token on the fifth attempt" (+ đăng nhập username, tạo nhân viên trực tiếp, tải ảnh món).
+
+| # | Kết luận | Bằng chứng | Web |
+|---|---|---|---|
+| 81 | MỘT PHẦN | `counter-operations.controller.ts` `collectCash` gọi `payosPayments.cancelPendingForOrder` (lý do `PAYOS_CANCELLED_SWITCH_TO_CASH`); webhook về muộn → refund `LATE_PAYMENT` (`paid-order-refund.service.ts` `recordLatePayosPayment`). Chưa thấy huỷ QR khi sửa/huỷ đơn chưa trả; hết hạn do worker có từ trước | Không làm gì ở web |
+| 84 | MỘT PHẦN | `plan-quota.service.ts` `assertFeatureEnabled`: 403 `{error:"PLAN_FEATURE_NOT_ENABLED", feature, message}` (BRANDING: branding + poster đọc/ghi; MULTI_BRANCH_COMPARISON: MỌI báo cáo Owner khi phạm vi ≥ 2 chi nhánh, `reports.service.ts` `branches.length > 1`). Một chi nhánh vẫn đọc được. Dùng gói đăng ký kể cả hết hạn | **Đã nối** (QĐ 143–144): xem theo từng chi nhánh, khoá từng mục kèm nhãn gói |
+| 86 | MỘT PHẦN | Khoá đặt mật khẩu 5 lần sai → 15 phút, 429 `PASSWORD_SETUP_ATTEMPTS_EXCEEDED` (bền, bảng mới). Ghép OTP vẫn 10 lần/phút/địa chỉ trong bộ nhớ (`stations.service.ts` `assertPairingRateLimit`), KHÔNG khoá 5 lần/5 phút; đăng nhập chưa giới hạn tần suất | Chỉ câu lỗi 429 (QĐ 145) |
+| 89 | CHƯA / MỘT PHẦN | `render.yaml` thêm 3 biến `PAYMENT_EXPIRY_*`; vẫn `plan: free`, không `disk`; Admin lúc khởi động chỉ qua `prisma/seed.ts` (`SEED_ADMIN_*`) | — |
+| 90 | CHƯA | `GET /public/restaurant-chains`, `/public/branches*` vẫn liệt kê mọi chuỗi/chi nhánh đang hoạt động | — |
+| 93 | MỘT PHẦN | Test phạm vi chi nhánh cho báo cáo/hoàn tiền; chưa thấy test Socket.IO chéo doanh nghiệp, webhook đồng thời, script tải | — |
+| 94 | **ĐẠT** | `GET /reports/payment-methods` (`reports.service.ts` `getPaymentMethods`): `methods[]` + `branches[]`, `netAmount`… | **Đã nối** (QĐ 141) |
+| 97 | **ĐẠT** | `GET /reports/top-toppings` (`getTopToppings`, snapshot `selected_options`, group `TOPPING`/`TOPPINGS`) | **Đã nối** (QĐ 141) |
+| 98 | **ĐẠT** | `totals.averageOrderValue` ở `GET /reports/revenue/comparison` (`getRevenueComparison`) | **Đã nối** (QĐ 141) |
+| 99 | MỘT PHẦN | `GET /refunds` (`payments.controller.ts` `@Get('refunds')` dưới `@Controller()`; tài liệu BE ghi `/payments/refunds` là SAI, gọi đường đó trả 400 "uuid is expected" — đã đo thật 15/10) (Owner, Manager; lọc `chainId`, `branchIds`, `status`, `method`, `from`, `to`, `page`, `limit`; chi nhánh ngoài scope → 403) — **không có tên người huỷ** (chỉ `requestedByRole`, `requestedByEmployeeId`) | **Đã nối** (QĐ 142), hiện vai trò |
+
+**Mục BE mới (đánh tiếp từ #99):**
+
+| # | Mức | Việc cần BE | Ưu tiên |
+|---|---|---|---|
+| 102 | Thấp | Sửa `docs/OWNER_REPORTS_SECURITY_V92.md`: đường dẫn danh sách khoản hoàn là `GET /api/v1/refunds`, không phải `/payments/refunds` (hoặc thêm route `payments/refunds` TRƯỚC `payments/:paymentId`) | Nên có trước demo |
+| 100 | Thấp | `GET /refunds`: trả kèm họ tên người huỷ/người hoàn (như `requestedBy`/`completedBy` ở chi tiết đơn, #73) và `order.cancelledAt`; hiện Owner chỉ thấy vai trò "Quản lý chi nhánh" | Nên có trước demo |
+| 101 | Thấp | `GET /public/customer-display/context` (và socket) đẩy sự kiện khi Owner đổi áp phích để màn hình khách khỏi chờ vòng hỏi 60 giây (mobile đã ghi nhận) | Sau demo |
+
+**Vỡ hợp đồng web đã sửa tối thiểu:** (1) câu 401 đăng nhập đổi "Invalid username/email or password" → thêm khớp `BACKEND_TEXT`; (2) 429 `PASSWORD_SETUP_ATTEMPTS_EXCEEDED` hiện "chờ một phút" sai → `CODE_TEXT`; (3) poster giờ bị chặn theo gói ở GET → `FeatureGate`. **Chưa thấy API quét menu bằng AI** (chỉ có `POST /chain/…/items/:itemId/image` tải ảnh món, `menu.service.ts` `uploadItemImage`).
+
 ### Poster màn hình phụ (OW-11) — ĐÃ NỐI BE (`77526c3`, 13/10/2026)
 
 Owner quản lý danh sách poster của CHUỖI; màn hình phụ của thu ngân ở mọi chi nhánh xoay các poster đang bật, mỗi poster theo `durationSeconds` của nó. Web: `src/api/modules/posters` (real mặc định, `VITE_API_POSTERS=mock` để dùng dữ liệu giả); BE: `display-posters.controller.ts`, doc `docs/display-posters.md` của repo backend, migration `20261013110000_display_posters`.

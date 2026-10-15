@@ -108,7 +108,7 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | GU-01 | Nộp hồ sơ đăng ký (landing) | Xong (thật) | `POST /registration-applications` |
 | PA-01…PA-05 | Hồ sơ, duyệt, từ chối, gói, doanh nghiệp | Xong (thật) ×5 | #29 xong ở 7.7c (không gửi `maxTables`) |
 | OW-01…OW-07 | Chi nhánh, menu, tuỳ chọn, gán món, Manager, PayOS, nhận diện | Xong (thật) ×7 | PayOS thật chưa kiểm (thiếu `PAYOS_MASTER_KEY`) |
-| OW-08 | Báo cáo đa chi nhánh | **Một phần** | #47 đã sửa ở BE `7d7f2dc` (9 đơn, 1.090.000/950.000); màn Owner chưa có mục "theo hình thức thanh toán" (#94) và topping (#97): BE báo cáo Owner không trả. Từ 9.1 (QĐ 139): hiện doanh thu sau hoàn, gộp, đã hoàn, chờ hoàn, đơn huỷ sau thanh toán; bảng chờ hoàn của Owner chờ #99 |
+| OW-08 | Báo cáo đa chi nhánh | **Xong (thật)** (9.2) | #47 đã sửa ở BE `7d7f2dc`. Từ 9.1 (QĐ 139): doanh thu sau hoàn, gộp, đã hoàn, chờ hoàn, đơn huỷ sau thanh toán. **Từ 9.2 (BE `8a315ad`, QĐ 141–143):** theo hình thức thanh toán (#94), topping bán chạy (#97), giá trị đơn TB ở tổng (#98), khoá/tách từng mục theo gói (#84); gói không có so sánh đa chi nhánh xem từng chi nhánh |
 | OW-09 | Trợ lý AI | Xong (mock) | Nhóm chưa chốt; không làm, không đụng module `ai` |
 | OW-10 | Gói đang dùng | Xong (thật) | Từ 7.8: dải sắp hết hạn 7 ngày (QĐ 134) |
 | OW-11 | Áp phích màn hình phía khách | Xong (thật) | 7.9, QĐ 137: BE `4b81e48` `display-posters`; giới hạn BE 10/120 lệch đặc tả 6/50 (#82 chờ nhóm chốt, một hằng số `POSTER_LIMITS`) |
@@ -117,7 +117,7 @@ Tổng use case 3 actor: **23** (5 + 10 + 8); Xong (thật) **18** (5 + 8 + 5, t
 | BM-03 | Báo cáo chi nhánh | Xong (thật) | #47/#76 sửa ở BE `7d7f2dc` |
 | BM-04 | Tra cứu đơn | Xong (thật) | |
 | BM-05 | Xác nhận chuyển khoản thủ công | Xong (thật) | #75 xong ở 7.7c; chưa kiểm webhook PayOS thật |
-| BM-06 | Huỷ đơn đã thanh toán | Xong (thật) | QĐ 132 (tuỳ chọn, giá lúc bán, hao hụt); BR-49 phần "Owner thấy danh sách chờ hoàn" chưa có (#78, QĐ 133) |
+| BM-06 | Huỷ đơn đã thanh toán | Xong (thật) | QĐ 132 (tuỳ chọn, giá lúc bán, hao hụt); BR-49 phần "Owner thấy danh sách chờ hoàn" **đã có từ 9.2** (#99, QĐ 142; hiện vai trò người huỷ vì BE chưa trả tên, #100) |
 | CS-01…CS-05 | Thu ngân | Ngoài phạm vi web | App Android |
 | BA-01…BA-03 | Pha chế | Ngoài phạm vi web | App Android |
 
