@@ -20,13 +20,13 @@ const range = { from: "2026-10-01", to: "2026-10-07", timezone: "Asia/Ho_Chi_Min
 const row = (n, o) => ({ branch: ref(n), discount: "0.00", ...o });
 const two = {
   range,
-  totals: { revenue: "950000.00", grossRevenue: "1090000.00", refundAmount: "140000.00", pendingRefundAmount: "30000.00", netRevenue: "950000.00", paidCancellationCount: 3, orderCount: 9 },
+  totals: { averageOrderValue: "105555.56", revenue: "950000.00", grossRevenue: "1090000.00", refundAmount: "140000.00", pendingRefundAmount: "30000.00", netRevenue: "950000.00", paidCancellationCount: 3, orderCount: 9 },
   branches: [
     row(1, { revenue: "600000.00", grossRevenue: "700000.00", refundAmount: "100000.00", pendingRefundAmount: "30000.00", netRevenue: "600000.00", paidCancellationCount: 2, orderCount: 5, averageOrderValue: "120000.00" }),
     row(2, { revenue: "350000.00", grossRevenue: "390000.00", refundAmount: "40000.00", pendingRefundAmount: "0.00", netRevenue: "350000.00", paidCancellationCount: 1, orderCount: 4, averageOrderValue: "87500.00" }),
   ],
 };
-const one = { ...two, range: { ...range, branchCount: 1 }, totals: { ...two.totals }, branches: [two.branches[0]] };
+const one = { ...two, range: { ...range, branchCount: 1 }, totals: { ...two.totals, averageOrderValue: "120000.00" }, branches: [two.branches[0]] };
 const pt = (bucket, gross, refund, orders) => ({ bucket, revenue: `${gross - refund}.00`, grossRevenue: `${gross}.00`, refundAmount: `${refund}.00`, netRevenue: `${gross - refund}.00`, orderCount: orders });
 const points = [pt("2026-10-05", 300000, 0, 3), pt("2026-10-06", 400000, 100000, 3), pt("2026-10-07", 390000, 40000, 3)];
 const series = {
@@ -81,7 +81,7 @@ try {
   const aov = norm(await text("report-kpi-aov"));
   check("reports · (giả) doanh thu sau hoàn 950.000, gộp 1.090.000, đã hoàn 140.000", /950\.000/.test(rev) && /1\.090\.000/.test(rev) && /140\.000/.test(rev), rev);
   check("reports · (giả) đơn huỷ sau thanh toán = 3, chờ chủ chuỗi hoàn = 30.000", /\b3\b/.test(can) && /30\.000/.test(pen), `${can} | ${pen}`);
-  check("reports · (giả) nhiều chi nhánh: giá trị đơn TB hiện '—' kèm gợi ý chọn một chi nhánh (web không tự chia)", /—/.test(aov) && /Chọn một chi nhánh/.test(aov), aov);
+  check("reports · (giả) nhiều chi nhánh: giá trị đơn TB ở tổng = 105.556 (số BE #98, web không tự chia)", /105\.55[56]/.test(aov), aov);
   const marks = await q(`[...document.querySelectorAll('[data-testid="report-bar-refund"]')].map((e) => e.innerText)`);
   check("reports · (giả) biểu đồ đánh dấu hoàn đúng 2 ngày huỷ (06 và 07/10)", marks.length === 2, J(marks));
 
@@ -108,7 +108,7 @@ try {
   await sleep(2500);
   const body = await q(`document.body.innerText`);
   tab.setFault(null);
-  check("reports · 500: báo 'Không tải được báo cáo' bằng tiếng Việt, không chữ Anh thô", /Không tải được báo cáo|Máy chủ đang gặp sự cố/.test(body) && !/Internal Server Error/i.test(body));
+  check("reports · 500: báo 'Không tải được mục này' bằng tiếng Việt, không chữ Anh thô", /Không tải được mục này|Máy chủ đang gặp sự cố/.test(body) && !/Internal Server Error/i.test(body));
 } catch (e) {
   console.log("ERROR", e.stack ?? e.message);
   check("script chạy hết không lỗi", false, String(e.message ?? e));

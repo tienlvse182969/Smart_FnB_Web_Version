@@ -123,7 +123,8 @@ class Tab {
       // 422/502: body do script truyền, ví dụ BE `de4f55c` khi PayOS từ chối bộ khoá (422) hoặc tạm lỗi (502) lúc `PUT payos-channel`.
       422: fault?.body ?? { statusCode: 422, message: "Unprocessable Entity", error: "Unprocessable Entity" },
       502: fault?.body ?? { statusCode: 502, message: "Bad Gateway", error: "Bad Gateway" },
-      403: { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
+      // 403: body do script truyền (`fault.body`), ví dụ BE `8a315ad` chặn theo gói: { statusCode: 403, error: "PLAN_FEATURE_NOT_ENABLED", feature: "MULTI_BRANCH_COMPARISON", message: "…" }.
+      403: fault?.body ?? { statusCode: 403, message: "You do not have permission to access this resource", error: "Forbidden" },
       // 404: body do script truyền, mặc định như BE khi chi tiết đơn không có trong chi nhánh (manager-operations.service.ts).
       404: fault?.body ?? { statusCode: 404, message: "Order not found in your branch", error: "Not Found" },
       401: { statusCode: 401, message: "Unauthorized" },
