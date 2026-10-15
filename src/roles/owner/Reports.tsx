@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton, Table } from "antd";
 import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react";
 import dayjs from "dayjs";
@@ -27,6 +27,9 @@ import { palette } from "../../theme";
 
 const ALL_BRANCHES = "__all__";
 
+/** true = các mục cùng lỗi đã được gộp thành một khối ở đầu trang, mục không lặp lại lỗi. */
+const GroupedErrors = createContext(false);
+
 /** Báo cáo doanh thu của Owner — toàn bộ số liệu lấy từ `/reports/*`. Mỗi mục tự nạp và tự xử lý lỗi của mình. */
 export default function Reports() {
   const branches = useAppStore((s) => s.apiBranches);
@@ -45,6 +48,9 @@ export default function Reports() {
   });
   const branchId = picked ?? (canCompare ? ALL_BRANCHES : (branches[0]?.id ?? ALL_BRANCHES));
   const sections = useReportData({ ...range, branchIds, granularity });
+  // Từ 2 mục trở lên cùng lỗi thường do mạng/máy chủ: gộp thành MỘT khối báo lỗi thay vì lặp lại ở từng mục.
+  const failed = Object.values(sections).filter((s) => s.error !== null);
+  const grouped = failed.length >= 2 && failed.every((s) => s.error === failed[0].error);
 
   const choosePreset = (next: RangePreset) => {
     setPreset(next);
@@ -111,6 +117,23 @@ export default function Reports() {
         </div>
       </Card>
 
+      {grouped && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          data-testid="report-group-error"
+          message="Không tải được báo cáo"
+          description={failed[0].error}
+          action={
+            <Button size="small" onClick={() => failed.forEach((s) => s.reload())}>
+              Thử lại
+            </Button>
+          }
+        />
+      )}
+
+      <GroupedErrors.Provider value={grouped}>
       <KpiRow section={sections.comparison} />
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
@@ -132,6 +155,7 @@ export default function Reports() {
           <TopToppingsTable section={sections.topToppings} />
         </Col>
       </Row>
+      </GroupedErrors.Provider>
 
       <ChainPendingRefunds range={range} branchIds={branchIds} />
     </div>
@@ -144,7 +168,9 @@ type SectionProps<K extends keyof ReportSections> = {
 
 /** Mục BE chặn theo gói → thẻ khoá kèm nhãn gói cần có; lỗi khác → khối lỗi riêng kèm Thử lại. */
 function SectionStatus({ section, children }: { section: SectionState<unknown>; children: React.ReactNode }) {
+  const grouped = useContext(GroupedErrors);
   if (section.locked) return <FeatureLock feature="multiBranchCompare" compact />;
+  if (section.error && grouped) return null;
   if (section.error) {
     return (
       <Alert

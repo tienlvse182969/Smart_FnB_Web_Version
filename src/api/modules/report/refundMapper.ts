@@ -1,5 +1,5 @@
 /**
- * Chuyển phản hồi `GET /api/v1/payments/refunds` (BE `8a315ad`, #99, `paid-order-refund.service.ts` `listRefunds`) sang kiểu web.
+ * Chuyển phản hồi `GET /api/v1/refunds` (BE `8a315ad`, #99, `paid-order-refund.service.ts` `listRefunds`) sang kiểu web.
  * Mỗi dòng là một `Refund` của Prisma kèm `order { orderCode, callNumber, branch }`. Tiền là chuỗi thập phân. Đọc phòng thủ.
  */
 import { parseAmount } from "../../../lib/reportFormat";

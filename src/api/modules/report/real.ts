@@ -85,9 +85,13 @@ function getTopToppings(params: ReportRangeParams & { limit?: number } = {}): Pr
   return request<TopToppings>(`/reports/top-toppings${buildQuery(params)}`);
 }
 
-/** Khoản chờ hoàn (`status=PENDING` là mặc định của BE, vẫn gửi rõ). `from`/`to` là ISO theo `requestedAt`. */
+/**
+ * Khoản chờ hoàn (`status=PENDING` là mặc định của BE, vẫn gửi rõ). `from`/`to` là ISO theo `requestedAt`.
+ * ĐƯỜNG DẪN THẬT là `GET /refunds` (`payments.controller.ts` `@Controller()` + `@Get('refunds')`, cùng nhóm `POST /refunds/:id/complete`).
+ * Tài liệu BE `OWNER_REPORTS_SECURITY_V92.md` ghi `/payments/refunds` là SAI: đường đó rơi vào `GET /payments/:paymentId` → 400 "uuid is expected".
+ */
 async function listPendingRefunds(params: ChainRefundParams = {}): Promise<ChainRefundPage> {
-  const raw = await request<unknown>(`/payments/refunds${buildQuery({ status: "PENDING", limit: 100, ...params })}`);
+  const raw = await request<unknown>(`/refunds${buildQuery({ status: "PENDING", limit: 100, ...params })}`);
   return mapChainRefundPage(raw);
 }
 

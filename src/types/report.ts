@@ -152,7 +152,7 @@ export interface TopToppings {
   items: TopToppingRow[];
 }
 
-/** Tham số danh sách khoản chờ chủ chuỗi hoàn (BE `8a315ad`, #99; `GET /payments/refunds`). `from`/`to` là ISO, lọc theo ngày yêu cầu. */
+/** Tham số danh sách khoản chờ chủ chuỗi hoàn (BE `8a315ad`, #99; `GET /refunds`). `from`/`to` là ISO, lọc theo ngày yêu cầu. */
 export interface ChainRefundParams {
   chainId?: string;
   branchIds?: string[];
