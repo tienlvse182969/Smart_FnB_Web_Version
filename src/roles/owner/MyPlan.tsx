@@ -1,28 +1,69 @@
-import { Card, Progress, Skeleton, Tag } from "antd";
+import { App, Alert, Button, Card, Progress, Skeleton, Tag } from "antd";
+
 import { Check, X } from "lucide-react";
+
+import { useEffect, useState } from "react";
+
+import { adminApi, showApiError } from "../../api";
+
+import { platformBillingApi } from "../../api/platformBilling";
+
 import { SectionTitle } from "../../components/bits";
+
 import { formatDateVN } from "../../lib/reportFormat";
+
+import { formatVnd } from "../../lib/reportFormat";
+
 import { usePlan } from "../../plan/usePlan";
+
+import { useAppStore } from "../../store";
+
 import { palette } from "../../theme";
-import type { FeatureKey, PlanStatus, QuotaResource } from "../../types";
+
+import type {
+  FeatureKey,
+  PlanStatus,
+  QuotaResource,
+  ServicePlan,
+} from "../../types";
 
 /** Dòng liên hệ (quyết định 37): không có nút gia hạn hay đổi gói, BR-10. */
-export const PLAN_CONTACT_TEXT = "Liên hệ quản trị nền tảng để đổi gói hoặc gia hạn.";
+
+export const PLAN_CONTACT_TEXT =
+  "Liên hệ quản trị nền tảng để đổi gói hoặc gia hạn.";
 
 /** Tên tính năng theo bảng gói của đặc tả v9 mục 13.1 (`Smart-FnB-Dac-ta-v9.md:1214-1226`). Mọi khoá của `FeatureKey` phải có mặt. */
+
 export const FEATURE_LABEL: Record<FeatureKey, string> = {
   branding: "Nhận diện thương hiệu",
+
   multiBranchCompare: "So sánh đa chi nhánh",
+
   aiAssistant: "Trợ lý AI",
 };
+
 /** Cờ BE thật sự trả trên gói (`plan-quota.service.ts:23-24`); cờ AI chưa có ở BE (#30). */
+
 const BACKEND_FLAGS: FeatureKey[] = ["branding", "multiBranchCompare"];
 
-const RESOURCE_LABEL: Record<QuotaResource, string> = { branches: "Chi nhánh", accounts: "Tài khoản" };
+const RESOURCE_LABEL: Record<QuotaResource, string> = {
+  branches: "Chi nhánh",
+  accounts: "Tài khoản",
+};
 
 /** Nhãn đủ giá trị enum `BusinessSubscriptionStatus` của BE (`prisma/schema.prisma:217-221`: ACTIVE, SUSPENDED, EXPIRED), quyết định 52. */
-export const STATUS_LABEL: Record<PlanStatus, string> = { active: "Đang hoạt động", suspended: "Tạm ngưng", expired: "Đã hết hạn" };
-const STATUS_COLOR: Record<PlanStatus, string> = { active: "success", suspended: "warning", expired: "error" };
+
+export const STATUS_LABEL: Record<PlanStatus, string> = {
+  active: "Đang hoạt động",
+  suspended: "Tạm ngưng",
+  expired: "Đã hết hạn",
+};
+
+const STATUS_COLOR: Record<PlanStatus, string> = {
+  active: "success",
+  suspended: "warning",
+  expired: "error",
+};
 
 /**
  * "Gói của tôi" (OW-10, đặc tả `:309`): tên gói, trạng thái, ngày hết hạn (giờ Việt Nam, dd/MM/yyyy), hạn mức đã dùng/tối đa, tính năng có và chưa có.
@@ -30,8 +71,129 @@ const STATUS_COLOR: Record<PlanStatus, string> = { active: "success", suspended:
  * vào cơ chế chỉ đọc có sẵn (`usePlan().isExpired`, banner `ReadOnlyBanner`), màn này chỉ hiện nhãn trạng thái (quyết định 55). Dữ liệu lấy từ gói
  * đã nạp cùng phạm vi làm việc, nên lỗi đọc hiện ở màn lỗi nạp khu vực (có nút Thử lại), không phải ở màn này.
  */
+
 export default function MyPlan() {
   const { plan, loading } = usePlan();
+
+  const { message } = App.useApp();
+
+  const chainId = useAppStore((state) => state.chainId);
+
+  const reloadPlan = useAppStore((state) => state.reloadPlan);
+
+  const [paidPlans, setPaidPlans] = useState<ServicePlan[]>([]);
+
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+
+  const [checkoutStatus, setCheckoutStatus] = useState<
+    "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | null
+  >(null);
+
+  useEffect(() => {
+    if (plan?.planCode !== "TRIAL") return;
+
+    let cancelled = false;
+
+    setLoadingPlans(true);
+
+    adminApi
+      .listPublicPlans()
+
+      .then((plans) => {
+        if (!cancelled)
+          setPaidPlans(
+            plans.filter(
+              (item) =>
+                item.isActive && item.code !== "TRIAL" && item.monthlyPrice > 0,
+            ),
+          );
+      })
+
+      .catch((error) => {
+        if (!cancelled)
+          showApiError(message.error, error, "Không tải được các gói nâng cấp");
+      })
+
+      .finally(() => {
+        if (!cancelled) setLoadingPlans(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [plan?.planCode, message]);
+
+  useEffect(() => {
+    if (!chainId) return;
+
+    const checkoutId = new URLSearchParams(window.location.search).get(
+      "checkout",
+    );
+
+    if (!checkoutId) return;
+
+    let cancelled = false;
+
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const checkout = await platformBillingApi.getCheckout(
+          chainId,
+          checkoutId,
+        );
+
+        if (cancelled) return;
+
+        setCheckoutStatus(checkout.status);
+
+        if (checkout.status === "PAID") {
+          await reloadPlan();
+
+          window.history.replaceState({}, "", window.location.pathname);
+        } else if (checkout.status === "PENDING" && ++attempts < 20) {
+          timer = window.setTimeout(() => void poll(), 3000);
+        }
+      } catch (error) {
+        if (!cancelled)
+          showApiError(
+            message.error,
+            error,
+            "Không kiểm tra được trạng thái thanh toán",
+          );
+      }
+    };
+
+    let timer: number | undefined;
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [chainId, message, reloadPlan]);
+
+  const startCheckout = async (planId: string) => {
+    if (!chainId) return;
+
+    setCheckoutPlanId(planId);
+
+    try {
+      const checkout = await platformBillingApi.createCheckout(chainId, planId);
+
+      if (!checkout.checkoutUrl)
+        throw new Error("PayOS chưa trả về liên kết thanh toán");
+
+      window.location.assign(checkout.checkoutUrl);
+    } catch (error) {
+      showApiError(message.error, error, "Không tạo được liên kết thanh toán");
+
+      setCheckoutPlanId(null);
+    }
+  };
 
   if (!plan) {
     return (
@@ -46,9 +208,18 @@ export default function MyPlan() {
     return (
       <div>
         <SectionTitle title="Gói của tôi" />
-        <Card data-testid="myplan-none" style={{ borderRadius: 14, maxWidth: 560 }} styles={{ body: { padding: 22 } }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Không có gói đang hoạt động</div>
-          <div data-testid="myplan-contact" style={{ fontSize: 13.5, color: palette.textMuted }}>
+        <Card
+          data-testid="myplan-none"
+          style={{ borderRadius: 14, maxWidth: 560 }}
+          styles={{ body: { padding: 22 } }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
+            Không có gói đang hoạt động
+          </div>
+          <div
+            data-testid="myplan-contact"
+            style={{ fontSize: 13.5, color: palette.textMuted }}
+          >
             {PLAN_CONTACT_TEXT}
           </div>
         </Card>
@@ -57,16 +228,60 @@ export default function MyPlan() {
   }
 
   const fromBackend = plan.source.features === "real";
+
   return (
     <div>
-      <SectionTitle title="Gói của tôi" sub="Gói dịch vụ, hạn mức và tính năng của doanh nghiệp (chỉ xem)" />
+      <SectionTitle
+        title="Gói của tôi"
+        sub="Theo dõi thời hạn dùng thử, hạn mức và nâng cấp gói dịch vụ"
+      />
       <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>
+        {checkoutStatus && (
+          <Alert
+            showIcon
+            type={
+              checkoutStatus === "PAID"
+                ? "success"
+                : checkoutStatus === "FAILED" ||
+                    checkoutStatus === "NEEDS_REVIEW"
+                  ? "error"
+                  : "info"
+            }
+            message={
+              checkoutStatus === "PAID"
+                ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
+                : checkoutStatus === "NEEDS_REVIEW"
+                  ? "PayOS đã báo có tiền nhưng giao dịch cần đối soát. Vui lòng liên hệ quản trị SmartFnB, không thanh toán lại."
+                  : checkoutStatus === "FAILED"
+                    ? "Không thể hoàn tất thanh toán. Vui lòng thử lại."
+                    : "Đang chờ PayOS xác nhận thanh toán. Chỉ chuyển trang trở lại chưa có nghĩa là đã trả tiền."
+            }
+          />
+        )}
         <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
-          <div style={{ fontSize: 12.5, color: palette.textMuted, marginBottom: 4 }}>Gói đang dùng</div>
-          <div data-testid="myplan-name" style={{ fontWeight: 700, fontSize: 20, marginBottom: 14 }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: palette.textMuted,
+              marginBottom: 4,
+            }}
+          >
+            Gói đang dùng
+          </div>
+          <div
+            data-testid="myplan-name"
+            style={{ fontWeight: 700, fontSize: 20, marginBottom: 14 }}
+          >
             {plan.planName}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 8, fontSize: 13.5 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "120px 1fr",
+              rowGap: 8,
+              fontSize: 13.5,
+            }}
+          >
             <span style={{ color: palette.textMuted }}>Trạng thái</span>
             <span data-testid="myplan-status">
               {plan.status ? (
@@ -78,54 +293,182 @@ export default function MyPlan() {
               )}
             </span>
             <span style={{ color: palette.textMuted }}>Hết hạn</span>
-            <span data-testid="myplan-expiry">{formatDateVN(plan.expiresAt)}</span>
+            <span data-testid="myplan-expiry">
+              {formatDateVN(plan.expiresAt)}
+            </span>
           </div>
         </Card>
 
-        <Card title="Hạn mức" style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
+        {plan.planCode === "TRIAL" && plan.status !== "suspended" && (
+          <Card
+            title="Nâng cấp bất cứ lúc nào"
+            style={{ borderRadius: 14 }}
+            styles={{ body: { padding: 22 } }}
+          >
+            <p style={{ color: palette.textMuted, marginTop: 0 }}>
+              Bạn không cần chờ hết 14 ngày. Sau khi PayOS xác nhận thanh toán,
+              gói trả phí bắt đầu ngay và phần ngày dùng thử còn lại sẽ không
+              được cộng dồn.
+            </p>
+            {loadingPlans ? (
+              <Skeleton active paragraph={{ rows: 2 }} />
+            ) : paidPlans.length === 0 ? (
+              <p>Hiện chưa có gói trả phí để chọn.</p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                }}
+              >
+                {paidPlans.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      border: `1px solid ${palette.neutral.border}`,
+                      borderRadius: 12,
+                      padding: 16,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>
+                      {item.name}
+                    </div>
+                    <div style={{ marginTop: 8, fontWeight: 700 }}>
+                      {formatVnd(item.monthlyPrice)} / tháng
+                    </div>
+                    <div
+                      style={{ margin: "8px 0 16px", color: palette.textMuted }}
+                    >
+                      {item.maxBranches} chi nhánh · {item.maxAccounts} tài
+                      khoản
+                    </div>
+                    <Button
+                      type="primary"
+                      block
+                      loading={checkoutPlanId === item.id}
+                      disabled={
+                        checkoutPlanId !== null && checkoutPlanId !== item.id
+                      }
+                      onClick={() => void startCheckout(item.id)}
+                    >
+                      Thanh toán nâng cấp
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        <Card
+          title="Hạn mức"
+          style={{ borderRadius: 14 }}
+          styles={{ body: { padding: 22 } }}
+        >
           {plan.limits.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: palette.textMuted }}>Chưa có dữ liệu hạn mức.</div>
+            <div style={{ fontSize: 13.5, color: palette.textMuted }}>
+              Chưa có dữ liệu hạn mức.
+            </div>
           ) : (
             plan.limits.map((l) => {
               const full = l.limit > 0 && l.used >= l.limit;
-              const percent = l.limit > 0 ? Math.min(100, Math.round((l.used / l.limit) * 100)) : 0;
+
+              const percent =
+                l.limit > 0
+                  ? Math.min(100, Math.round((l.used / l.limit) * 100))
+                  : 0;
+
               return (
-                <div key={l.resource} data-testid={`myplan-limit-${l.resource}`} style={{ marginBottom: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600 }}>{RESOURCE_LABEL[l.resource]}</span>
+                <div
+                  key={l.resource}
+                  data-testid={`myplan-limit-${l.resource}`}
+                  style={{ marginBottom: 14 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 13.5,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {RESOURCE_LABEL[l.resource]}
+                    </span>
                     <span>
                       Đã dùng {l.used} / {l.limit}
                       {full && (
-                        <Tag data-testid={`myplan-limit-warn-${l.resource}`} color="warning" style={{ marginLeft: 8, marginRight: 0 }}>
+                        <Tag
+                          data-testid={`myplan-limit-warn-${l.resource}`}
+                          color="warning"
+                          style={{ marginLeft: 8, marginRight: 0 }}
+                        >
                           {l.used > l.limit ? "Vượt hạn mức" : "Đã hết hạn mức"}
                         </Tag>
                       )}
                     </span>
                   </div>
-                  <Progress percent={percent} showInfo={false} status={full ? "exception" : "normal"} />
+                  <Progress
+                    percent={percent}
+                    showInfo={false}
+                    status={full ? "exception" : "normal"}
+                  />
                 </div>
               );
             })
           )}
         </Card>
 
-        <Card title="Tính năng" style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
+        <Card
+          title="Tính năng"
+          style={{ borderRadius: 14 }}
+          styles={{ body: { padding: 22 } }}
+        >
           {(Object.keys(FEATURE_LABEL) as FeatureKey[]).map((key) => {
             const pending = fromBackend && !BACKEND_FLAGS.includes(key);
+
             const enabled = plan.features[key].enabled;
+
             return (
-              <div key={key} data-testid={`myplan-feature-${key}`} data-enabled={pending ? "unknown" : String(enabled)} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, marginBottom: 10 }}>
-                {pending ? null : enabled ? <Check size={16} color={palette.success.text} /> : <X size={16} color={palette.textSubtle} />}
+              <div
+                key={key}
+                data-testid={`myplan-feature-${key}`}
+                data-enabled={pending ? "unknown" : String(enabled)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 13.5,
+                  marginBottom: 10,
+                }}
+              >
+                {pending ? null : enabled ? (
+                  <Check size={16} color={palette.success.text} />
+                ) : (
+                  <X size={16} color={palette.textSubtle} />
+                )}
                 <span style={{ fontWeight: 600 }}>{FEATURE_LABEL[key]}</span>
-                <span style={{ color: palette.textMuted }}>{pending ? "Chưa có dữ liệu từ máy chủ (chờ BE #30)" : enabled ? "Có" : "Chưa có"}</span>
+                <span style={{ color: palette.textMuted }}>
+                  {pending
+                    ? "Chưa có dữ liệu từ máy chủ (chờ BE #30)"
+                    : enabled
+                      ? "Có"
+                      : "Chưa có"}
+                </span>
               </div>
             );
           })}
         </Card>
 
-        <div data-testid="myplan-contact" style={{ fontSize: 13.5, color: palette.textMuted }}>
-          {PLAN_CONTACT_TEXT}
-        </div>
+        {plan.planCode !== "TRIAL" && (
+          <div
+            data-testid="myplan-contact"
+            style={{ fontSize: 13.5, color: palette.textMuted }}
+          >
+            {PLAN_CONTACT_TEXT}
+          </div>
+        )}
       </div>
     </div>
   );
