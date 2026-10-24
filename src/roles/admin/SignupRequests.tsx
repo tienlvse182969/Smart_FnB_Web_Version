@@ -202,8 +202,8 @@ export default function SignupRequests() {
           },
 
           {
-            title: "Gói mong muốn",
-            render: (_, r) => r.requestedPlan?.name ?? "—",
+            title: "Gói cấp khi duyệt",
+            render: (_, r) => r.status === "PENDING" ? "TRIAL · 14 ngày" : "Xem chi tiết",
           },
 
           {
@@ -239,11 +239,14 @@ export default function SignupRequests() {
             <Field label="Người đại diện">{detail.representativeName}</Field>
             <Field label="Email">{detail.representativeEmail}</Field>
             <Field label="Điện thoại">{detail.representativePhone}</Field>
-            <Field label="Gói mong muốn">
-              {detail.requestedPlan
-                ? `${detail.requestedPlan.name} · ${formatVnd(detail.requestedPlan.monthlyPrice)}/tháng`
-                : "—"}
-            </Field>
+            {detail.status === "PENDING" && (
+              <Field label="Gói cấp khi duyệt">TRIAL · miễn phí 14 ngày</Field>
+            )}
+            {detail.requestedPlan && (
+              <Field label="Gói từng yêu cầu">
+                {`${detail.requestedPlan.name} · ${formatVnd(detail.requestedPlan.monthlyPrice)}/tháng`}
+              </Field>
+            )}
             <Field label="Ngày nộp">{formatDateTime(detail.createdAt)}</Field>
             {detail.reviewedAt && (
               <Field label="Xử lý lúc">
