@@ -24,8 +24,11 @@ function assertReason(reason: string | undefined): string {
 }
 
 export const accountReal: AccountApi = {
-  async createDirectAccount(_chainId, input) {
-    return mapManager(await request<RawEmployee>("/employees/accounts", { method: "POST", body: input }));
+  async inviteAccount(_chainId, input) {
+    const raw = await request<{ account: RawEmployee; invitationExpiresAt: string; emailStatus?: "SENT" | "PENDING" | "FAILED" }>("/employees/invitations", {
+      method: "POST", body: { name: input.name.trim(), email: input.email.trim().toLowerCase(), role: input.role, branchId: input.branchId },
+    });
+    return { account: mapManager(raw.account), expiresAt: raw.invitationExpiresAt, emailStatus: raw.emailStatus };
   },
 
   async setDirectPassword(accountId, password) {
@@ -41,13 +44,13 @@ export const accountReal: AccountApi = {
     return mapManagerPage(await request<RawEmployeePage>(`/employees?${params}`));
   },
 
-  async setManagerActive(accountId, active) {
-    await request(`/employees/${accountId}/status`, { method: "PATCH", body: { status: active ? "ACTIVE" : LOCKED } });
+  async setManagerActive(accountId, active, reason) {
+    await request(`/employees/${accountId}/status`, { method: "PATCH", body: { status: active ? "ACTIVE" : LOCKED, reason: assertReason(reason) } });
   },
 
-  async resetManagerPassword(accountId) {
-    const raw = await request<{ message: string; expiresAt: string }>(`/employees/${accountId}/reset-password`, { method: "POST" });
-    return { expiresAt: raw.expiresAt };
+  async resetManagerPassword(accountId, reason, pending = false) {
+    const raw = await request<{ expiresAt: string; emailStatus?: "SENT" | "PENDING" | "FAILED" }>(`/employees/${accountId}/${pending ? "invitation/resend" : "reset-password"}`, { method: "POST", body: { reason: assertReason(reason) } });
+    return { expiresAt: raw.expiresAt, emailStatus: raw.emailStatus };
   },
 
   async reassignManager(accountId, branchId) {
@@ -55,11 +58,11 @@ export const accountReal: AccountApi = {
   },
 
   async createManager(_chainId, branchId, name, email) {
-    const raw = await request<{ account: RawEmployee; expiresAt: string }>("/employees/managers", {
+    const raw = await request<{ account: RawEmployee; invitationExpiresAt: string; emailStatus?: "SENT" | "PENDING" | "FAILED" }>("/employees/managers", {
       method: "POST",
       body: { branchId, name: name.trim(), email: email.trim() },
     });
-    return { account: mapManager(raw.account), expiresAt: raw.expiresAt };
+    return { account: mapManager(raw.account), expiresAt: raw.invitationExpiresAt, emailStatus: raw.emailStatus };
   },
 
   // --- Cashier/Barista: Owner XEM thật (OW-05: Owner chỉ xem; `GET /employees?role=…` mở cho OWNER) --------------------

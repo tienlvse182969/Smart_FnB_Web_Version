@@ -18,7 +18,7 @@ import type {
   StaffPage,
   StaffPatch,
   StaffQuery,
-  DirectStaffInput,
+  StaffInvitationInput,
 } from "../../../types";
 import { defineApi } from "../../define";
 import { accountMock } from "./mock";
@@ -30,14 +30,14 @@ export interface AccountApi {
   listManagers(chainId: string, query?: ManagerQuery): Promise<ManagerPage>;
   /** Không có mật khẩu: tài khoản mới nhận email đặt mật khẩu một lần. */
   createManager(chainId: string, branchId: string, name: string, email: string): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
-  /** Owner creates an immediately active account without email. */
-  createDirectAccount(chainId: string, input: DirectStaffInput): Promise<ManagerAccount>;
+  /** Owner invites staff by email; password is chosen by the recipient. */
+  inviteAccount(chainId: string, input: StaffInvitationInput): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
   /** Owner replaces a direct-login password; existing sessions are revoked. */
   setDirectPassword(accountId: string, password: string): Promise<void>;
   /** Khoá/mở khoá (`PATCH /employees/{id}/status`); khoá thu hồi mọi phiên của Manager. */
-  setManagerActive(accountId: string, active: boolean): Promise<void>;
+  setManagerActive(accountId: string, active: boolean, reason?: string): Promise<void>;
   /** Thu hồi phiên và xếp email đặt mật khẩu mới (`POST /employees/{id}/reset-password`, hiệu lực 24 giờ). */
-  resetManagerPassword(accountId: string): Promise<PasswordSetupNotice>;
+  resetManagerPassword(accountId: string, reason?: string, pending?: boolean): Promise<PasswordSetupNotice>;
   /** Chuyển Manager sang chi nhánh khác của cùng chuỗi (`PATCH /employees/{id}/branch`); Manager phải đăng nhập lại. */
   reassignManager(accountId: string, branchId: string): Promise<void>;
 

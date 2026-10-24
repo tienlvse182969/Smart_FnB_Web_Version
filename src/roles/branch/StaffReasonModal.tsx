@@ -77,9 +77,9 @@ export default function StaffReasonModal({ open, busy, kind, staffName, email, r
       <div data-testid="confirm-staff" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 12 }}>
         <b>{staffName}</b> · {roleLabel} · chi nhánh <b>{branchName}</b> ({email})
         <br />
-        {kind === "lock" && "Các phiên đang đăng nhập bị thu hồi và nhân viên không đăng nhập được nữa. Tài khoản khoá không tính vào hạn mức gói."}
-        {kind === "unlock" && "Tài khoản đăng nhập được trở lại và tính lại vào hạn mức gói; nếu gói đã đủ tài khoản thì không mở khoá được."}
-        {kind === "cancel-invite" && <>Link kích hoạt đã gửi tới <b>{email}</b> không còn dùng được. Tài khoản chuyển sang "Đã ngừng"; muốn mời lại, dùng "Gửi lại email".</>}
+        {kind === "lock" && "Các phiên đang đăng nhập bị thu hồi. Tài khoản vẫn tính vào hạn mức gói."}
+        {kind === "unlock" && "Mở lại tài khoản đã kích hoạt. Lời mời đang chờ không thể được kích hoạt bằng thao tác này."}
+        {kind === "cancel-invite" && <>Link kích hoạt đã gửi tới <b>{email}</b> không còn dùng được. Lời mời đã huỷ không thể gửi lại; tài khoản vẫn được giữ để đối chiếu và vẫn tính vào hạn mức.</>}
         {kind === "reset" &&
           (pending ? (
             <>Email gửi tới <b>{email}</b>. Link kích hoạt dùng một lần, hiệu lực 24 giờ; lời mời cũ không còn dùng được.</>

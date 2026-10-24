@@ -1,7 +1,7 @@
 import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
 import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import type { AccountStatus, DirectStaffInput, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AccountStatus, StaffInvitationInput, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
@@ -9,13 +9,14 @@ import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
+import StaffReasonModal from "../branch/StaffReasonModal";
 
 const PAGE_SIZE = 20;
 
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
 
 /**
- * Owner tạo trực tiếp Manager, Cashier và Barista với tên đăng nhập/mật khẩu.
+ * Owner mời Manager, Cashier và Barista qua email.
  * Danh sách, khoá/mở khoá và chuyển chi nhánh Manager dùng BE `/employees`.
  */
 export default function ManagerAccounts() {
@@ -33,6 +34,10 @@ export default function ManagerAccounts() {
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
   const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; account: ManagerAccount | StaffAccount } | null>(null);
+  const [reasonBusy, setReasonBusy] = useState(false);
+  const reasonInFlight = useRef(false);
 
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? id ?? "—";
 
@@ -76,56 +81,38 @@ export default function ManagerAccounts() {
     }
   };
 
-  const confirmLock = (m: ManagerAccount) => {
-    const locking = m.status === "ACTIVE";
-    modal.confirm({
-      title: locking ? `Khoá tài khoản ${m.name}?` : `Mở khoá tài khoản ${m.name}?`,
-      content: (
-        <div data-testid="confirm-lock" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-          <b>{m.name}</b> · chi nhánh <b>{m.branchName}</b> ({m.email})
-          <br />
-          {locking ? "Các phiên đang đăng nhập của tài khoản này sẽ bị thu hồi và không đăng nhập được nữa." : "Tài khoản đăng nhập được trở lại."}
-        </div>
-      ),
-      okText: locking ? "Khoá tài khoản" : "Mở khoá",
-      okButtonProps: { danger: locking },
-      cancelText: "Huỷ",
-      onOk: () =>
-        run(async () => {
-          await accountApi.setManagerActive(m.id, !locking);
-          message.success(locking ? `Đã khoá tài khoản ${m.name}` : `Đã mở khoá tài khoản ${m.name}`);
-        }, locking ? "Không khoá được tài khoản" : "Không mở khoá được tài khoản"),
-    });
+  const confirmLock = (m: ManagerAccount | StaffAccount) => setReasonFor({ kind: m.status === "ACTIVE" ? "lock" : "unlock", account: m });
+  const confirmReset = (m: ManagerAccount | StaffAccount) => {
+    if (!m.email.includes("@")) { setPasswordTarget({ id: m.id, name: m.name }); return; }
+    setReasonFor({ kind: "reset", account: m });
   };
-
-  const confirmReset = (m: ManagerAccount) => {
-    if (!m.email.includes("@")) {
-      setPasswordTarget({ id: m.id, name: m.name });
-      return;
-    }
-    modal.confirm({
-      title: `Gửi lại email đặt mật khẩu cho ${m.name}?`,
-      content: (
-        <div data-testid="confirm-reset" style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-          Email gửi tới <b>{m.email}</b>. Link dùng một lần, hiệu lực 24 giờ; các phiên đang đăng nhập của {m.name} sẽ bị thu hồi.
-        </div>
-      ),
-      okText: "Gửi email",
-      cancelText: "Huỷ",
-      onOk: () =>
-        run(async () => {
-          const { expiresAt } = await accountApi.resetManagerPassword(m.id);
-          modal.success({
-            title: `Đã xếp email đặt lại mật khẩu cho ${m.name}`,
-            content: (
-              <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                Email gửi tới <b>{m.email}</b>, hiệu lực tới {formatDateTime(expiresAt)}. Các phiên đang đăng nhập đã bị thu hồi.
-              </div>
-            ),
-          });
-        }, "Không gửi được email đặt mật khẩu"),
-    });
+  const submitReason = async (reason: string) => {
+    if (!reasonFor || reasonInFlight.current) return;
+    reasonInFlight.current = true; setReasonBusy(true);
+    const { kind, account: m } = reasonFor;
+    try {
+      if (kind === "reset") {
+        const notice = await accountApi.resetManagerPassword(m.id, reason, m.invitationState === "PENDING");
+        modal.success({ title: "Đã xử lý yêu cầu email", content: <div data-testid="password-setup-notice">{emailNotice(notice.emailStatus)}<br />Gửi tới {m.email}. Link dùng một lần, hết hạn lúc {formatDateTime(notice.expiresAt)}. Nếu cần gửi lại, đợi ít nhất 60 giây.</div> });
+      } else {
+        await accountApi.setManagerActive(m.id, kind === "unlock", reason);
+        message.success(kind === "lock" ? "Đã khoá tài khoản" : "Đã mở khoá tài khoản");
+      }
+      setReasonFor(null);
+      await Promise.all([loadManagers(), loadStaff()]);
+    } catch (err) { showApiError(message.error, err, "Không thực hiện được thao tác"); }
+    finally { reasonInFlight.current = false; setReasonBusy(false); }
   };
+  const actions = (r: ManagerAccount | StaffAccount) => (
+    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+      <ActionButton size="small" icon={<KeyRound size={14} />} disabled={r.invitationState === "CANCELLED" || r.status === "SUSPENDED"} onClick={() => confirmReset(r)}>
+        {r.invitationState === "PENDING" ? "Gửi lại lời mời" : "Reset mật khẩu"}
+      </ActionButton>
+      <ActionButton size="small" icon={r.status === "SUSPENDED" ? <Unlock size={14} /> : <Lock size={14} />} disabled={r.invitationState === "CANCELLED" || r.invitationState === "PENDING" || r.status === "INACTIVE"} onClick={() => confirmLock(r)}>
+        {r.status === "SUSPENDED" ? "Mở khoá" : "Khoá"}
+      </ActionButton>
+    </div>
+  );
 
   const confirmTransfer = (m: ManagerAccount, branchId: string) => {
     if (branchId === m.branchId) return;
@@ -150,7 +137,7 @@ export default function ManagerAccounts() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Tài khoản nhân viên"
-        sub="Tạo Manager, Thu ngân và Pha chế cho từng chi nhánh; không cần email"
+        sub="Mời Manager, Thu ngân và Pha chế qua email; nhân viên tự đặt mật khẩu"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
             Thêm nhân viên
@@ -229,7 +216,7 @@ export default function ManagerAccounts() {
                     {
                       title: "Trạng thái",
                       dataIndex: "status",
-                      render: (s: AccountStatus) => (
+                      render: (s: AccountStatus, r) => (
                         <span
                           style={{
                             background: s === "ACTIVE" ? palette.success.bg : s === "SUSPENDED" ? palette.error.bg : palette.paperSubtle,
@@ -241,7 +228,7 @@ export default function ManagerAccounts() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {STATUS_LABEL[s]}
+                          {r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ nhận lời mời" : STATUS_LABEL[s]}
                         </span>
                       ),
                     },
@@ -250,22 +237,7 @@ export default function ManagerAccounts() {
                       title: "",
                       key: "act",
                       align: "right",
-                      render: (_, r) => (
-                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                          <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => confirmReset(r)}>
-                            Reset mật khẩu
-                          </ActionButton>
-                          {r.status === "SUSPENDED" ? (
-                            <ActionButton size="small" icon={<Unlock size={14} />} onClick={() => confirmLock(r)}>
-                              Mở khoá
-                            </ActionButton>
-                          ) : (
-                            <ActionButton size="small" icon={<Lock size={14} />} disabled={r.status !== "ACTIVE"} onClick={() => confirmLock(r)}>
-                              Khoá
-                            </ActionButton>
-                          )}
-                        </div>
-                      ),
+                      render: (_, r) => actions(r),
                     },
                   ]}
                 />
@@ -298,16 +270,12 @@ export default function ManagerAccounts() {
                     {
                       title: "",
                       key: "password",
-                      render: (_, r) => !r.email.includes("@") ? (
-                        <ActionButton size="small" icon={<KeyRound size={14} />} onClick={() => setPasswordTarget({ id: r.id, name: r.name })}>
-                          Đặt lại mật khẩu
-                        </ActionButton>
-                      ) : null,
+                      render: (_, r) => actions(r),
                     },
                     {
                       title: "Trạng thái",
                       dataIndex: "status",
-                      render: (s: AccountStatus) => (s === "ACTIVE" ? <Tag color="green">{STATUS_LABEL[s]}</Tag> : <Tag>{STATUS_LABEL[s]}</Tag>),
+                      render: (s: AccountStatus, r) => <Tag color={s === "ACTIVE" ? "green" : undefined}>{r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ nhận lời mời" : STATUS_LABEL[s]}</Tag>,
                     },
                   ]}
                 />
@@ -324,18 +292,19 @@ export default function ManagerAccounts() {
         onSave={async (input) => {
           if (!tenantId) return false;
           try {
-            const acc = await accountApi.createDirectAccount(tenantId, input);
+            const { account: acc, expiresAt, emailStatus } = await accountApi.inviteAccount(tenantId, input);
             setAdding(false);
             modal.success({
               title: "Đã tạo tài khoản nhân viên",
               content: (
                 <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
-                  Tài khoản <b>{acc.email}</b> đã hoạt động. Hãy cung cấp tên đăng nhập và mật khẩu vừa tạo trực tiếp cho nhân viên.
+                  Tài khoản <b>{acc.email}</b> đang chờ đặt mật khẩu. {emailNotice(emailStatus)} Link hết hạn lúc {formatDateTime(expiresAt)}.
                 </div>
               ),
             });
             await loadManagers();
             await loadStaff();
+            await useAppStore.getState().loadScope({ silent: true });
             return true;
           } catch (err) {
             showApiError(message.error, err, "Không tạo được — có thể đã vượt hạn mức gói");
@@ -343,6 +312,7 @@ export default function ManagerAccounts() {
           }
         }}
       />
+      <StaffReasonModal open={!!reasonFor} busy={reasonBusy} kind={reasonFor?.kind ?? "reset"} staffName={reasonFor?.account.name ?? ""} email={reasonFor?.account.email ?? ""} roleLabel="Nhân viên" branchName={reasonFor?.account.branchName ?? ""} pending={reasonFor?.account.invitationState === "PENDING"} onCancel={() => { if (!reasonBusy) setReasonFor(null); }} onSubmit={(reason) => void submitReason(reason)} />
       <SetPasswordDrawer
         target={passwordTarget}
         onClose={() => setPasswordTarget(null)}
@@ -363,86 +333,44 @@ export default function ManagerAccounts() {
   );
 }
 
-function AddAccountDrawer({
-  open,
-  branches,
-  onClose,
-  onSave,
-}: {
-  open: boolean;
-  branches: { id: string; name: string }[];
-  onClose: () => void;
-  onSave: (input: DirectStaffInput) => Promise<boolean>;
+function emailNotice(status?: "SENT" | "PENDING" | "FAILED") {
+  return status === "SENT" ? "Email đã được gửi." : status === "FAILED" ? "Gửi email thất bại; tài khoản vẫn đã tạo. Hãy gửi lại lời mời sau khi kiểm tra cấu hình." : "Email chưa được xác nhận gửi. Kiểm tra cấu hình và gửi lại lời mời nếu cần.";
+}
+
+function AddAccountDrawer({ open, branches, onClose, onSave }: {
+  open: boolean; branches: { id: string; name: string }[]; onClose: () => void;
+  onSave: (input: StaffInvitationInput) => Promise<boolean>;
 }) {
-  const { message } = App.useApp();
   const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<DirectStaffInput["role"]>("MANAGER");
-  const [usernameTouched, setUsernameTouched] = useState(false);
-  const [passwordTouched, setPasswordTouched] = useState(false);
-  const [branchId, setBranchId] = useState(branches[0]?.id);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<StaffInvitationInput["role"]>("MANAGER");
+  const [branchId, setBranchId] = useState<string>();
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) setBranchId(branches[0]?.id);
-  }, [open]);
-
-  const reset = () => {
-    setName("");
-    setUsername("");
-    setPassword("");
-    setRole("MANAGER");
-    setUsernameTouched(false);
-    setPasswordTouched(false);
-  };
-
+  const inFlight = useRef(false);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => { if (open) { setName(""); setEmail(""); setRole("MANAGER"); setBranchId(branches[0]?.id); setTouched(false); } }, [open]);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const valid = name.trim().length > 0 && name.trim().length <= 200 && emailValid && !!branchId;
   const save = async () => {
-    if (saving) return;
-    if (!name.trim() || !branchId || !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) || password.length < 8) {
-      setUsernameTouched(true);
-      setPasswordTouched(true);
-      message.error("Nhập họ tên, tài khoản 3–50 ký tự, mật khẩu từ 8 ký tự và chọn chi nhánh");
-      return;
-    }
-    setSaving(true);
-    try {
-      if (await onSave({ name: name.trim(), username: username.trim().toLowerCase(), password, branchId, role })) reset();
-    } finally {
-      setSaving(false);
-    }
+    setTouched(true);
+    if (!valid || inFlight.current) return;
+    inFlight.current = true; setSaving(true);
+    try { await onSave({ name: name.trim(), email: email.trim().toLowerCase(), role, branchId: branchId! }); }
+    finally { inFlight.current = false; setSaving(false); }
   };
-
   return (
-    <Drawer
-      title="Tạo tài khoản nhân viên"
-      open={open}
-      onClose={() => {
-        reset();
-        onClose();
-      }}
-      styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}
-    >
-      <Field label="Họ tên">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Văn A" />
-      </Field>
-      <Field label="Vai trò">
-        <Select value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} />
-      </Field>
-      <Field label="Tên đăng nhập (không cần email)">
-        <Input id="staff-username" value={username} onChange={(e) => setUsername(e.target.value)} onBlur={() => setUsernameTouched(true)} placeholder="VD: thungan_cn1" autoComplete="off" status={usernameTouched && !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) ? "error" : undefined} aria-describedby="staff-username-help" />
-        <div id="staff-username-help" style={{ fontSize: 12, marginTop: 4, color: usernameTouched && !/^[a-z0-9][a-z0-9._-]{2,49}$/.test(username.trim().toLowerCase()) ? palette.error.text : palette.textMuted }}>3–50 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.</div>
-      </Field>
-      <Field label="Mật khẩu (từ 8 ký tự, có thể chỉ gồm số)">
-        <Input.Password id="staff-password" value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setPasswordTouched(true)} autoComplete="new-password" status={passwordTouched && password.length < 8 ? "error" : undefined} aria-describedby="staff-password-help" />
-        <div id="staff-password-help" style={{ fontSize: 12, marginTop: 4, color: passwordTouched && password.length < 8 ? palette.error.text : palette.textMuted }}>Mật khẩu có thể chỉ gồm số, tối thiểu 8 ký tự.</div>
-      </Field>
-      <Field label="Chi nhánh được gán">
-        <Select value={branchId} onChange={setBranchId} style={{ width: "100%" }} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
-      </Field>
-      <ActionButton type="primary" block style={{ marginTop: 8 }} onClick={() => void save()} loading={saving}>
-        Tạo tài khoản
-      </ActionButton>
+    <Drawer title="Mời nhân viên qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
+      <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
+        <Field label="Họ tên"><Input aria-label="Họ tên" data-testid="owner-invite-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="Vai trò"><Select aria-label="Vai trò" value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} /></Field>
+        <Field label="Email nhận lời mời">
+          <Input aria-label="Email nhận lời mời" type="email" data-testid="owner-invite-email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(true)} status={touched && !emailValid ? "error" : undefined} aria-describedby="owner-invite-email-help" autoComplete="email" />
+          <div id="owner-invite-email-help" role={touched && !emailValid ? "alert" : undefined} style={{ fontSize: 12, marginTop: 4, color: touched && !emailValid ? palette.error.text : palette.textMuted }}>{touched && !emailValid ? "Nhập email hợp lệ." : "Nhân viên nhận link đặt mật khẩu dùng một lần, hiệu lực 24 giờ."}</div>
+        </Field>
+        <Field label="Chi nhánh được gán"><Select aria-label="Chi nhánh được gán" value={branchId} onChange={setBranchId} style={{ width: "100%" }} options={branches.map((b) => ({ value: b.id, label: b.name }))} /></Field>
+        <p style={{ color: palette.textMuted }}>Tài khoản chưa đăng nhập được cho tới khi nhân viên đặt mật khẩu. Lời mời đang chờ vẫn tính vào hạn mức gói.</p>
+        <ActionButton htmlType="submit" type="primary" block loading={saving} disabled={!valid || saving} data-testid="owner-invite-submit">Gửi lời mời</ActionButton>
+      </form>
     </Drawer>
   );
 }
