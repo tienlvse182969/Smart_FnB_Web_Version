@@ -38,7 +38,7 @@ const faqs = [
   {
     question: "Đăng ký sử dụng như thế nào?",
     answer:
-      "Chủ quán nộp hồ sơ đăng ký qua form trên trang này. Đội ngũ xem xét và liên hệ trong 1–2 ngày làm việc để xác nhận gói và kích hoạt tài khoản. Không có đăng ký tự động và không có dùng thử.",
+      "Chủ quán nộp hồ sơ qua form trên trang này. Khi Admin duyệt, tài khoản Owner được cấp 14 ngày dùng thử miễn phí với hạn mức giống gói BASIC và nhận email đặt mật khẩu. Owner có thể nâng cấp gói trả phí bất cứ lúc nào, không cần đợi hết thời gian dùng thử.",
   },
 ];
 
