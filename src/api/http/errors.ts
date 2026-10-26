@@ -60,7 +60,25 @@ export const READ_ONLY_TEXT = "Doanh nghiệp đang ở chế độ chỉ đọc
  * "The business subscription is read-only…" (`branch-access.service.ts:81-83`, api-contract-plan #31) nên nhận diện thêm theo câu đó.
  */
 export function isReadOnlyError(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 403 && (err.code === "SUBSCRIPTION_READ_ONLY" || /subscription is read-only/i.test(err.message));
+  // "is not active": câu của `plan-quota.service.ts:69` (tạo chi nhánh khi gói hết hạn/tạm ngưng) và `staff-accounts.service.ts:116` (mời nhân viên);
+  // cùng nghĩa với "read-only" nên cùng câu báo (lượt 10.2).
+  return err instanceof ApiError && err.status === 403 && (err.code === "SUBSCRIPTION_READ_ONLY" || /subscription is (read-only|not active)/i.test(err.message));
+}
+
+/**
+ * Câu báo chỉ đọc theo ngữ cảnh (gói dùng thử đã hết nói khác theo vai). Lớp API không biết store, nên nơi có store đăng ký hàm này
+ * (`ApiErrorBridge`); chưa đăng ký thì dùng `READ_ONLY_TEXT`.
+ */
+let readOnlyTextResolver: (() => string | null) | null = null;
+export function setReadOnlyTextResolver(resolver: (() => string | null) | null): void {
+  readOnlyTextResolver = resolver;
+}
+export function readOnlyText(): string {
+  try {
+    return readOnlyTextResolver?.() ?? READ_ONLY_TEXT;
+  } catch {
+    return READ_ONLY_TEXT;
+  }
 }
 
 /**
@@ -186,6 +204,10 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/not suspended/i, "Doanh nghiệp không ở trạng thái tạm ngưng."],
   [/renew the expired subscription/i, "Gia hạn gói đã hết hạn trước khi kích hoạt lại."],
   [/service plan code already exists/i, "Mã gói đã tồn tại."],
+  // Dùng thử 14 ngày (BE a403612): Admin không gia hạn hay đổi tay gói TRIAL; chủ chuỗi tự nâng cấp qua thanh toán PayOS.
+  [/14-day trial cannot be renewed/i, "Gói dùng thử không gia hạn được. Chủ chuỗi tự nâng cấp qua thanh toán."],
+  [/trial conversion requires/i, "Gói dùng thử không đổi tay được. Chủ chuỗi tự nâng cấp qua thanh toán."],
+  [/TRIAL is (reserved|managed)/i, "Gói TRIAL do hệ thống tự quản lý, không tạo hoặc sửa tay."],
   [/subscription is not active/i, "Gói dịch vụ của doanh nghiệp không còn hiệu lực."],
   [/account limit|plan limit|limit has been reached|exceed/i, "Đã đạt hạn mức của gói dịch vụ."],
   [/printer address is required/i, "Cần nhập địa chỉ máy in."],
@@ -260,7 +282,7 @@ export function describeApiError(err: unknown): string {
       if (err instanceof ApiError && err.code && CODE_TEXT[err.code]) return CODE_TEXT[err.code];
       return "Bạn không đủ quyền thực hiện thao tác này.";
     case "quota":
-      if (isReadOnlyError(err)) return READ_ONLY_TEXT;
+      if (isReadOnlyError(err)) return readOnlyText();
       return `Đã vượt hạn mức hoặc gói hiện tại không có tính năng này. ${err instanceof ApiError ? translateBackendMessage(err) : ""}`.trim();
     default:
       if (err instanceof ApiError && err.status === 429) return (err.code && CODE_TEXT[err.code]) || TOO_MANY_REQUESTS_TEXT;

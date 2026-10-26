@@ -14,6 +14,8 @@ import { formatDateVN } from "../../lib/reportFormat";
 
 import { formatVnd } from "../../lib/reportFormat";
 
+import { useTrialState } from "../../plan/planClock";
+import { TRIAL_PLAN_NAME, TRIAL_PLAN_NOTE, isTrialCode } from "../../plan/trial";
 import { usePlan } from "../../plan/usePlan";
 
 import { useAppStore } from "../../store";
@@ -80,6 +82,8 @@ export default function MyPlan() {
   const chainId = useAppStore((state) => state.chainId);
 
   const reloadPlan = useAppStore((state) => state.reloadPlan);
+
+  const trial = useTrialState();
 
   const [paidPlans, setPaidPlans] = useState<ServicePlan[]>([]);
 
@@ -229,86 +233,24 @@ export default function MyPlan() {
 
   const fromBackend = plan.source.features === "real";
 
-  return (
-    <div>
-      <SectionTitle
-        title="Gói của tôi"
-        sub="Theo dõi thời hạn dùng thử, hạn mức và nâng cấp gói dịch vụ"
-      />
-      <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>
-        {checkoutStatus && (
-          <Alert
-            showIcon
-            type={
-              checkoutStatus === "PAID"
-                ? "success"
-                : checkoutStatus === "FAILED" ||
-                    checkoutStatus === "NEEDS_REVIEW"
-                  ? "error"
-                  : "info"
-            }
-            message={
-              checkoutStatus === "PAID"
-                ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
-                : checkoutStatus === "NEEDS_REVIEW"
-                  ? "PayOS đã báo có tiền nhưng giao dịch cần đối soát. Vui lòng liên hệ quản trị SmartFnB, không thanh toán lại."
-                  : checkoutStatus === "FAILED"
-                    ? "Không thể hoàn tất thanh toán. Vui lòng thử lại."
-                    : "Đang chờ PayOS xác nhận thanh toán. Chỉ chuyển trang trở lại chưa có nghĩa là đã trả tiền."
-            }
-          />
-        )}
-        <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
-          <div
-            style={{
-              fontSize: 12.5,
-              color: palette.textMuted,
-              marginBottom: 4,
-            }}
-          >
-            Gói đang dùng
-          </div>
-          <div
-            data-testid="myplan-name"
-            style={{ fontWeight: 700, fontSize: 20, marginBottom: 14 }}
-          >
-            {plan.planName}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "120px 1fr",
-              rowGap: 8,
-              fontSize: 13.5,
-            }}
-          >
-            <span style={{ color: palette.textMuted }}>Trạng thái</span>
-            <span data-testid="myplan-status">
-              {plan.status ? (
-                <Tag color={STATUS_COLOR[plan.status]} style={{ margin: 0 }}>
-                  {STATUS_LABEL[plan.status]}
-                </Tag>
-              ) : (
-                "—"
-              )}
-            </span>
-            <span style={{ color: palette.textMuted }}>Hết hạn</span>
-            <span data-testid="myplan-expiry">
-              {formatDateVN(plan.expiresAt)}
-            </span>
-          </div>
-        </Card>
+  // Dùng thử (lượt 10.2): tên "Dùng thử miễn phí" thay cho tên BE/tên cấp; hết hạn thì thẻ nâng cấp lên đầu trang và nổi bật nhất.
+  const isTrial = isTrialCode(plan.planCode);
+  const trialExpired = trial.kind === "expired";
+  const upgradeAvailable = isTrial && plan.status !== "suspended";
+  const expiryNote = plan.expiresAt ? ` · ${trialExpired ? "đã hết hạn" : "hết hạn"} ${formatDateVN(plan.expiresAt)}` : "";
 
-        {plan.planCode === "TRIAL" && plan.status !== "suspended" && (
+  const upgradeCard = upgradeAvailable ?
+        (
           <Card
-            title="Nâng cấp bất cứ lúc nào"
-            style={{ borderRadius: 14 }}
+            data-testid="myplan-upgrade"
+            title={trialExpired ? "Nâng cấp để tiếp tục" : "Nâng cấp bất cứ lúc nào"}
+            style={{ borderRadius: 14, ...(trialExpired ? { border: `2px solid ${palette.brandPrimary}`, boxShadow: `0 4px 16px color-mix(in srgb, ${palette.ink} 12%, transparent)` } : null) }}
             styles={{ body: { padding: 22 } }}
           >
             <p style={{ color: palette.textMuted, marginTop: 0 }}>
-              Bạn không cần chờ hết 14 ngày. Sau khi PayOS xác nhận thanh toán,
-              gói trả phí bắt đầu ngay và phần ngày dùng thử còn lại sẽ không
-              được cộng dồn.
+              {trialExpired
+                ? "Thời gian dùng thử đã hết nên doanh nghiệp đang ở chế độ chỉ đọc; dữ liệu vẫn được giữ. Sau khi PayOS xác nhận thanh toán, gói trả phí bắt đầu ngay và bạn thay đổi dữ liệu được trở lại."
+                : "Bạn không cần chờ hết thời gian dùng thử. Sau khi PayOS xác nhận thanh toán, gói trả phí bắt đầu ngay và phần ngày dùng thử còn lại sẽ không được cộng dồn."}
             </p>
             {loadingPlans ? (
               <Skeleton active paragraph={{ rows: 2 }} />
@@ -359,7 +301,87 @@ export default function MyPlan() {
               </div>
             )}
           </Card>
+        )
+  : null;
+
+  return (
+    <div>
+      <SectionTitle
+        title="Gói của tôi"
+        sub="Theo dõi thời hạn dùng thử, hạn mức và nâng cấp gói dịch vụ"
+      />
+      <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>
+        {checkoutStatus && (
+          <Alert
+            showIcon
+            type={
+              checkoutStatus === "PAID"
+                ? "success"
+                : checkoutStatus === "FAILED" ||
+                    checkoutStatus === "NEEDS_REVIEW"
+                  ? "error"
+                  : "info"
+            }
+            message={
+              checkoutStatus === "PAID"
+                ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
+                : checkoutStatus === "NEEDS_REVIEW"
+                  ? "PayOS đã báo có tiền nhưng giao dịch cần đối soát. Vui lòng liên hệ quản trị SmartFnB, không thanh toán lại."
+                  : checkoutStatus === "FAILED"
+                    ? "Không thể hoàn tất thanh toán. Vui lòng thử lại."
+                    : "Đang chờ PayOS xác nhận thanh toán. Chỉ chuyển trang trở lại chưa có nghĩa là đã trả tiền."
+            }
+          />
         )}
+        {trialExpired && upgradeCard}
+        <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: palette.textMuted,
+              marginBottom: 4,
+            }}
+          >
+            Gói đang dùng
+          </div>
+          <div
+            data-testid="myplan-name"
+            style={{ fontWeight: 700, fontSize: 20, marginBottom: 14 }}
+          >
+            {isTrial ? TRIAL_PLAN_NAME : plan.planName}
+          </div>
+          {isTrial && (
+            <div data-testid="myplan-trial-note" style={{ fontSize: 13, color: palette.textMuted, margin: "-8px 0 14px" }}>
+              {TRIAL_PLAN_NOTE}
+              {expiryNote}
+            </div>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "120px 1fr",
+              rowGap: 8,
+              fontSize: 13.5,
+            }}
+          >
+            <span style={{ color: palette.textMuted }}>Trạng thái</span>
+            <span data-testid="myplan-status">
+              {plan.status ? (
+                <Tag color={STATUS_COLOR[plan.status]} style={{ margin: 0 }}>
+                  {STATUS_LABEL[plan.status]}
+                </Tag>
+              ) : (
+                "—"
+              )}
+            </span>
+            <span style={{ color: palette.textMuted }}>Hết hạn</span>
+            <span data-testid="myplan-expiry">
+              {formatDateVN(plan.expiresAt)}
+            </span>
+          </div>
+        </Card>
+
+        {!trialExpired && upgradeCard}
 
         <Card
           title="Hạn mức"
@@ -461,7 +483,7 @@ export default function MyPlan() {
           })}
         </Card>
 
-        {plan.planCode !== "TRIAL" && (
+        {!isTrial && (
           <div
             data-testid="myplan-contact"
             style={{ fontSize: 13.5, color: palette.textMuted }}

@@ -13,6 +13,24 @@ export interface PlanSlice {
    * Lỗi thì im lặng, giữ gói hiện có (không toast, không chặn gì).
    */
   reloadPlan: () => Promise<void>;
+  /**
+   * Mốc hết hạn đã qua mà gói trong store còn `active` (tab mở qua mốc): nạp lại gói MỘT lần. Gọi khi tab được focus lại hoặc đổi route
+   * (lượt 10.2, `plan/planClock.ts`). Có chống lặp, không polling.
+   */
+  refreshPlanIfStale: () => Promise<void>;
+  /**
+   * BE vừa trả 403 "chế độ chỉ đọc" lúc đang ghi mà gói trong store vẫn `active`: nạp lại gói để nhãn và banner chuyển ngay sang hết hạn.
+   * Chống lặp: tối đa một lần mỗi `PLAN_RELOAD_COOLDOWN_MS`, và không làm gì nếu gói đã ghi nhận là hết hạn/tạm ngưng.
+   */
+  refreshPlanAfterReadOnly: () => Promise<void>;
+}
+
+export const PLAN_RELOAD_COOLDOWN_MS = 10_000;
+let lastGuardedReloadAt = 0;
+
+/** Chỉ cho test: xoá bộ nhớ chống lặp. */
+export function resetPlanReloadGuard(): void {
+  lastGuardedReloadAt = 0;
 }
 
 export const createPlanSlice: SliceCreator<PlanSlice> = (set, get) => ({
@@ -28,4 +46,25 @@ export const createPlanSlice: SliceCreator<PlanSlice> = (set, get) => ({
       // giữ gói hiện có
     }
   },
+
+  refreshPlanIfStale: async () => {
+    const { plan } = get();
+    if (!plan || (plan.status !== "active" && plan.status !== null)) return;
+    const expiry = plan.expiresAt ? Date.parse(plan.expiresAt) : NaN;
+    if (Number.isNaN(expiry) || expiry > Date.now()) return;
+    await guardedReload(get);
+  },
+
+  refreshPlanAfterReadOnly: async () => {
+    const { plan } = get();
+    if (plan && (plan.status === "expired" || plan.status === "suspended")) return;
+    await guardedReload(get);
+  },
 });
+
+async function guardedReload(get: () => PlanSlice): Promise<void> {
+  const now = Date.now();
+  if (now - lastGuardedReloadAt < PLAN_RELOAD_COOLDOWN_MS) return;
+  lastGuardedReloadAt = now;
+  await get().reloadPlan();
+}

@@ -103,4 +103,9 @@ export const BACKEND_MESSAGES: [status: number, message: string, source: string]
   [404, "Refund not found", "payments/paid-order-refund.service.ts:355"],
   [409, "Only a pending refund can be completed", "payments/paid-order-refund.service.ts:366"],
   [409, "Cash refunds are completed when the order is cancelled", "payments/paid-order-refund.service.ts:369"],
+  // Dùng thử 14 ngày (BE a403612, lượt 10.2)
+  [409, "The 14-day trial cannot be renewed", "platform-admin/platform-admin.service.ts:430"],
+  [409, "Trial conversion requires a verified platform PayOS payment", "platform-admin/platform-admin.service.ts:462"],
+  [400, "TRIAL is reserved for automatic registration approval", "platform-admin/platform-admin.service.ts:354"],
+  [400, "TRIAL is managed automatically from the BASIC plan", "platform-admin/platform-admin.service.ts:370"],
 ];

@@ -15,6 +15,8 @@ export { MOCK_TIER_LIMITS } from "../../mock/data/plans";
 const DAY_MS = 86_400_000;
 
 export interface MockPlanBase {
+  /** Có khi kịch bản dùng thử bật (`scenario.trial`); mã `TRIAL` như BE `a403612`. */
+  planCode?: string;
   tier: PlanTier;
   planName: string;
   status: PlanStatus;
@@ -22,8 +24,23 @@ export interface MockPlanBase {
   features: Record<FeatureKey, PlanFeature>;
 }
 
+/** Số mili giây còn lại tới hạn cho từng kịch bản dùng thử (âm = đã hết). Ngày cuối: còn vài giờ nhưng vẫn trong hôm nay theo lịch giờ VN. */
+const TRIAL_OFFSET_MS = { active: 10 * DAY_MS, soon: 2 * DAY_MS, lastDay: 60_000, expired: -DAY_MS, suspended: 5 * DAY_MS } as const;
+
 export function mockPlanBase(): MockPlanBase {
   const scenario = getScenario();
+  if (scenario.trial !== "off") {
+    const tier = scenario.tier ?? "BASIC";
+    const status: PlanStatus = scenario.trial === "suspended" ? "suspended" : scenario.trial === "expired" || scenario.expired ? "expired" : "active";
+    return {
+      planCode: "TRIAL",
+      tier,
+      planName: "Dùng thử 14 ngày",
+      status,
+      expiresAt: new Date(Date.now() + TRIAL_OFFSET_MS[scenario.trial]).toISOString(),
+      features: featuresForTier(tier),
+    };
+  }
   const tier = scenario.tier ?? profileOf(scenario.profile).defaultTier;
   const expired = scenario.expired;
   return {

@@ -9,7 +9,7 @@ const PAYOS_KEY = "smartfnb:mock:payos-error";
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  setScenario({ profile: "A", tier: null, expired: false }); // trước khi xoá khoá (ở DEV nó ghi lại storage)
+  setScenario({ profile: "A", tier: null, expired: false, trial: "off" }); // trước khi xoá khoá (ở DEV nó ghi lại storage)
   mockControl.failure = null;
   localStorage.removeItem(SCENARIO_KEY);
   localStorage.removeItem(FAILURE_KEY);
@@ -26,7 +26,7 @@ describe("kịch bản mock chỉ ở chế độ dev (quyết định 47)", () 
   it("DEV = false (production): khoá trong storage KHÔNG đổi tier, hết hạn, lỗi giả, cờ PayOS Lỗi", () => {
     vi.stubEnv("DEV", false);
     seed();
-    expect(loadScenario()).toEqual({ profile: "A", tier: null, expired: false });
+    expect(loadScenario()).toEqual({ profile: "A", tier: null, expired: false, trial: "off" });
     expect(loadFailure()).toBeNull();
     expect(isPayosErrorSimulated()).toBe(false);
   });

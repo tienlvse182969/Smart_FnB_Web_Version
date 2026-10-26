@@ -6,15 +6,19 @@ import type { PlanTier } from "../../types";
 
 export type MockProfileId = "A" | "B";
 
+/** Gói dùng thử mô phỏng (lượt 10.2): `off` = không dùng thử; còn 10 ngày; còn 2 ngày (nhãn cảnh báo); ngày cuối; đã hết; bị tạm ngưng. */
+export type MockTrialScenario = "off" | "active" | "soon" | "lastDay" | "expired" | "suspended";
+
 export interface MockScenario {
   profile: MockProfileId;
   /** null = dùng gói mặc định của doanh nghiệp mock. */
   tier: PlanTier | null;
   expired: boolean;
+  trial: MockTrialScenario;
 }
 
 const KEY = "fnb.mock.scenario";
-const DEFAULT: MockScenario = { profile: "A", tier: null, expired: false };
+const DEFAULT: MockScenario = { profile: "A", tier: null, expired: false, trial: "off" };
 
 let current: MockScenario = loadScenario();
 const listeners = new Set<() => void>();

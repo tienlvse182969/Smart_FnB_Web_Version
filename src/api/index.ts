@@ -30,6 +30,8 @@ export {
   isQuotaError,
   isReadOnlyError,
   READ_ONLY_TEXT,
+  readOnlyText,
+  setReadOnlyTextResolver,
   SERVER_ERROR_TEXT,
   translateBackendMessage,
   showApiError,
@@ -41,6 +43,6 @@ export { clearTokens, setSessionExpiredHandler } from "./http/client";
 export { API_MODULES, DEFAULT_MODES, MODES, flagTable, modeOf, type ApiMode, type ApiModule } from "./flags";
 export { getPublicPlans, loadPublicPlans, type PublicPlan } from "./publicPlans";
 export { mockControl, setMockFailure, type MockFailureKind } from "./mock/control";
-export { getScenario, setScenario, subscribeScenario, type MockScenario, type MockProfileId } from "./mock/scenario";
+export { getScenario, setScenario, subscribeScenario, type MockScenario, type MockProfileId, type MockTrialScenario } from "./mock/scenario";
 
 printFlagTable();

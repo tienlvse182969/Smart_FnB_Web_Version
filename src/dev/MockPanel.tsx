@@ -12,6 +12,7 @@ import {
   subscribeScenario,
   type MockFailureKind,
   type MockProfileId,
+  type MockTrialScenario,
 } from "../api";
 import { clearPersistedAccounts } from "../api/modules/account/persist";
 import { clearPersistedBranchOptions } from "../api/modules/branchOptions/persist";
@@ -102,6 +103,22 @@ export default function MockPanel() {
                   {t} · {PLAN_TIER_LABEL[t]}
                 </option>
               ))}
+            </select>
+          </label>
+          <label style={field}>
+            Dùng thử
+            <select
+              data-testid="mock-trial"
+              style={select}
+              value={scenario.trial}
+              onChange={(e) => apply({ trial: e.target.value as MockTrialScenario })}
+            >
+              <option value="off">Không (gói trả phí)</option>
+              <option value="active">Còn 10 ngày</option>
+              <option value="soon">Còn 2 ngày</option>
+              <option value="lastDay">Ngày cuối</option>
+              <option value="expired">Đã hết</option>
+              <option value="suspended">Tạm ngưng</option>
             </select>
           </label>
           <label style={{ ...field, gridAutoFlow: "column", justifyContent: "start", alignItems: "center", gap: 6 }}>

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getTrialState } from "../../../plan/trial";
 import { describePlan } from "../../../plan/usePlan";
 import { computeWriteGuard } from "../../../plan/useReadOnly";
 import type { ApiChain, ApiSubscription } from "../../../types";
@@ -61,6 +62,27 @@ describe("plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38)", ()
       expect(plan.status).toBeNull();
       expect(describePlan(plan).isExpired).toBe(false);
     }
+  });
+
+  it("gói TRIAL (BE a403612): planCode TRIAL, hạn mức lấy từ BE; còn hạn / hết hạn / tạm ngưng / đã chuyển sang gói trả phí", async () => {
+    const trialPlanOf = { id: "t", code: "TRIAL", name: "Dùng thử 14 ngày", description: null, monthlyPrice: "0", maxBranches: 2, maxAccounts: 10, brandingEnabled: false, multiBranchComparisonEnabled: false };
+    const paidPlanOf = { ...trialPlanOf, id: "b", code: "BASIC", name: "Cơ bản", monthlyPrice: "300000" };
+    const now = Date.parse("2026-10-13T15:00:00.000Z");
+    const read = async (over: Partial<ApiSubscription>) => planReal.getPlan("c1", { chains: [chainOf(SUB({ plan: trialPlanOf, expiresAt: "2026-10-23T02:00:00.000Z", ...over }))] });
+
+    const active = await read({});
+    expect(active.planCode).toBe("TRIAL");
+    expect(active.limits.map((l) => [l.resource, l.limit])).toEqual([["branches", 5], ["accounts", 20]]); // hạn mức đọc từ BE, không viết cứng
+    expect(getTrialState(active, now)).toEqual({ kind: "active", daysLeft: 10 });
+
+    expect(getTrialState(await read({ status: "EXPIRED" }), now).kind).toBe("expired");
+    expect(getTrialState(await read({ status: "SUSPENDED" }), now).kind).toBe("suspended");
+    expect(getTrialState(await read({ expiresAt: undefined }), now)).toEqual({ kind: "active", daysLeft: null });
+
+    // Đã chuyển sang gói trả phí: BE trả gói mới, web không còn dấu vết dùng thử.
+    const converted = await read({ plan: paidPlanOf, expiresAt: "2026-11-13T02:00:00.000Z" });
+    expect(converted.planCode).toBe("BASIC");
+    expect(getTrialState(converted, now)).toEqual({ kind: "none" });
   });
 
   it("subscription null (chuỗi chưa có gói): noActivePlan = true", async () => {

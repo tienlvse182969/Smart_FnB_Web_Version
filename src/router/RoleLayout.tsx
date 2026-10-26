@@ -4,6 +4,7 @@ import { page } from "../components/bits";
 import DirtyWatcher from "../components/DirtyWatcher";
 import RefreshBoundary from "../components/RefreshBoundary";
 import { useAppStore } from "../store";
+import { usePlanFreshness } from "../plan/planClock";
 import AttentionWatcher from "../roles/branch/AttentionWatcher";
 import { useAttentionCount } from "../roles/branch/attentionStore";
 import { roleRoutes, type WebRole } from "./routeConfig";
@@ -25,6 +26,9 @@ export default function RoleLayout({ role }: { role: WebRole }) {
   const logout = useAppStore((s) => s.logout);
   const branches = useAppStore((s) => s.branches);
   const currentBranchId = useAppStore((s) => s.currentBranchId);
+
+  // Gói tự cập nhật khi tab được focus lại hoặc đổi route (qua nửa đêm, qua mốc hết hạn); không polling.
+  usePlanFreshness();
 
   // Số đơn "Cần xử lý" (BM-05, lượt 7.5): chỉ Manager; `null` khi chưa biết thì không hiện số.
   const attentionCount = useAttentionCount();

@@ -22,6 +22,7 @@ export const planMock: PlanApi = {
     });
     return {
       chainId,
+      ...(base.planCode && { planCode: base.planCode }),
       tier: base.tier,
       planName: base.planName,
       status: base.status,

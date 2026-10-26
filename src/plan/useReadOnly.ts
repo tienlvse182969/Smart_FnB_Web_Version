@@ -4,6 +4,7 @@
  * LƯU Ý lệch với BE: BE hiện chặn CẢ ĐỌC khi hết hạn, còn đặc tả là chỉ đọc. FE làm theo đặc tả; nếu BE vẫn
  * chặn đọc thì màn hình sẽ nhận lỗi từ BE.
  */
+import { readOnlyReason, READ_ONLY_DEFAULT } from "./trial";
 import { describePlan, usePlan } from "./usePlan";
 import { useAppStore } from "../store";
 import type { PlanInfo, QuotaResource, RoleKey } from "../types";
@@ -17,7 +18,8 @@ export interface WriteGuard {
   reason: string | null;
 }
 
-export const READ_ONLY_REASON = "Gói đã hết hạn — doanh nghiệp đang ở chế độ chỉ đọc. Liên hệ quản trị nền tảng để gia hạn.";
+/** Câu mặc định (gói trả phí hết hạn, tạm ngưng). Gói dùng thử đã hết có câu riêng theo vai: `readOnlyReason` ở `plan/trial.ts`. */
+export const READ_ONLY_REASON = READ_ONLY_DEFAULT;
 
 /**
  * Lý do khoá nút tạo mới khi đạt hạn mức. Tài khoản (quyết định 54): Manager → "…Liên hệ chủ chuỗi để nâng gói.", vai khác (Owner) →
@@ -33,7 +35,7 @@ export function limitReason(resource: QuotaResource, planName: string | null, ro
 /** Phần thuần: tính trạng thái chặn từ `PlanInfo`; `resource` = hạn mức cần kiểm cho thao tác tạo mới. */
 export function computeWriteGuard(plan: PlanInfo | null, resource?: QuotaResource, role?: RoleKey | null): WriteGuard {
   const view = describePlan(plan);
-  if (view.isExpired) return { readOnly: true, disabled: true, reason: READ_ONLY_REASON };
+  if (view.isExpired) return { readOnly: true, disabled: true, reason: readOnlyReason(plan, role) };
   if (resource && view.isLimitReached(resource)) {
     return { readOnly: false, disabled: true, reason: limitReason(resource, view.planName, role) };
   }

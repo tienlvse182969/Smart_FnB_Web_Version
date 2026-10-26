@@ -6,6 +6,9 @@ import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
 import ReadOnlyBanner from "../plan/ReadOnlyBanner";
 import ExpiringBanner from "../plan/ExpiringBanner";
+import TrialBadge from "../plan/TrialBadge";
+import { useTrialState } from "../plan/planClock";
+import { trialLabel } from "../plan/trial";
 import { onBrandAlpha, useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
@@ -46,6 +49,8 @@ export default function RoleShell({
   // Điện thoại (7.9): dưới 768px thanh bên thu thành ngăn kéo, mở bằng nút ở đầu trang.
   const narrow = Grid.useBreakpoint().md === false;
   const [navOpen, setNavOpen] = useState(false);
+  // Điện thoại: nhãn dùng thử dài, nhường chỗ bằng cách ẩn tiêu đề vai (Owner) để nhãn và avatar không đè nhau.
+  const trialBadgeShown = role === "owner" && trialLabel(useTrialState()) !== null;
 
   // Nhận diện đã được giải quyết ở một chỗ (theme/resolveBrand): Admin và doanh nghiệp không
   // có/không được dùng nhận diện riêng nhận nhận diện nền tảng (BR-41, BR-44).
@@ -172,7 +177,7 @@ export default function RoleShell({
               onClick={() => setNavOpen(true)}
             />
           )}
-          <div style={{ lineHeight: 1.2, minWidth: 0, whiteSpace: "nowrap", display: narrow && branchChip ? "none" : undefined }}>
+          <div style={{ lineHeight: 1.2, minWidth: 0, whiteSpace: "nowrap", display: narrow && (branchChip || trialBadgeShown) ? "none" : undefined }}>
             <div style={{ fontWeight: 700, fontSize: 17 }}>{meta.label}</div>
             {!narrow && <div style={{ fontSize: 12, color: palette.textMuted }}>{meta.scope}</div>}
           </div>
@@ -209,7 +214,8 @@ export default function RoleShell({
             style={{ maxWidth: 340, marginLeft: 24, display: narrow ? "none" : undefined }}
           />
 
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 18 }}>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: narrow ? 12 : 18, minWidth: 0 }}>
+            {role === "owner" && <TrialBadge />}
             <div
               style={{
                 display: "flex",

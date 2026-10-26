@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { App as AntApp, Button } from "antd";
-import { describeApiError, isReadOnlyError, planUpgradeHint, READ_ONLY_TEXT, setApiErrorHandler, translateBackendMessage, type ApiErrorEvent } from "../api";
+import { describeApiError, isReadOnlyError, planUpgradeHint, readOnlyText, setApiErrorHandler, setReadOnlyTextResolver, translateBackendMessage, type ApiErrorEvent } from "../api";
+import { trialExpiredText } from "../plan/trial";
 import { hasDirtyForm } from "../lib/dirtyGuard";
 import { useAppStore } from "../store";
 
@@ -16,6 +17,15 @@ const SERVER_KEY = "api-server-error";
 export default function ApiErrorBridge() {
   const { message, notification, modal } = AntApp.useApp();
 
+  // Câu báo chỉ đọc của lớp API theo ngữ cảnh: gói dùng thử đã hết nói khác theo vai (lượt 10.2); còn lại `null` → câu mặc định.
+  useEffect(() => {
+    setReadOnlyTextResolver(() => {
+      const { plan, currentUser } = useAppStore.getState();
+      return trialExpiredText(plan, currentUser?.role);
+    });
+    return () => setReadOnlyTextResolver(null);
+  }, []);
+
   useEffect(() => {
     setApiErrorHandler((event: ApiErrorEvent) => {
       // Đang nạp phạm vi làm việc: màn lỗi toàn trang (router/guards.tsx) đã nêu lỗi và có nút Thử lại, nên không bắn thêm thông báo nổi trùng.
@@ -25,14 +35,20 @@ export default function ApiErrorBridge() {
         case "forbidden":
           message.warning({ key: "api-forbidden", content: describeApiError(event.error) });
           break;
-        case "quota":
-          notification.warning({
-            key: "api-quota-error",
-            message: isReadOnlyError(event.error) ? "Chế độ chỉ đọc" : "Vượt hạn mức hoặc gói không hỗ trợ",
-            description: isReadOnlyError(event.error) ? READ_ONLY_TEXT : `${translateBackendMessage(event.error)} ${planUpgradeHint(event.error)}`.trim(),
-            placement: "topRight",
-          });
+        case "quota": {
+          const show = () =>
+            notification.warning({
+              key: "api-quota-error",
+              message: isReadOnlyError(event.error) ? "Chế độ chỉ đọc" : "Vượt hạn mức hoặc gói không hỗ trợ",
+              description: isReadOnlyError(event.error) ? readOnlyText() : `${translateBackendMessage(event.error)} ${planUpgradeHint(event.error)}`.trim(),
+              placement: "topRight",
+            });
+          // 403 chỉ đọc lúc đang ghi mà gói trong store còn `active` (hết hạn giữa chừng): nạp lại gói TRƯỚC khi hiện thông báo để câu theo đúng gói
+          // (dùng thử đã hết nói khác), và để nhãn/banner đổi ngay. Chống lặp ở store; lỗi nạp không chặn thông báo.
+          if (isReadOnlyError(event.error)) void useAppStore.getState().refreshPlanAfterReadOnly().then(show, show);
+          else show();
           break;
+        }
         case "unauthorized":
           message.error({ key: "api-unauthorized", content: describeApiError(event.error) });
           break;

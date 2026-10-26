@@ -9,6 +9,8 @@ import { branchMock } from "../../api/modules/branch/mock";
 import { FEATURE_KEYS, FEATURE_REQUIRED_TIER } from "../../plan/tiers";
 import { useAppStore } from "../../store";
 import type { ApiChain, PlanInfo } from "../../types";
+import { adminApi } from "../../api";
+import { vi } from "vitest";
 import MyPlan, { FEATURE_LABEL, PLAN_CONTACT_TEXT, STATUS_LABEL } from "./MyPlan";
 
 mockControl.latency = [0, 0];
@@ -47,6 +49,55 @@ describe("tên tính năng và nhãn trạng thái", () => {
 
   it("nhãn tiếng Việt cho ĐỦ giá trị enum BusinessSubscriptionStatus của BE (ACTIVE, SUSPENDED, EXPIRED)", () => {
     expect(STATUS_LABEL).toEqual({ active: "Đang hoạt động", suspended: "Tạm ngưng", expired: "Đã hết hạn" });
+  });
+});
+
+describe("màn Gói của tôi — gói dùng thử (lượt 10.2)", () => {
+  const trialSub = (over: Record<string, unknown> = {}) =>
+    subscription({ plan: { name: "Dùng thử 14 ngày", code: "TRIAL", brandingEnabled: false, multiBranchComparisonEnabled: false }, expiresAt: "2099-11-30T16:59:59.000Z", ...over });
+  const showTrial = async (over: Record<string, unknown> = {}) => show(await planReal.getPlan("c1", { chains: [chainOf(trialSub(over))] }));
+
+  beforeEach(() => {
+    vi.spyOn(adminApi, "listPublicPlans").mockResolvedValue([{ id: "p1", code: "BASIC", name: "Cơ bản", monthlyPrice: 300000, maxBranches: 2, maxAccounts: 10, isActive: true }] as never);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("tên 'Dùng thử miễn phí' thay cho tên BE; dòng phụ 'Hạn mức như gói Cơ bản · hết hạn dd/MM/yyyy'; hạn mức vẫn đọc từ BE", async () => {
+    await showTrial();
+    expect(text("myplan-name")).toBe("Dùng thử miễn phí");
+    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản · hết hạn 30/11/2099");
+    expect(text("myplan-limit-branches")).toContain("Đã dùng 2 / 2");
+    expect(await screen.findByTestId("myplan-upgrade")).toBeTruthy();
+  });
+
+  it("đã hết: dòng phụ ghi 'đã hết hạn', thẻ nâng cấp nằm TRƯỚC thẻ gói đang dùng và nổi bật", async () => {
+    await showTrial({ status: "EXPIRED", expiresAt: "2026-10-01T16:59:59.000Z" });
+    const upgrade = await screen.findByTestId("myplan-upgrade");
+    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản · đã hết hạn 01/10/2026");
+    expect(upgrade.textContent).toContain("Thời gian dùng thử đã hết");
+    expect(upgrade.compareDocumentPosition(screen.getByTestId("myplan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(text("myplan-status")).toBe("Đã hết hạn");
+  });
+
+  it("còn hạn: thẻ nâng cấp nằm SAU thẻ gói đang dùng", async () => {
+    await showTrial();
+    const upgrade = await screen.findByTestId("myplan-upgrade");
+    expect(screen.getByTestId("myplan-name").compareDocumentPosition(upgrade) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("tạm ngưng: không có thẻ nâng cấp; gói trả phí: không có dòng phụ dùng thử", async () => {
+    const view = await showTrial({ status: "SUSPENDED" });
+    expect(screen.queryByTestId("myplan-upgrade")).toBeNull();
+    view.unmount();
+    show(await planReal.getPlan("c1", { chains: [chainOf(subscription())] }));
+    expect(screen.queryByTestId("myplan-trial-note")).toBeNull();
+    expect(text("myplan-name")).toBe("Gói Demo");
+  });
+
+  it("không đọc được hạn: dòng phụ chỉ còn 'Hạn mức như gói Cơ bản', không NaN", async () => {
+    await showTrial({ expiresAt: undefined });
+    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản");
+    expect(document.body.textContent).not.toContain("NaN");
   });
 });
 
