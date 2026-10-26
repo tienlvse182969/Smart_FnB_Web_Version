@@ -688,3 +688,21 @@ describe("adminReal — gói dịch vụ khớp DTO của BE dfe8100", () => {
     });
   });
 });
+
+describe("thuê bao dùng thử (BE a403612): mapper đọc 3 cột trial", () => {
+  const base = { status: "ACTIVE", monthlyPrice: "0", startsAt: "2026-10-01T00:00:00.000Z", expiresAt: "2026-10-15T00:00:00.000Z", plan: { id: "t", code: "TRIAL", name: "Dùng thử 14 ngày", monthlyPrice: "0", maxBranches: 2, maxAccounts: 10, isActive: true } } as const;
+
+  it("có cột trial thì giữ nguyên; thiếu hoặc null thì null (không bịa)", async () => {
+    const { mapSubscription } = await import("./mapper");
+    const withTrial = mapSubscription({ ...base, trialStartedAt: "2026-10-01T00:00:00.000Z", trialEndsAt: "2026-10-15T00:00:00.000Z", trialConvertedAt: null }, new Date("2026-10-05T00:00:00.000Z"));
+    expect([withTrial.trialStartedAt, withTrial.trialEndsAt, withTrial.trialConvertedAt]).toEqual(["2026-10-01T00:00:00.000Z", "2026-10-15T00:00:00.000Z", null]);
+    expect(withTrial.plan.code).toBe("TRIAL");
+    const legacy = mapSubscription({ ...base }, new Date("2026-10-05T00:00:00.000Z"));
+    expect([legacy.trialStartedAt, legacy.trialEndsAt, legacy.trialConvertedAt]).toEqual([null, null, null]);
+  });
+
+  it("hạn thật của web vẫn là expiresAt: quá hạn thì 'Hết hạn' dù cột trial còn", async () => {
+    const { mapSubscription } = await import("./mapper");
+    expect(mapSubscription({ ...base, trialStartedAt: "2026-10-01T00:00:00.000Z", trialEndsAt: "2026-10-15T00:00:00.000Z" }, new Date("2026-10-20T00:00:00.000Z")).state).toBe("expired");
+  });
+});

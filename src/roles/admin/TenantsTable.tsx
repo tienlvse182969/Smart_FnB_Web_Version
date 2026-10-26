@@ -1,13 +1,46 @@
-import { App, Card, Drawer, Input, InputNumber, Modal, Progress, Radio, Select, Table } from "antd";
+import { App, Card, Drawer, Input, InputNumber, Modal, Progress, Radio, Select, Table, Tooltip } from "antd";
 import { Ban, CalendarClock, KeyRound, Layers, Play, Receipt, Repeat, Users } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Business, Paginated, PlanChangeDirection, ServicePlan } from "../../types";
 import { adminApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
+import { getTrialStateOf, isTrialCode, trialSubtitle } from "../../plan/trial";
 import { SectionTitle } from "../../components/bits";
 import { formatCount, formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { palette } from "../../theme";
 import { Field, SubscriptionChip, addMonthsISO, dash, dateLabel } from "./adminUi";
+
+/** Tooltip của nút Gia hạn / Đổi gói khi doanh nghiệp đang ở gói dùng thử (BE chặn 409; QĐ 149). */
+export const TRIAL_LOCK_TEXT = "Gói dùng thử không gia hạn hay đổi tay được; chủ chuỗi tự nâng cấp qua thanh toán.";
+
+/** Bọc nút bị khoá vì gói dùng thử bằng tooltip lý do (nút vô hiệu hoá không bắn sự kiện chuột nên tooltip phải ở phần tử bọc ngoài, chiếm cả chiều ngang như nút `block`). */
+function TrialLock({ locked, children }: { locked: boolean; children: ReactNode }) {
+  if (!locked) return <>{children}</>;
+  return (
+    <Tooltip title={TRIAL_LOCK_TEXT}>
+      <span style={{ display: "block" }} data-testid="trial-lock">
+        {children}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** Tên gói trong bảng/chi tiết: gói dùng thử hiện "Dùng thử" kèm phụ đề còn bao lâu (cùng nguồn và màu với nhãn của Owner, `plan/trial.ts`). */
+export function PlanCell({ subscription }: { subscription: Business["subscription"] }) {
+  if (!subscription) return <>—</>;
+  if (!isTrialCode(subscription.plan.code)) return <>{dash(subscription.plan.name)}</>;
+  const sub = trialSubtitle(getTrialStateOf({ code: subscription.plan.code, status: subscription.state, expiresAt: subscription.expiresAt }));
+  return (
+    <div data-testid="tenant-plan-trial">
+      <div style={{ fontWeight: 500 }}>Dùng thử</div>
+      {sub && (
+        <div data-testid="tenant-trial-sub" data-tone={sub.tone} style={{ fontSize: 12, color: palette[sub.tone].text }}>
+          {sub.text}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PAGE_SIZE = 10;
 
@@ -91,7 +124,7 @@ export default function TenantsTable() {
             ),
           },
           { title: "Người đại diện", render: (_, r) => dash(r.representativeName) },
-          { title: "Gói", render: (_, r) => dash(r.subscription?.plan.name) },
+          { title: "Gói", render: (_, r) => <PlanCell subscription={r.subscription} /> },
           { title: "Trạng thái", render: (_, r) => (r.subscription ? <SubscriptionChip state={r.subscription.state} /> : "—") },
           { title: "Hết hạn", render: (_, r) => dateLabel(r.subscription?.expiresAt) },
           { title: "Chi nhánh", align: "right", render: (_, r) => usageLabel(r.usage.branchCount, r.subscription?.plan.maxBranches) },
@@ -144,6 +177,7 @@ function LimitRow({ icon, label, used, limit }: { icon: ReactNode; label: string
 
 function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dialog) => void }) {
   const sub = business.subscription;
+  const trial = !!sub && isTrialCode(sub.plan.code);
   return (
     <>
       <div style={{ marginBottom: 14 }}>{sub ? <SubscriptionChip state={sub.state} /> : "Chưa có thuê bao"}</div>
@@ -157,7 +191,7 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
       {sub && (
         <>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, margin: "18px 0 12px" }}>GÓI VÀ HẠN MỨC</div>
-          <Field label="Gói">{sub.plan.name}</Field>
+          <Field label="Gói">{isTrialCode(sub.plan.code) ? <PlanCell subscription={sub} /> : sub.plan.name}</Field>
           <Field label="Phí thuê bao / tháng">{formatVnd(sub.monthlyPrice)}</Field>
           <Field label="Hết hạn">{dateLabel(sub.expiresAt)}</Field>
           {sub.state !== "active" && (
@@ -179,12 +213,16 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
 
       {sub && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-          <ActionButton type="primary" block icon={<CalendarClock size={16} />} onClick={() => onDialog("renew")}>
-            Gia hạn
-          </ActionButton>
-          <ActionButton block icon={<Repeat size={16} />} onClick={() => onDialog("plan")}>
-            Đổi gói
-          </ActionButton>
+          <TrialLock locked={trial}>
+            <ActionButton type="primary" block disabled={trial} icon={<CalendarClock size={16} />} onClick={() => onDialog("renew")}>
+              Gia hạn
+            </ActionButton>
+          </TrialLock>
+          <TrialLock locked={trial}>
+            <ActionButton block disabled={trial} icon={<Repeat size={16} />} onClick={() => onDialog("plan")}>
+              Đổi gói
+            </ActionButton>
+          </TrialLock>
           {sub.state === "suspended" ? (
             <ActionButton block icon={<Play size={16} />} onClick={() => onDialog("reactivate")}>
               Kích hoạt lại

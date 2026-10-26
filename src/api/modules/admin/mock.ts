@@ -207,6 +207,12 @@ function makeBusiness(seed: SeedBusiness, index: number): Business {
 
       suspendedAt: seed.suspended ? iso(-5) : null,
 
+      trialStartedAt: null,
+
+      trialEndsAt: null,
+
+      trialConvertedAt: null,
+
       plan,
 
       monthlyPrice: plan.monthlyPrice,
@@ -492,6 +498,9 @@ export const adminMock: AdminApi = {
         startsAt: nowISO(),
         expiresAt,
         suspendedAt: null,
+        trialStartedAt: nowISO(),
+        trialEndsAt: expiresAt,
+        trialConvertedAt: null,
         plan,
         monthlyPrice: plan.monthlyPrice,
       },

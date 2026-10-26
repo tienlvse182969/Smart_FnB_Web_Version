@@ -47,6 +47,10 @@ export interface RawSubscription {
   startsAt: string;
   expiresAt: string;
   suspendedAt?: string | null;
+  /** Cột dùng thử (BE `a403612`); thiếu hoặc null → không phải thuê bao dùng thử. */
+  trialStartedAt?: string | null;
+  trialEndsAt?: string | null;
+  trialConvertedAt?: string | null;
   plan: RawPlan;
   events?: unknown[];
 }
@@ -146,6 +150,9 @@ export function mapSubscription(raw: RawSubscription, now?: Date): BusinessSubsc
     startsAt: raw.startsAt,
     expiresAt: raw.expiresAt,
     suspendedAt: raw.suspendedAt ?? null,
+    trialStartedAt: raw.trialStartedAt ?? null,
+    trialEndsAt: raw.trialEndsAt ?? null,
+    trialConvertedAt: raw.trialConvertedAt ?? null,
     plan: mapPlan(raw.plan),
     monthlyPrice: parseAmount(raw.monthlyPrice),
   };

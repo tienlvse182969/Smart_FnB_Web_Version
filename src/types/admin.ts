@@ -162,6 +162,13 @@ export type BusinessSubscription = {
 
   suspendedAt: string | null;
 
+  /** Ba cột dùng thử của BE `a403612` (null khi thuê bao không bắt đầu từ dùng thử, hoặc BE cũ). Hạn thật vẫn là `expiresAt`. */
+  trialStartedAt: string | null;
+
+  trialEndsAt: string | null;
+
+  trialConvertedAt: string | null;
+
   plan: ServicePlan;
 
   monthlyPrice: number;
