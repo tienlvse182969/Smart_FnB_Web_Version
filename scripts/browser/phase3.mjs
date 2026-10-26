@@ -94,9 +94,15 @@ try {
   const landing = await tab.text();
   const banned = landing.match(/(^|[^\p{L}])(bàn|waiter|bếp|kitchen|ví)([^\p{L}]|$)/iu);
   check("Landing: không còn chữ 'bàn', 'waiter', 'bếp', 'ví'", !banned, banned ? `gặp "${banned[2]}"` : "");
+  // Từ 10.1 (main `a6e0a02`): bảng giá là "Dùng thử 14 ngày, nâng cấp khi sẵn sàng" và liệt kê các gói BE đang bán (`GET /public/service-plans`,
+  // đã loại TRIAL và gói 0đ). Real: tên gói kỳ vọng lấy từ chính BE (DB local hiện chỉ có Cơ bản); mock: đủ ba cấp.
+  const expectedPlanNames = REAL
+    ? (await (await fetch("http://localhost:3100/api/v1/public/service-plans")).json()).map((p) => p.name)
+    : ["Cơ bản", "Tiêu chuẩn", "Nâng cao"];
   check(
-    "Landing: bảng giá có Cơ bản / Tiêu chuẩn / Nâng cao, không còn 'Mở rộng' và hạn mức bàn",
-    ["Cơ bản", "Tiêu chuẩn", "Nâng cao"].every((n) => landing.includes(n)) && !landing.includes("Mở rộng") && !/bàn mỗi chi nhánh/i.test(landing) && /₫ \/ tháng/.test(landing),
+    "Landing: bảng giá liệt kê các gói đang bán (real: theo BE) kèm tiêu đề dùng thử 14 ngày, không còn 'Mở rộng' và hạn mức bàn",
+    expectedPlanNames.length > 0 && expectedPlanNames.every((n) => landing.includes(n)) && /Dùng thử 14 ngày/.test(landing) && !landing.includes("Mở rộng") && !/bàn mỗi chi nhánh/i.test(landing) && /₫ \/ tháng/.test(landing),
+    expectedPlanNames.join(", "),
   );
   check("Landing: nội dung v9 (trả trước tại quầy, pha chế, gọi số, PayOS)", /trả tiền trước tại quầy/.test(landing) && /gọi số/i.test(landing) && /PayOS/.test(landing));
 
