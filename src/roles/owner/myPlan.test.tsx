@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { App as AntApp } from "antd";
+import { platformBillingApi, type SubscriptionCheckout } from "../../api/platformBilling";
 import { planMock } from "../../api/modules/plan/mock";
 import { planReal } from "../../api/modules/plan/real";
 import { mockControl } from "../../api/mock/control";
@@ -62,10 +64,12 @@ describe("màn Gói của tôi — gói dùng thử (lượt 10.2)", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("tên 'Dùng thử miễn phí' thay cho tên BE; dòng phụ 'Hạn mức như gói Cơ bản · hết hạn dd/MM/yyyy'; hạn mức vẫn đọc từ BE", async () => {
+  it("tên 'Dùng thử miễn phí' thay cho tên BE; dòng phụ chỉ 'Hạn mức như gói Cơ bản'; ngày hết hạn chỉ hiện MỘT lần (dòng 'Hết hạn'); hạn mức vẫn đọc từ BE", async () => {
     await showTrial();
+    expect(text("myplan-expiry")).toBe("30/11/2099");
+    expect(document.body.textContent?.split("30/11/2099")).toHaveLength(2); // đúng một lần
     expect(text("myplan-name")).toBe("Dùng thử miễn phí");
-    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản · hết hạn 30/11/2099");
+    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản");
     expect(text("myplan-limit-branches")).toContain("Đã dùng 2 / 2");
     expect(await screen.findByTestId("myplan-upgrade")).toBeTruthy();
   });
@@ -73,7 +77,7 @@ describe("màn Gói của tôi — gói dùng thử (lượt 10.2)", () => {
   it("đã hết: dòng phụ ghi 'đã hết hạn', thẻ nâng cấp nằm TRƯỚC thẻ gói đang dùng và nổi bật", async () => {
     await showTrial({ status: "EXPIRED", expiresAt: "2026-10-01T16:59:59.000Z" });
     const upgrade = await screen.findByTestId("myplan-upgrade");
-    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản · đã hết hạn 01/10/2026");
+    expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản");
     expect(upgrade.textContent).toContain("Thời gian dùng thử đã hết");
     expect(upgrade.compareDocumentPosition(screen.getByTestId("myplan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(text("myplan-status")).toBe("Đã hết hạn");
@@ -98,6 +102,100 @@ describe("màn Gói của tôi — gói dùng thử (lượt 10.2)", () => {
     await showTrial({ expiresAt: undefined });
     expect(text("myplan-trial-note")).toBe("Hạn mức như gói Cơ bản");
     expect(document.body.textContent).not.toContain("NaN");
+  });
+});
+
+describe("màn Gói của tôi — hỏi trạng thái thanh toán (lượt 10.2b)", () => {
+  const checkout = (status: SubscriptionCheckout["status"]): SubscriptionCheckout => ({ id: "c-1", planId: "p1", amount: 300000, status, checkoutUrl: null, paidAt: null });
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  const trialSubscription = () => subscription({ plan: { name: "Dùng thử 14 ngày", code: "TRIAL", brandingEnabled: false, multiBranchComparisonEnabled: false }, expiresAt: "2099-11-30T16:59:59.000Z" });
+
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date("2026-10-15T10:30:00+07:00"));
+    window.history.pushState({}, "", "/owner/plan?checkout=c-1");
+    vi.spyOn(adminApi, "listPublicPlans").mockResolvedValue([{ id: "p1", code: "BASIC", name: "Cơ bản", monthlyPrice: 300000, maxBranches: 2, maxAccounts: 10, isActive: true }] as never);
+    const plan = await planReal.getPlan("c1", { chains: [chainOf(trialSubscription())] });
+    act(() => useAppStore.setState({ plan, chainId: "c1", scopeStatus: "ready" }));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    window.history.pushState({}, "", "/");
+    act(() => useAppStore.setState({ chainId: null }));
+  });
+  const alertText = () => screen.getByTestId("checkout-alert").textContent ?? "";
+
+  it("PENDING: hỏi đúng 20 lượt rồi DỪNG, hiện câu 'PayOS chưa xác nhận…' và nút Kiểm tra lại", async () => {
+    const get = vi.spyOn(platformBillingApi, "getCheckout").mockResolvedValue(checkout("PENDING"));
+    render(<AntApp><MyPlan /></AntApp>);
+    await advance(0);
+    expect(alertText()).toContain("Đang chờ PayOS xác nhận thanh toán");
+    expect(screen.queryByTestId("checkout-recheck")).toBeNull();
+    await advance(3000 * 25);
+    expect(get).toHaveBeenCalledTimes(20);
+    expect(alertText()).toContain("PayOS chưa xác nhận. Nếu bạn đã chuyển khoản, bấm Kiểm tra lại sau ít phút.");
+    expect(screen.getByTestId("checkout-recheck").textContent).toContain("Kiểm tra lại");
+    await advance(60_000);
+    expect(get).toHaveBeenCalledTimes(20); // đã dừng hỏi
+  });
+
+  it("Kiểm tra lại: mỗi lần bấm đúng 1 GET, khoá nút trong lúc chờ; vẫn PENDING thì giữ nút, PAID thì báo thành công", async () => {
+    const get = vi.spyOn(platformBillingApi, "getCheckout").mockResolvedValue(checkout("PENDING"));
+    render(<AntApp><MyPlan /></AntApp>);
+    await advance(3000 * 25);
+    expect(get).toHaveBeenCalledTimes(20);
+
+    let release: (c: SubscriptionCheckout) => void = () => undefined;
+    get.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    const button = () => screen.getByTestId("checkout-recheck") as HTMLButtonElement;
+    fireEvent.click(button());
+    await advance(0);
+    expect(get).toHaveBeenCalledTimes(21);
+    expect(button().disabled).toBe(true);
+    fireEvent.click(button());
+    fireEvent.click(button());
+    await advance(0);
+    expect(get).toHaveBeenCalledTimes(21); // bấm thêm lúc đang chờ không gọi thêm
+    await act(async () => release(checkout("PENDING")));
+    expect(button().disabled).toBe(false);
+    expect(alertText()).toContain("PayOS chưa xác nhận");
+
+    get.mockResolvedValueOnce(checkout("PAID"));
+    fireEvent.click(button());
+    await advance(0);
+    expect(get).toHaveBeenCalledTimes(22);
+    expect(alertText()).toContain("gói trả phí đã kích hoạt");
+    expect(screen.queryByTestId("checkout-recheck")).toBeNull();
+  });
+
+  it("FAILED và EXPIRED: câu tương ứng và nút 'Tạo thanh toán mới' (tạo đúng gói đã chọn)", async () => {
+    for (const [status, sentence] of [["FAILED", "Không thể hoàn tất thanh toán"], ["EXPIRED", "Liên kết thanh toán đã hết hạn"]] as const) {
+      vi.spyOn(platformBillingApi, "getCheckout").mockResolvedValue(checkout(status));
+      const create = vi.spyOn(platformBillingApi, "createCheckout").mockRejectedValue(new Error("không gọi PayOS thật"));
+      const view = render(<AntApp><MyPlan /></AntApp>);
+      await advance(0);
+      expect(alertText()).toContain(sentence);
+      expect(screen.queryByTestId("checkout-recheck")).toBeNull();
+      fireEvent.click(screen.getByTestId("checkout-new"));
+      await advance(0);
+      expect(create).toHaveBeenCalledWith("c1", "p1");
+      view.unmount();
+      vi.restoreAllMocks();
+      vi.spyOn(adminApi, "listPublicPlans").mockResolvedValue([{ id: "p1", code: "BASIC", name: "Cơ bản", monthlyPrice: 300000, maxBranches: 2, maxAccounts: 10, isActive: true }] as never);
+    }
+  });
+
+  it("NEEDS_REVIEW: câu đối soát, KHÔNG có nút tạo thanh toán mới và các nút thanh toán nâng cấp bị khoá (tránh trả tiền hai lần)", async () => {
+    vi.spyOn(platformBillingApi, "getCheckout").mockResolvedValue(checkout("NEEDS_REVIEW"));
+    render(<AntApp><MyPlan /></AntApp>);
+    await advance(0);
+    expect(alertText()).toContain("Thanh toán cần nền tảng đối soát, gói sẽ được cập nhật sau khi xác nhận.");
+    expect(screen.queryByTestId("checkout-new")).toBeNull();
+    expect(screen.queryByTestId("checkout-recheck")).toBeNull();
+    const pay = screen.getAllByRole("button", { name: /Thanh toán nâng cấp/ }) as HTMLButtonElement[];
+    expect(pay.length).toBeGreaterThan(0);
+    expect(pay.every((b) => b.disabled)).toBe(true);
   });
 });
 

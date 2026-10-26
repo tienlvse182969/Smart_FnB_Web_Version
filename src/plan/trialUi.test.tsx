@@ -189,7 +189,7 @@ describe("<ReadOnlyBanner> với gói dùng thử", () => {
     setState(expired(), "owner");
     render(<ReadOnlyBanner />);
     const text = screen.getByTestId("read-only-banner").textContent ?? "";
-    expect(text).toContain("Dùng thử đã hết từ 12/10/2026 — chế độ chỉ đọc");
+    expect(text).toContain("Dùng thử đã hết vào ngày 12/10/2026 — chế độ chỉ đọc");
     expect(text).toContain(TRIAL_EXPIRED_OWNER);
     expect(screen.getByTestId("upgrade-button")).toBeTruthy();
   });

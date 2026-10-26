@@ -110,11 +110,12 @@ describe("nhãn và màu ngữ nghĩa", () => {
     expect(trialSubtitle({ kind: "suspended" })).toBeNull();
   });
 
-  it("phụ đề của Admin cùng chữ và màu với nhãn của Owner", () => {
-    expect(trialSubtitle({ kind: "active", daysLeft: 10 })).toEqual({ text: "còn 10 ngày", tone: "info" });
-    expect(trialSubtitle({ kind: "active", daysLeft: 2 })).toEqual({ text: "còn 2 ngày", tone: "warning" });
-    expect(trialSubtitle({ kind: "lastDay" })).toEqual({ text: "hết hạn hôm nay", tone: "warning" });
-    expect(trialSubtitle({ kind: "expired" })).toEqual({ text: "đã hết", tone: "error" });
+  it("phụ đề của Admin chỉ là chữ (không màu); đã hết, tạm ngưng, không có số ngày thì không có phụ đề", () => {
+    expect(trialSubtitle({ kind: "active", daysLeft: 10 })).toBe("còn 10 ngày");
+    expect(trialSubtitle({ kind: "active", daysLeft: 2 })).toBe("còn 2 ngày");
+    expect(trialSubtitle({ kind: "lastDay" })).toBe("hết hạn hôm nay");
+    expect(trialSubtitle({ kind: "expired" })).toBeNull();
+    expect(trialSubtitle({ kind: "active", daysLeft: null })).toBeNull();
   });
 });
 

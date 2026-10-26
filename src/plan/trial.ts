@@ -82,16 +82,16 @@ export function trialLabel(state: TrialState): TrialLabel | null {
   }
 }
 
-/** Phụ đề ngắn dưới tên gói trong bảng doanh nghiệp của Admin. Cùng hệ màu với `trialLabel`. */
-export function trialSubtitle(state: TrialState): TrialLabel | null {
+/**
+ * Phụ đề ngắn dưới tên gói trong bảng doanh nghiệp của Admin (lượt 10.2b): CHỈ chữ, không màu — màu do chip trạng thái mang (`TENANT_STATUS_COLOR`).
+ * Đã hết: chip "Hết hạn · chỉ đọc" đã nói đủ nên không có phụ đề; tạm ngưng và không đọc được hạn: không có.
+ */
+export function trialSubtitle(state: TrialState): string | null {
   switch (state.kind) {
     case "active":
-      if (state.daysLeft === null) return null;
-      return { text: `còn ${state.daysLeft} ngày`, tone: state.daysLeft <= TRIAL_WARNING_DAYS ? "warning" : "info" };
+      return state.daysLeft === null ? null : `còn ${state.daysLeft} ngày`;
     case "lastDay":
-      return { text: "hết hạn hôm nay", tone: "warning" };
-    case "expired":
-      return { text: "đã hết", tone: "error" };
+      return "hết hạn hôm nay";
     default:
       return null;
   }

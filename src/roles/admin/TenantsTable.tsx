@@ -25,7 +25,7 @@ function TrialLock({ locked, children }: { locked: boolean; children: ReactNode 
   );
 }
 
-/** Tên gói trong bảng/chi tiết: gói dùng thử hiện "Dùng thử" kèm phụ đề còn bao lâu (cùng nguồn và màu với nhãn của Owner, `plan/trial.ts`). */
+/** Tên gói trong bảng/chi tiết: gói dùng thử hiện "Dùng thử" kèm phụ đề còn bao lâu (cùng nguồn với nhãn của Owner, `plan/trial.ts`). Phụ đề không tô màu: màu chỉ do chip trạng thái mang. */
 export function PlanCell({ subscription }: { subscription: Business["subscription"] }) {
   if (!subscription) return <>—</>;
   if (!isTrialCode(subscription.plan.code)) return <>{dash(subscription.plan.name)}</>;
@@ -34,8 +34,8 @@ export function PlanCell({ subscription }: { subscription: Business["subscriptio
     <div data-testid="tenant-plan-trial">
       <div style={{ fontWeight: 500 }}>Dùng thử</div>
       {sub && (
-        <div data-testid="tenant-trial-sub" data-tone={sub.tone} style={{ fontSize: 12, color: palette[sub.tone].text }}>
-          {sub.text}
+        <div data-testid="tenant-trial-sub" style={{ fontSize: 12, color: palette.textMuted }}>
+          {sub}
         </div>
       )}
     </div>

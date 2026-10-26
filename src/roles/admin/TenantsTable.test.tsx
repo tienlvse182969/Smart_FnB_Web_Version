@@ -47,15 +47,19 @@ describe("TenantsTable — gói dùng thử", () => {
     expect(within(rowOf("Quán t10")).getByTestId("tenant-plan-trial").textContent).toContain("Dùng thử");
     expect(within(rowOf("Quán t2")).getByTestId("tenant-trial-sub").textContent).toBe("còn 2 ngày");
     expect(within(rowOf("Quán tlast")).getByTestId("tenant-trial-sub").textContent).toBe("hết hạn hôm nay");
-    expect(within(rowOf("Quán tend")).getByTestId("tenant-trial-sub").textContent).toBe("đã hết");
+    expect(within(rowOf("Quán tend")).queryByTestId("tenant-trial-sub")).toBeNull(); // chip "Hết hạn · chỉ đọc" đã nói đủ
     expect(within(rowOf("Quán paid")).queryByTestId("tenant-plan-trial")).toBeNull();
     expect(rowOf("Quán paid").textContent).toContain("Cơ bản");
   });
 
-  it("phụ đề cùng hệ màu với nhãn của Owner: info khi còn nhiều, warning khi sắp hết/ngày cuối, error khi đã hết; tạm ngưng không có phụ đề", async () => {
+  it("phụ đề không tô màu (chữ textMuted); màu chỉ do chip trạng thái mang; hết hạn và tạm ngưng không có phụ đề", async () => {
     await renderTable();
-    const tone = (name: string) => within(rowOf(name)).getByTestId("tenant-trial-sub").getAttribute("data-tone");
-    expect([tone("Quán t10"), tone("Quán t2"), tone("Quán tlast"), tone("Quán tend")]).toEqual(["info", "warning", "warning", "error"]);
+    const color = (name: string) => (within(rowOf(name)).getByTestId("tenant-trial-sub") as HTMLElement).style.color;
+    const colors = new Set([color("Quán t10"), color("Quán t2"), color("Quán tlast")]);
+    expect(colors.size).toBe(1); // cùng một màu cho mọi mức còn hạn
+    expect(within(rowOf("Quán t10")).getByTestId("tenant-trial-sub").getAttribute("data-tone")).toBeNull();
+    expect(within(rowOf("Quán tend")).queryByTestId("tenant-trial-sub")).toBeNull();
+    expect(rowOf("Quán tend").textContent).toContain("Hết hạn");
     expect(within(rowOf("Quán tsus")).queryByTestId("tenant-trial-sub")).toBeNull();
     expect(rowOf("Quán tsus").textContent).toContain("Tạm ngưng");
   });

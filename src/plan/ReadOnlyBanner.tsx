@@ -25,7 +25,7 @@ export default function ReadOnlyBanner() {
     status === "suspended"
       ? "Doanh nghiệp đang bị tạm ngưng — chế độ chỉ đọc"
       : isTrialExpired
-        ? `Dùng thử đã hết${when ? ` từ ${when}` : ""} — chế độ chỉ đọc`
+        ? `Dùng thử đã hết${when ? ` vào ngày ${when}` : ""} — chế độ chỉ đọc`
         : `Gói đã hết hạn${when ? ` từ ${when}` : ""} — chế độ chỉ đọc`;
 
   return (

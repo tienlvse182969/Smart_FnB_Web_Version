@@ -4,7 +4,7 @@ export type SubscriptionCheckout = {
   id: string;
   planId: string;
   amount: number;
-  status: "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW";
+  status: "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | "EXPIRED";
   checkoutUrl: string | null;
   paidAt: string | null;
 };

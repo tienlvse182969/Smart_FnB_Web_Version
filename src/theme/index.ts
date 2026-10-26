@@ -170,6 +170,13 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
         defaultBg: NEUTRAL.paperSubtle,
         defaultColor: NEUTRAL.ink,
       },
+      // `colorInfo` ở trên theo màu thương hiệu (nút, liên kết), nên dải thông tin (Alert info) sẽ nhuộm theo thương hiệu (nền xám đậm khi thương hiệu là đen).
+      // Dải thông tin là màu NGỮ NGHĨA (BR-42): luôn dùng bộ info cố định, cùng cấu trúc nền nhạt + viền như dải warning.
+      Alert: {
+        colorInfo: SEMANTIC.info.text,
+        colorInfoBg: SEMANTIC.info.bg,
+        colorInfoBorder: SEMANTIC.info.border,
+      },
     },
   };
 }

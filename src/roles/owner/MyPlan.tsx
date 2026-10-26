@@ -74,6 +74,9 @@ const STATUS_COLOR: Record<PlanStatus, string> = {
  * đã nạp cùng phạm vi làm việc, nên lỗi đọc hiện ở màn lỗi nạp khu vực (có nút Thử lại), không phải ở màn này.
  */
 
+/** Số lượt hỏi tự động trạng thái checkout (mỗi 3 giây) trước khi dừng và hiện nút "Kiểm tra lại". */
+export const CHECKOUT_POLL_LIMIT = 20;
+
 export default function MyPlan() {
   const { plan, loading } = usePlan();
 
@@ -92,8 +95,15 @@ export default function MyPlan() {
   const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
 
   const [checkoutStatus, setCheckoutStatus] = useState<
-    "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | null
+    "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | "EXPIRED" | null
   >(null);
+
+  // Lượt 10.2b: hỏi hết CHECKOUT_POLL_LIMIT lượt mà vẫn PENDING thì dừng hỏi và cho người dùng bấm "Kiểm tra lại" (mỗi lần bấm hỏi đúng 1 lần).
+  const [checkoutRetryPlanId, setCheckoutRetryPlanId] = useState<string | null>(null);
+
+  const [checkoutStalled, setCheckoutStalled] = useState(false);
+
+  const [rechecking, setRechecking] = useState(false);
 
   useEffect(() => {
     if (plan?.planCode !== "TRIAL") return;
@@ -153,12 +163,15 @@ export default function MyPlan() {
 
         setCheckoutStatus(checkout.status);
 
+        setCheckoutRetryPlanId(checkout.planId);
+
         if (checkout.status === "PAID") {
           await reloadPlan();
 
           window.history.replaceState({}, "", window.location.pathname);
-        } else if (checkout.status === "PENDING" && ++attempts < 20) {
-          timer = window.setTimeout(() => void poll(), 3000);
+        } else if (checkout.status === "PENDING") {
+          if (++attempts < CHECKOUT_POLL_LIMIT) timer = window.setTimeout(() => void poll(), 3000);
+          else setCheckoutStalled(true);
         }
       } catch (error) {
         if (!cancelled)
@@ -179,6 +192,35 @@ export default function MyPlan() {
       window.clearTimeout(timer);
     };
   }, [chainId, message, reloadPlan]);
+
+  /** "Kiểm tra lại" sau khi hết lượt hỏi tự động: đúng MỘT `GET …/checkouts/:id` mỗi lần bấm, khoá nút trong lúc chờ. */
+  const recheckCheckout = async () => {
+    const checkoutId = new URLSearchParams(window.location.search).get("checkout");
+
+    if (!chainId || !checkoutId || rechecking) return;
+
+    setRechecking(true);
+
+    try {
+      const checkout = await platformBillingApi.getCheckout(chainId, checkoutId);
+
+      setCheckoutStatus(checkout.status);
+
+      setCheckoutRetryPlanId(checkout.planId);
+
+      setCheckoutStalled(checkout.status === "PENDING");
+
+      if (checkout.status === "PAID") {
+        await reloadPlan();
+
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch (error) {
+      showApiError(message.error, error, "Không kiểm tra được trạng thái thanh toán");
+    } finally {
+      setRechecking(false);
+    }
+  };
 
   const startCheckout = async (planId: string) => {
     if (!chainId) return;
@@ -237,7 +279,6 @@ export default function MyPlan() {
   const isTrial = isTrialCode(plan.planCode);
   const trialExpired = trial.kind === "expired";
   const upgradeAvailable = isTrial && plan.status !== "suspended";
-  const expiryNote = plan.expiresAt ? ` · ${trialExpired ? "đã hết hạn" : "hết hạn"} ${formatDateVN(plan.expiresAt)}` : "";
 
   const upgradeCard = upgradeAvailable ?
         (
@@ -290,7 +331,8 @@ export default function MyPlan() {
                       block
                       loading={checkoutPlanId === item.id}
                       disabled={
-                        checkoutPlanId !== null && checkoutPlanId !== item.id
+                        (checkoutPlanId !== null && checkoutPlanId !== item.id) ||
+                        checkoutStatus === "NEEDS_REVIEW" // đang chờ đối soát: không tạo thanh toán mới, tránh trả tiền hai lần
                       }
                       onClick={() => void startCheckout(item.id)}
                     >
@@ -313,11 +355,13 @@ export default function MyPlan() {
       <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>
         {checkoutStatus && (
           <Alert
+            data-testid="checkout-alert"
             showIcon
             type={
               checkoutStatus === "PAID"
                 ? "success"
                 : checkoutStatus === "FAILED" ||
+                    checkoutStatus === "EXPIRED" ||
                     checkoutStatus === "NEEDS_REVIEW"
                   ? "error"
                   : "info"
@@ -326,10 +370,25 @@ export default function MyPlan() {
               checkoutStatus === "PAID"
                 ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
                 : checkoutStatus === "NEEDS_REVIEW"
-                  ? "PayOS đã báo có tiền nhưng giao dịch cần đối soát. Vui lòng liên hệ quản trị SmartFnB, không thanh toán lại."
-                  : checkoutStatus === "FAILED"
-                    ? "Không thể hoàn tất thanh toán. Vui lòng thử lại."
-                    : "Đang chờ PayOS xác nhận thanh toán. Chỉ chuyển trang trở lại chưa có nghĩa là đã trả tiền."
+                  ? "Thanh toán cần nền tảng đối soát, gói sẽ được cập nhật sau khi xác nhận."
+                  : checkoutStatus === "EXPIRED"
+                    ? "Liên kết thanh toán đã hết hạn. Tạo thanh toán mới để tiếp tục."
+                    : checkoutStatus === "FAILED"
+                      ? "Không thể hoàn tất thanh toán. Vui lòng thử lại."
+                      : checkoutStalled
+                        ? "PayOS chưa xác nhận. Nếu bạn đã chuyển khoản, bấm Kiểm tra lại sau ít phút."
+                        : "Đang chờ PayOS xác nhận thanh toán. Chỉ chuyển trang trở lại chưa có nghĩa là đã trả tiền."
+            }
+            action={
+              checkoutStatus === "PENDING" && checkoutStalled ? (
+                <Button size="small" data-testid="checkout-recheck" loading={rechecking} disabled={rechecking} onClick={() => void recheckCheckout()}>
+                  Kiểm tra lại
+                </Button>
+              ) : (checkoutStatus === "FAILED" || checkoutStatus === "EXPIRED") && checkoutRetryPlanId ? (
+                <Button size="small" type="primary" data-testid="checkout-new" loading={checkoutPlanId === checkoutRetryPlanId} disabled={checkoutPlanId !== null} onClick={() => void startCheckout(checkoutRetryPlanId)}>
+                  Tạo thanh toán mới
+                </Button>
+              ) : undefined
             }
           />
         )}
@@ -353,7 +412,6 @@ export default function MyPlan() {
           {isTrial && (
             <div data-testid="myplan-trial-note" style={{ fontSize: 13, color: palette.textMuted, margin: "-8px 0 14px" }}>
               {TRIAL_PLAN_NOTE}
-              {expiryNote}
             </div>
           )}
           <div

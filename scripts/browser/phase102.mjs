@@ -5,7 +5,7 @@
 import { check, cli, closeTab, newTab, results, sleep, SESSION_ALLOW } from "./cdp.mjs";
 
 const CLI = cli();
-const BLOCKS = ["owner", "manager", "admin", "faults"];
+const BLOCKS = ["owner", "manager", "admin", "faults", "checkout"];
 if (CLI.only && !CLI.only.every((n) => BLOCKS.includes(n))) {
   console.log(`--only hỗ trợ: ${BLOCKS.join(", ")} (nhận được: ${CLI.only.join(",")})`);
   process.exit(2);
@@ -75,6 +75,23 @@ const hoverTooltip = async (selector) => {
   await tab.waitFor(`[...document.querySelectorAll(".ant-tooltip")].some((e) => !e.classList.contains("ant-tooltip-hidden") && e.innerText.trim())`, 5000, "tooltip");
   return norm(await q(`[...document.querySelectorAll(".ant-tooltip")].filter((e) => !e.classList.contains("ant-tooltip-hidden")).map((e) => e.innerText).join(" ")`));
 };
+/**
+ * Cố định đồng hồ trình duyệt (lượt 10.2b, như bộ test `9e93899`): thay `Date` ở mọi trang mới mở bằng bản lệch một khoảng cố định để
+ * "bây giờ" = `targetMs`, nên ca "ngày cuối" đúng ở mọi giờ chạy. `null` = trả đồng hồ thật.
+ */
+let clockScript = null;
+const pinClock = async (targetMs) => {
+  if (clockScript) await tab.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: clockScript });
+  clockScript = null;
+  if (targetMs == null) return;
+  const offset = targetMs - Date.now();
+  const r = await tab.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => { const R = Date; const off = ${offset}; class F extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } window.Date = F; })()`,
+  });
+  clockScript = (r.result ?? r).identifier;
+};
+/** 12:00 trưa giờ VN của hôm nay (thời điểm cố định cho ca ngày cuối). */
+const vnNoonToday = () => Date.parse(noonPlus(0));
 const ownerShows = async (path, subscription, ready) => {
   tab.readOverride = [await chainsOverride(subscription)];
   await tab.goto(path);
@@ -100,7 +117,7 @@ try {
       await owner("còn 10 ngày", sub(TRIAL_PLAN, "ACTIVE", exp), async (n) => {
         check(`Owner · ${n}: nhãn 'Dùng thử · còn 10 ngày', màu info, bấm tới /owner/plan`, (await text("trial-badge")) === "Dùng thử · còn 10 ngày" && (await attr("trial-badge", "data-tone")) === "info" && (await attr("trial-badge", "href")) === "/owner/plan", await text("trial-badge"));
         check(`Owner · ${n}: chưa có dải cảnh báo (chỉ ≤ 7 ngày) và không có banner chỉ đọc`, !(await has("expiring-banner")) && !(await has("read-only-banner")));
-        check(`Owner · ${n}: Gói của tôi — tên 'Dùng thử miễn phí', dòng phụ 'Hạn mức như gói Cơ bản · hết hạn ${vnDate(exp)}'`, (await text("myplan-name")) === "Dùng thử miễn phí" && (await text("myplan-trial-note")) === `Hạn mức như gói Cơ bản · hết hạn ${vnDate(exp)}`, `${await text("myplan-name")} | ${await text("myplan-trial-note")}`);
+        check(`Owner · ${n}: Gói của tôi — tên 'Dùng thử miễn phí', dòng phụ chỉ 'Hạn mức như gói Cơ bản', ngày hết hạn ${vnDate(exp)} hiện MỘT lần ở dòng 'Hết hạn'`, (await text("myplan-name")) === "Dùng thử miễn phí" && (await text("myplan-trial-note")) === "Hạn mức như gói Cơ bản" && (await text("myplan-expiry")) === vnDate(exp) && (await bodyText()).split(vnDate(exp)).length === 2, `${await text("myplan-name")} | ${await text("myplan-trial-note")} | ${await text("myplan-expiry")}`);
         const order = await q(`(() => { const u = ${tid("myplan-upgrade")}, n = ${tid("myplan-name")}; return !!u && !!n && !!(n.compareDocumentPosition(u) & Node.DOCUMENT_POSITION_FOLLOWING); })()`);
         check(`Owner · ${n}: thẻ nâng cấp có mặt, nằm SAU thẻ gói đang dùng; không có nút thanh toán thứ hai trong banner`, order && !(await has("upgrade-button")));
         check(`Owner · ${n}: hạn mức hiển thị theo BE (Chi nhánh 1/5, Tài khoản 3/10)`, /1 \/ 5/.test(await text("myplan-limit-branches")) && /3 \/ 10/.test(await text("myplan-limit-accounts")), `${await text("myplan-limit-branches")} | ${await text("myplan-limit-accounts")}`);
@@ -115,10 +132,13 @@ try {
     });
 
     // 3. Ngày cuối
+    await pinClock(vnNoonToday()); // đồng hồ trình duyệt = 12:00 trưa giờ VN: ca này đúng ở mọi giờ chạy
     await owner("ngày cuối", sub(TRIAL_PLAN, "ACTIVE", endOfToday()), async (n) => {
       check(`Owner · ${n}: nhãn 'Dùng thử · hết hạn hôm nay' (warning), không 'còn 0 ngày'`, (await text("trial-badge")) === "Dùng thử · hết hạn hôm nay" && (await attr("trial-badge", "data-tone")) === "warning" && !/0 ngày/.test(await text("trial-badge")), await text("trial-badge"));
       check(`Owner · ${n}: dải cảnh báo 'hết hạn trong hôm nay'`, /hết hạn trong hôm nay/.test(await text("expiring-banner")), await text("expiring-banner"));
+      check(`Owner · ${n}: đồng hồ trình duyệt đã được cố định ở 12:00 giờ VN`, Math.abs((await q(`Date.now()`)) - vnNoonToday()) < 120000, String(await q(`new Date().toISOString()`)));
     });
+    await pinClock(null);
 
     // 4. Đã hết
     {
@@ -126,10 +146,10 @@ try {
       await owner("đã hết", sub(TRIAL_PLAN, "EXPIRED", exp), async (n) => {
         check(`Owner · ${n}: nhãn 'Dùng thử đã hết' màu error`, (await text("trial-badge")) === "Dùng thử đã hết" && (await attr("trial-badge", "data-tone")) === "error", await text("trial-badge"));
         const banner = await text("read-only-banner");
-        check(`Owner · ${n}: banner chỉ đọc 'Dùng thử đã hết từ ${vnDate(exp)}' kèm câu nâng cấp và nút 'Nâng cấp'`, banner.includes(`Dùng thử đã hết từ ${vnDate(exp)}`) && banner.includes(OWNER_EXPIRED) && (await text("upgrade-button")) === "Nâng cấp", banner);
+        check(`Owner · ${n}: banner chỉ đọc 'Dùng thử đã hết vào ngày ${vnDate(exp)}' kèm câu nâng cấp và nút 'Nâng cấp'`, banner.includes(`Dùng thử đã hết vào ngày ${vnDate(exp)}`) && banner.includes(OWNER_EXPIRED) && (await text("upgrade-button")) === "Nâng cấp", banner);
         check(`Owner · ${n}: không còn dải 'sắp hết hạn'`, !(await has("expiring-banner")));
         const order = await q(`(() => { const u = ${tid("myplan-upgrade")}, n = ${tid("myplan-name")}; return !!u && !!n && !!(u.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); })()`);
-        check(`Owner · ${n}: thẻ nâng cấp NẰM TRƯỚC thẻ gói đang dùng (nổi bật nhất trang), dòng phụ 'đã hết hạn'`, order && /đã hết hạn/.test(await text("myplan-trial-note")), await text("myplan-trial-note"));
+        check(`Owner · ${n}: thẻ nâng cấp NẰM TRƯỚC thẻ gói đang dùng (nổi bật nhất trang), dòng phụ 'Hạn mức như gói Cơ bản'`, order && (await text("myplan-trial-note")) === "Hạn mức như gói Cơ bản", await text("myplan-trial-note"));
         check(`Owner · ${n}: trạng thái 'Đã hết hạn'`, (await text("myplan-status")) === "Đã hết hạn");
       });
       await tab.goto("/owner/branches");
@@ -207,6 +227,7 @@ try {
 
   // =========================================================== ADMIN
   if (want("admin")) {
+    await pinClock(vnNoonToday());
     await loginAs("admin", "admin");
     tab.caseName = "admin";
     const realList = await q(`(async () => { const t = localStorage.getItem("smartfnb_access_token"); const r = await fetch("http://localhost:3100/api/v1/admin/businesses?page=1&limit=10", { headers: { Authorization: "Bearer " + t } }); return r.json(); })()`);
@@ -226,10 +247,12 @@ try {
     await sleep(600);
     const rowInfo = (name) => q(`(() => { const tr = [...document.querySelectorAll("tbody tr.ant-table-row")].find((r) => r.innerText.includes(${J(name)})); const sub = tr?.querySelector('[data-testid="tenant-trial-sub"]'); return { plan: tr?.querySelector('[data-testid="tenant-plan-trial"]')?.innerText.replace(/\\s+/g, " ").trim() ?? null, sub: sub?.innerText ?? null, tone: sub?.getAttribute("data-tone") ?? null, row: tr?.innerText.replace(/\\s+/g, " ") ?? "" }; })()`);
     const r10 = await rowInfo("Quán Thử 10"), r2 = await rowInfo("Quán Thử 2"), rl = await rowInfo("Quán Thử Cuối"), re = await rowInfo("Quán Thử Hết"), rs = await rowInfo("Quán Thử Ngưng"), rp = await rowInfo("Quán Trả Phí");
-    check("Admin · còn 10 ngày: 'Dùng thử' + 'còn 10 ngày' (info)", r10.plan?.startsWith("Dùng thử") && r10.sub === "còn 10 ngày" && r10.tone === "info", J(r10));
-    check("Admin · còn 2 ngày: 'còn 2 ngày' (warning)", r2.sub === "còn 2 ngày" && r2.tone === "warning", J(r2));
-    check("Admin · ngày cuối: 'hết hạn hôm nay' (warning)", rl.sub === "hết hạn hôm nay" && rl.tone === "warning", J(rl));
-    check("Admin · đã hết: 'đã hết' (error), cột trạng thái 'Hết hạn'", re.sub === "đã hết" && re.tone === "error" && /Hết hạn/.test(re.row), J(re));
+    check("Admin · còn 10 ngày: 'Dùng thử' + phụ đề 'còn 10 ngày'", r10.plan?.startsWith("Dùng thử") && r10.sub === "còn 10 ngày", J(r10));
+    check("Admin · còn 2 ngày: phụ đề 'còn 2 ngày'", r2.sub === "còn 2 ngày", J(r2));
+    check("Admin · ngày cuối: phụ đề 'hết hạn hôm nay'", rl.sub === "hết hạn hôm nay", J(rl));
+    check("Admin · đã hết: KHÔNG có phụ đề (chip 'Hết hạn · chỉ đọc' đã nói đủ)", re.sub === null && /Hết hạn · chỉ đọc/.test(re.row), J(re));
+    const subColors = await q(`[...document.querySelectorAll('[data-testid="tenant-trial-sub"]')].map((e) => getComputedStyle(e).color)`);
+    check("Admin · phụ đề không tô màu: mọi phụ đề cùng MỘT màu chữ (textMuted), không theo mức còn hạn", subColors.length === 3 && new Set(subColors).size === 1, J(subColors));
     check("Admin · tạm ngưng: 'Dùng thử' không phụ đề, cột trạng thái 'Tạm ngưng'", rs.plan?.startsWith("Dùng thử") && rs.sub === null && /Tạm ngưng/.test(rs.row), J(rs));
     check("Admin · gói trả phí: giữ tên gói 'Cơ bản', không phụ đề dùng thử", rp.plan === null && /Cơ bản/.test(rp.row), J(rp));
 
@@ -259,6 +282,61 @@ try {
     check("Admin · chi tiết gói trả phí: Gia hạn và Đổi gói bấm được, không bọc tooltip khoá", (await btn("Gia hạn"))?.disabled === false && (await btn("Đổi gói"))?.disabled === false && !(await q(`!!document.querySelector('.ant-drawer-body [data-testid="trial-lock"]')`)));
     await closeDrawer();
     check("Admin · 0 request ghi THẬT tới BE", writesBefore() === 0, `${writesBefore()}`);
+    tab.readOverride = null;
+    await pinClock(null);
+  }
+
+  // =========================================================== KIỂM TRA THANH TOÁN (lượt 10.2b) — chỉ giả bằng readOverride, KHÔNG tạo checkout thật
+  if (want("checkout")) {
+    await loginAs("owner", "owner");
+    tab.caseName = "checkout";
+    // Rút ngắn nhịp hỏi (3 giây → 30 ms) để 20 lượt hỏi xong trong vài giây; số lượt vẫn đúng 20. Chỉ áp dụng cho trang mở sau dòng này.
+    const fast = await tab.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => { const st = window.setTimeout; window.setTimeout = (f, ms, ...a) => st(f, ms === 3000 ? 30 : ms, ...a); })()` });
+    const CHECKOUT = /\/api\/v1\/restaurant-chains\/[^/]+\/subscription\/checkouts\/stall-1$/;
+    const calls = () => tab.requests.filter((r) => r.method === "GET" && CHECKOUT.test(new URL(r.url).pathname)).length;
+    const body = (status) => J({ id: "stall-1", planId: BASIC_PLAN.id, amount: 300000, status, checkoutUrl: null, paidAt: null });
+    const show = async (status) => {
+      tab.readOverride = [await chainsOverride(sub(TRIAL_PLAN, "EXPIRED", noonPlus(-1))), { match: CHECKOUT, body: body(status) }];
+      tab.requests.length = 0;
+      await tab.goto("/owner/plan?checkout=stall-1");
+      await tab.waitFor(`document.querySelector('[data-testid="checkout-alert"]')`, 25000, "dải trạng thái thanh toán");
+    };
+    const alertText = () => text("checkout-alert");
+
+    await show("PENDING");
+    await tab.waitFor(`document.querySelector('[data-testid="checkout-recheck"]')`, 20000, "nút Kiểm tra lại");
+    const first = calls();
+    check("Thanh toán · PENDING quá 20 lượt: dừng hỏi đúng 20 lượt, hiện câu 'PayOS chưa xác nhận…' và nút 'Kiểm tra lại'", (first === 20 || first === 21) && (await alertText()).includes("PayOS chưa xác nhận. Nếu bạn đã chuyển khoản, bấm Kiểm tra lại sau ít phút."), `${first} GET (dev: StrictMode chạy effect hai lần nên có thể thừa 1 GET lúc mở trang; đúng 20 lượt hỏi được kiểm ở unit test) | ${await alertText()}`);
+    await sleep(2500);
+    check("Thanh toán · sau khi dừng, không hỏi thêm", calls() === first, `${calls()}`);
+    await tab.waitFor(`document.querySelector('[data-testid="checkout-recheck"]') && !document.querySelector('[data-testid="checkout-recheck"]').disabled && !document.querySelector('[data-testid="checkout-recheck"]').classList.contains('ant-btn-loading')`, 8000, "nút Kiểm tra lại sẵn sàng");
+    await q(`document.querySelector('[data-testid="checkout-recheck"]').click()`);
+    await sleep(1200);
+    check("Thanh toán · bấm Kiểm tra lại: đúng 1 GET thêm (vẫn PENDING thì giữ nút)", calls() === first + 1 && (await has("checkout-recheck")), `${calls()}`);
+    tab.readOverride = [await chainsOverride(sub(TRIAL_PLAN, "EXPIRED", noonPlus(-1))), { match: CHECKOUT, body: body("PAID") }];
+    await tab.waitFor(`document.querySelector('[data-testid="checkout-recheck"]') && !document.querySelector('[data-testid="checkout-recheck"]').disabled && !document.querySelector('[data-testid="checkout-recheck"]').classList.contains('ant-btn-loading')`, 8000, "nút Kiểm tra lại sẵn sàng");
+    await q(`document.querySelector('[data-testid="checkout-recheck"]').click()`);
+    await tab.waitFor(`document.querySelector('[data-testid="checkout-alert"]')?.innerText.includes("gói trả phí đã kích hoạt")`, 10000, "báo đã kích hoạt");
+    check("Thanh toán · bấm lần nữa khi BE báo PAID: 1 GET thêm, báo 'gói trả phí đã kích hoạt', hết nút", calls() === first + 2 && !(await has("checkout-recheck")), `${calls()}`);
+
+    for (const [status, sentence] of [["EXPIRED", "Liên kết thanh toán đã hết hạn. Tạo thanh toán mới để tiếp tục."], ["FAILED", "Không thể hoàn tất thanh toán. Vui lòng thử lại."]]) {
+      await show(status);
+      await sleep(800);
+      check(`Thanh toán · ${status}: câu tương ứng và nút 'Tạo thanh toán mới', không nút Kiểm tra lại`, (await alertText()).includes(sentence) && (await text("checkout-new")).includes("Tạo thanh toán mới") && !(await has("checkout-recheck")), await alertText());
+    }
+    // Bấm "Tạo thanh toán mới": POST bị chặn ở CDP (không tạo checkout thật); kiểm đúng đường dẫn và gói.
+    const blockedBefore = tab.blockedWrites.length;
+    await q(`document.querySelector('[data-testid="checkout-new"]').click()`);
+    await sleep(1200);
+    const post = tab.blockedWrites.slice(blockedBefore).find((w) => w.method === "POST" && /\/subscription\/checkouts$/.test(w.path));
+    check("Thanh toán · bấm Tạo thanh toán mới: có POST …/subscription/checkouts đúng gói, BỊ CHẶN ở CDP (không tạo checkout thật)", !!post && post.body?.includes(BASIC_PLAN.id) && writesBefore() === 0, J(post ?? null));
+
+    await show("NEEDS_REVIEW");
+    await sleep(800);
+    const payDisabled = await q(`[...document.querySelectorAll("button")].filter((b) => b.innerText.includes("Thanh toán nâng cấp")).map((b) => b.disabled)`);
+    check("Thanh toán · NEEDS_REVIEW: câu đối soát, KHÔNG có nút tạo mới/kiểm tra lại, mọi nút 'Thanh toán nâng cấp' bị khoá (tránh trả tiền hai lần)", (await alertText()).includes("Thanh toán cần nền tảng đối soát, gói sẽ được cập nhật sau khi xác nhận.") && !(await has("checkout-new")) && !(await has("checkout-recheck")) && payDisabled.length > 0 && payDisabled.every(Boolean), `${await alertText()} | ${J(payDisabled)}`);
+    check("Thanh toán · 0 request ghi THẬT tới BE", writesBefore() === 0, `${writesBefore()}`);
+    await tab.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: (fast.result ?? fast).identifier });
     tab.readOverride = null;
   }
 
