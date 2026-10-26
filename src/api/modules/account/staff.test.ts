@@ -16,7 +16,7 @@ const emp = (id: string, role: string, extra: Record<string, unknown> = {}): Raw
 describe("Owner xem Cashier/Barista (OW-05) — mapper whitelist", () => {
   it("chỉ giữ trường cần, có vai trò Cashier/Barista, KHÔNG có lastLoginAt", () => {
     const s = mapStaff(emp("e1", "CASHIER"))!;
-    expect(Object.keys(s).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "name", "role", "status"]);
+    expect(Object.keys(s).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "invitationExpiresAt", "invitationState", "name", "role", "status"]);
     expect(s).toMatchObject({ role: "Cashier", name: "Lan Thu ngân", branchName: "CN Nguyễn Huệ", status: "ACTIVE" });
     expect(mapStaff(emp("e2", "BARISTA"))!.role).toBe("Barista");
   });

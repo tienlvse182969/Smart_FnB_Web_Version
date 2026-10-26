@@ -43,7 +43,11 @@ export default function PricingSection() {
   return (
     <section className="py-20 md:py-28">
       <div className="mx-auto max-w-6xl px-6">
-        <SectionHeading eyebrow="Gói dịch vụ" title="Chọn gói theo quy mô chuỗi" />
+        <SectionHeading eyebrow="Gói dịch vụ" title="Dùng thử 14 ngày, nâng cấp khi sẵn sàng" />
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-zinc-600">
+          Sau khi hồ sơ được duyệt, bạn bắt đầu với gói TRIAL miễn phí có hạn mức giống BASIC.
+          Các gói dưới đây để tham khảo; bạn chọn và thanh toán sau khi đăng nhập.
+        </p>
         {error && (
           <div role="alert" className="mx-auto mt-8 max-w-xl rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">
             <p>Không tải được danh sách gói. {error}</p>

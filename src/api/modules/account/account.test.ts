@@ -21,7 +21,7 @@ const raw: RawEmployee = {
 describe("mapper Manager — whitelist", () => {
   it("chỉ giữ đúng các trường của ManagerAccount", () => {
     const m = mapManager(raw);
-    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "lastLoginAt", "name", "status"]);
+    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "invitationExpiresAt", "invitationState", "lastLoginAt", "name", "status"]);
     expect(m).toMatchObject({ id: "e1", name: "An Nguyen", email: "an@x.vn", status: "ACTIVE", branchId: "b1", branchName: "CN Thảo Điền" });
   });
 
@@ -75,22 +75,22 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
   it("khoá = PATCH /employees/{id}/status {status:SUSPENDED}; mở khoá = ACTIVE", async () => {
     const lock = respond({ id: "u", email: "x", status: "SUSPENDED" });
     vi.stubGlobal("fetch", lock);
-    await accountReal.setManagerActive("e1", false);
-    expect(call(lock)).toMatchObject({ method: "PATCH", body: { status: "SUSPENDED" } });
+    await accountReal.setManagerActive("e1", false, "Nghỉ việc");
+    expect(call(lock)).toMatchObject({ method: "PATCH", body: { status: "SUSPENDED", reason: "Nghỉ việc" } });
     expect(call(lock).url).toMatch(/\/employees\/e1\/status$/);
     const unlock = respond({ id: "u", email: "x", status: "ACTIVE" });
     vi.stubGlobal("fetch", unlock);
-    await accountReal.setManagerActive("e1", true);
-    expect(call(unlock).body).toEqual({ status: "ACTIVE" });
+    await accountReal.setManagerActive("e1", true, "Đi làm lại");
+    expect(call(unlock).body).toEqual({ status: "ACTIVE", reason: "Đi làm lại" });
   });
 
   it("gửi lại email = POST /employees/{id}/reset-password, chỉ trả expiresAt (không token)", async () => {
     const fetchMock = respond({ message: "A password setup link has been sent to the manager", expiresAt: "2026-10-03T00:00:00.000Z", setupToken: "tok" });
     vi.stubGlobal("fetch", fetchMock);
-    const notice = await accountReal.resetManagerPassword("e1");
+    const notice = await accountReal.resetManagerPassword("e1", "Quên mật khẩu");
     expect(call(fetchMock)).toMatchObject({ method: "POST" });
     expect(call(fetchMock).url).toMatch(/\/employees\/e1\/reset-password$/);
-    expect(notice).toEqual({ expiresAt: "2026-10-03T00:00:00.000Z" });
+    expect(notice).toEqual({ expiresAt: "2026-10-03T00:00:00.000Z", emailStatus: undefined });
   });
 
   it("chuyển chi nhánh = PATCH /employees/{id}/branch {branchId}", async () => {
@@ -102,20 +102,23 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
   });
 
   it("tạo Manager bằng lời mời qua POST /employees/managers", async () => {
-    const fetchMock = respond({ account: raw, expiresAt: "2026-10-07T00:00:00.000Z" });
+    const fetchMock = respond({ account: raw, invitationExpiresAt: "2026-10-07T00:00:00.000Z" });
     vi.stubGlobal("fetch", fetchMock);
     await expect(accountReal.createManager("c1", "b1", " A ", " a@x.vn ")).resolves.toMatchObject({ expiresAt: "2026-10-07T00:00:00.000Z" });
     expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "A", email: "a@x.vn" } });
     expect(call(fetchMock).url).toMatch(/\/employees\/managers$/);
   });
 
-  it("Owner tạo tài khoản trực tiếp và đặt lại mật khẩu không qua email", async () => {
-    const fetchMock = respond({ ...raw, user: { ...raw.user, email: "cashier_01" } });
+  it("Owner mời qua email; chỉ tài khoản username cũ đặt lại mật khẩu trực tiếp", async () => {
+    const fetchMock = respond({ account: { ...raw, branch: undefined, branchId: "b1", user: { ...raw.user, status: "INACTIVE", staffInvitationState: "PENDING" } }, invitationExpiresAt: "2026-10-07T00:00:00.000Z", emailStatus: "SENT" });
     vi.stubGlobal("fetch", fetchMock);
-    const account = await accountReal.createDirectAccount("c1", { branchId: "b1", name: "Nguyễn Văn An", username: "cashier_01", password: "12345678", role: "CASHIER" });
-    expect(account.email).toBe("cashier_01");
-    expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", username: "cashier_01", password: "12345678", role: "CASHIER" } });
-    expect(call(fetchMock).url).toMatch(/\/employees\/accounts$/);
+    const { account, emailStatus } = await accountReal.inviteAccount("c1", { branchId: "b1", name: "Nguyễn Văn An", email: " An@x.vn ", role: "CASHIER" });
+    expect(account.email).toBe("an@x.vn");
+    expect(account.branchId).toBe("b1");
+    expect(account.invitationState).toBe("PENDING");
+    expect(emailStatus).toBe("SENT");
+    expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "Nguyễn Văn An", email: "an@x.vn", role: "CASHIER" } });
+    expect(call(fetchMock).url).toMatch(/\/employees\/invitations$/);
     const resetFetch = respond({ message: "ok" });
     vi.stubGlobal("fetch", resetFetch);
     await accountReal.setDirectPassword("e1", "87654321");

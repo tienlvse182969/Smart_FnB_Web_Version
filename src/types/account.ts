@@ -17,6 +17,8 @@ export type ManagerAccount = {
   lastLoginAt: string | null;
   branchId: string;
   branchName: string;
+  invitationState?: "PENDING" | "ACCEPTED" | "CANCELLED" | null;
+  invitationExpiresAt?: string | null;
 };
 
 export type ManagerQuery = {
@@ -30,11 +32,10 @@ export type ManagerQuery = {
 
 export type ManagerPage = Paginated<ManagerAccount>;
 
-export type DirectStaffInput = {
+export type StaffInvitationInput = {
   branchId: string;
   name: string;
-  username: string;
-  password: string;
+  email: string;
   role: "MANAGER" | "CASHIER" | "BARISTA";
 };
 
@@ -67,7 +68,7 @@ export type StaffEmployee = {
    * Trạng thái lời mời (BE `fb7cae9`, #64; chỉ `GET/PATCH /manager/staff*`): ACTIVE, SUSPENDED, INVITED (đã mời, còn hạn),
    * INVITATION_EXPIRED (lời mời hết hạn), DEACTIVATED (chưa kích hoạt và không còn lời mời: đã huỷ/ngừng). Thiếu ở BE cũ và mock.
    */
-  invitationStatus?: "ACTIVE" | "SUSPENDED" | "INVITED" | "INVITATION_EXPIRED" | "DEACTIVATED" | null;
+  invitationStatus?: "ACTIVE" | "SUSPENDED" | "INVITED" | "INVITATION_EXPIRED" | "DEACTIVATED" | "CANCELLED" | null;
   /** Hạn lời mời hiện tại (ISO); null khi không có lời mời chưa dùng. */
   invitationExpiresAt?: string | null;
 };

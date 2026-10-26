@@ -476,7 +476,20 @@ function ItemDrawer({
         />
       </Field>
       <Field label="Giá (₫, số nguyên)">
-        <InputNumber value={price} onChange={setPrice} style={{ width: "100%" }} min={0} precision={0} step={1000} />
+        <InputNumber
+          value={price}
+          onChange={setPrice}
+          style={{ width: "100%" }}
+          min={0}
+          precision={0}
+          step={1000}
+          inputMode="numeric"
+          formatter={(value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+          parser={(value) => Number.parseInt(value?.replace(/\D/g, "") ?? "", 10)}
+          onKeyDown={(event) => {
+            if (event.key.length === 1 && !/\d/.test(event.key)) event.preventDefault();
+          }}
+        />
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />

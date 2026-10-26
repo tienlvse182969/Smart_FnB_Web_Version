@@ -28,6 +28,8 @@ export function invitationLabel(s: Pick<StaffEmployee, "status" | "invitationSta
       return "Lời mời hết hạn";
     case "DEACTIVATED":
       return "Đã ngừng";
+    case "CANCELLED":
+      return "Đã huỷ lời mời";
     default:
       return null;
   }
@@ -262,7 +264,7 @@ export default function StaffTable() {
                   Sửa
                 </ActionButton>
                 {s.email.includes("@") ? (
-                  <ActionButton size="small" icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
+                  <ActionButton size="small" disabled={s.invitationStatus === "CANCELLED" || s.status === "SUSPENDED"} icon={<KeyRound size={13} />} data-testid={`staff-resend-${s.id}`} onClick={() => confirmReset(s)}>
                     Gửi lại email
                   </ActionButton>
                 ) : (
@@ -278,7 +280,7 @@ export default function StaffTable() {
                     Mở khoá
                   </ActionButton>
                 ) : (
-                  <ActionButton size="small" icon={<Lock size={13} />} data-testid={`staff-lock-${s.id}`} onClick={() => confirmLock(s)}>
+                  <ActionButton size="small" disabled={s.invitationStatus === "CANCELLED"} icon={<Lock size={13} />} data-testid={`staff-lock-${s.id}`} onClick={() => confirmLock(s)}>
                     Khoá
                   </ActionButton>
                 )}

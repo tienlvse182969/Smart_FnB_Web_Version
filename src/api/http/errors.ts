@@ -179,6 +179,7 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/category.*item\(s\)|item\(s\)|still has (menu )?items?/i, "Danh mục còn món nên không xoá được. Chuyển hoặc xoá món trước."],
   [/email, phone,? (or|and) (employee|account) code already exists/i, "Email, số điện thoại hoặc mã nhân viên đã tồn tại."],
   [/representative email already belongs/i, "Email người đại diện đã thuộc một tài khoản khác."],
+  [/^Active BASIC plan is required before approving a trial$/i, "Chưa có gói BASIC đang hoạt động. Vào Gói dịch vụ để tạo hoặc kích hoạt BASIC trước khi duyệt TRIAL 14 ngày."],
   [/only a pending application/i, "Chỉ hồ sơ đang chờ duyệt mới xử lý được."],
   [/current usage exceeds/i, "Mức đang dùng vượt hạn mức của gói mới."],
   [/already suspended/i, "Doanh nghiệp đã ở trạng thái tạm ngưng."],

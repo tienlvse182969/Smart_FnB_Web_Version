@@ -168,18 +168,18 @@ async function toManager(chainId: string, a: DemoAccount): Promise<ManagerAccoun
 }
 
 export const accountMock: AccountApi = {
-  async createDirectAccount(chainId, input) {
+  async inviteAccount(chainId, input) {
     await mockDelay();
     assertMockWritable();
     track(chainId);
     seedBranch(chainId, input.branchId);
     assertSeatAvailable(chainId);
-    assertEmailFree(chainId, input.username);
+    assertEmailFree(chainId, input.email);
     const role = input.role.toLowerCase() as DemoAccount["role"];
-    const created = { ...account(chainId, input.branchId, role, input.role, input.name), email: input.username, lastLoginAt: null };
+    const created = { ...account(chainId, input.branchId, role, input.role, input.name), email: input.email.trim().toLowerCase(), awaitingPasswordSetup: true, lastLoginAt: null };
     getChainState(chainId).accounts.push(created);
     persist(getChainState(chainId));
-    return toManager(chainId, created);
+    return { account: { ...await toManager(chainId, created), invitationState: "PENDING" as const }, ...setupNotice(), emailStatus: "SENT" as const };
   },
 
   async setDirectPassword() {

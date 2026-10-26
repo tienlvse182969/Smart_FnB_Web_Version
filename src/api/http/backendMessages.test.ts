@@ -25,6 +25,11 @@ describe("bảng dịch câu lỗi BE", () => {
   it("câu 5xx của BE không bao giờ hiện, kể cả khi trùng với câu trong bảng", () => {
     expect(describeApiError(new ApiError(500, "Branch not found"))).toBe(SERVER_ERROR_TEXT);
   });
+
+  it("thiếu BASIC khi duyệt trial là lỗi cấu hình gói, không phải hồ sơ nhập sai", () => {
+    expect(describeApiError(new ApiError(409, "Active BASIC plan is required before approving a trial")))
+      .toBe("Chưa có gói BASIC đang hoạt động. Vào Gói dịch vụ để tạo hoặc kích hoạt BASIC trước khi duyệt TRIAL 14 ngày.");
+  });
 });
 
 describe("400 validate theo từng ô", () => {

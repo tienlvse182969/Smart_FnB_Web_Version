@@ -9,8 +9,9 @@ export interface RawEmployee {
   employeeCode: string;
   firstName: string;
   lastName: string;
-  branch: { id: string; name: string };
-  user: { email: string; status: string; lastLoginAt: string | null; role: { code: string } };
+  branch?: { id: string; name: string };
+  branchId?: string;
+  user: { email: string; status: string; lastLoginAt: string | null; role: { code: string }; staffInvitationState?: string | null; passwordSetupTokens?: { expiresAt: string }[] };
 }
 
 export interface RawEmployeePage {
@@ -31,8 +32,10 @@ export function mapManager(raw: RawEmployee): ManagerAccount {
     email: raw.user.email,
     status: toStatus(raw.user.status),
     lastLoginAt: raw.user.lastLoginAt ?? null,
-    branchId: raw.branch.id,
-    branchName: raw.branch.name,
+    branchId: raw.branch?.id ?? raw.branchId ?? "",
+    branchName: raw.branch?.name ?? "",
+    invitationState: raw.user.staffInvitationState === "PENDING" || raw.user.staffInvitationState === "ACCEPTED" || raw.user.staffInvitationState === "CANCELLED" ? raw.user.staffInvitationState : null,
+    invitationExpiresAt: raw.user.passwordSetupTokens?.[0]?.expiresAt ?? null,
   };
 }
 
@@ -88,7 +91,7 @@ export function mapStaffEmployee(raw: RawStaff): StaffEmployee | null {
   };
 }
 
-const INVITATION_STATUSES = ["ACTIVE", "SUSPENDED", "INVITED", "INVITATION_EXPIRED", "DEACTIVATED"] as const;
+const INVITATION_STATUSES = ["ACTIVE", "SUSPENDED", "INVITED", "INVITATION_EXPIRED", "DEACTIVATED", "CANCELLED"] as const;
 function toInvitationStatus(v: unknown): (typeof INVITATION_STATUSES)[number] | null {
   return typeof v === "string" && (INVITATION_STATUSES as readonly string[]).includes(v) ? (v as (typeof INVITATION_STATUSES)[number]) : null;
 }
