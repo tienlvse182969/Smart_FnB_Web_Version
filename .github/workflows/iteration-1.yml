@@ -1,0 +1,70 @@
+name: Iteration 1 quality and package
+
+on:
+  push:
+    branches: [codex/iteration-1-delivery]
+    tags: ['iteration-1-*']
+  pull_request:
+    paths:
+      - 'deliverables/iteration-1/**'
+      - 'scripts/release/**'
+      - '.github/workflows/iteration-1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - name: Verify release checksums and traceability
+        run: node scripts/release/verify-iteration-1.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iteration-1-review-package
+          path: deliverables/iteration-1
+          if-no-files-found: error
+
+  backend-snapshot:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://review:review@127.0.0.1:5432/unused_review_database
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - name: Verify pinned source archive before extraction
+        run: node scripts/release/verify-iteration-1.mjs
+      - name: Extract committed backend snapshot
+        run: unzip -q deliverables/iteration-1/source/backend.zip -d backend-review
+      - name: Install backend dependencies
+        working-directory: backend-review
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client and validate schema
+        working-directory: backend-review
+        run: pnpm prisma:generate && pnpm prisma:validate
+      - name: Build and run service tests
+        working-directory: backend-review
+        run: pnpm test

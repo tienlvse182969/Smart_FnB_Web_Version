@@ -1,0 +1,4433 @@
+{
+  "summary": {
+    "numTotalTests": 737,
+    "numPassedTests": 737,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "success": true
+  },
+  "tests": [
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos/order = real, còn lại mock",
+      "status": "passed",
+      "durationMs": 4.073500000000422
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module VITE_API_BRANCH_OPTIONS ghi đè riêng, không đụng cờ options của Owner",
+      "status": "passed",
+      "durationMs": 0.633900000000267
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module VITE_API_<MODULE> ghi đè từng module riêng lẻ",
+      "status": "passed",
+      "durationMs": 0.4800999999997657
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module giá trị lạ bị bỏ qua và cảnh báo",
+      "status": "passed",
+      "durationMs": 1.3504000000002634
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module bảng cờ có đủ module và ghi chú",
+      "status": "passed",
+      "durationMs": 0.6802999999999884
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "cờ module defineApi: lật cờ chọn đúng bản cài đặt; thiếu real thì rơi về mock",
+      "status": "passed",
+      "durationMs": 1.2559999999998581
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất phân loại 401/403/hạn mức/mạng",
+      "status": "passed",
+      "durationMs": 0.9686999999998989
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất hết hạn gói: 403 CÓ mã (mock) và KHÔNG mã (BE thật) cùng một thông báo tiếng Việt, không lộ câu tiếng Anh thô",
+      "status": "passed",
+      "durationMs": 0.9472000000000662
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất hết hạn gói không mã: báo toàn cục đúng một lần, màn hình không báo lại",
+      "status": "passed",
+      "durationMs": 1.0180999999997766
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất đọc/ghi theo phương thức HTTP của request, không theo tên hàm: GET có Thử lại; POST, PUT, PATCH, DELETE lỗi 500/mạng không có",
+      "status": "passed",
+      "durationMs": 2.458799999999883
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất lớp http gắn phương thức vào lỗi; làm mới phiên (POST /auth/refresh) không phải request() nên không bao giờ có Thử lại",
+      "status": "passed",
+      "durationMs": 7.03650000000016
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất lỗi 5xx (500, 502, 503) → một câu tiếng Việt, không lộ câu của BE",
+      "status": "passed",
+      "durationMs": 2.472700000000259
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất câu tiếng Anh của BE không có trong bảng dịch → câu chung tiếng Việt; câu đã Việt thì giữ nguyên",
+      "status": "passed",
+      "durationMs": 3.66800000000012
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất chống trùng: cùng loại lỗi, cùng màn, cùng nội dung trong 3 giây chỉ hiện một thông báo; sau đó hiện lại",
+      "status": "passed",
+      "durationMs": 0.7659000000003289
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất 403: hết hạn không mã → chỉ đọc (tiếng Việt); thiếu quyền → câu tiếng Việt, không lộ tiếng Anh",
+      "status": "passed",
+      "durationMs": 0.3301000000001295
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất lỗi 403/mất mạng ở màn tự hiện khối lỗi trong trang (Reports, BranchInfo) không bắn thêm thông báo nổi",
+      "status": "passed",
+      "durationMs": 1.7736000000004424
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất chỉ báo lỗi toàn cục một lần cho mỗi đối tượng lỗi; lỗi validate để màn hình tự hiện",
+      "status": "passed",
+      "durationMs": 0.32600000000002183
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất module bọc báo lỗi; chỉ hàm đọc (list/get…) mới có nút Thử lại khi mất mạng",
+      "status": "passed",
+      "durationMs": 0.606199999999717
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất Thử lại: chỉ lỗi ĐỌC mất mạng và 5xx; không cho 403, 401, 404, 409, 4xx khác và không cho lỗi ghi",
+      "status": "passed",
+      "durationMs": 1.3618999999998778
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "lỗi API thống nhất mock giả lập lỗi được (mạng) qua mockControl",
+      "status": "passed",
+      "durationMs": 0.5007000000000517
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "refresh token liên tab nhiều lời gọi trong một tab chia sẻ một lượt refresh",
+      "status": "passed",
+      "durationMs": 1.7440000000001419
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "refresh token liên tab tab chờ khoá thấy tab khác đã refresh → dùng token mới, KHÔNG gọi refresh lần nữa",
+      "status": "passed",
+      "durationMs": 0.6005000000000109
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "refresh token liên tab hai tab: refresh tuần tự qua khoá, mỗi refresh dùng token mới nhất trong storage",
+      "status": "passed",
+      "durationMs": 1.16399999999976
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "gói (plan) mock theo doanh nghiệp: A = Nâng cao, B = Cơ bản",
+      "status": "passed",
+      "durationMs": 3.5554000000001906
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "gói (plan) ghi đè gói và hết hạn",
+      "status": "passed",
+      "durationMs": 0.8058999999998377
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "gói (plan) bản real: hạn mức lấy từ subscription.quotas thật, cờ tính năng vẫn mock",
+      "status": "passed",
+      "durationMs": 1.1617000000001099
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "gói (plan) bản real: cờ nhận diện và so sánh lấy từ BE (ưu tiên hơn suy từ mã gói), cờ AI vẫn suy từ mã",
+      "status": "passed",
+      "durationMs": 1.2758000000003449
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "gói (plan) bản real không có chuỗi (Manager) mà BE không đọc được: hạn mức rỗng, vẫn có cờ để khoá giao diện, không ném lỗi",
+      "status": "passed",
+      "durationMs": 0.7885999999998603
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 hai doanh nghiệp khác gói và khác nhận diện",
+      "status": "passed",
+      "durationMs": 0.5740000000000691
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 nhóm tuỳ chọn: Size bắt buộc chọn 1, Topping tối đa 3, có giá cộng thêm",
+      "status": "passed",
+      "durationMs": 0.5953999999996995
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 đơn trải nhiều tuần và đủ trạng thái",
+      "status": "passed",
+      "durationMs": 38.28490000000011
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 đơn chụp giá lúc bán: tổng = Σ (giá + giá cộng thêm) × số lượng; một phần lệch giá menu hiện tại",
+      "status": "passed",
+      "durationMs": 57.60019999999986
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 số gọi chỉ có ở đơn đã thanh toán, tăng dần, bắt đầu lại mỗi ngày (BR-22)",
+      "status": "passed",
+      "durationMs": 10.335099999999784
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 cùng chi nhánh → cùng dữ liệu (xác định)",
+      "status": "passed",
+      "durationMs": 8.26680000000033
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "dữ liệu mock v9 doanh thu theo BR-50: đơn huỷ sau thanh toán cộng ngày bán, trừ ngày huỷ",
+      "status": "passed",
+      "durationMs": 4.803799999999683
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) menu mock sinh dữ liệu lần đầu cho chainId lạ và giữ trong bộ nhớ",
+      "status": "passed",
+      "durationMs": 2.7578000000003158
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) hết hạn thì mock chặn ghi nhưng vẫn cho đọc (BR-09)",
+      "status": "passed",
+      "durationMs": 1.644800000000032
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) branch + report mock: báo cáo cộng đúng từ đơn mock, nhiều chi nhánh",
+      "status": "passed",
+      "durationMs": 52.50070000000005
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) AI: trả số liệu thật từ bộ đơn mock, không rỗng; chỉ gói Nâng cao",
+      "status": "passed",
+      "durationMs": 32.68049999999994
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) AI vào sáng mùng 1 (01/10 03:00, chưa có đơn trong tháng): 'tháng này' trả câu trả lời hợp lệ, không ném lỗi",
+      "status": "passed",
+      "durationMs": 0.9596000000001368
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) AI không phụ thuộc giờ chạy: 00:30 'hôm nay' có đơn; sáng mùng 1 'tháng này' có món bán chạy",
+      "status": "passed",
+      "durationMs": 80.52269999999999
+    },
+    {
+      "file": "src/api/api.test.ts",
+      "name": "mock chạy được với ID thật (không có lớp ánh xạ) tạo chi nhánh vượt hạn mức → PLAN_LIMIT_REACHED như BE",
+      "status": "passed",
+      "durationMs": 1.4782000000000153
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "lớp lỗi đọc body.code (QĐ 126) ưu tiên code > error > message; error dạng tên HTTP không phải mã",
+      "status": "passed",
+      "durationMs": 5.898199999999633
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "lớp lỗi đọc body.code (QĐ 126) câu tiếng Việt theo mã, không tiếng Anh thô",
+      "status": "passed",
+      "durationMs": 1.8473000000003594
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "lớp lỗi đọc body.code (QĐ 126) 403 thiếu quyền (không mã) vẫn là câu thiếu quyền; 429 có câu riêng",
+      "status": "passed",
+      "durationMs": 0.6941999999999098
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "lớp lỗi đọc body.code (QĐ 126) hộp ghép: câu theo mã, sai loại nêu loại màn hình",
+      "status": "passed",
+      "durationMs": 0.6157999999995809
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "lớp lỗi đọc body.code (QĐ 126) màn TV: token REVOKED/EXPIRED → quay về bước ghép (kể cả khi chưa đánh dấu paired)",
+      "status": "passed",
+      "durationMs": 0.5766999999996187
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#71: '+N số khác' dùng tổng BE BE chỉ trả 30 số nhưng tổng 42 → hiện +N theo tổng, kể cả khi 30 số vừa ô",
+      "status": "passed",
+      "durationMs": 2.1365999999998166
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#71: '+N số khác' dùng tổng BE thiếu tổng (BE cũ) hoặc tổng nhỏ hơn số đang có: như trước",
+      "status": "passed",
+      "durationMs": 0.600800000000163
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#75: tiền về sau QR hết hạn có đường xử lý (BE 7d7f2dc) nhận biết khoản muộn; khoản REQUIRES_ATTENTION lý do khác thì không",
+      "status": "passed",
+      "durationMs": 0.3298000000004322
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#75: tiền về sau QR hết hạn có đường xử lý (BE 7d7f2dc) xác nhận thủ công: đơn UNPAID + REQUIRES_ATTENTION + khoản muộn → có nút; thiếu failureReason → không",
+      "status": "passed",
+      "durationMs": 0.42739999999957945
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#75: tiền về sau QR hết hạn có đường xử lý (BE 7d7f2dc) huỷ đơn: kind 'late', cả đơn, hoàn đúng số đã nhận; không cho chọn dòng",
+      "status": "passed",
+      "durationMs": 0.6651000000001659
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#75: tiền về sau QR hết hạn có đường xử lý (BE 7d7f2dc) khoản chuyển khoản lệch tiền vẫn ưu tiên và vẫn 'mismatch'",
+      "status": "passed",
+      "durationMs": 1.391099999999824
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#27/#34: sửa quầy toPatchBody: chỉ trường đổi, tên trim, không gửi địa chỉ khi NONE, MAC viết hoa",
+      "status": "passed",
+      "durationMs": 0.5357999999996537
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#27/#34: sửa quầy validateStationPatch: trùng tên chỉ với quầy KHÁC; giữ nguyên tên mình thì hợp lệ",
+      "status": "passed",
+      "durationMs": 0.9882999999999811
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#27/#34: sửa quầy mock PATCH đổi tên, ngừng dùng, trùng tên → 409 STATION_NAME_ALREADY_EXISTS",
+      "status": "passed",
+      "durationMs": 2.491899999999987
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#28: danh sách màn hình của chi nhánh mapBranchDevice giữ quầy, hạn token, thu hồi; không chép trường lạ (token)",
+      "status": "passed",
+      "durationMs": 0.48840000000018335
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#28: danh sách màn hình của chi nhánh trạng thái: thu hồi > hết hạn > đang dùng",
+      "status": "passed",
+      "durationMs": 0.4095999999999549
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#28: danh sách màn hình của chi nhánh mapStation vẫn whitelist (không token)",
+      "status": "passed",
+      "durationMs": 0.8921000000000276
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#62/#63/#64: nhân viên mapStaffEmployee đọc lastLoginAt và trạng thái lời mời",
+      "status": "passed",
+      "durationMs": 0.5841000000000349
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#62/#63/#64: nhân viên nhãn tách 'Chưa kích hoạt (đã mời)', 'Lời mời hết hạn', 'Đã ngừng'; chỉ INACTIVE",
+      "status": "passed",
+      "durationMs": 0.3350000000000364
+    },
+    {
+      "file": "src/api/be-7d7f2dc.test.ts",
+      "name": "#62/#63/#64: nhân viên nút Huỷ lời mời chỉ khi INACTIVE còn lời mời (còn hạn hoặc hết hạn)",
+      "status": "passed",
+      "durationMs": 0.3190999999997075
+    },
+    {
+      "file": "src/components/PairingCodeInput.test.tsx",
+      "name": "PairingCodeInput (mã ghép 6 số) có đúng 6 ô; gõ từng số thì điền và nhảy sang ô kế",
+      "status": "passed",
+      "durationMs": 114.52099999999973
+    },
+    {
+      "file": "src/components/PairingCodeInput.test.tsx",
+      "name": "PairingCodeInput (mã ghép 6 số) chỉ nhận chữ số: chữ cái và ký tự khác bị bỏ",
+      "status": "passed",
+      "durationMs": 14.627500000000055
+    },
+    {
+      "file": "src/components/PairingCodeInput.test.tsx",
+      "name": "PairingCodeInput (mã ghép 6 số) dán cả mã (kể cả có khoảng trắng hay chữ) điền đủ 6 ô và cắt thừa",
+      "status": "passed",
+      "durationMs": 13.047799999999825
+    },
+    {
+      "file": "src/components/PairingCodeInput.test.tsx",
+      "name": "PairingCodeInput (mã ghép 6 số) Backspace ở ô trống lùi về ô trước và xoá số ở đó; xoá ô đang có số",
+      "status": "passed",
+      "durationMs": 12.256200000000263
+    },
+    {
+      "file": "src/components/PairingCodeInput.test.tsx",
+      "name": "PairingCodeInput (mã ghép 6 số) ô đã có số: gõ số mới thay thế, không quá 6 số",
+      "status": "passed",
+      "durationMs": 10.144200000000183
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc mất mạng: có nút Thử lại",
+      "status": "passed",
+      "durationMs": 827.1821999999993
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 500: có nút Thử lại",
+      "status": "passed",
+      "durationMs": 240.60809999999947
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 503: có nút Thử lại",
+      "status": "passed",
+      "durationMs": 95.10390000000007
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 403: không có nút Thử lại",
+      "status": "passed",
+      "durationMs": 245.35850000000028
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 401: không có nút Thử lại",
+      "status": "passed",
+      "durationMs": 158.47479999999996
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 404: không có nút Thử lại",
+      "status": "passed",
+      "durationMs": 95.09900000000016
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 409: không có nút Thử lại",
+      "status": "passed",
+      "durationMs": 157.0605000000014
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) lỗi đọc 400: không có nút Thử lại",
+      "status": "passed",
+      "durationMs": 112.34650000000147
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) bấm Thử lại → màn nạp lại đúng 1 lần và hiện dữ liệu mới",
+      "status": "passed",
+      "durationMs": 339.45969999999943
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) request lại lỗi tiếp: mỗi lần bấm đúng 1 request, không lặp vô hạn",
+      "status": "passed",
+      "durationMs": 509.3823000000011
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "nút Thử lại (5.8c) đang nạp phạm vi làm việc: không bắn thông báo nổi (màn lỗi toàn trang đã có nút riêng)",
+      "status": "passed",
+      "durationMs": 91.43209999999999
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "bảo vệ form khi Thử lại (5.8d) form đang nhập dở: hiện hộp xác nhận; Huỷ thì không nạp lại, thông báo lỗi còn; đồng ý thì nạp lại",
+      "status": "passed",
+      "durationMs": 1253.268399999999
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "bảo vệ form khi Thử lại (5.8d) không có form dở: nạp lại ngay, không hỏi",
+      "status": "passed",
+      "durationMs": 156.30010000000038
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "bảo vệ form khi Thử lại (5.8d) useDirtyGuard: đăng ký khi có thay đổi chưa lưu, gỡ khi lưu xong hoặc rời màn",
+      "status": "passed",
+      "durationMs": 14.328299999997398
+    },
+    {
+      "file": "src/components/retry.test.tsx",
+      "name": "bảo vệ form khi Thử lại (5.8d) hộp thoại/ngăn kéo: gõ hoặc chọn là nhập dở; đóng (ẩn/gỡ) thì hết; hộp xác nhận và ô ngoài hộp thoại không tính",
+      "status": "passed",
+      "durationMs": 90.97359999999753
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 có 6 thành phố trực thuộc trung ương, 28 tỉnh, tổng 34",
+      "status": "passed",
+      "durationMs": 4.134599999999864
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 không trùng tên, không rỗng, không thừa khoảng trắng",
+      "status": "passed",
+      "durationMs": 1.4296000000003914
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 PROVINCE_OPTIONS đủ 34 lựa chọn, value trùng label",
+      "status": "passed",
+      "durationMs": 0.828899999999976
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Bình Dương",
+      "status": "passed",
+      "durationMs": 0.8921999999997752
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Bà Rịa - Vũng Tàu",
+      "status": "passed",
+      "durationMs": 0.34910000000036234
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Hà Nam",
+      "status": "passed",
+      "durationMs": 0.2817000000000007
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Nam Định",
+      "status": "passed",
+      "durationMs": 0.32029999999986103
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Hậu Giang",
+      "status": "passed",
+      "durationMs": 0.2660000000000764
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 đã bỏ đơn vị bị sáp nhập: Bạc Liêu",
+      "status": "passed",
+      "durationMs": 0.344300000000203
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "danh sách tỉnh/thành 2025 isKnownProvince",
+      "status": "passed",
+      "durationMs": 0.5000999999997475
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"Hồ Chí Minh\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.3069000000000415
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"Thành phố Hồ Chí Minh\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.1934000000001106
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"thành phố hồ chí minh\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.13720000000012078
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"THÀNH PHỐ HỒ CHÍ MINH\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.13850000000002183
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"TP Hồ Chí Minh\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.1346000000003187
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"TP. Hồ Chí Minh\" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.12090000000034706
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất \"  Hồ   Chí  Minh  \" → tên chuẩn",
+      "status": "passed",
+      "durationMs": 0.12199999999984357
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất bỏ tiền tố, chuẩn hoá hoa thường",
+      "status": "passed",
+      "durationMs": 0.258900000000267
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất không khớp thì trả null",
+      "status": "passed",
+      "durationMs": 0.2415000000000873
+    },
+    {
+      "file": "src/constants/provinces.test.ts",
+      "name": "canonicalProvince — backend ghi tên không thống nhất mọi tên chuẩn tự khớp chính nó",
+      "status": "passed",
+      "durationMs": 0.25649999999996
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "số gọi (QĐ 111) đệm 3 chữ số, ≥ 1000 hiện đủ",
+      "status": "passed",
+      "durationMs": 2.8004000000000815
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "số gọi (QĐ 111) số dài co chữ để không vỡ ô",
+      "status": "passed",
+      "durationMs": 0.6551999999996951
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "thứ tự: số mới nhất ở trên (QĐ 109) sắp theo thời gian giảm dần, bỏ đơn chưa có số, ổn định khi trùng giờ",
+      "status": "passed",
+      "durationMs": 1.3850999999999658
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "thứ tự: số mới nhất ở trên (QĐ 109) giờ hỏng/null xếp cuối, không ném lỗi",
+      "status": "passed",
+      "durationMs": 0.4784999999997126
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "tràn: '+N số khác' (QĐ 111) vừa thì hiện hết",
+      "status": "passed",
+      "durationMs": 0.5805000000000291
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "tràn: '+N số khác' (QĐ 111) vượt thì dành một ô cuối cho '+N' (N gồm cả số bị ẩn)",
+      "status": "passed",
+      "durationMs": 1.3442000000000007
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "nhấn mạnh số mới gọi (QĐ 112) lần nạp đầu không số nào là mới; sau đó chỉ số chưa có ở lần trước",
+      "status": "passed",
+      "durationMs": 0.46070000000008804
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "nhấn mạnh số mới gọi (QĐ 112) hết sau HIGHLIGHT_MS (10 giây); số cũ không bị đụng",
+      "status": "passed",
+      "durationMs": 0.9544999999998254
+    },
+    {
+      "file": "src/display/callBoard.test.ts",
+      "name": "nhịp tạo mã (QĐ 113) bình thường tạo ngay; lỗi giãn 5s…60s; 3 mã hết hạn liên tiếp thì 5 phút",
+      "status": "passed",
+      "durationMs": 0.5412999999998647
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) chưa ghép: tạo mã và hiện; 403 khi chờ KHÔNG hiện lỗi; ghép xong vào bảng số, socket dùng token thiết bị",
+      "status": "passed",
+      "durationMs": 279.8317000000002
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) F5 khi đã ghép: dùng lại token, không tạo mã mới, không hiện mã cũ trong lúc nạp",
+      "status": "passed",
+      "durationMs": 32.86830000000009
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) bị thu hồi (403 khi đã ghép): về bước ghép với câu tiếng Việt, xoá token cũ, tạo mã mới, đóng socket",
+      "status": "passed",
+      "durationMs": 24.24539999999979
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) socket bị máy chủ ngắt: kiểm tra bằng REST ngay, không làm mới phiên người dùng",
+      "status": "passed",
+      "durationMs": 27.992899999999736
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) mất mạng: câu tiếng Việt, giữ token, thử lại 5s → 10s → 20s → 40s (không dồn dập)",
+      "status": "passed",
+      "durationMs": 9.470900000000256
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) 5xx hiện câu chung tiếng Việt; tạo mã lỗi cũng giãn cách và hiện tiếng Việt",
+      "status": "passed",
+      "durationMs": 10.62519999999995
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) số vừa sang 'Mời nhận': nhấn mạnh đúng số mới ~10 giây, một âm, lần nạp đầu không nhấn mạnh (QĐ 112)",
+      "status": "passed",
+      "durationMs": 52.322400000000016
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) mất kết nối: GIỮ bảng số cuối, hiện 'Mất kết nối, đang thử lại', không xoá trắng (QĐ 114)",
+      "status": "passed",
+      "durationMs": 29.290899999999965
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) chưa ghép: sau 3 mã hết hạn liên tiếp thì 5 phút mới tạo mã, có nút 'Chạm để lấy mã mới' (QĐ 113)",
+      "status": "passed",
+      "durationMs": 37.36030000000028
+    },
+    {
+      "file": "src/display/CallScreen.test.tsx",
+      "name": "màn hình gọi số (quyết định 105–108) rời màn hình: huỷ mọi bộ đếm, đóng socket, không gọi API nữa",
+      "status": "passed",
+      "durationMs": 11.423099999999977
+    },
+    {
+      "file": "src/display/chime.test.ts",
+      "name": "âm báo gọi số (QĐ 112) chưa chạm thì không kêu và chỉ báo tắt; chạm một lần thì chạy và được nhớ",
+      "status": "passed",
+      "durationMs": 7.6831999999999425
+    },
+    {
+      "file": "src/display/chime.test.ts",
+      "name": "âm báo gọi số (QĐ 112) nhiều số gọi cùng lúc: MỘT âm, không chồng tiếng; sau khoảng giãn kêu lại được",
+      "status": "passed",
+      "durationMs": 2.7219999999997526
+    },
+    {
+      "file": "src/display/chime.test.ts",
+      "name": "âm báo gọi số (QĐ 112) dùng MỘT AudioContext cho mọi tiếng; trình duyệt chặn thì restore không bật được và không ném lỗi",
+      "status": "passed",
+      "durationMs": 1.472099999999955
+    },
+    {
+      "file": "src/display/chime.test.ts",
+      "name": "âm báo gọi số (QĐ 112) không có Web Audio: không ném lỗi",
+      "status": "passed",
+      "durationMs": 0.7260999999998603
+    },
+    {
+      "file": "src/lib/relativeTime.test.ts",
+      "name": "relativeTime vừa xong, phút, giờ, ngày",
+      "status": "passed",
+      "durationMs": 1.8669999999999618
+    },
+    {
+      "file": "src/lib/relativeTime.test.ts",
+      "name": "relativeTime chưa từng thấy / giá trị hỏng / thời điểm ở tương lai",
+      "status": "passed",
+      "durationMs": 0.37189999999986867
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "parseAmount — backend trả lẫn chuỗi thập phân và chuỗi nguyên đọc \"995000.00\" (báo cáo) và \"250000\" (thanh toán)",
+      "status": "passed",
+      "durationMs": 2.705800000000181
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "parseAmount — backend trả lẫn chuỗi thập phân và chuỗi nguyên nhận số, số 0, số âm, số thập phân",
+      "status": "passed",
+      "durationMs": 0.6011999999998352
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "parseAmount — backend trả lẫn chuỗi thập phân và chuỗi nguyên null, undefined, chuỗi rỗng → 0",
+      "status": "passed",
+      "durationMs": 0.6938999999999851
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "parseAmount — backend trả lẫn chuỗi thập phân và chuỗi nguyên NaN, Infinity và chuỗi không phải số → 0 (một dòng hỏng không làm vỡ cả bảng)",
+      "status": "passed",
+      "durationMs": 0.43049999999993815
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "định dạng formatVnd đi qua parseAmount",
+      "status": "passed",
+      "durationMs": 0.9380000000001019
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "định dạng formatVndCompact",
+      "status": "passed",
+      "durationMs": 0.8604000000000269
+    },
+    {
+      "file": "src/lib/reportFormat.test.ts",
+      "name": "định dạng formatCount chịu NaN",
+      "status": "passed",
+      "durationMs": 0.6595999999999549
+    },
+    {
+      "file": "src/router/routeFlags.test.tsx",
+      "name": "cờ tính năng của route công khai (quyết định 91–92) mặc định TẮT cả hai",
+      "status": "passed",
+      "durationMs": 3.8852999999999156
+    },
+    {
+      "file": "src/router/routeFlags.test.tsx",
+      "name": "cờ tính năng của route công khai (quyết định 91–92) chỉ 'true' mới bật, từng cờ độc lập",
+      "status": "passed",
+      "durationMs": 0.5367000000005646
+    },
+    {
+      "file": "src/router/routeFlags.test.tsx",
+      "name": "cờ tính năng của route công khai (quyết định 91–92) cờ tắt: /t/:token và /display/customer rơi vào route lạ ('*'), như đường dẫn không có thật",
+      "status": "passed",
+      "durationMs": 3.413900000000467
+    },
+    {
+      "file": "src/router/routeFlags.test.tsx",
+      "name": "cờ tính năng của route công khai (quyết định 91–92) cờ bật: route có; màn gọi số /display/call luôn có (quyết định 93)",
+      "status": "passed",
+      "durationMs": 2.128799999999501
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "daysUntilExpiry (ngày theo giờ VN) cuối ngày VN hôm nay là còn 0 ngày, dù UTC đã sang ngày khác",
+      "status": "passed",
+      "durationMs": 13.805299999999988
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "daysUntilExpiry (ngày theo giờ VN) đếm theo ngày lịch, không theo 24 giờ",
+      "status": "passed",
+      "durationMs": 4.468600000000151
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "daysUntilExpiry (ngày theo giờ VN) thiếu hoặc sai hạn → null",
+      "status": "passed",
+      "durationMs": 1.2943999999988591
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "expiringSoonDays chỉ 0–7 ngày và gói còn hoạt động",
+      "status": "passed",
+      "durationMs": 3.4619000000002416
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "expiringSoonDays status null (real chưa trả) mà có hạn thì vẫn báo",
+      "status": "passed",
+      "durationMs": 1.393899999999121
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "ExpiringBanner còn 3 ngày: hiện số ngày, ngày hết hạn dd/MM/yyyy và hướng dẫn gia hạn",
+      "status": "passed",
+      "durationMs": 412.8850999999995
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "ExpiringBanner hạn trong hôm nay: 'hết hạn trong hôm nay'",
+      "status": "passed",
+      "durationMs": 29.72320000000036
+    },
+    {
+      "file": "src/plan/expiry.test.tsx",
+      "name": "ExpiringBanner còn 8 ngày, đã hết hạn hoặc tạm ngưng: không hiện",
+      "status": "passed",
+      "durationMs": 7.766200000000026
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan trả cấp, tên, hạn mức, mức đã dùng, hạn dùng",
+      "status": "passed",
+      "durationMs": 7.927499999999782
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan cờ tính năng theo cấp: Cơ bản không có gì, Tiêu chuẩn có nhận diện + so sánh, Nâng cao có thêm AI",
+      "status": "passed",
+      "durationMs": 2.365700000000288
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan requiredTierLabel cho thẻ khoá",
+      "status": "passed",
+      "durationMs": 1.979799999999159
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan hết hạn và tạm ngưng đều là chế độ chỉ đọc",
+      "status": "passed",
+      "durationMs": 2.8047999999998865
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan chưa biết gói thì không khoá (BE vẫn chặn thật)",
+      "status": "passed",
+      "durationMs": 0.7130999999990308
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "describePlan / usePlan hook đọc gói từ store",
+      "status": "passed",
+      "durationMs": 21.269000000000233
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "<FeatureGate> gói có tính năng → hiện nội dung",
+      "status": "passed",
+      "durationMs": 22.89220000000023
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "<FeatureGate> gói thiếu → hiện thẻ khoá kèm tên gói cần nâng, KHÔNG ẩn hẳn",
+      "status": "passed",
+      "durationMs": 315.6310000000012
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "<FeatureGate> đổi gói thì khoá/mở theo",
+      "status": "passed",
+      "durationMs": 103.51159999999982
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "<FeatureGate> nhận diện: khoá ở Cơ bản, mở từ Tiêu chuẩn",
+      "status": "passed",
+      "durationMs": 36.6268
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc computeWriteGuard: hết hạn chặn mọi thao tác ghi kèm lý do",
+      "status": "passed",
+      "durationMs": 0.6532000000006519
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc computeWriteGuard: hết hạn mức chỉ chặn thao tác tạo tiêu thụ hạn mức đó",
+      "status": "passed",
+      "durationMs": 0.8695999999999913
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc <ActionButton> tự vô hiệu hoá kèm vỏ tooltip khi hết hạn",
+      "status": "passed",
+      "durationMs": 410.1172999999999
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc <ActionButton> hoạt động bình thường khi gói còn hạn",
+      "status": "passed",
+      "durationMs": 54.74490000000151
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc <ActionButton consumes> khoá khi hết hạn mức, vẫn mở với hạn mức còn",
+      "status": "passed",
+      "durationMs": 108.43000000000029
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc banner chỉ hiện khi hết hạn",
+      "status": "passed",
+      "durationMs": 43.24250000000029
+    },
+    {
+      "file": "src/plan/plan.test.tsx",
+      "name": "chế độ chỉ đọc banner ghi ngày hết hạn dd/MM/yyyy giờ Việt Nam; gói tạm ngưng có câu riêng (quyết định 52)",
+      "status": "passed",
+      "durationMs": 40.29620000000068
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "quy ước cấp gói theo mã BASIC / STANDARD / ADVANCED ↔ cấp; không phân biệt hoa thường",
+      "status": "passed",
+      "durationMs": 2.6945999999998094
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "quy ước cấp gói theo mã mã ngoài ba mã → chưa xếp cấp, coi như Cơ bản",
+      "status": "passed",
+      "durationMs": 0.6667999999999665
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "quy ước cấp gói theo mã cờ tính năng theo bảng đặc tả 13.1",
+      "status": "passed",
+      "durationMs": 1.4068999999999505
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "quy ước cấp gói theo mã gợi ý mã từ tên: ba tên chuẩn ra ba mã cấp, tên khác ra chữ hoa không dấu",
+      "status": "passed",
+      "durationMs": 0.7294999999999163
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "usePlan/FeatureGate dùng chung một nguồn với quy ước plan real: cấp suy từ mã gói thật → cờ tính năng",
+      "status": "passed",
+      "durationMs": 1.7136000000000422
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "usePlan/FeatureGate dùng chung một nguồn với quy ước panel dev vẫn ghi đè được cấp",
+      "status": "passed",
+      "durationMs": 0.6262000000001535
+    },
+    {
+      "file": "src/plan/tiers.test.ts",
+      "name": "một nguồn cấu hình gói mock hạn mức của plan mock và bảng giá Landing cùng đọc từ MOCK_PLAN_CATALOG",
+      "status": "passed",
+      "durationMs": 1.103399999999965
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "contrastRatio (WCAG 2.0) đen/trắng = 21:1, cùng màu = 1:1",
+      "status": "passed",
+      "durationMs": 2.6703999999999724
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "contrastRatio (WCAG 2.0) đối xứng và nhận mã hex 3 ký tự",
+      "status": "passed",
+      "durationMs": 0.6273000000001048
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "contrastRatio (WCAG 2.0) giá trị tham chiếu đã biết: #767676 trên trắng ≈ 4.54 (ngưỡng AA)",
+      "status": "passed",
+      "durationMs": 0.5914000000002488
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "meetsWcagAA — tối thiểu 4.5:1 ngưỡng là 4.5",
+      "status": "passed",
+      "durationMs": 0.40350000000034925
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "meetsWcagAA — tối thiểu 4.5:1 đạt/không đạt đúng ngưỡng",
+      "status": "passed",
+      "durationMs": 0.4639999999999418
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "pickReadableTextColor (BR-43 — tự chọn màu chữ tương phản) nền tối → chữ trắng, nền sáng → chữ đen",
+      "status": "passed",
+      "durationMs": 0.46050000000013824
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "pickReadableTextColor (BR-43 — tự chọn màu chữ tương phản) với MỌI màu dựng sẵn, chữ được chọn luôn đạt 4.5:1 hoặc là chữ đen",
+      "status": "passed",
+      "durationMs": 0.4970000000002983
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt doanh nghiệp có nhận diện và gói cho phép → áp màu, primaryContrast đạt tương phản",
+      "status": "passed",
+      "durationMs": 0.6548999999999978
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt Admin / trang đăng nhập (platformOnly) luôn nhận diện nền tảng (BR-44, CC-04)",
+      "status": "passed",
+      "durationMs": 0.37190000000009604
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt gói không có tính năng nhận diện → nhận diện nền tảng (BR-41)",
+      "status": "passed",
+      "durationMs": 0.3265000000001237
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt chưa cấu hình (isCustom=false) hoặc chưa có branding → nhận diện nền tảng",
+      "status": "passed",
+      "durationMs": 0.28099999999994907
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt CHỈ đổi tên (isCustom, lookCustom=false, quyết định 28) → áp tên hiển thị, màu và logo vẫn của nền tảng",
+      "status": "passed",
+      "durationMs": 0.42990000000008877
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "resolveBrand — hai họ màu tách biệt nhận diện nền tảng: primary đạt tương phản với primaryContrast",
+      "status": "passed",
+      "durationMs": 0.18339999999989232
+    },
+    {
+      "file": "src/theme/theme.test.ts",
+      "name": "buildTheme — màu ngữ nghĩa không phụ thuộc thương hiệu (BR-42) đổi primary chỉ đổi màu thương hiệu, không đụng token trạng thái",
+      "status": "passed",
+      "durationMs": 1.5975000000003092
+    },
+    {
+      "file": "src/store/brandingRefresh.test.ts",
+      "name": "nạp lại nhận diện khi điều hướng (quyết định 29) lần đầu gọi BE và áp bản mới; trong 60 giây KHÔNG gọi lại; quá 60 giây gọi lại",
+      "status": "passed",
+      "durationMs": 7.36239999999998
+    },
+    {
+      "file": "src/store/brandingRefresh.test.ts",
+      "name": "nạp lại nhận diện khi điều hướng (quyết định 29) nạp trùng khoảng 60 giây chỉ đúng 1 lệnh dù điều hướng liên tiếp",
+      "status": "passed",
+      "durationMs": 2.326599999999871
+    },
+    {
+      "file": "src/store/brandingRefresh.test.ts",
+      "name": "nạp lại nhận diện khi điều hướng (quyết định 29) lỗi khi nạp lại: im lặng — giữ bản cũ, không ném, không báo toàn cục (không toast), vẫn tính là đã thử",
+      "status": "passed",
+      "durationMs": 3.4586999999996806
+    },
+    {
+      "file": "src/store/brandingRefresh.test.ts",
+      "name": "nạp lại nhận diện khi điều hướng (quyết định 29) Admin, /login, /setup-password, chưa sẵn sàng hoặc chưa có chuỗi: không nạp",
+      "status": "passed",
+      "durationMs": 1.1156999999998334
+    },
+    {
+      "file": "src/api/modules/customerDisplay.test.ts",
+      "name": "customer display API creates a customer-display pairing code",
+      "status": "passed",
+      "durationMs": 11.025000000000091
+    },
+    {
+      "file": "src/api/modules/customerDisplay.test.ts",
+      "name": "customer display API uses the device token when restoring the paired station",
+      "status": "passed",
+      "durationMs": 1.337999999999738
+    },
+    {
+      "file": "src/api/modules/customerDisplay.test.ts",
+      "name": "customer display API keeps the HTTP status for an invalid or revoked device token",
+      "status": "passed",
+      "durationMs": 1.1613000000002103
+    },
+    {
+      "file": "src/api/modules/customerDisplay.test.ts",
+      "name": "customer display API resolves relative branding assets against the API origin",
+      "status": "passed",
+      "durationMs": 1.3216999999999643
+    },
+    {
+      "file": "src/api/modules/customerDisplay.test.ts",
+      "name": "customer display API requests the latest station snapshot after every socket connection",
+      "status": "passed",
+      "durationMs": 0.8123000000000502
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "sự kiện đơn của BE (quyết định 74) danh sách đủ các loại sự kiện đổi đơn, dòng món, thanh toán",
+      "status": "passed",
+      "durationMs": 5.714100000000144
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "sự kiện đơn của BE (quyết định 74) lấy id đơn từ orderId, orderIds, readyOrders",
+      "status": "passed",
+      "durationMs": 2.017300000000432
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "sự kiện đơn của BE (quyết định 74) chi tiết: đơn khác bị bỏ; đúng đơn hoặc payload không nêu đơn thì tải",
+      "status": "passed",
+      "durationMs": 0.9885999999996784
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ nhiều sự kiện trong cửa sổ gom → đúng 1 lần tải",
+      "status": "passed",
+      "durationMs": 262.34630000000016
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ sự kiện không phải đơn, hoặc của đơn khác (chi tiết) → không tải",
+      "status": "passed",
+      "durationMs": 221.53439999999955
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ tab ẩn: không tải; hiện lại tải đúng 1 lần, lần hiện sau không tải nữa",
+      "status": "passed",
+      "durationMs": 327.0140000000001
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ tab bị ẩn đúng lúc hết hạn gom: không tải, nhớ để tải khi hiện lại",
+      "status": "passed",
+      "durationMs": 216.4443999999994
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ nối lại → tải 1 lần (kể cả nhiều lần báo liên tiếp)",
+      "status": "passed",
+      "durationMs": 110.93289999999979
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "bộ làm tươi: gom, tab ẩn, nối lại, huỷ dispose huỷ lần tải đang chờ và bỏ qua sự kiện sau đó",
+      "status": "passed",
+      "durationMs": 123.08519999999953
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) một kết nối cho nhiều người nghe; đóng khi người cuối rời; không rò listener",
+      "status": "passed",
+      "durationMs": 19.911699999999655
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) token là HÀM: mỗi lần nối lấy token mới nhất sau khi phiên được làm mới",
+      "status": "passed",
+      "durationMs": 1.8126000000002023
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) trạng thái: connecting → connected (operations.connected) → disconnected; nối lại báo reconnected",
+      "status": "passed",
+      "durationMs": 1.006800000000112
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) không có token thì không mở socket",
+      "status": "passed",
+      "durationMs": 1.5316000000002532
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) giới hạn 5 lần tự nối lại; hết lượt (reconnect_failed) → 'disconnected' kèm exhausted, báo đúng 1 lần",
+      "status": "passed",
+      "durationMs": 1.8257999999996173
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) reconnectOperations: về 'connecting' ngay, làm mới phiên, mở socket mới; nối được thì báo reconnected; socket cũ đóng sạch",
+      "status": "passed",
+      "durationMs": 84.58529999999973
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) reconnectOperations khi phiên làm mới thất bại: vẫn mở socket mới, không ném lỗi",
+      "status": "passed",
+      "durationMs": 102.76689999999962
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "kết nối socket dùng chung (operations.ts) reconnectOperations khi không còn người nghe: không làm gì",
+      "status": "passed",
+      "durationMs": 1.2908000000006723
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime sự kiện đơn → onRefresh 1 lần sau khi gom 500 ms; sự kiện khác thì không",
+      "status": "passed",
+      "durationMs": 1365.7399999999989
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime nối lại sau khi mất kết nối → tải lại đúng 1 lần; lần nối đầu tiên không tải",
+      "status": "passed",
+      "durationMs": 2047.982399999999
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime chi tiết đơn A: sự kiện của đơn B không tải lại",
+      "status": "passed",
+      "durationMs": 1388.9704999999994
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime rời màn: huỷ đăng ký, đóng socket, không còn listener; lần tải đang chờ bị huỷ",
+      "status": "passed",
+      "durationMs": 813.1508000000013
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime hết lượt tự nối → 'Mất kết nối' kèm nút; bấm nút → 'connecting', nối được thì tải lại đúng 1 lần, không toast",
+      "status": "passed",
+      "durationMs": 2131.0679
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime nối lại thất bại tiếp: hết lượt lần nữa → nút hiện lại",
+      "status": "passed",
+      "durationMs": 98.57049999999981
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime enabled=false (mock): không mở socket",
+      "status": "passed",
+      "durationMs": 5.698499999998603
+    },
+    {
+      "file": "src/api/realtime/realtime.test.tsx",
+      "name": "useOrderRealtime tab ẩn: sự kiện không tải; hiện lại (visibilitychange) tải 1 lần",
+      "status": "passed",
+      "durationMs": 1392.4848999999995
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "bảng dịch câu lỗi BE mọi câu 400/401/404/409 đã rà ở BE đều có bản dịch cụ thể bằng tiếng Việt (không rơi về câu chung)",
+      "status": "passed",
+      "durationMs": 7.937200000000303
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "bảng dịch câu lỗi BE câu 401 đăng nhập sai có câu riêng; 404 và 409 không lộ tiếng Anh",
+      "status": "passed",
+      "durationMs": 0.8805999999999585
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "bảng dịch câu lỗi BE câu 5xx của BE không bao giờ hiện, kể cả khi trùng với câu trong bảng",
+      "status": "passed",
+      "durationMs": 0.8029999999998836
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "bảng dịch câu lỗi BE thiếu BASIC khi duyệt trial là lỗi cấu hình gói, không phải hồ sơ nhập sai",
+      "status": "passed",
+      "durationMs": 0.3350000000000364
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô dịch các luật phổ biến của class-validator kèm nhãn ô tiếng Việt",
+      "status": "passed",
+      "durationMs": 3.5165000000001783
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô ô lồng nhau lấy tên ô cuối; ô lạ vẫn có câu tiếng Việt",
+      "status": "passed",
+      "durationMs": 0.5464999999999236
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô câu lạ hoặc ô thừa (forbidNonWhitelisted) → câu chung tiếng Việt, không lộ tiếng Anh",
+      "status": "passed",
+      "durationMs": 0.6066000000000713
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô liệt kê các ô sai trong một thông báo, bỏ trùng; và có lỗi theo ô để gắn vào form",
+      "status": "passed",
+      "durationMs": 1.9031999999997424
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô ApiError 400 có details → describeApiError ra câu theo ô; không details → câu BE đã Việt hoá hoặc câu chung",
+      "status": "passed",
+      "durationMs": 0.7323999999998705
+    },
+    {
+      "file": "src/api/http/backendMessages.test.ts",
+      "name": "400 validate theo từng ô mọi ô DTO của các form web đều có nhãn",
+      "status": "passed",
+      "durationMs": 0.7829999999999018
+    },
+    {
+      "file": "src/api/http/deviceClient.test.ts",
+      "name": "client thiết bị (quyết định 105) gửi token THIẾT BỊ, không bao giờ gửi token người dùng",
+      "status": "passed",
+      "durationMs": 9.766300000000228
+    },
+    {
+      "file": "src/api/http/deviceClient.test.ts",
+      "name": "client thiết bị (quyết định 105) công khai: không có token thì không có Authorization (tạo mã ghép), thân là JSON",
+      "status": "passed",
+      "durationMs": 1.8018999999999323
+    },
+    {
+      "file": "src/api/http/deviceClient.test.ts",
+      "name": "client thiết bị (quyết định 105) 403/401: ném ApiError giữ status, KHÔNG làm mới phiên, KHÔNG xoá phiên người dùng",
+      "status": "passed",
+      "durationMs": 4.56690000000026
+    },
+    {
+      "file": "src/api/http/deviceClient.test.ts",
+      "name": "client thiết bị (quyết định 105) mất mạng → ApiError status 0; lỗi hiện bằng tiếng Việt, không có tiếng Anh thô",
+      "status": "passed",
+      "durationMs": 2.6864999999997963
+    },
+    {
+      "file": "src/api/mock/devOnly.test.ts",
+      "name": "kịch bản mock chỉ ở chế độ dev (quyết định 47) DEV = false (production): khoá trong storage KHÔNG đổi tier, hết hạn, lỗi giả, cờ PayOS Lỗi",
+      "status": "passed",
+      "durationMs": 4.961800000000039
+    },
+    {
+      "file": "src/api/mock/devOnly.test.ts",
+      "name": "kịch bản mock chỉ ở chế độ dev (quyết định 47) DEV = false: ghi không chạm storage (setScenario, setMockFailure, setPayosErrorSimulated)",
+      "status": "passed",
+      "durationMs": 1.1475000000000364
+    },
+    {
+      "file": "src/api/mock/devOnly.test.ts",
+      "name": "kịch bản mock chỉ ở chế độ dev (quyết định 47) DEV = true: vẫn đọc và ghi như cũ",
+      "status": "passed",
+      "durationMs": 2.271400000000085
+    },
+    {
+      "file": "src/components/landing/SignupForm.test.tsx",
+      "name": "SignupForm gửi hồ sơ không cần chọn gói và thông báo TRIAL 14 ngày sau duyệt",
+      "status": "passed",
+      "durationMs": 499.63729999999987
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "phân loại lỗi đọc ngữ cảnh (quyết định 107) đã ghép mà bị 403 → thu hồi (về bước ghép)",
+      "status": "passed",
+      "durationMs": 2.7244000000000597
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "phân loại lỗi đọc ngữ cảnh (quyết định 107) chưa ghép: 403 khi mã còn hạn là chờ (không hiện lỗi); hết hạn thì tạo mã mới",
+      "status": "passed",
+      "durationMs": 0.6109999999998763
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "phân loại lỗi đọc ngữ cảnh (quyết định 107) mất mạng, 5xx, lỗi lạ → tạm thời (giữ token)",
+      "status": "passed",
+      "durationMs": 0.654700000000048
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "phân loại lỗi đọc ngữ cảnh (quyết định 107) hạn mã: so với expiresAt; chuỗi hỏng coi là đã hết hạn",
+      "status": "passed",
+      "durationMs": 0.3613999999997759
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "phân loại lỗi đọc ngữ cảnh (quyết định 107) có issuedAt: tính theo thời gian trôi qua, không phụ thuộc đồng hồ máy lệch so với BE",
+      "status": "passed",
+      "durationMs": 0.3373999999998887
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "giãn cách thử lại (không dồn dập) 5s, 10s, 20s, 40s rồi dừng ở 60s",
+      "status": "passed",
+      "durationMs": 1.1798000000003412
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "giãn cách thử lại (không dồn dập) nhịp hỏi: chờ ghép 3s; đã ghép 10s, có socket 60s; lỗi thì theo giãn cách",
+      "status": "passed",
+      "durationMs": 0.6050999999997657
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "lưu token thiết bị lưu rồi đọc lại (F5 vẫn giữ ghép), xoá thì mất",
+      "status": "passed",
+      "durationMs": 2.6579000000001543
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "lưu token thiết bị dữ liệu hỏng hoặc thiếu token → coi như chưa ghép",
+      "status": "passed",
+      "durationMs": 0.7083999999999833
+    },
+    {
+      "file": "src/api/device/session.test.ts",
+      "name": "lưu token thiết bị không đụng token phiên người dùng",
+      "status": "passed",
+      "durationMs": 0.5343000000002576
+    },
+    {
+      "file": "src/roles/branch/AttentionOrders.test.tsx",
+      "name": "trang Đơn cần xử lý (QĐ 99) liệt kê đơn REQUIRES_ATTENTION cũ nhất trước, có chênh lệch thiếu/dư, nút Xem → chi tiết",
+      "status": "passed",
+      "durationMs": 1685.5550999999996
+    },
+    {
+      "file": "src/roles/branch/AttentionOrders.test.tsx",
+      "name": "trang Đơn cần xử lý (QĐ 99) rỗng: 'Không có đơn nào cần xử lý.'",
+      "status": "passed",
+      "durationMs": 513.3310999999994
+    },
+    {
+      "file": "src/roles/branch/AttentionOrders.test.tsx",
+      "name": "trang Đơn cần xử lý (QĐ 99) lỗi 500: khối lỗi tiếng Việt kèm Thử lại, không tiếng Anh thô",
+      "status": "passed",
+      "durationMs": 540.7900999999983
+    },
+    {
+      "file": "src/roles/branch/AttentionOrders.test.tsx",
+      "name": "AttentionWatcher: số đếm menu và tải định kỳ (QĐ 100–101) nạp số đếm bằng GET lọc REQUIRES_ATTENTION (limit 1, lấy total)",
+      "status": "passed",
+      "durationMs": 89.34619999999995
+    },
+    {
+      "file": "src/roles/branch/AttentionOrders.test.tsx",
+      "name": "AttentionWatcher: số đếm menu và tải định kỳ (QĐ 100–101) 60 giây tải lại khi tab hiển thị; tab ẩn thì không; hiện lại thì tải ngay; rời màn thì dọn timer",
+      "status": "passed",
+      "durationMs": 95.05240000000049
+    },
+    {
+      "file": "src/roles/branch/AttentionWatcherAlert.test.tsx",
+      "name": "AttentionWatcher: cảnh báo socket (QĐ 100) trong React StrictMode (dev): sự kiện lệch số tiền → đúng 1 thông báo tiếng Việt kèm nút Xem, sau cửa sổ gom 2 giây, không trùng đơn",
+      "status": "passed",
+      "durationMs": 2974.624100000001
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) mặc định: 7 ngày, URL sạch, đủ mục (thẻ số, doanh thu, hình thức, giờ, món, topping, đơn huỷ)",
+      "status": "passed",
+      "durationMs": 3004.7168999999994
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) URL giữ khoảng và kỳ: F5 (mount lại) cho cùng kết quả; chọn nhanh ghi URL",
+      "status": "passed",
+      "durationMs": 1981.7064999999984
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) chọn nhanh 'Hôm nay' và '30 ngày' ghi from/to lên URL",
+      "status": "passed",
+      "durationMs": 2759.3403
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) URL hỏng bị bỏ qua, không lỗi",
+      "status": "passed",
+      "durationMs": 703.3917999999976
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) thời gian pha: 0,02 giây → 'Dưới 1 giây'; 125 giây → '2:05'; null → 'Chưa có dữ liệu'; hiện đúng số BE",
+      "status": "passed",
+      "durationMs": 904.5341000000008
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) Làm mới gửi đúng 1 lần GET, giữ khoảng thời gian",
+      "status": "passed",
+      "durationMs": 954.1502
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) đơn huỷ: lý do hiện, bấm mã đơn dẫn tới /manager/orders/:id",
+      "status": "passed",
+      "durationMs": 478.90539999999964
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) ngày chỉ có khoản hoàn (doanh thu âm, BE #43): hiện nhãn '−' và thanh cảnh báo, số đúng như BE",
+      "status": "passed",
+      "durationMs": 506.9373000000014
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) còn nhiều đơn huỷ hơn danh sách: có liên kết 'Xem tất cả' sang Tra cứu đơn đã lọc",
+      "status": "passed",
+      "durationMs": 484.2680999999975
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) rỗng: 'Chưa có đơn trong khoảng thời gian này', thẻ số vẫn hiện 0",
+      "status": "passed",
+      "durationMs": 309.52760000000126
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) lỗi 500: khối lỗi tiếng Việt + Thử lại tải lại được",
+      "status": "passed",
+      "durationMs": 773.2469999999994
+    },
+    {
+      "file": "src/roles/branch/ManagerDashboard.test.tsx",
+      "name": "màn Báo cáo chi nhánh (BM-03) lỗi 400 do tham số: câu tiếng Việt, không treo",
+      "status": "passed",
+      "durationMs": 132.3237999999983
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) đầu trang: số gọi, mã đơn, thời gian đặt/thanh toán, trạng thái, thu ngân; không có nút hành động",
+      "status": "passed",
+      "durationMs": 1693.8942000000006
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) dòng món: tuỳ chọn và topping kèm giá cộng thêm, giá lúc bán, thành tiền, ghi chú, trạng thái dòng",
+      "status": "passed",
+      "durationMs": 732.6772000000001
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) xác nhận thủ công: người xác nhận, lý do, số tiền thực nhận, mã giao dịch",
+      "status": "passed",
+      "durationMs": 299.3603999999996
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) nhiều khoản thanh toán: mỗi khoản một dòng với trạng thái riêng",
+      "status": "passed",
+      "durationMs": 360.16280000000006
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) đơn huỷ: người huỷ, thời điểm, lý do",
+      "status": "passed",
+      "durationMs": 408.21779999999853
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) Quay lại về đúng bộ lọc trước đó; mở thẳng (không có state) về danh sách trơn",
+      "status": "passed",
+      "durationMs": 548.7006000000001
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) 404: khối 'Không tìm thấy đơn' + nút về Tra cứu đơn giữ bộ lọc",
+      "status": "passed",
+      "durationMs": 125.62030000000232
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) id không phải UUID (BE trả 400) cũng là 'Không tìm thấy đơn'",
+      "status": "passed",
+      "durationMs": 139.19420000000173
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) lỗi 500: khối lỗi trong trang bằng tiếng Việt + Thử lại tải lại được",
+      "status": "passed",
+      "durationMs": 326.41609999999855
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "trang chi tiết đơn (BM-04, quyết định 73) lỗi 403: câu tiếng Việt về quyền, không hiện tiếng Anh",
+      "status": "passed",
+      "durationMs": 59.91969999999856
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) nút hiện ở QR chờ và Lệch số tiền; không hiện ở tiền mặt, FAILED, đơn huỷ, đơn đã trả",
+      "status": "passed",
+      "durationMs": 2200.5751999999993
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) Lệch số tiền: nhãn 'Cần xử lý' / 'Lệch số tiền' và số nhận được ở lịch sử thanh toán",
+      "status": "passed",
+      "durationMs": 310.08330000000205
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) BR-28: nhận thiếu → câu BR-28 và nút Tiếp tục bị khoá; bằng → bình thường; dư → 'Phải trả lại khách'",
+      "status": "passed",
+      "durationMs": 601.6021999999975
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) lý do dưới 3 ký tự không sang bước xem lại và báo lỗi tại ô",
+      "status": "passed",
+      "durationMs": 475.54190000000017
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) bước xem lại: tóm tắt (mã đơn, tổng, số nhận, phần dư, lý do) và dòng nhắc kiểm tiền (GĐ-04)",
+      "status": "passed",
+      "durationMs": 438.34739999999874
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) thành công: đúng 1 request với thân đúng DTO, thông báo, GET lại; lịch sử có người xác nhận, lý do, số tiền thực nhận",
+      "status": "passed",
+      "durationMs": 596.4681000000019
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) 409 (webhook vừa về): câu tiếng Việt, GET lại, đóng hộp, đơn thành Đã thanh toán",
+      "status": "passed",
+      "durationMs": 659.6428999999989
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) 409 nhận thiếu từ BE: câu BR-28, GET lại, đóng hộp",
+      "status": "passed",
+      "durationMs": 534.9508999999998
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) 400 từ BE: lỗi theo ô bằng tiếng Việt, hộp còn mở để sửa",
+      "status": "passed",
+      "durationMs": 544.6736999999994
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) 403 (không đủ quyền): câu tiếng Việt, hộp còn mở",
+      "status": "passed",
+      "durationMs": 515.7291000000005
+    },
+    {
+      "file": "src/roles/branch/OrderDetail.test.tsx",
+      "name": "xác nhận chuyển khoản thủ công (BM-05, quyết định 82–85) gói hết hạn (chỉ đọc): nút xác nhận thủ công vẫn mở (QĐ 122)",
+      "status": "passed",
+      "durationMs": 344.82310000000143
+    },
+    {
+      "file": "src/roles/branch/OrderDetailAttention.test.tsx",
+      "name": "quyết định 102: hộp xác nhận tay tự đóng khi đơn đổi trạng thái webhook về trong lúc hộp đang mở → đóng hộp và nói rõ trạng thái mới",
+      "status": "passed",
+      "durationMs": 2984.480599999999
+    },
+    {
+      "file": "src/roles/branch/OrderDetailBe7b.test.tsx",
+      "name": "tiền về sau khi QR hết hạn (#61, #75) BE 7d7f2dc (#75): có 'Xác nhận thủ công' và 'Huỷ đơn và ghi hoàn tiền', không còn câu chờ hỗ trợ",
+      "status": "passed",
+      "durationMs": 1849.4087
+    },
+    {
+      "file": "src/roles/branch/OrderDetailBe7b.test.tsx",
+      "name": "hết món khi đơn đã trả (#67) lý do riêng, không gọi là lệch tiền; có nút huỷ đơn và ghi hoàn tiền",
+      "status": "passed",
+      "durationMs": 667.9772999999986
+    },
+    {
+      "file": "src/roles/branch/OrderDetailBe7b.test.tsx",
+      "name": "QĐ 122 (đổi QĐ 85, #59): gói hết hạn không khoá xác nhận tay và huỷ đơn đã trả đơn đã trả + gói expired: nút huỷ vẫn bấm được",
+      "status": "passed",
+      "durationMs": 360.78900000000067
+    },
+    {
+      "file": "src/roles/branch/OrderDetailBe7b.test.tsx",
+      "name": "tên người ở khoản hoàn (#73) hiện họ tên kèm vai trò; thiếu tên thì chỉ vai trò",
+      "status": "passed",
+      "durationMs": 364.33070000000043
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) nút hiện ở đơn đã trả chưa giao (đã thanh toán / đang pha / sẵn sàng); không ở đơn hoàn tất, chờ thanh toán, đã huỷ",
+      "status": "passed",
+      "durationMs": 3733.9181999999983
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) hộp xác nhận: tóm tắt số tiền phải hoàn; lý do ngắn bị chặn ở bước nhập",
+      "status": "passed",
+      "durationMs": 413.6186000000016
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) tiền mặt: huỷ → đơn 'Đã huỷ', khoản hoàn 'Đã hoàn tiền' ngay, không còn nút",
+      "status": "passed",
+      "durationMs": 818.2832999999991
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) chuyển khoản: khoản 'Chờ hoàn tiền' → Đánh dấu đã hoàn → 'Đã hoàn tiền'",
+      "status": "passed",
+      "durationMs": 1199.942500000001
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) lệch thiếu (Cần xử lý): nút ở khung cảnh báo; số hoàn = số đã nhận; huỷ cả đơn",
+      "status": "passed",
+      "durationMs": 536.3967000000011
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) bấm đúp 'Huỷ đơn' chỉ gửi 1 request",
+      "status": "passed",
+      "durationMs": 636.5178999999989
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) 409 (đơn vừa được giao ở nơi khác): câu tiếng Việt qua thông báo, đóng hộp",
+      "status": "passed",
+      "durationMs": 568.6903999999995
+    },
+    {
+      "file": "src/roles/branch/OrderDetailCancel.test.tsx",
+      "name": "huỷ đơn đã trả và khoản hoàn (BM-06, #43, quyết định 115–) 5xx: báo lỗi tiếng Việt, GIỮ hộp để thử lại",
+      "status": "passed",
+      "durationMs": 557.4659999999967
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) mặc định: 7 ngày gần nhất giờ Việt Nam, 20 dòng, trang 1",
+      "status": "passed",
+      "durationMs": 7.279700000000048
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) vòng tròn bộ lọc → URL → bộ lọc",
+      "status": "passed",
+      "durationMs": 2.590900000000147
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) URL chỉ giữ tham số khác mặc định",
+      "status": "passed",
+      "durationMs": 1.133100000000013
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) tham số hỏng hoặc lạ bị bỏ qua, về mặc định cho riêng tham số đó",
+      "status": "passed",
+      "durationMs": 0.9185999999999694
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) khoảng ngày: ngày không tồn tại hoặc từ > đến → cả khoảng về mặc định",
+      "status": "passed",
+      "durationMs": 1.772200000000339
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) số gọi chỉ nhận số nguyên dương trong giới hạn BE",
+      "status": "passed",
+      "durationMs": 0.5569000000000415
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) toOrderQuery: ngày giờ Việt Nam → ISO có múi giờ, số gọi là số, rỗng không có",
+      "status": "passed",
+      "durationMs": 7.771799999999985
+    },
+    {
+      "file": "src/roles/branch/orderFilters.test.ts",
+      "name": "bộ lọc tra cứu đơn ↔ URL (quyết định 68, 69) hasExtraFilters / isDefaultFilters",
+      "status": "passed",
+      "durationMs": 0.9005000000001928
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) mặc định: tải 7 ngày, 20 dòng, có nhãn trạng thái tiếng Việt, URL sạch",
+      "status": "passed",
+      "durationMs": 2725.3140999999996
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) URL hỏng bị bỏ qua, màn không treo",
+      "status": "passed",
+      "durationMs": 567.4465999999993
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) lọc theo URL: số gọi khớp đúng một đơn",
+      "status": "passed",
+      "durationMs": 394.0786999999982
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) ô Số gọi chỉ nhận số; Tìm đưa bộ lọc lên URL và về trang 1",
+      "status": "passed",
+      "durationMs": 953.2768000000033
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) gõ chưa bấm Tìm thì URL chưa đổi; mã đơn được cắt khoảng trắng",
+      "status": "passed",
+      "durationMs": 801.1157999999996
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) phân trang: chuyển sang trang 2 ghi page=2 lên URL; Xoá bộ lọc về mặc định",
+      "status": "passed",
+      "durationMs": 1773.4370999999992
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) không có đơn khớp: hiện câu trạng thái rỗng (khoảng ngày / bộ lọc)",
+      "status": "passed",
+      "durationMs": 499.60150000000067
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) bấm dòng chuyển sang /manager/orders/:id",
+      "status": "passed",
+      "durationMs": 328.85369999999966
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) lỗi đọc: khối lỗi trong trang bằng tiếng Việt + Thử lại tải lại được",
+      "status": "passed",
+      "durationMs": 607.3800999999985
+    },
+    {
+      "file": "src/roles/branch/OrderSearch.test.tsx",
+      "name": "màn Tra cứu đơn (BM-04) lỗi 400 do tham số: câu tiếng Việt theo ô, màn không treo",
+      "status": "passed",
+      "durationMs": 302.57730000000083
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng mỗi dòng hiện tên, số suất, giá lúc bán, tuỳ chọn; dòng đã pha xong ghi hao hụt",
+      "status": "passed",
+      "durationMs": 781.3930999999993
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng chọn một dòng: tóm tắt hoàn theo giá lúc bán, thân gửi đúng orderItemIds, lý do và hình thức hoàn",
+      "status": "passed",
+      "durationMs": 343.6759999999995
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng chọn dòng đã pha xong: bước xem lại nêu hao hụt",
+      "status": "passed",
+      "durationMs": 220.82510000000002
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng không chọn dòng: huỷ cả đơn, không gửi orderItemIds",
+      "status": "passed",
+      "durationMs": 171.3086000000003
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng thiếu lý do: không sang bước xem lại",
+      "status": "passed",
+      "durationMs": 161.6850000000013
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hộp huỷ chọn từng dòng lệch thiếu hoặc tiền về muộn: không có ô chọn dòng, hoàn đúng số đã nhận",
+      "status": "passed",
+      "durationMs": 97.6818000000003
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hàm thuần isWastageLine: READY/DELIVERED là hao hụt, còn lại không",
+      "status": "passed",
+      "durationMs": 1.05239999999867
+    },
+    {
+      "file": "src/roles/branch/RefundModals78.test.tsx",
+      "name": "hàm thuần refundAmountFor: nhiều dòng chọn = tổng giá lúc bán, không vượt số dư",
+      "status": "passed",
+      "durationMs": 0.42699999999967986
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "bộ lọc báo cáo chi nhánh ↔ URL (quyết định 77) mặc định: 7 ngày gần nhất giờ Việt Nam, kỳ theo ngày",
+      "status": "passed",
+      "durationMs": 8.608400000000074
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "bộ lọc báo cáo chi nhánh ↔ URL (quyết định 77) chọn nhanh: Hôm nay / 7 ngày / 30 ngày; khoảng khác = tuỳ chọn",
+      "status": "passed",
+      "durationMs": 2.157799999999952
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "bộ lọc báo cáo chi nhánh ↔ URL (quyết định 77) vòng tròn bộ lọc → URL → bộ lọc; URL chỉ giữ tham số khác mặc định",
+      "status": "passed",
+      "durationMs": 2.7181000000000495
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "bộ lọc báo cáo chi nhánh ↔ URL (quyết định 77) tham số hỏng bị bỏ qua",
+      "status": "passed",
+      "durationMs": 1.8532000000000153
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "bộ lọc báo cáo chi nhánh ↔ URL (quyết định 77) toReportQuery: ngày giờ VN, kỳ, top 10",
+      "status": "passed",
+      "durationMs": 0.42250000000012733
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "thời gian pha trung bình dưới 1 giây, phút:giây, chưa có dữ liệu",
+      "status": "passed",
+      "durationMs": 0.5753999999997177
+    },
+    {
+      "file": "src/roles/branch/reportFilters.test.ts",
+      "name": "nhãn mốc thời gian ngày DD/MM, tuần có chữ 'Tuần', tháng MM/YYYY",
+      "status": "passed",
+      "durationMs": 0.46370000000024447
+    },
+    {
+      "file": "src/roles/branch/staffPlan.test.tsx",
+      "name": "màn Nhân viên của Manager dùng gói thật (quyết định 53, 54) real: 'Đã dùng 7/20 tài khoản của gói' từ gói BE, KHÔNG còn '(số liệu mẫu)', nút Thêm mở",
+      "status": "passed",
+      "durationMs": 2141.911900000001
+    },
+    {
+      "file": "src/roles/branch/staffPlan.test.tsx",
+      "name": "màn Nhân viên của Manager dùng gói thật (quyết định 53, 54) đạt hạn mức (20/20): báo 'đã đủ hạn mức' và nút Thêm KHOÁ",
+      "status": "passed",
+      "durationMs": 667.0208999999995
+    },
+    {
+      "file": "src/roles/branch/staffPlan.test.tsx",
+      "name": "màn Nhân viên của Manager dùng gói thật (quyết định 53, 54) chưa tải được gói: 'Chưa tải được hạn mức gói' + Thử lại nhỏ; nút Thêm VẪN bấm được; Thử lại gọi reloadPlan; không toast",
+      "status": "passed",
+      "durationMs": 484.7386999999999
+    },
+    {
+      "file": "src/roles/branch/staffPlan.test.tsx",
+      "name": "màn Nhân viên của Manager dùng gói thật (quyết định 53, 54) gói không còn ACTIVE (EXPIRED): nút Thêm khoá theo cơ chế chỉ đọc có sẵn (quyết định 55)",
+      "status": "passed",
+      "durationMs": 441.4474000000009
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) không còn banner dữ liệu mẫu, có cột 'Đăng nhập gần nhất' (#62, BE fb7cae9); nhãn trạng thái tiếng Việt",
+      "status": "passed",
+      "durationMs": 2238.633599999999
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) tạo: form có Mã nhân viên, email sai bị chặn, gửi đúng input (không mật khẩu), hiện trạng thái email",
+      "status": "passed",
+      "durationMs": 1009.2422999999999
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) tạo: 409 email trùng → câu tiếng Việt (không tiếng Anh thô)",
+      "status": "passed",
+      "durationMs": 962.9418999999998
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) khoá: hộp xác nhận bắt buộc lý do ≥ 3 ký tự; gửi kèm lý do; bấm đúp chỉ 1 request",
+      "status": "passed",
+      "durationMs": 662.3516000000018
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) gửi lại email: cần lý do, gọi resetStaffPassword kèm lý do, hiện hạn link và trạng thái gửi",
+      "status": "passed",
+      "durationMs": 1006.8826999999983
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) lỗi 400 của BE hiện theo ô tiếng Việt, hộp lý do còn mở",
+      "status": "passed",
+      "durationMs": 726.0482999999986
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) gói hết hạn (chỉ đọc): Thêm, Sửa, Gửi lại email, Khoá đều bị khoá",
+      "status": "passed",
+      "durationMs": 484.04439999999886
+    },
+    {
+      "file": "src/roles/branch/StaffTable.test.tsx",
+      "name": "màn Nhân viên của Manager — tài khoản thật qua email (#24) đã khoá: nút Mở khoá cũng hỏi lý do và gửi active=true kèm lý do",
+      "status": "passed",
+      "durationMs": 751.2041000000027
+    },
+    {
+      "file": "src/roles/owner/BranchOperations.test.tsx",
+      "name": "BranchOperations (Owner 'Giờ & khu vực') — chế độ chỉ đọc (quyết định 97) gói hoạt động: nút Lưu giờ, Lưu ngày đặc biệt, Thêm khu vực, Lưu trữ mở",
+      "status": "passed",
+      "durationMs": 2697.356599999999
+    },
+    {
+      "file": "src/roles/owner/BranchOperations.test.tsx",
+      "name": "BranchOperations (Owner 'Giờ & khu vực') — chế độ chỉ đọc (quyết định 97) gói EXPIRED: mọi nút ghi khoá kèm tooltip chỉ đọc; không có thông báo lỗi",
+      "status": "passed",
+      "durationMs": 745.2735000000011
+    },
+    {
+      "file": "src/roles/owner/BranchOperations.test.tsx",
+      "name": "BranchOperations (Owner 'Giờ & khu vực') — chế độ chỉ đọc (quyết định 97) gói tạm ngưng (SUSPENDED) cũng khoá",
+      "status": "passed",
+      "durationMs": 304.70590000000084
+    },
+    {
+      "file": "src/roles/owner/ManagerAccounts.test.tsx",
+      "name": "Owner email invitation form has email but no password/username, blocks invalid email and sends only invitation data",
+      "status": "passed",
+      "durationMs": 2873.851199999999
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "tên tính năng và nhãn trạng thái có tên tiếng Việt cho mọi cờ gói của web (FEATURE_REQUIRED_TIER)",
+      "status": "passed",
+      "durationMs": 4.0516999999999825
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "tên tính năng và nhãn trạng thái nhãn tiếng Việt cho ĐỦ giá trị enum BusinessSubscriptionStatus của BE (ACTIVE, SUSPENDED, EXPIRED)",
+      "status": "passed",
+      "durationMs": 0.9715999999989435
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) real ACTIVE: tên gói, 'Đang hoạt động', ngày hết hạn dd/MM/yyyy giờ Việt Nam, hạn mức (chạm hạn mức có nhãn), tính năng theo cờ BE, không còn câu 'chờ BE #38'",
+      "status": "passed",
+      "durationMs": 447.27750000000015
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) ngày hết hạn quy về giờ Việt Nam: 2099-12-31T23:59:59.999Z (UTC) hiện 01/01/2100",
+      "status": "passed",
+      "durationMs": 119.37279999999919
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) EXPIRED và SUSPENDED: nhãn 'Đã hết hạn' / 'Tạm ngưng' (BE vẫn trả gói, không phải khối 'không có gói')",
+      "status": "passed",
+      "durationMs": 103.48229999999967
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) BE cũ không có status/expiresAt: hiện '—', không bịa giá trị",
+      "status": "passed",
+      "durationMs": 39.76339999999982
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) subscription null → khối 'Không có gói đang hoạt động' + câu liên hệ, không nút nào (quyết định 38)",
+      "status": "passed",
+      "durationMs": 20.45139999999992
+    },
+    {
+      "file": "src/roles/owner/myPlan.test.tsx",
+      "name": "màn Gói của tôi (dữ liệu thật, quyết định 52) mock giữ như cũ: có ngày hết hạn và trạng thái, đủ 3 tính năng có/chưa có",
+      "status": "passed",
+      "durationMs": 77.04500000000007
+    },
+    {
+      "file": "src/roles/owner/Posters.test.tsx",
+      "name": "xem trước áp phích chưa có áp phích: hiện ảnh mặc định của nền tảng, không phải ô trống",
+      "status": "passed",
+      "durationMs": 466.83460000000014
+    },
+    {
+      "file": "src/roles/owner/Posters.test.tsx",
+      "name": "xem trước áp phích mọi áp phích đang tắt: vẫn dùng ảnh mặc định",
+      "status": "passed",
+      "durationMs": 392.40120000000024
+    },
+    {
+      "file": "src/roles/owner/Posters.test.tsx",
+      "name": "xem trước áp phích có áp phích đang bật: hiện ảnh đó, không hiện ảnh mặc định",
+      "status": "passed",
+      "durationMs": 149.94430000000102
+    },
+    {
+      "file": "src/roles/owner/Posters.test.tsx",
+      "name": "chọn tệp tệp sai định dạng bị chặn ngay bằng câu tiếng Việt, không gọi BE",
+      "status": "passed",
+      "durationMs": 265.116
+    },
+    {
+      "file": "src/roles/owner/reportKpi.test.ts",
+      "name": "summarizeKpi (OW-08, BR-50) đọc đúng số BE: doanh thu sau hoàn, gộp, đã hoàn, chờ hoàn, số đơn huỷ sau thanh toán",
+      "status": "passed",
+      "durationMs": 2.2685999999998785
+    },
+    {
+      "file": "src/roles/owner/reportKpi.test.ts",
+      "name": "summarizeKpi (OW-08, BR-50) nhiều chi nhánh: giá trị đơn trung bình là null (BE không trả ở tổng, web không tự chia)",
+      "status": "passed",
+      "durationMs": 0.5078000000000884
+    },
+    {
+      "file": "src/roles/owner/reportKpi.test.ts",
+      "name": "summarizeKpi (OW-08, BR-50) chưa có dữ liệu: toàn số 0, không bịa",
+      "status": "passed",
+      "durationMs": 0.27559999999994034
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "mapper Manager — whitelist chỉ giữ đúng các trường của ManagerAccount",
+      "status": "passed",
+      "durationMs": 4.190700000000106
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "mapper Manager — whitelist bỏ mọi trường lạ, kể cả token, mã băm, điện thoại, ngày vào làm",
+      "status": "passed",
+      "durationMs": 0.8215000000000146
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "mapper Manager — whitelist trạng thái lạ của BE → INACTIVE (không mở nút khoá); chưa từng đăng nhập → null",
+      "status": "passed",
+      "durationMs": 0.6956999999997606
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "mapper Manager — whitelist trang: giữ nguyên phân trang của BE",
+      "status": "passed",
+      "durationMs": 1.427900000000136
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE danh sách: GET /employees?role=MANAGER kèm trang, tìm kiếm, trạng thái, chi nhánh",
+      "status": "passed",
+      "durationMs": 6.7818999999999505
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE khoá = PATCH /employees/{id}/status {status:SUSPENDED}; mở khoá = ACTIVE",
+      "status": "passed",
+      "durationMs": 1.768800000000283
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE gửi lại email = POST /employees/{id}/reset-password, chỉ trả expiresAt (không token)",
+      "status": "passed",
+      "durationMs": 1.076799999999821
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE chuyển chi nhánh = PATCH /employees/{id}/branch {branchId}",
+      "status": "passed",
+      "durationMs": 1.0855000000001382
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE tạo Manager bằng lời mời qua POST /employees/managers",
+      "status": "passed",
+      "durationMs": 2.0976999999998043
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountReal — gọi đúng endpoint /employees của BE Owner mời qua email; chỉ tài khoản username cũ đặt lại mật khẩu trực tiếp",
+      "status": "passed",
+      "durationMs": 2.0970000000002074
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountMock — Manager danh sách phân trang, tìm kiếm, lọc theo trạng thái; mỗi dòng có tên chi nhánh",
+      "status": "passed",
+      "durationMs": 6.736699999999928
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountMock — Manager khoá/mở khoá đổi trạng thái; gửi lại email chỉ trả expiresAt và không đổi trạng thái; chuyển chi nhánh",
+      "status": "passed",
+      "durationMs": 2.6180999999996857
+    },
+    {
+      "file": "src/api/modules/account/account.test.ts",
+      "name": "accountMock — Manager tạo Manager: INACTIVE (chưa đặt mật khẩu), có thông báo email, không có mật khẩu",
+      "status": "passed",
+      "durationMs": 1.2397000000000844
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract Owner invites MANAGER without username/password",
+      "status": "passed",
+      "durationMs": 9.081900000000132
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract Owner invites CASHIER without username/password",
+      "status": "passed",
+      "durationMs": 1.3015000000000327
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract Owner invites BARISTA without username/password",
+      "status": "passed",
+      "durationMs": 0.8562999999999192
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract resends pending Owner invitations with reason and surfaces cooldown",
+      "status": "passed",
+      "durationMs": 3.1210000000000946
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract rejects missing reason before sending a status request",
+      "status": "passed",
+      "durationMs": 1.4265000000000327
+    },
+    {
+      "file": "src/api/modules/account/invitations.test.ts",
+      "name": "Staff invitation API contract preserves cancelled state and only the safe invitation expiry fields",
+      "status": "passed",
+      "durationMs": 0.6091999999998734
+    },
+    {
+      "file": "src/api/modules/account/staff.test.ts",
+      "name": "Owner xem Cashier/Barista (OW-05) — mapper whitelist chỉ giữ trường cần, có vai trò Cashier/Barista, KHÔNG có lastLoginAt",
+      "status": "passed",
+      "durationMs": 4.598700000000008
+    },
+    {
+      "file": "src/api/modules/account/staff.test.ts",
+      "name": "Owner xem Cashier/Barista (OW-05) — mapper whitelist vai trò khác (Manager, Waiter, Kitchen) bị bỏ; trường lạ không lọt",
+      "status": "passed",
+      "durationMs": 1.0273999999999432
+    },
+    {
+      "file": "src/api/modules/account/staff.test.ts",
+      "name": "accountReal.listStaffAccounts — GET /employees cho CASHIER và BARISTA gọi hai vai trò, đi hết các trang, chỉ GET",
+      "status": "passed",
+      "durationMs": 7.596199999999953
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "luật nhập nhân viên (theo DTO tạo nhân viên của BE) họ tên tách thành firstName/lastName và ghép lại",
+      "status": "passed",
+      "durationMs": 3.785399999999754
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "luật nhập nhân viên (theo DTO tạo nhân viên của BE) hợp lệ và từng lỗi: thiếu họ/tên, email sai, điện thoại sai (8–15 số, + đầu), vai trò",
+      "status": "passed",
+      "durationMs": 3.892700000000332
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) chỉ thấy nhân viên chi nhánh mình; Manager không sửa/khoá nhân viên chi nhánh khác (404)",
+      "status": "passed",
+      "durationMs": 22.28729999999996
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) tạo Cashier và Barista: không mật khẩu, trạng thái chờ đặt mật khẩu (INACTIVE), có thông báo email 24 giờ",
+      "status": "passed",
+      "durationMs": 3.253099999999904
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) email trùng → 409; dữ liệu sai → 400",
+      "status": "passed",
+      "durationMs": 1.7298000000000684
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) sửa họ tên và điện thoại; email và vai trò giữ nguyên",
+      "status": "passed",
+      "durationMs": 2.1580999999996493
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) khoá rồi mở khoá; gửi lại email chỉ trả hạn link và không đổi trạng thái",
+      "status": "passed",
+      "durationMs": 2.9128999999998086
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) lọc vai trò và tìm kiếm",
+      "status": "passed",
+      "durationMs": 1.9627999999997883
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) hạn mức: đủ thì chặn TẠO MỚI và chặn MỞ KHOÁ; khoá một người thì tạo được tiếp; báo kèm tên gói cần nâng",
+      "status": "passed",
+      "durationMs": 7.077800000000025
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) gói cao nhất đủ hạn mức: báo 'đây đã là gói cao nhất'",
+      "status": "passed",
+      "durationMs": 1.1843999999996413
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) hết hạn gói: mọi thao tác ghi bị chặn (chỉ đọc), vẫn xem được",
+      "status": "passed",
+      "durationMs": 2.034299999999803
+    },
+    {
+      "file": "src/api/modules/account/staffManage.test.ts",
+      "name": "mock nhân viên của Manager (BM-01, chờ BE #24) lưu qua F5: tải lại (bỏ state bộ nhớ) vẫn còn nhân viên, không sinh nhân sự mẫu trùng; xoá dữ liệu mock thì mất",
+      "status": "passed",
+      "durationMs": 2.4214999999999236
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) danh sách: GET /manager/staff, trang phẳng, vai trò từ user.role, INACTIVE = chưa kích hoạt, không lastLoginAt",
+      "status": "passed",
+      "durationMs": 10.570900000000165
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) tạo: POST /manager/staff, thân đúng ManagerCreateStaffDto — KHÔNG mật khẩu, KHÔNG branchId, ô trống không gửi",
+      "status": "passed",
+      "durationMs": 3.817700000000059
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) tạo: 409 email trùng, 409 hạn mức, 400 theo ô → câu tiếng Việt",
+      "status": "passed",
+      "durationMs": 5.715100000000348
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) sửa: PATCH /manager/staff/:id gửi họ tên và điện thoại; chỉ `phone` được null để xoá số (#63, BE fb7cae9)",
+      "status": "passed",
+      "durationMs": 1.5239999999998872
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) khoá / mở khoá: PATCH /manager/staff/:id/status {status, reason}; thiếu lý do thì KHÔNG gửi request",
+      "status": "passed",
+      "durationMs": 3.0005999999998494
+    },
+    {
+      "file": "src/api/modules/account/staffReal.test.ts",
+      "name": "accountReal — Cashier/Barista của Manager qua /manager/staff* (#24) gửi lại email: POST /manager/staff/:id/reset-password {reason}, trả hạn và trạng thái gửi; thiếu lý do thì không gửi",
+      "status": "passed",
+      "durationMs": 1.4454999999998108
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "luật mật khẩu (theo SetupPasswordDto của BE) hợp lệ: 8–128 ký tự, có chữ thường, chữ hoa và chữ số",
+      "status": "passed",
+      "durationMs": 4.337999999999738
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "luật mật khẩu (theo SetupPasswordDto của BE) từng luật bị vi phạm riêng lẻ",
+      "status": "passed",
+      "durationMs": 0.9608000000002903
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "luật mật khẩu (theo SetupPasswordDto của BE) chỉ có đúng 4 luật như BE, không luật thêm (ký tự đặc biệt không bắt buộc)",
+      "status": "passed",
+      "durationMs": 0.44709999999986394
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authMock.setupPassword token mock-valid: đặt được một lần, lần hai bị từ chối như token đã dùng",
+      "status": "passed",
+      "durationMs": 2.5895000000000437
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authMock.setupPassword token mock-expired, mock-used và token lạ: cùng lỗi như BE (không phân biệt lý do)",
+      "status": "passed",
+      "durationMs": 0.7462999999997919
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authMock.setupPassword mật khẩu yếu bị từ chối 400 với cùng luật, trước cả khi xét token",
+      "status": "passed",
+      "durationMs": 0.80600000000004
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authReal.setupPassword POST /auth/setup-password công khai (không Bearer), gửi đúng { token, password }",
+      "status": "passed",
+      "durationMs": 6.9003999999999905
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authReal.setupPassword 401 của BE (token sai/hết hạn/đã dùng) → giữ status 401, gắn mã SETUP_TOKEN_INVALID",
+      "status": "passed",
+      "durationMs": 1.0549999999998363
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authReal.setupPassword đang có phiên: 401 của setupPassword không gọi refresh, không gắn Bearer, không xoá phiên, không báo toàn cục",
+      "status": "passed",
+      "durationMs": 2.990900000000238
+    },
+    {
+      "file": "src/api/modules/auth/setupPassword.test.ts",
+      "name": "authReal.setupPassword 400 validate của BE đi tiếp nguyên trạng",
+      "status": "passed",
+      "durationMs": 1.130200000000059
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo 403: thông báo toàn cục báo, màn không báo thêm",
+      "status": "passed",
+      "durationMs": 4.971499999999878
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo mất mạng: thông báo toàn cục báo, màn không báo thêm",
+      "status": "passed",
+      "durationMs": 0.8667000000000371
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo 401: thông báo toàn cục báo, màn không báo thêm",
+      "status": "passed",
+      "durationMs": 0.45489999999995234
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo lỗi 400 không qua thông báo toàn cục: màn hiện đúng một câu tiếng Việt",
+      "status": "passed",
+      "durationMs": 0.9999000000000251
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo hết hạn mức chi nhánh: một thông báo toàn cục, gợi ý gói nằm trong gợi ý đó, màn không báo thêm",
+      "status": "passed",
+      "durationMs": 1.5161000000000513
+    },
+    {
+      "file": "src/api/modules/branch/branchErrors.test.ts",
+      "name": "Branches: một lỗi, một thông báo hạn mức tài khoản không có gợi ý số chi nhánh",
+      "status": "passed",
+      "durationMs": 0.41039999999998145
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — BR-07: không để dữ liệu ví lọt vào web fixture đầu vào thật sự có dữ liệu ví",
+      "status": "passed",
+      "durationMs": 4.150800000000345
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — BR-07: không để dữ liệu ví lọt vào web doanh nghiệp: kết quả không còn khoá hay giá trị ví nào",
+      "status": "passed",
+      "durationMs": 2.335399999999936
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — BR-07: không để dữ liệu ví lọt vào web chi tiết hồ sơ: kết quả không còn ví",
+      "status": "passed",
+      "durationMs": 1.1872999999995955
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — BR-07: không để dữ liệu ví lọt vào web danh sách phân trang: map từng phần tử, không ví",
+      "status": "passed",
+      "durationMs": 0.7928999999999178
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — BR-07: không để dữ liệu ví lọt vào web whitelist: trường lạ của BE không được chép sang",
+      "status": "passed",
+      "durationMs": 0.723700000000008
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — dữ liệu tiền đi qua parseAmount (chuỗi thập phân → số)",
+      "status": "passed",
+      "durationMs": 0.4869999999996253
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — dữ liệu owner có id để đặt lại mật khẩu, tên ghép từ họ tên; bỏ tableCount",
+      "status": "passed",
+      "durationMs": 0.6233999999999469
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mapper — dữ liệu hồ sơ đã duyệt có thông tin doanh nghiệp đã tạo và email Owner",
+      "status": "passed",
+      "durationMs": 1.284599999999955
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "trạng thái thuê bao — BE chưa ghi EXPIRED nên web tự tính ACTIVE nhưng quá hạn → expired",
+      "status": "passed",
+      "durationMs": 0.3975999999997839
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "trạng thái thuê bao — BE chưa ghi EXPIRED nên web tự tính ACTIVE còn hạn → active",
+      "status": "passed",
+      "durationMs": 0.4290000000000873
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "trạng thái thuê bao — BE chưa ghi EXPIRED nên web tự tính SUSPENDED giữ nguyên dù quá hạn hay chưa",
+      "status": "passed",
+      "durationMs": 0.3894000000000233
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "trạng thái thuê bao — BE chưa ghi EXPIRED nên web tự tính EXPIRED của BE (nếu có) → expired",
+      "status": "passed",
+      "durationMs": 0.23610000000007858
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví danh sách hồ sơ phân trang, lọc trạng thái, tìm kiếm",
+      "status": "passed",
+      "durationMs": 3.6799999999998363
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví duyệt: luôn cấp TRIAL 14 ngày, sinh doanh nghiệp + Owner; không duyệt lại được",
+      "status": "passed",
+      "durationMs": 3.6127000000001317
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví từ chối bắt buộc lý do",
+      "status": "passed",
+      "durationMs": 0.8143999999997504
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví doanh nghiệp: có người đại diện, usage, trạng thái hết hạn tính từ ngày; không ví",
+      "status": "passed",
+      "durationMs": 0.989100000000235
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví gia hạn cộng từ ngày hết hạn nếu còn hạn, từ hôm nay nếu đã hết",
+      "status": "passed",
+      "durationMs": 0.8719999999998436
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví đổi gói: hướng phải khớp giá; hạ gói khi vượt hạn mức → 409 (lệch BR-11)",
+      "status": "passed",
+      "durationMs": 1.244300000000294
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví tạm ngưng / kích hoạt lại; kích hoạt khi đã hết hạn phải gia hạn trước",
+      "status": "passed",
+      "durationMs": 0.7612000000003718
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "mock admin — cùng shape và quy tắc với BE, không ví đặt lại mật khẩu Owner: trả hạn hiệu lực, không có mật khẩu",
+      "status": "passed",
+      "durationMs": 0.8252999999999702
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "adminReal — gói dịch vụ khớp DTO của BE dfe8100 đọc gói công khai: GET anonymous và bổ sung isActive=true cho model web",
+      "status": "passed",
+      "durationMs": 7.8125
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "adminReal — gói dịch vụ khớp DTO của BE dfe8100 tạo gói: POST bỏ isActive, kèm hai cờ bắt buộc và KHÔNG gửi maxTables (BE `fb7cae9`, #29)",
+      "status": "passed",
+      "durationMs": 1.9504000000001724
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "adminReal — gói dịch vụ khớp DTO của BE dfe8100 sửa gói: PATCH không gửi maxTables, có gửi hai cờ",
+      "status": "passed",
+      "durationMs": 1.011700000000019
+    },
+    {
+      "file": "src/api/modules/admin/admin.test.ts",
+      "name": "adminReal — gói dịch vụ khớp DTO của BE dfe8100 đọc gói: hai cờ từ BE; BE cũ không có cờ thì coi như tắt",
+      "status": "passed",
+      "durationMs": 0.2860000000000582
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mapper tuỳ chọn chi nhánh whitelist: chỉ giữ trường cần, tiền qua parseAmount",
+      "status": "passed",
+      "durationMs": 3.597400000000107
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mapper tuỳ chọn chi nhánh Manager tự tắt (isAvailable=false, isActive=true) KHÔNG bị coi là Owner tắt",
+      "status": "passed",
+      "durationMs": 0.6525000000001455
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mapper tuỳ chọn chi nhánh Owner tắt tuỳ chọn hoặc cả nhóm → ownerDisabled",
+      "status": "passed",
+      "durationMs": 0.45590000000038344
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mapper tuỳ chọn chi nhánh gom theo group.id, nhóm rồi tuỳ chọn sắp theo tên",
+      "status": "passed",
+      "durationMs": 2.9519000000000233
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mapper tuỳ chọn chi nhánh kết quả ghi: đếm đơn bị ảnh hưởng, không chép affectedOrderIds",
+      "status": "passed",
+      "durationMs": 0.6992000000000189
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "real tuỳ chọn chi nhánh GET /manager/menu-options, không gửi branchId",
+      "status": "passed",
+      "durationMs": 7.2521999999999025
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "real tuỳ chọn chi nhánh PATCH /manager/menu-options/{id}/availability chỉ gửi { isAvailable }, trả số đơn bị ảnh hưởng",
+      "status": "passed",
+      "durationMs": 2.0688999999997577
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 cùng shape với real, có nhóm và tuỳ chọn",
+      "status": "passed",
+      "durationMs": 4.770300000000134
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 tắt rồi 'tải lại trang' → vẫn tắt; bật lại thì bật",
+      "status": "passed",
+      "durationMs": 2.775699999999688
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 xoá dữ liệu mock → trạng thái đã lưu biến mất sau khi tải lại",
+      "status": "passed",
+      "durationMs": 1.2856000000001586
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 dữ liệu đã lưu hỏng → dùng dữ liệu sinh sẵn, không lỗi",
+      "status": "passed",
+      "durationMs": 2.041400000000067
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 Owner tắt tuỳ chọn → chi nhánh không bật lại được (403), tắt thêm vẫn được",
+      "status": "passed",
+      "durationMs": 4.154099999999744
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 dữ liệu mẫu có tuỳ chọn Owner đã tắt (Pudding) và tắt Topping trả số đơn bị ảnh hưởng > 0",
+      "status": "passed",
+      "durationMs": 2.1282999999998538
+    },
+    {
+      "file": "src/api/modules/branchOptions/branchOptions.test.ts",
+      "name": "mock tuỳ chọn chi nhánh — lưu qua F5 hết hạn gói: ghi bị chặn như BE",
+      "status": "passed",
+      "durationMs": 1.2890999999999622
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mapper nhận diện (branding.service.ts:21-25, 114) gốc máy chủ = origin của VITE_API_BASE_URL, không có /api/v1",
+      "status": "passed",
+      "durationMs": 3.1395000000002256
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mapper nhận diện (branding.service.ts:21-25, 114) logoUrl tương đối → tuyệt đối; tuyệt đối/data/blob giữ nguyên; rỗng → undefined",
+      "status": "passed",
+      "durationMs": 0.9265000000000327
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mapper nhận diện (branding.service.ts:21-25, 114) isCustom: mặc định BE (không phân biệt hoa thường) = false; có logo hoặc khác màu = true",
+      "status": "passed",
+      "durationMs": 0.9369999999998981
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mapper nhận diện (branding.service.ts:21-25, 114) whitelist: chỉ giữ trường web cần",
+      "status": "passed",
+      "durationMs": 1.1858000000001994
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "applyChainName — isCustom gồm cả tên hiển thị (quyết định 28) CHỈ đổi tên (màu, logo mặc định) → isCustom true nhưng lookCustom false",
+      "status": "passed",
+      "durationMs": 1.244799999999941
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "applyChainName — isCustom gồm cả tên hiển thị (quyết định 28) tên trùng tên chuỗi sau khi trim → không tuỳ biến; tên rỗng cũng không",
+      "status": "passed",
+      "durationMs": 0.6197000000001935
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "applyChainName — isCustom gồm cả tên hiển thị (quyết định 28) chưa biết tên chuỗi (null/undefined) → không xét phần tên",
+      "status": "passed",
+      "durationMs": 0.39760000000023865
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "applyChainName — isCustom gồm cả tên hiển thị (quyết định 28) màu hoặc logo khác mặc định → lookCustom true (áp cả màu), dù tên trùng",
+      "status": "passed",
+      "durationMs": 0.5543000000002394
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "applyChainName — isCustom gồm cả tên hiển thị (quyết định 28) bản mock/bản lưu cũ không có lookCustom → coi bằng isCustom; null giữ nguyên",
+      "status": "passed",
+      "durationMs": 0.4477999999999156
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "kiểm theo đặc tả trước khi gửi (quyết định 4) logo: chỉ PNG/JPG, ≤ 1 MB, không rỗng",
+      "status": "passed",
+      "durationMs": 0.9535000000000764
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "kiểm theo đặc tả trước khi gửi (quyết định 4) tên ≤ 50 (sau trim), màu #RRGGBB",
+      "status": "passed",
+      "durationMs": 0.7058999999999287
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE GET: đọc và ánh xạ; 403 (vai trò không đọc được) → null, không ném lỗi",
+      "status": "passed",
+      "durationMs": 9.445799999999963
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE chỉ đổi tên/màu: ĐÚNG 1 lệnh PUT, body chỉ có trường đã đổi (không logoUrl, không secondaryColor)",
+      "status": "passed",
+      "durationMs": 2.3615999999997257
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE chỉ logo mới: ĐÚNG 1 lệnh POST multipart, field `file`, KHÔNG đặt Content-Type tay",
+      "status": "passed",
+      "durationMs": 3.5277000000000953
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE logo mới + đổi màu: 2 lệnh, THỨ TỰ POST logo rồi PUT; kết quả cuối lấy từ PUT",
+      "status": "passed",
+      "durationMs": 1.7469999999998436
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE lỗi ở lệnh PUT sau khi tải logo: ném lỗi (nơi gọi nạp lại từ BE); lỗi ở POST thì KHÔNG gửi PUT",
+      "status": "passed",
+      "durationMs": 2.6001000000001113
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE không đổi gì: 0 lệnh ghi (chỉ đọc lại)",
+      "status": "passed",
+      "durationMs": 0.8261999999999716
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE sai logo/tên/màu: lỗi 400 tiếng Việt, KHÔNG có request nào",
+      "status": "passed",
+      "durationMs": 2.656500000000051
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE DELETE: đặt lại về mặc định, không body; kết quả isCustom = false",
+      "status": "passed",
+      "durationMs": 1.2354999999997744
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "real branding — fetch giả, không gọi BE không bao giờ gửi logoUrl (BE @IsUrl từ chối đường dẫn tương đối)",
+      "status": "passed",
+      "durationMs": 1.719000000000051
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mock branding — cùng giao diện, logo là data URL lưu màu/tên/logo; chỉ trường đã đổi thay đổi; khôi phục mặc định",
+      "status": "passed",
+      "durationMs": 8.910499999999956
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mock branding — cùng giao diện, logo là data URL lưu qua F5: sau 'tải lại' (ChainState mới) nhận diện đã lưu vẫn còn; Khôi phục mặc định cũng sống qua F5; xoá dữ liệu mock dọn sạch",
+      "status": "passed",
+      "durationMs": 3.6260999999999513
+    },
+    {
+      "file": "src/api/modules/branding/branding.test.ts",
+      "name": "mock branding — cùng giao diện, logo là data URL mock cũng chặn logo sai định dạng / quá cỡ và tên quá dài",
+      "status": "passed",
+      "durationMs": 1.3290999999999258
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu bỏ remainingPortions và mọi trường lạ (kho v7)",
+      "status": "passed",
+      "durationMs": 4.01070000000027
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu allowBatching (#17, menu.service.ts:47): đọc đúng giá trị; BE cũ không trả → true (mặc định của BE)",
+      "status": "passed",
+      "durationMs": 0.6819000000000415
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu tiền qua parseAmount: chuỗi thập phân → số",
+      "status": "passed",
+      "durationMs": 0.58199999999988
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu đường dẫn ảnh upload từ BE được ghép với origin của API",
+      "status": "passed",
+      "durationMs": 0.5328999999996995
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu branches[] và enabledBranchCount; thiếu branches (create/update) → rỗng",
+      "status": "passed",
+      "durationMs": 0.42089999999961947
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu danh mục: _count.items → itemCount",
+      "status": "passed",
+      "durationMs": 0.35159999999996217
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu menu chi nhánh: làm phẳng theo danh mục, không remainingPortions",
+      "status": "passed",
+      "durationMs": 0.5911000000000968
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mapper menu kết quả gán chi nhánh (PUT …/branches)",
+      "status": "passed",
+      "durationMs": 0.36340000000018335
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "quy tắc nhập liệu giá phải là số nguyên đồng ≥ 0 (BR-19)",
+      "status": "passed",
+      "durationMs": 2.124699999999848
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "quy tắc nhập liệu gợi ý SKU: chữ hoa không dấu nối bằng -",
+      "status": "passed",
+      "durationMs": 2.0567000000000917
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE danh mục: 409 trùng tên, 409 xoá khi còn món, sửa tên/ẩn/đổi thứ tự, xoá danh mục rỗng",
+      "status": "passed",
+      "durationMs": 9.310199999999895
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE món: thêm với branchIds tường minh; 409 trùng SKU; giá lẻ bị từ chối; SKU không đổi được",
+      "status": "passed",
+      "durationMs": 4.027900000000045
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE bật/tắt cấp chuỗi, gán chi nhánh (chi nhánh bỏ ra bị tắt), lọc, xoá",
+      "status": "passed",
+      "durationMs": 3.456699999999728
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE menu chi nhánh theo BR-12: ẩn món Owner đã tắt hoặc chưa gán; Manager chỉ bật/tắt 'còn bán'",
+      "status": "passed",
+      "durationMs": 2.6952000000001135
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE món Owner đã tắt: chi nhánh không bật lại được (BR-12), tắt thêm vẫn được",
+      "status": "passed",
+      "durationMs": 2.011399999999867
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — cùng quy tắc BE dữ liệu mẫu có món Owner đã tắt để thử dòng xám",
+      "status": "passed",
+      "durationMs": 0.793999999999869
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "real menu — ghi bật/tắt món chi nhánh PATCH /branches/{b}/menu/items/{id} chỉ gửi { isAvailable }, không isEnabled/remainingPortions",
+      "status": "passed",
+      "durationMs": 7.118799999999737
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "real menu — allowBatching (#17, quyết định 22) PATCH /restaurant-chains/{c}/menu/items/{id} gửi { allowBatching } (UpdateMenuItemDto, menu.dto.ts:178-185), không trường lạ",
+      "status": "passed",
+      "durationMs": 1.6897000000003572
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "real menu — allowBatching (#17, quyết định 22) POST …/items gửi allowBatching tường minh khi tạo (CreateMenuItemDto, menu.dto.ts:112-119)",
+      "status": "passed",
+      "durationMs": 1.3337000000001353
+    },
+    {
+      "file": "src/api/modules/menu/menu.test.ts",
+      "name": "mock menu — allowBatching là trường của món (một nguồn) món mẫu mặc định gom được; tạo/sửa/đọc lại khớp real",
+      "status": "passed",
+      "durationMs": 1.169499999999971
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "quy tắc nhóm (form và mock dùng chung) hợp lệ: Size bắt buộc chọn 1 (không cần mặc định), Topping 0–3",
+      "status": "passed",
+      "durationMs": 3.849699999999757
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "quy tắc nhóm (form và mock dùng chung) min ≤ max, max ≥ 1, bắt buộc thì min ≥ 1",
+      "status": "passed",
+      "durationMs": 2.3443999999999505
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "quy tắc nhóm (form và mock dùng chung) mặc định: không quá max, phải đang bật",
+      "status": "passed",
+      "durationMs": 0.9877000000001317
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "quy tắc nhóm (form và mock dùng chung) giá cộng thêm số nguyên ≥ 0; mã trùng trong nhóm; nhóm không rỗng; đủ tuỳ chọn bật cho min",
+      "status": "passed",
+      "durationMs": 1.0709999999999127
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "chọn tuỳ chọn và tính giá (BR-14, đặc tả 12.3) nhóm bắt buộc chưa chọn đủ thì vi phạm; chọn đúng 1 thì đạt; chọn 2 thì vượt tối đa",
+      "status": "passed",
+      "durationMs": 0.89449999999988
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "chọn tuỳ chọn và tính giá (BR-14, đặc tả 12.3) topping 0–3: để trống được, tối đa 3, không chọn tuỳ chọn đã tắt",
+      "status": "passed",
+      "durationMs": 0.7638000000001739
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "chọn tuỳ chọn và tính giá (BR-14, đặc tả 12.3) toggleOption: nhóm 1 thay thế và không bỏ về trống; nhóm nhiều chặn khi đủ tối đa; bỏ qua tuỳ chọn tắt",
+      "status": "passed",
+      "durationMs": 1.2028000000000247
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "chọn tuỳ chọn và tính giá (BR-14, đặc tả 12.3) mặc định chọn sẵn chỉ gồm tuỳ chọn đang bật",
+      "status": "passed",
+      "durationMs": 0.49749999999994543
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "chọn tuỳ chọn và tính giá (BR-14, đặc tả 12.3) giá một ly = giá món + Σ giá cộng thêm (ví dụ đặc tả: 30.000 + L 6.000 + trân châu 5.000 + pudding 7.000 = 48.000)",
+      "status": "passed",
+      "durationMs": 0.9141999999997097
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options — cùng quy tắc khi gọi vòng qua form tạo nhóm: lỗi quy tắc → 400, trùng mã → 409, hợp lệ → có id và thứ tự",
+      "status": "passed",
+      "durationMs": 11.130299999999806
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options — cùng quy tắc khi gọi vòng qua form sửa từng dòng: thêm/sửa/xoá tuỳ chọn giữ id, đổi thứ tự bằng displayOrder, đổi mã trùng → 409",
+      "status": "passed",
+      "durationMs": 5.094300000000203
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options — cùng quy tắc khi gọi vòng qua form tắt tuỳ chọn cấp chuỗi; tuỳ chọn đang mặc định thì mock từ chối, phải bỏ mặc định tường minh",
+      "status": "passed",
+      "durationMs": 3.6651999999999134
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options — cùng quy tắc khi gọi vòng qua form gắn nhóm cho món theo ID thật; cờ không gom món là allowBatching của món (một nguồn); xoá nhóm gỡ khỏi món",
+      "status": "passed",
+      "durationMs": 6.431400000000394
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options lưu qua F5 (localStorage, 4.4) tạo nhóm rồi 'tải lại trang' (bỏ state trong bộ nhớ) → nhóm và liên kết món vẫn còn",
+      "status": "passed",
+      "durationMs": 2.5686000000000604
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options lưu qua F5 (localStorage, 4.4) xoá dữ liệu mock → nhóm tự tạo biến mất sau khi tải lại",
+      "status": "passed",
+      "durationMs": 1.6283000000003085
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options lưu qua F5 (localStorage, 4.4) dữ liệu đã lưu hỏng hoặc rỗng → dùng dữ liệu sinh sẵn, không lỗi",
+      "status": "passed",
+      "durationMs": 1.9358999999999469
+    },
+    {
+      "file": "src/api/modules/options/options.test.ts",
+      "name": "mock options lưu qua F5 (localStorage, 4.4) localStorage ném lỗi (bị chặn/đầy) → vẫn đọc và ghi trong bộ nhớ",
+      "status": "passed",
+      "durationMs": 2.6523000000001957
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mapper nhóm tuỳ chọn (menu.service.ts:66-82) priceDelta \"5000.00\" → 5000; whitelist; giữ isDefault",
+      "status": "passed",
+      "durationMs": 3.884900000000016
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mapper nhóm tuỳ chọn (menu.service.ts:66-82) _count.menuItems → menuItemCount (quyết định 18); response tạo/sửa không có _count → undefined",
+      "status": "passed",
+      "durationMs": 0.6506999999996879
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mapper nhóm tuỳ chọn (menu.service.ts:66-82) nhóm không có options → mảng rỗng",
+      "status": "passed",
+      "durationMs": 0.421100000000024
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE capabilities real hỗ trợ mặc định",
+      "status": "passed",
+      "durationMs": 0.539299999999912
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE listGroups: GET option-groups, giá Decimal chuỗi → số",
+      "status": "passed",
+      "durationMs": 6.3991000000000895
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE listBranchStates: đọc trạng thái option theo chi nhánh",
+      "status": "passed",
+      "durationMs": 2.7663000000002285
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE addGroup: POST option-groups đúng CreateMenuOptionGroupDto (menu.dto.ts:236-284), không gửi isActive/options",
+      "status": "passed",
+      "durationMs": 1.31670000000031
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE patchGroup: PATCH chỉ trường được đặt; luật chọn đi đủ bộ ba",
+      "status": "passed",
+      "durationMs": 2.3101000000001477
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE removeGroup: DELETE option-groups/:id",
+      "status": "passed",
+      "durationMs": 1.038300000000163
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE addOption: POST …/options đúng CreateMenuOptionDto (menu.dto.ts:295-335); không có isActive/isDefault",
+      "status": "passed",
+      "durationMs": 1.4135000000001128
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE patchOption: PATCH …/options/:id có isDefault",
+      "status": "passed",
+      "durationMs": 0.9809999999997672
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE removeOption: DELETE …/options/:id",
+      "status": "passed",
+      "durationMs": 0.9014000000001943
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE setItemGroups: PUT items/:id/option-groups body { optionGroupIds } (menu.dto.ts:344)",
+      "status": "passed",
+      "durationMs": 1.1046999999998661
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE kiểm trước khi gửi: mã sai, giá lẻ → 400 và không có request",
+      "status": "passed",
+      "durationMs": 1.0826999999999316
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE listItemConfigs: mỗi món một GET, không quá 4 request cùng lúc, bỏ món chưa gắn nhóm, không có noBatch",
+      "status": "passed",
+      "durationMs": 45.604399999999714
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE listBranchStates gọi BE; cờ allowBatching vẫn thuộc món",
+      "status": "passed",
+      "durationMs": 1.1205999999997402
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE giao diện không còn hàm cũ gửi/nhận cả nhóm",
+      "status": "passed",
+      "durationMs": 0.5213000000003376
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "real options — fetch giả, không gọi BE real.ts và mapper.ts không import mock/store và không đụng localStorage",
+      "status": "passed",
+      "durationMs": 2.4517000000000735
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mapWithLimit giữ thứ tự kết quả, giới hạn đồng thời, dừng khi có lỗi",
+      "status": "passed",
+      "durationMs": 41.44880000000012
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mock options — thao tác từng dòng (cùng luật với real) addGroup rỗng → addOption; trùng mã nhóm 409; trùng mã tuỳ chọn 409; luật sai 400",
+      "status": "passed",
+      "durationMs": 6.913000000000011
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mock options — thao tác từng dòng (cùng luật với real) patchGroup / patchOption / removeOption / removeGroup",
+      "status": "passed",
+      "durationMs": 3.7480000000000473
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mock options — thao tác từng dòng (cùng luật với real) tuỳ chọn mặc định không tắt được (400) cho tới khi bỏ mặc định tường minh",
+      "status": "passed",
+      "durationMs": 1.9878999999996267
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mock options — thao tác từng dòng (cùng luật với real) listGroups có menuItemCount = số món đang dùng nhóm (nguồn tương đương _count.menuItems), đổi theo setItemGroups, không lưu vào bản chụp",
+      "status": "passed",
+      "durationMs": 1.9796999999998661
+    },
+    {
+      "file": "src/api/modules/options/optionsOps.test.ts",
+      "name": "mock options — thao tác từng dòng (cùng luật với real) setItemGroups lưu thứ tự; listItemGroups đọc đúng thứ tự; listItemConfigs lọc theo món",
+      "status": "passed",
+      "durationMs": 1.8135999999999513
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "planReorder (quyết định 15, 17) không trùng: đổi giá trị của hai dòng, đúng 2 lệnh",
+      "status": "passed",
+      "durationMs": 3.6577000000002045
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "planReorder (quyết định 15, 17) toàn 0: đánh số lại cả danh sách 0..n-1 sau khi đổi, chỉ gửi dòng đổi giá trị (dòng đầu vẫn 0 nên bỏ)",
+      "status": "passed",
+      "durationMs": 0.6860000000001492
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "planReorder (quyết định 15, 17) trùng một phần (ở chỗ khác): vẫn đánh số lại cả danh sách",
+      "status": "passed",
+      "durationMs": 0.4715000000001055
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "planReorder (quyết định 15, 17) ra ngoài danh sách → null",
+      "status": "passed",
+      "durationMs": 0.34629999999970096
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "applyReorder gửi tuần tự đúng thứ tự rồi nạp lại một lần",
+      "status": "passed",
+      "durationMs": 1.654399999999896
+    },
+    {
+      "file": "src/api/modules/options/ordering.test.ts",
+      "name": "applyReorder lỗi ở lệnh giữa: dừng, không gửi lệnh sau, vẫn nạp lại, lỗi được ném tiếp",
+      "status": "passed",
+      "durationMs": 2.361399999999776
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) tick bắt buộc khi min = 0 → min = 1",
+      "status": "passed",
+      "durationMs": 3.653599999999642
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) tick bắt buộc khi min đã > 0 → giữ min",
+      "status": "passed",
+      "durationMs": 0.7638999999999214
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) bỏ tick bắt buộc → min = 0",
+      "status": "passed",
+      "durationMs": 0.8433999999997468
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) đổi min > 0 → bắt buộc; đổi min = 0 → không bắt buộc",
+      "status": "passed",
+      "durationMs": 0.4020999999997912
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) min tăng vượt max → max = min",
+      "status": "passed",
+      "durationMs": 0.3465000000001055
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) hạ max xuống dưới min → max = min (max không bao giờ < min)",
+      "status": "passed",
+      "durationMs": 0.2669999999998254
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) kẹp vào khoảng của BE và xử lý không phải số",
+      "status": "passed",
+      "durationMs": 0.6318999999998596
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "syncSelectionRule — luật chọn tự đồng bộ (isRequired ⇔ min > 0) chạy xong thì bộ kiểm luôn đạt, với mọi tổ hợp đầu vào và mọi trường vừa đổi",
+      "status": "passed",
+      "durationMs": 10.560500000000047
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "validateGroupInput — khớp luật BE (menu.service.ts:581-593, menu.dto.ts:243-284) hai chiều: không bắt buộc mà min > 0 bị từ chối",
+      "status": "passed",
+      "durationMs": 2.4749000000001615
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "validateGroupInput — khớp luật BE (menu.service.ts:581-593, menu.dto.ts:243-284) khoảng: min ≤ 100, max 1–100",
+      "status": "passed",
+      "durationMs": 0.9420000000000073
+    },
+    {
+      "file": "src/api/modules/options/rulesSync.test.ts",
+      "name": "validateGroupInput — khớp luật BE (menu.service.ts:581-593, menu.dto.ts:243-284) displayOrder 0–9999 khi có",
+      "status": "passed",
+      "durationMs": 1.427299999999832
+    },
+    {
+      "file": "src/api/modules/managerReport/be-fb7cae9.test.ts",
+      "name": "payments[] của BE fb7cae9 giữ settledAmount/receivedAmount (nay là số sau hoàn) và các trường mới nếu có",
+      "status": "passed",
+      "durationMs": 3.990600000000086
+    },
+    {
+      "file": "src/api/modules/managerReport/be-fb7cae9.test.ts",
+      "name": "payments[] của BE fb7cae9 BE cũ không có trường mới: không bịa số (không có refundAmount/grossSettledAmount)",
+      "status": "passed",
+      "durationMs": 1.2249000000001615
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "mapper báo cáo chi nhánh (đúng dạng BE) tiền chuỗi → số, giữ nguyên số liệu BE (không tính lại), giờ 0–23 theo BE",
+      "status": "passed",
+      "durationMs": 5.622599999999693
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "mapper báo cáo chi nhánh (đúng dạng BE) BE 514c426 (#43): doanh thu sau hoàn, gộp, hoàn, chờ hoàn, đơn huỷ sau khi trả — đúng số BE, không tính lại",
+      "status": "passed",
+      "durationMs": 1.5437000000001717
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "mapper báo cáo chi nhánh (đúng dạng BE) thời gian pha: giữ số giây (0,02 là số thật), null khi chưa có suất xong",
+      "status": "passed",
+      "durationMs": 0.7303999999999178
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "mapper báo cáo chi nhánh (đúng dạng BE) mục rỗng hoặc thiếu không làm vỡ",
+      "status": "passed",
+      "durationMs": 1.1335999999996602
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "mapper báo cáo chi nhánh (đúng dạng BE) đơn huỷ: số gọi là số hoặc null, lý do rỗng → null",
+      "status": "passed",
+      "durationMs": 0.522099999999682
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "tham số gửi BE luôn gửi đủ from, to (ngày giờ Việt Nam), granularity, limit; limit kẹp 1–50",
+      "status": "passed",
+      "durationMs": 0.7726000000002387
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "managerReportReal — đúng endpoint /manager/reports chỉ GET, kèm tham số, map đủ",
+      "status": "passed",
+      "durationMs": 14.224999999999909
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "managerReportMock — đủ mục BM-03 30 ngày: có doanh thu, theo hình thức, món, topping, theo giờ 24 mốc, thời gian pha, đơn huỷ nhiều lý do",
+      "status": "passed",
+      "durationMs": 427.4061999999999
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "managerReportMock — đủ mục BM-03 ngày không có đơn vẫn có bucket 0; khoảng không có đơn → số 0, thời gian pha null, mục rỗng",
+      "status": "passed",
+      "durationMs": 160.45350000000008
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "managerReportMock — đủ mục BM-03 kỳ tuần (đầu kỳ là thứ Hai) và tháng (mùng 1)",
+      "status": "passed",
+      "durationMs": 672.6417999999994
+    },
+    {
+      "file": "src/api/modules/managerReport/managerReport.test.ts",
+      "name": "managerReportMock — đủ mục BM-03 đơn huỷ dẫn sang đơn có thật (mã đơn khớp module order)",
+      "status": "passed",
+      "durationMs": 368.35849999999937
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) Owner: đọc status, expiresAt, plan, quotas từ chuỗi đã đọc, KHÔNG gọi thêm request",
+      "status": "passed",
+      "durationMs": 6.938200000000052
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) mọi giá trị enum BusinessSubscriptionStatus (ACTIVE, SUSPENDED, EXPIRED) được ánh xạ; EXPIRED/SUSPENDED bật chế độ chỉ đọc",
+      "status": "passed",
+      "durationMs": 2.1158000000000357
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) giá trị status lạ hoặc BE cũ không có status: null, KHÔNG coi là hết hạn",
+      "status": "passed",
+      "durationMs": 0.9196000000001732
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) subscription null (chuỗi chưa có gói): noActivePlan = true",
+      "status": "passed",
+      "durationMs": 0.5592000000001462
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) Manager: gọi ĐÚNG GET /restaurant-chains/:chainId/subscription (bọc trong { subscription }), cùng dạng dữ liệu với Owner",
+      "status": "passed",
+      "durationMs": 8.13299999999981
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) Manager: BE trả { subscription: null } → noActivePlan",
+      "status": "passed",
+      "durationMs": 1.358600000000024
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) Manager lỗi đọc (500, 403, mạng): KHÔNG ném lỗi (khu vực vẫn nạp xong), subscriptionUnavailable = true, không báo lỗi toàn cục",
+      "status": "passed",
+      "durationMs": 2.965700000000197
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) Manager đạt hạn mức tài khoản → nút Thêm khoá với câu quyết định 54; chưa đạt thì không khoá",
+      "status": "passed",
+      "durationMs": 1.9960999999998421
+    },
+    {
+      "file": "src/api/modules/plan/plan.real.test.ts",
+      "name": "plan real: trạng thái và hạn dùng THẬT (BE de4f55c, #38) ô Hết hạn của panel dev (chỉ ở dev) vẫn ép chế độ chỉ đọc ở real, ngày hết hạn vẫn là của BE",
+      "status": "passed",
+      "durationMs": 0.7377000000001317
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "mapper PayOS (payos-channel.service.ts:22,38,44) configured=false → unlinked; configured=true → linked kèm ngày",
+      "status": "passed",
+      "durationMs": 3.6304000000000087
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "real PayOS — fetch giả, không gọi BE GET / PUT / DELETE đúng đường dẫn; PUT body CHỈ 3 trường, đã trim",
+      "status": "passed",
+      "durationMs": 9.45799999999872
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "real PayOS — fetch giả, không gọi BE thiếu một khoá (hoặc toàn khoảng trắng) → chặn trước khi gửi, KHÔNG có request",
+      "status": "passed",
+      "durationMs": 1.6145999999989726
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "real PayOS — fetch giả, không gọi BE 503 PAYOS_MASTER_KEY → câu tiếng Việt (quyết định 34), không lộ câu thô, không chứa khoá",
+      "status": "passed",
+      "durationMs": 1.3625000000010914
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "real PayOS — fetch giả, không gọi BE 400 báo ô trống → nhãn Client ID / API Key / Checksum Key, tiếng Việt",
+      "status": "passed",
+      "durationMs": 0.7100000000009459
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "mock PayOS Chưa → lưu → Đã liên kết (giữ ngày liên kết khi cập nhật) → gỡ → Chưa; lưu trữ không có khoá",
+      "status": "passed",
+      "durationMs": 3.4670999999998457
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink (mock) ô khoá là kiểu mật khẩu, autocomplete off; nhập đủ → Đã liên kết và 3 ô TRỐNG",
+      "status": "passed",
+      "durationMs": 1281.5622000000003
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink (mock) ô trống → báo từng ô, không lưu",
+      "status": "passed",
+      "durationMs": 278.21670000000086
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink (mock) câu xác nhận gỡ liên kết đúng quyết định 32",
+      "status": "passed",
+      "durationMs": 24.866399999998976
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "BE de4f55c (#40): mapper, khoá che, câu lỗi xác minh mapper đủ trường: LINKED → linked kèm 4 ký tự cuối và lastVerifiedAt; ERROR → error; BE cũ không có status → linked",
+      "status": "passed",
+      "durationMs": 8.107600000001185
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "BE de4f55c (#40): mapper, khoá che, câu lỗi xác minh ERROR không lộ lastError: kết quả ánh xạ không chứa câu thô của PayOS",
+      "status": "passed",
+      "durationMs": 0.4404999999987922
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "BE de4f55c (#40): mapper, khoá che, câu lỗi xác minh khoá che chỉ giữ tối đa 4 ký tự cuối dù BE trả dài hơn; rỗng/null → không có",
+      "status": "passed",
+      "durationMs": 0.33770000000004075
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "BE de4f55c (#40): mapper, khoá che, câu lỗi xác minh PUT 422/502/503×2: đúng câu quyết định 50, không lộ câu thô, giữ method PUT",
+      "status": "passed",
+      "durationMs": 3.6766000000006898
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink theo BE de4f55c Đã liên kết: hiện 'Client ID ••••03eb', 'API key ••••1f86' (không có checksum key) và thời điểm xác minh theo giờ Việt Nam",
+      "status": "passed",
+      "durationMs": 344.9300999999996
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink theo BE de4f55c Lỗi: hiện câu quyết định 49, không có câu thô của PayOS",
+      "status": "passed",
+      "durationMs": 278.52549999999974
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink theo BE de4f55c Đang kiểm tra trong lúc PUT: nút Lưu và Gỡ khoá, bấm lần hai không gửi thêm; xong thì 'Đã liên kết' + khoá che, ô trống",
+      "status": "passed",
+      "durationMs": 699.5185000000001
+    },
+    {
+      "file": "src/api/modules/payos/payos.test.tsx",
+      "name": "màn PayosLink theo BE de4f55c lưu qua màn (mock) rồi quét storage: không có khoá giả, chỉ có 4 ký tự cuối",
+      "status": "passed",
+      "durationMs": 292.01690000000053
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "kiểm poster (theo BE display-posters) nhận PNG/JPG/WebP ≤ 5 MB; từ chối loại khác, quá lớn, rỗng",
+      "status": "passed",
+      "durationMs": 4.38819999999987
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "kiểm poster (theo BE display-posters) tên 1–120 ký tự sau khi cắt khoảng trắng",
+      "status": "passed",
+      "durationMs": 1.3518000000003667
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "kiểm poster (theo BE display-posters) thời lượng là số nguyên 3–60; thứ tự là số nguyên 0–10000",
+      "status": "passed",
+      "durationMs": 1.038499999999658
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "kiểm poster (theo BE display-posters) sửa rỗng bị từ chối (BE trả 400); có ít nhất một trường hợp lệ thì qua",
+      "status": "passed",
+      "durationMs": 0.5036000000000058
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "kiểm poster (theo BE display-posters) sắp theo sortOrder, rồi createdAt, rồi id (như BE)",
+      "status": "passed",
+      "durationMs": 13.456100000000333
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "dịch thông báo BE sang tiếng Việt 409 vượt số poster, 404, 400 tệp",
+      "status": "passed",
+      "durationMs": 3.149800000000141
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE ánh xạ: imageUrl tương đối → tuyệt đối; giữ nguyên title, enabled, sortOrder, durationSeconds",
+      "status": "passed",
+      "durationMs": 1.353900000000067
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE GET: đúng route display-posters, sắp theo thứ tự xoay vòng của BE",
+      "status": "passed",
+      "durationMs": 7.100699999999961
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE POST: multipart, field `file` DUY NHẤT, không đặt Content-Type tay",
+      "status": "passed",
+      "durationMs": 3.429399999999987
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE POST sai tệp: 400 tiếng Việt, KHÔNG có request nào",
+      "status": "passed",
+      "durationMs": 5.466300000000047
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE POST vượt 10 poster: BE trả 409, lỗi được ném lại với status 409",
+      "status": "passed",
+      "durationMs": 1.2778000000002976
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE PATCH: chỉ gửi khoá có mặt (tên đã cắt khoảng trắng), đúng route và phương thức",
+      "status": "passed",
+      "durationMs": 15.991100000000188
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE PATCH rỗng, tên rỗng, thời lượng ngoài 3–60: 400, KHÔNG có request nào",
+      "status": "passed",
+      "durationMs": 1.9470000000001164
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE DELETE: chấp nhận thân `{ deleted: true }` của BE, không body gửi đi",
+      "status": "passed",
+      "durationMs": 2.5045000000000073
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "real posters — fetch giả, không gọi BE 403 chỉ đọc (hết hạn) được ném lại",
+      "status": "passed",
+      "durationMs": 1.3706999999999425
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE chuỗi mới chưa có poster",
+      "status": "passed",
+      "durationMs": 1.2896999999998116
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE thêm: tên mặc định, 8 giây, bật, sortOrder = số poster hiện có; lưu qua lần đọc kế tiếp",
+      "status": "passed",
+      "durationMs": 10.197400000000016
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE poster của chuỗi này không lẫn sang chuỗi khác",
+      "status": "passed",
+      "durationMs": 14.45719999999983
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE tệp sai: 400; đủ 10 poster: 409",
+      "status": "passed",
+      "durationMs": 10.843199999999797
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE PATCH đổi tên, bật/tắt, thời lượng, thứ tự; sửa rỗng, tên rỗng, ngoài khoảng, không tồn tại đều bị từ chối",
+      "status": "passed",
+      "durationMs": 2.466099999999642
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE danh sách theo sortOrder; PATCH sortOrder chỉ đổi một dòng (không dịch dòng khác)",
+      "status": "passed",
+      "durationMs": 7.787699999999859
+    },
+    {
+      "file": "src/api/modules/posters/posters.test.ts",
+      "name": "mock posters — phản chiếu BE xoá không đánh số lại, nên thêm sau đó có thể trùng sortOrder",
+      "status": "passed",
+      "durationMs": 2.7619999999997162
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "mã ghép 6 số chỉ lấy chữ số, tối đa 6; hợp lệ khi đúng 6 chữ số",
+      "status": "passed",
+      "durationMs": 3.1156999999998334
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "mã ghép 6 số thông báo lỗi ghép nói rõ các nguyên nhân (BE không phân biệt) và loại màn hình đang ghép",
+      "status": "passed",
+      "durationMs": 0.9841000000001259
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "mapper thiết bị: không bao giờ có token bỏ token/hash/trường lạ của thiết bị",
+      "status": "passed",
+      "durationMs": 1.5307999999999993
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) mã đúng: ghép được, thiết bị hiện trong quầy, không có token",
+      "status": "passed",
+      "durationMs": 15.952099999999973
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) mã sai, hết hạn, đã dùng, sai loại: cùng một lỗi 400 như BE, không tạo thiết bị",
+      "status": "passed",
+      "durationMs": 2.9994000000001506
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) BR-45: ghép màn khách thứ hai vào quầy đã có màn hình thì máy cũ tự bị thu hồi (mỗi quầy một màn hình khách)",
+      "status": "passed",
+      "durationMs": 1.326799999999821
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) thu hồi: xoá thiết bị; id lạ → 404; quầy không đang dùng/không có → 404",
+      "status": "passed",
+      "durationMs": 1.258600000000115
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) màn hình gọi số: ghép bằng mã loại CALLING_DISPLAY, ghép máy mới thay máy cũ, thu hồi được; liệt kê qua listDisplayDevices (#28, BE fb7cae9)",
+      "status": "passed",
+      "durationMs": 1.3175999999998567
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsMock — ghép và thu hồi (BR-45) hết hạn gói: mọi thao tác ghép/thu hồi bị chặn (chỉ đọc), vẫn xem được quầy",
+      "status": "passed",
+      "durationMs": 1.3726000000001477
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsReal — ghép và thu hồi đúng DTO của BE ghép màn khách: POST /stations/pair-customer-display {stationId, code, deviceName}; chỉ trả deviceId",
+      "status": "passed",
+      "durationMs": 6.536000000000058
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsReal — ghép và thu hồi đúng DTO của BE ghép màn gọi số: POST /stations/pair-calling-display {code}; không gửi deviceName rỗng",
+      "status": "passed",
+      "durationMs": 0.9957000000003973
+    },
+    {
+      "file": "src/api/modules/stations/pairing.test.ts",
+      "name": "stationsReal — ghép và thu hồi đúng DTO của BE thu hồi: DELETE /display-devices/{id}",
+      "status": "passed",
+      "durationMs": 0.8967000000002372
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "kiểm IPv4 và MAC (BE chỉ kiểm không rỗng, web kiểm định dạng) IPv4: hợp lệ, có hoặc không có cổng",
+      "status": "passed",
+      "durationMs": 3.628099999999904
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "kiểm IPv4 và MAC (BE chỉ kiểm không rỗng, web kiểm định dạng) IPv4: sai",
+      "status": "passed",
+      "durationMs": 0.9364000000000487
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "kiểm IPv4 và MAC (BE chỉ kiểm không rỗng, web kiểm định dạng) MAC: XX:XX:XX:XX:XX:XX (hoa hay thường)",
+      "status": "passed",
+      "durationMs": 0.7798999999999978
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "validateStationInput tên bắt buộc, tối đa 100 ký tự, không trùng tên trong chi nhánh",
+      "status": "passed",
+      "durationMs": 1.4365999999999985
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "validateStationInput WiFi cần IPv4, Bluetooth cần MAC; Không khai báo thì không cần địa chỉ",
+      "status": "passed",
+      "durationMs": 0.7880000000000109
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "validateStationInput thân POST: đúng DTO, không gửi địa chỉ khi không có máy in, MAC viết hoa",
+      "status": "passed",
+      "durationMs": 0.5280999999999949
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "mapper quầy — whitelist chỉ giữ trường cần; có danh sách thiết bị đã ghép",
+      "status": "passed",
+      "durationMs": 0.4456000000000131
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "mapper quầy — whitelist bỏ trường lạ: branchId, cartVersion, ngày, và mọi token thiết bị",
+      "status": "passed",
+      "durationMs": 0.47830000000021755
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "mapper quầy — whitelist thiếu danh sách thiết bị → rỗng; trạng thái hay kiểu máy in lạ → an toàn",
+      "status": "passed",
+      "durationMs": 1.0936000000001513
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "stationsReal — đúng endpoint /stations của BE danh sách: GET /stations, map đủ",
+      "status": "passed",
+      "durationMs": 7.793599999999969
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "stationsReal — đúng endpoint /stations của BE tạo: POST /stations đúng CreateStationDto",
+      "status": "passed",
+      "durationMs": 1.326100000000224
+    },
+    {
+      "file": "src/api/modules/stations/stations.test.ts",
+      "name": "stationsMock — cùng quy tắc BE tạo quầy ACTIVE; trùng tên → 409; WiFi/Bluetooth thiếu địa chỉ → 400; hết hạn → chỉ đọc",
+      "status": "passed",
+      "durationMs": 16.31389999999965
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "danh sách đơn Cần xử lý (QĐ 99) giữ nguyên thứ tự BE (#66, không sắp lại); chỉ lấy REQUIRES_ATTENTION; đã chờ tính từ lúc đặt khi chưa có attentionAt",
+      "status": "passed",
+      "durationMs": 5.102200000000266
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "danh sách đơn Cần xử lý (QĐ 99) chênh lệch: thiếu / dư / đủ / không rõ",
+      "status": "passed",
+      "durationMs": 1.72649999999976
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "danh sách đơn Cần xử lý (QĐ 99) đơn REQUIRES_ATTENTION không có khoản lệch (BE chưa đánh dấu rõ) → không suy ra số nhận",
+      "status": "passed",
+      "durationMs": 0.5729000000001179
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "danh sách đơn Cần xử lý (QĐ 99) formatWaited",
+      "status": "passed",
+      "durationMs": 0.518500000000131
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "sự kiện manager.order.attention-required (QĐ 100) lệch số tiền: 1 đơn kèm số nhận/cần; hết món: nhiều đơn; loại sự kiện khác → rỗng",
+      "status": "passed",
+      "durationMs": 0.9021999999999935
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "sự kiện manager.order.attention-required (QĐ 100) gom 2 giây, không trùng theo đơn nhiều sự kiện trong 2 giây → đúng 1 lượt; đơn đã báo không báo lại",
+      "status": "passed",
+      "durationMs": 3.3868999999999687
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "sự kiện manager.order.attention-required (QĐ 100) gom 2 giây, không trùng theo đơn dispose huỷ lượt đang chờ",
+      "status": "passed",
+      "durationMs": 0.9602999999997337
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "sự kiện manager.order.attention-required (QĐ 100) câu thông báo tiếng Việt: 1 đơn lệch → kèm số tiền + dẫn tới chi tiết; nhiều đơn → dẫn tới danh sách; hết món → Tra cứu",
+      "status": "passed",
+      "durationMs": 22.796900000000278
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "tải định kỳ dự phòng #51 (QĐ 101) 60 giây một lần khi tab hiển thị; ẩn thì dừng; hiện lại thì tải ngay rồi chạy tiếp; dispose dọn timer",
+      "status": "passed",
+      "durationMs": 1.7687000000000808
+    },
+    {
+      "file": "src/api/modules/order/attention.test.ts",
+      "name": "tải định kỳ dự phòng #51 (QĐ 101) bắt đầu khi tab đang ẩn: không có timer; hiện lên mới chạy",
+      "status": "passed",
+      "durationMs": 0.8700000000003456
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) mỗi mã BE có nhãn tiếng Việt riêng",
+      "status": "passed",
+      "durationMs": 2.7683999999999287
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) mã lạ → Khác (<mã>), không đoán",
+      "status": "passed",
+      "durationMs": 1.7663000000002285
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) BE chưa ghi lý do (#77): suy từ khoản AMOUNT_MISMATCH / REQUIRES_ATTENTION; không có gì → chưa rõ",
+      "status": "passed",
+      "durationMs": 0.642699999999877
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) danh sách: đơn hết món đã TRẢ không bị coi là lệch tiền (không cột tiền)",
+      "status": "passed",
+      "durationMs": 0.7483999999999469
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) danh sách: cột tiền chỉ cho lệch tiền, kể cả khi khoản có receivedAmount ở loại khác",
+      "status": "passed",
+      "durationMs": 0.606499999999869
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "lý do Cần xử lý (QĐ 123) đã chờ: từ attentionAt khi có; không có thì từ lúc đặt và đánh dấu waitedFromPlaced",
+      "status": "passed",
+      "durationMs": 0.43620000000009895
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "cảnh báo tiền về sau khi QR hết hạn (#61) sự kiện PAYMENT_RECEIVED_AFTER_EXPIRY không còn rơi vào OTHER",
+      "status": "passed",
+      "durationMs": 1.5559999999995853
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "cảnh báo tiền về sau khi QR hết hạn (#61) nhiều khoản gom một thông báo trỏ tới Đơn cần xử lý",
+      "status": "passed",
+      "durationMs": 0.4994000000001506
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "enum khoản mới của BE (migration 20261012100000) EXPIRED, REQUIRES_ATTENTION có trong danh sách mã và có nhãn đã biết",
+      "status": "passed",
+      "durationMs": 1.7184000000002015
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "enum khoản mới của BE (migration 20261012100000) mọi mã trong PAYMENT_STATUS_CODES có nhãn tiếng Việt (không 'Khác' cho mã đã biết trong đặc tả)",
+      "status": "passed",
+      "durationMs": 0.7153000000002976
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "enum khoản mới của BE (migration 20261012100000) đơn có khoản EXPIRED/REQUIRES_ATTENTION: nhãn thanh toán của đơn",
+      "status": "passed",
+      "durationMs": 0.46030000000018845
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "hạn mã QR (#50, #45) khoản QR PENDING quá expiresAt hiện Hết hạn dù BE chưa ghi EXPIRED (không có job)",
+      "status": "passed",
+      "durationMs": 0.45029999999997017
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "hạn mã QR (#50, #45) đơn chưa trả có QR quá hạn: 'QR hết hạn' thay vì 'Chờ chuyển khoản'",
+      "status": "passed",
+      "durationMs": 0.20580000000018117
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "mã lỗi thanh toán ở trường error (#60) PAYMENT_ALREADY_SETTLED: câu Việt theo MÃ dù message là tiếng Anh mới của BE",
+      "status": "passed",
+      "durationMs": 0.5677999999998065
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "mã lỗi thanh toán ở trường error (#60) PAYMENT_ALREADY_SETTLED: câu cũ (message = mã, BE trước fb7cae9, mock) vẫn khớp",
+      "status": "passed",
+      "durationMs": 1.2053999999998268
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "mã lỗi thanh toán ở trường error (#60) PAYMENT_AMOUNT_INSUFFICIENT theo mã",
+      "status": "passed",
+      "durationMs": 0.2901000000001659
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "mã lỗi thanh toán ở trường error (#60) câu tiếng Anh mới của recheck/webhook muộn có câu Việt",
+      "status": "passed",
+      "durationMs": 0.903599999999642
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "sắp xếp phía BE (#66) gửi sortBy/sortOrder khi hợp lệ",
+      "status": "passed",
+      "durationMs": 0.5371000000000095
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "sắp xếp phía BE (#66) không gửi khi không chọn (BE mặc định placedAt giảm dần)",
+      "status": "passed",
+      "durationMs": 0.2422999999998865
+    },
+    {
+      "file": "src/api/modules/order/be-fb7cae9.test.ts",
+      "name": "sự kiện BE fb7cae9 làm tươi màn đơn (#51, QĐ 124) nghe order.finalized, payment.cancelled, payment.expired",
+      "status": "passed",
+      "durationMs": 1.9940999999998894
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "điều kiện hiện nút Xác nhận thủ công (quyết định 82) QR chờ chuyển khoản: có; Lệch số tiền: có",
+      "status": "passed",
+      "durationMs": 2.719300000000203
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "điều kiện hiện nút Xác nhận thủ công (quyết định 82) tiền mặt: không; khoản FAILED: không",
+      "status": "passed",
+      "durationMs": 0.6295000000000073
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "điều kiện hiện nút Xác nhận thủ công (quyết định 82) đơn huỷ: không; đã trả hoặc đã có khoản thành công: không",
+      "status": "passed",
+      "durationMs": 0.5524000000000342
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "điều kiện hiện nút Xác nhận thủ công (quyết định 82) nhiều khoản đủ điều kiện: ưu tiên Lệch số tiền rồi khoản mới nhất",
+      "status": "passed",
+      "durationMs": 12.900000000000091
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "BR-28: so số tiền thực nhận với tổng đơn thiếu / bằng / dư / chưa nhập",
+      "status": "passed",
+      "durationMs": 1.4123999999997068
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "BR-28: so số tiền thực nhận với tổng đơn chỉ nhận thiếu mới khoá nút gửi",
+      "status": "passed",
+      "durationMs": 0.6997000000001208
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "ô nhập lý do: trim rồi 3–500 ký tự",
+      "status": "passed",
+      "durationMs": 0.6133999999997286
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "ô nhập mã giao dịch tối đa 255",
+      "status": "passed",
+      "durationMs": 0.43280000000004293
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "ô nhập số tiền: chấp nhận dấu nghìn, từ chối chữ và số thập phân",
+      "status": "passed",
+      "durationMs": 0.5109999999999673
+    },
+    {
+      "file": "src/api/modules/order/manualConfirm.test.ts",
+      "name": "phân loại lỗi xác nhận (quyết định 84) 409 và 404 → GET lại + đóng hộp; 400, 403, 5xx, mạng → giữ hộp",
+      "status": "passed",
+      "durationMs": 0.6625999999996566
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) đơn (5.3)",
+      "status": "passed",
+      "durationMs": 4.177400000000034
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) dòng món (5.4)",
+      "status": "passed",
+      "durationMs": 0.5378999999998086
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) hình thức thanh toán: đặc tả chỉ có tiền mặt và QR",
+      "status": "passed",
+      "durationMs": 0.5877000000000407
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) thanh toán (5.5): PENDING phụ thuộc hình thức; FAILED/REFUNDED chưa có trong đặc tả",
+      "status": "passed",
+      "durationMs": 0.6397999999999229
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) thanh toán của cả đơn",
+      "status": "passed",
+      "durationMs": 0.8654999999998836
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) mã lạ của BE → Khác (<mã>), không ném lỗi",
+      "status": "passed",
+      "durationMs": 0.3805999999999585
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "nhãn trạng thái: map ĐỦ mọi giá trị enum của BE (schema.prisma) ô lọc trạng thái đơn chỉ gồm giá trị có trong đặc tả và BE chấp nhận",
+      "status": "passed",
+      "durationMs": 0.3963000000003376
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE tiền chuỗi → số, họ tên người tạo, thanh toán",
+      "status": "passed",
+      "durationMs": 0.9607999999998356
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE thiếu trường không làm vỡ",
+      "status": "passed",
+      "durationMs": 0.5171999999997752
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE khoản thanh toán chỉ lấy của đơn, bỏ trùng; không đọc phiên bàn (v7, QĐ 104)",
+      "status": "passed",
+      "durationMs": 0.46010000000023865
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE chi tiết: dòng món có tuỳ chọn chụp lúc bán, người huỷ, ghi chú",
+      "status": "passed",
+      "durationMs": 0.7468000000003485
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE chi tiết: khoản xác nhận thủ công giữ người xác nhận, lý do, số tiền thực nhận, mã giao dịch, thời điểm",
+      "status": "passed",
+      "durationMs": 0.350800000000163
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE chi tiết: đơn huỷ giữ thời điểm huỷ; không có station/tiền khách đưa (BE chưa trả)",
+      "status": "passed",
+      "durationMs": 1.0626999999999498
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE BE fb7cae9: khách đưa/tiền thối, hạn QR, quầy, thời điểm và lý do cần xử lý, tên người ở khoản hoàn",
+      "status": "passed",
+      "durationMs": 0.7295000000003711
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE danh sách: attentionAt/attentionReason null khi BE không trả",
+      "status": "passed",
+      "durationMs": 0.30520000000024083
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "mapper phản hồi BE họ tên: thiếu tên thì dùng mã nhân viên",
+      "status": "passed",
+      "durationMs": 0.24620000000004438
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "khoảng ngày theo giờ Việt Nam và chuỗi truy vấn đầu và cuối ngày giờ Việt Nam, có múi giờ +07:00",
+      "status": "passed",
+      "durationMs": 9.16150000000016
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "khoảng ngày theo giờ Việt Nam và chuỗi truy vấn qua nửa đêm UTC: 00:00 giờ VN là 17:00 UTC ngày hôm trước",
+      "status": "passed",
+      "durationMs": 1.1234999999996944
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "khoảng ngày theo giờ Việt Nam và chuỗi truy vấn luôn có type=COUNTER_PICKUP, page, limit; tham số rỗng không gửi",
+      "status": "passed",
+      "durationMs": 0.6750000000001819
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "khoảng ngày theo giờ Việt Nam và chuỗi truy vấn gửi đủ bộ lọc, cắt khoảng trắng mã đơn, kẹp limit ≤ 100 và page ≥ 1",
+      "status": "passed",
+      "durationMs": 0.970299999999952
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderReal — đúng endpoint /manager/orders danh sách: chỉ GET, kèm type=COUNTER_PICKUP",
+      "status": "passed",
+      "durationMs": 12.908900000000358
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderReal — đúng endpoint /manager/orders chi tiết: GET /manager/orders/:id",
+      "status": "passed",
+      "durationMs": 1.2867999999998574
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderReal — đúng endpoint /manager/orders xác nhận thủ công: POST /payments/:id/confirm, thân đúng 3 ô của ConfirmPaymentDto, không gửi ô trống",
+      "status": "passed",
+      "durationMs": 15.414299999999912
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderReal — đúng endpoint /manager/orders xác nhận thủ công: 409 PAYMENT_ALREADY_SETTLED và PAYMENT_AMOUNT_INSUFFICIENT → câu tiếng Việt, lỗi ghi (POST)",
+      "status": "passed",
+      "durationMs": 6.716400000000249
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderReal — đúng endpoint /manager/orders xác nhận thủ công: 409 tiền mặt / đơn không còn chờ / 400 thiếu ô → không lộ tiếng Anh",
+      "status": "passed",
+      "durationMs": 7.83179999999993
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "khối lỗi trong trang cho tra cứu đơn khớp danh sách và mọi trang chi tiết, không khớp màn khác",
+      "status": "passed",
+      "durationMs": 0.9565000000002328
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "lỗi 400 của tra cứu đơn → tiếng Việt from ≥ to",
+      "status": "passed",
+      "durationMs": 0.5432999999998174
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "lỗi 400 của tra cứu đơn → tiếng Việt tham số sai theo từng ô (class-validator)",
+      "status": "passed",
+      "durationMs": 1.456199999999626
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE phân trang: tổng không đổi, trang cuối ngắn, mới nhất trước",
+      "status": "passed",
+      "durationMs": 76.1842999999999
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE có đủ các trạng thái và đơn kèm tuỳ chọn/topping (quyết định 67)",
+      "status": "passed",
+      "durationMs": 72.19650000000001
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE lọc: trạng thái, thanh toán, hình thức, số gọi, mã đơn, khoảng thời gian",
+      "status": "passed",
+      "durationMs": 33.50720000000001
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE chi tiết: đơn xác nhận thủ công, đơn nhiều khoản, đơn tuỳ chọn có đơn giá đã gồm giá cộng thêm",
+      "status": "passed",
+      "durationMs": 12.660200000000259
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE chi tiết: id lạ → 404",
+      "status": "passed",
+      "durationMs": 6.418999999999869
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE xác nhận thủ công (BM-05) kịch bản: khoản chờ, lệch số tiền (kèm số nhận), FAILED, đơn Cần xử lý lọc được",
+      "status": "passed",
+      "durationMs": 23.63259999999991
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE xác nhận thủ công (BM-05) nhận đủ: khoản SUCCESS kèm người xác nhận, lý do, số nhận; đơn Đã thanh toán có số gọi; GET lại thấy ngay",
+      "status": "passed",
+      "durationMs": 9.707699999999932
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE xác nhận thủ công (BM-05) nhận thiếu → 409 PAYMENT_AMOUNT_INSUFFICIENT, không đổi gì; nhận dư vẫn được",
+      "status": "passed",
+      "durationMs": 12.01050000000032
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE xác nhận thủ công (BM-05) tiền mặt → 409; lý do ngắn hoặc thiếu số tiền → 400; khoản không có → 404; đơn huỷ → 409",
+      "status": "passed",
+      "durationMs": 20.01090000000022
+    },
+    {
+      "file": "src/api/modules/order/order.test.ts",
+      "name": "orderMock — cùng hình dạng BE xác nhận thủ công (BM-05) kịch bản xung đột: webhook về trước → 409 PAYMENT_ALREADY_SETTLED và đơn đã trả không có người xác nhận",
+      "status": "passed",
+      "durationMs": 9.455000000000382
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) đơn đã trả ở SUBMITTED / PREPARING / READY / REQUIRES_ATTENTION → có nút",
+      "status": "passed",
+      "durationMs": 3.0836999999996806
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) đơn đã giao, hoàn tất, đã huỷ, chờ thanh toán → KHÔNG có nút (BE 409)",
+      "status": "passed",
+      "durationMs": 0.6963000000000648
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) đơn chưa trả hoặc khoản chưa thành công → không có nút",
+      "status": "passed",
+      "durationMs": 0.5588999999999942
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) lệch thiếu (AMOUNT_MISMATCH, Cần xử lý): có nút, số hoàn = số đã nhận",
+      "status": "passed",
+      "durationMs": 1.5306000000000495
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) số đã nhận lấy `receivedAmount` nếu có; trừ các khoản đã hoàn; hết số dư → không có nút",
+      "status": "passed",
+      "durationMs": 0.48529999999982465
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses) có cả khoản SUCCESS và AMOUNT_MISMATCH: ưu tiên SUCCESS (như BE)",
+      "status": "passed",
+      "durationMs": 0.24089999999978318
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "số tiền phải hoàn và dòng huỷ được cả đơn (không chọn) = toàn bộ số dư; huỷ một phần = min(tổng dòng chọn, số dư)",
+      "status": "passed",
+      "durationMs": 0.42039999999997235
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "số tiền phải hoàn và dòng huỷ được lệch thiếu: luôn đúng số đã nhận, kể cả khi truyền dòng chọn",
+      "status": "passed",
+      "durationMs": 0.28629999999975553
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "số tiền phải hoàn và dòng huỷ được dòng đã huỷ hoặc đã nằm trong khoản hoàn thì không chọn được",
+      "status": "passed",
+      "durationMs": 0.6329999999998108
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lý do, ghi chú, thân gửi BE lý do 3–500 ký tự sau trim (DTO CancelPaidOrderDto)",
+      "status": "passed",
+      "durationMs": 0.6651999999999134
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lý do, ghi chú, thân gửi BE ghi chú hoàn tối đa 500, không bắt buộc",
+      "status": "passed",
+      "durationMs": 0.37570000000005166
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lý do, ghi chú, thân gửi BE thân gửi đúng 2–3 ô; orderItemIds chỉ khi chọn dòng; lý do đã trim",
+      "status": "passed",
+      "durationMs": 0.47260000000005675
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "đánh dấu đã hoàn chỉ khoản chuyển khoản đang chờ; tiền mặt (đã hoàn ngay) và khoản đã hoàn thì không",
+      "status": "passed",
+      "durationMs": 0.31770000000005894
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "đánh dấu đã hoàn tổng còn chờ chỉ cộng khoản PENDING",
+      "status": "passed",
+      "durationMs": 0.2523000000001048
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lỗi và nhãn tiếng Việt 409 và 404 → tải lại; 400/403/5xx/mạng → giữ hộp",
+      "status": "passed",
+      "durationMs": 0.49890000000004875
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lỗi và nhãn tiếng Việt câu 409 của BE (#43) dịch cụ thể, không hiện tiếng Anh",
+      "status": "passed",
+      "durationMs": 3.2689000000000306
+    },
+    {
+      "file": "src/api/modules/order/paidCancel.test.ts",
+      "name": "lỗi và nhãn tiếng Việt nhãn enum mới: RefundStatus, RefundMethod, RefundSource",
+      "status": "passed",
+      "durationMs": 0.7588000000000648
+    }
+  ]
+}

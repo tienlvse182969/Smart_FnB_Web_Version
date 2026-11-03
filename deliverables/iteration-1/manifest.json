@@ -1,0 +1,516 @@
+{
+  "release": "iteration-1-20261027",
+  "preparedOn": "2026-10-27",
+  "scope": "Iteration 1 discovery formalization plus current technical reference snapshot",
+  "sources": {
+    "web": {
+      "repository": "https://github.com/tienlvse182969/Smart_FnB_Web_Version",
+      "baseRevision": "8627d92f35a54fee57547cc1c83b48a205c5b9c4",
+      "releaseRevision": "No release tag created; baseRevision is the inspected source revision."
+    },
+    "backend": {
+      "repository": "https://github.com/Raintostorm/SmartFnBBackend",
+      "revision": "a40361223752722dd6a06047fab04efcef434f36"
+    },
+    "android": {
+      "revision": "3dbabeeff7036a47246d54514667231c41d77a23",
+      "selection": "Committed HEAD only; five pre-existing staged changes excluded."
+    },
+    "diagrams": {
+      "driveFileId": "1NDNFRqKR5Ul53qA2lgu2Nq0H2duC_ReV",
+      "pages": 18,
+      "snapshot": "diagrams/source.drawio"
+    }
+  },
+  "verification": {
+    "webPassed": 737,
+    "backendPassed": 186,
+    "acceptancePending": 66,
+    "databaseRehearsal": "Not run",
+    "deviceAcceptance": "Not run"
+  },
+  "limitations": [
+    "Historical execution dates and research records were not supplied.",
+    "Current source evidence is not proof of historical Iteration 1 implementation.",
+    "AI is mock and authenticated personal password change is incomplete.",
+    "Database, live PayOS, E2E, hardware and NFR execution remain pending."
+  ],
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 88,
+      "sha256": "1256bfbe20686185cd14305b7fa1c63b73079dc4e1f721500552826263a9bb6f"
+    },
+    {
+      "path": "api-inventory.csv",
+      "bytes": 20040,
+      "sha256": "d55b9c8ddc244cad8ecf8686f9ebb22bb4b5ebb28c8906342cf2eb26c0457462"
+    },
+    {
+      "path": "database/001-baseline.sql",
+      "bytes": 82029,
+      "sha256": "9a2a2a83f6dde44ad34a7652cd55dc19976e1610b929fdb6d2aacd8767398b9f"
+    },
+    {
+      "path": "database/data-dictionary.md",
+      "bytes": 76634,
+      "sha256": "d37f83fc155489de4cc68737e3e8a858ed8ce8587e76ea1b5b3512c1549dc0f0"
+    },
+    {
+      "path": "database/migrations/20260904093921_init/migration.sql",
+      "bytes": 5067,
+      "sha256": "ba96e88732dcafad5be50d852ee8dc18a8219bbc8a6cd64b22c9ad616908a6a1"
+    },
+    {
+      "path": "database/migrations/20260905181535_add_restaurant_operations/migration.sql",
+      "bytes": 15129,
+      "sha256": "eea29861797e1354321dca65819330da83fa9c3cb2e1e96e64b454390202e38e"
+    },
+    {
+      "path": "database/migrations/20260907143640_add_authentication_sessions/migration.sql",
+      "bytes": 869,
+      "sha256": "d55e90b7eb58ebf48d24ea1776f3c9da6c9cc867ef8ef44775e761b25058359c"
+    },
+    {
+      "path": "database/migrations/20260908130000_add_restaurant_chain_management/migration.sql",
+      "bytes": 4453,
+      "sha256": "53cdabc0619547747f185a741c1cc0ff5cdff8afe223e3aca0bb06e1ca58b806"
+    },
+    {
+      "path": "database/migrations/20260908150000_add_manager_role/migration.sql",
+      "bytes": 1284,
+      "sha256": "284f4742db9884f206f41c00fcccb285af76da5bcf30799717e31de3082b2c45"
+    },
+    {
+      "path": "database/migrations/20260910120000_add_owner_remove_customer/migration.sql",
+      "bytes": 2839,
+      "sha256": "0f1aba8f3ac2dacaa8a29d0e661dc8e26fe677883ec9bcfd04a86100602b1f29"
+    },
+    {
+      "path": "database/migrations/20260917150000_add_waiter_kitchen_operations/migration.sql",
+      "bytes": 13351,
+      "sha256": "676c7ce5557ac2f7a2c4828fb38a124a3e5912d1b584d2c16da4a0c75f8f9130"
+    },
+    {
+      "path": "database/migrations/20260918120000_add_kitchen_item_audit/migration.sql",
+      "bytes": 636,
+      "sha256": "609bd81d2159fe3ad14a3d9a9a9b100bb83d47603a4801084c0446b32d38ab68"
+    },
+    {
+      "path": "database/migrations/20260918120000_add_platform_admin_management/migration.sql",
+      "bytes": 13779,
+      "sha256": "a31c11b24733b59cd0ac4ce17fd10a24c90d2cc18aeab9e9eeb202506d623d2f"
+    },
+    {
+      "path": "database/migrations/20260918160000_chain_wide_menu/migration.sql",
+      "bytes": 2011,
+      "sha256": "eeff5b5204de47d69d4c3d8d3c26785300b49bf20dbefbeb30def8466930d9e1"
+    },
+    {
+      "path": "database/migrations/20260921113144_init/migration.sql",
+      "bytes": 632,
+      "sha256": "4bfa5d29cedd57ac40171c2ac50590e05f51651bd7a6b49d7e0c675e811c03bf"
+    },
+    {
+      "path": "database/migrations/20260923092043_add_invoice_shifts_reservation_tables/migration.sql",
+      "bytes": 9634,
+      "sha256": "7e7ba948371b3df89f1478e669e8b07669b4c65635c17f76630762182e7bcc67"
+    },
+    {
+      "path": "database/migrations/20260923092955_align_order_item_audit_foreign_keys/migration.sql",
+      "bytes": 632,
+      "sha256": "4bfa5d29cedd57ac40171c2ac50590e05f51651bd7a6b49d7e0c675e811c03bf"
+    },
+    {
+      "path": "database/migrations/20260929120000_v8_cashier_barista_foundation/migration.sql",
+      "bytes": 11116,
+      "sha256": "8445f52a3c59c00b5d7223a16e2f2cdd2d1806e35e58af47f90beb2f2a3ef4dc"
+    },
+    {
+      "path": "database/migrations/20260929190000_v9_pos_stations_devices_printing/migration.sql",
+      "bytes": 3485,
+      "sha256": "7f6521365880a25f97d2022c0f8ecc82e09aa2f062af88f939e916ce0371f6ef"
+    },
+    {
+      "path": "database/migrations/20260929200000_v9_counter_order_cancellation_audit/migration.sql",
+      "bytes": 364,
+      "sha256": "b538860ed70b456010b6778d9c8a621f0a7779c983c71cd3a7cbd29a9f4aad65"
+    },
+    {
+      "path": "database/migrations/20261001100000_add_pairing_device_token/migration.sql",
+      "bytes": 74,
+      "sha256": "b62abce4e13a0d266b6c0914e6be736677452bf8170e0a864087bbbf95b9bd59"
+    },
+    {
+      "path": "database/migrations/20261001103000_add_station_cart_version/migration.sql",
+      "bytes": 83,
+      "sha256": "3515a56bc1e45cb467ec3d458d0d11f5417b0d38bf32ddb7fdfdbb881590c4d3"
+    },
+    {
+      "path": "database/migrations/20261001110000_add_payos_channel/migration.sql",
+      "bytes": 646,
+      "sha256": "a9951de4fb22f1a4738d0bdc9c2fb49e48be489315bece76058824cb3a1edf2f"
+    },
+    {
+      "path": "database/migrations/20261002120000_remove_platform_finance_add_plan_features/migration.sql",
+      "bytes": 705,
+      "sha256": "d9e45242f6355228fdb06e4b3f898b38a4b387e4f63192006e7520355a80679e"
+    },
+    {
+      "path": "database/migrations/20261003000000_branch_manager/migration.sql",
+      "bytes": 816,
+      "sha256": "42c38d046cd3b71bb2c5fe6dccfcc9a4cc6685d5d63a63235d2170d01c884240"
+    },
+    {
+      "path": "database/migrations/20261004160000_add_v91_menu_defaults_and_batching/migration.sql",
+      "bytes": 335,
+      "sha256": "509ef7544585dc5a4924d3f7cfcf795b480873a3c482b16087583fb29c6e23aa"
+    },
+    {
+      "path": "database/migrations/20261004180000_add_customer_display_snapshot/migration.sql",
+      "bytes": 63,
+      "sha256": "54a7daf0e17e7f6fe0358793dc28e8468ddb2d0b37b838829b77d3ff0389610b"
+    },
+    {
+      "path": "database/migrations/20261006140000_payos_channel_verification/migration.sql",
+      "bytes": 1293,
+      "sha256": "6c3317db1d997b4c1da861b36cb94a2a807c414522b15ecd72b0e0f1361de095"
+    },
+    {
+      "path": "database/migrations/20261008140000_order_tracking_and_payment_station/migration.sql",
+      "bytes": 1301,
+      "sha256": "5b03ef04ae6c0cbc633c0ff6a01d624c7538940636a068a6be01cdbe34775123"
+    },
+    {
+      "path": "database/migrations/20261010090000_payment_mismatch_attention/migration.sql",
+      "bytes": 143,
+      "sha256": "902b13d9e7949c24720161447768b2db0aed068f0a67a9b18055277cd7d4f01b"
+    },
+    {
+      "path": "database/migrations/20261011100000_paid_order_refunds/migration.sql",
+      "bytes": 2729,
+      "sha256": "ab9818f878982b62cf7489e3116754346a618217ec20dcf6fcab2923aed8d996"
+    },
+    {
+      "path": "database/migrations/20261012100000_late_expired_payos/migration.sql",
+      "bytes": 320,
+      "sha256": "2c039e26e9054c874640b16172aace572d255ca8bbe5b0d94f5ca031eac53a5e"
+    },
+    {
+      "path": "database/migrations/20261012110000_station_device_management/migration.sql",
+      "bytes": 420,
+      "sha256": "ca70cfeed7bc8dc264a47eaee8c2e94145a2bafd1a76fabea42967359450e32f"
+    },
+    {
+      "path": "database/migrations/20261013110000_display_posters/migration.sql",
+      "bytes": 845,
+      "sha256": "17a07012a3dc6be7c2bbb2ef820b81a5c9cd1bd0878d489f4c21df61fdc63861"
+    },
+    {
+      "path": "database/migrations/20261014160000_password_setup_attempt_lock/migration.sql",
+      "bytes": 474,
+      "sha256": "6a4cafb25c157da935cd5a796d87f2ed24cba4e38753d6e28e3fe1d6cc7a0d57"
+    },
+    {
+      "path": "database/migrations/20261016063000_cashier_receipt_documents/migration.sql",
+      "bytes": 1396,
+      "sha256": "17734e225bb9b357989e59a824309c2fc3b9120a89778540e475226825efd217"
+    },
+    {
+      "path": "database/migrations/20261024090000_trial_and_subscription_checkouts/migration.sql",
+      "bytes": 1750,
+      "sha256": "7d7b5867dee48d33f8dc654809c340c517dd99759b18961880b68f05f2c49726"
+    },
+    {
+      "path": "database/migrations/20261024130000_staff_email_invitations/migration.sql",
+      "bytes": 721,
+      "sha256": "fad20c7c8e73d88ab3dc40e74ceb71d5138246f07be9615b33fa0101d21597bf"
+    },
+    {
+      "path": "database/migrations/20261025050000_bootstrap_basic_and_trial_plans/migration.sql",
+      "bytes": 1149,
+      "sha256": "a07951eeda2950b2abffc7e852e42186efd9e0d1031a122e6857e6e840183c5b"
+    },
+    {
+      "path": "database/migrations/migration_lock.toml",
+      "bytes": 128,
+      "sha256": "99836963713b4f5b269ad49af0ed3d7b0b2e336115c2f92dc9ac683d139d0900"
+    },
+    {
+      "path": "database/schema.prisma",
+      "bytes": 80612,
+      "sha256": "9096bfaea9e79f45efd927d39432f5f3d4c27957de4ed19602fe72c6790eb014"
+    },
+    {
+      "path": "diagrams/activation.drawio",
+      "bytes": 2625,
+      "sha256": "b8c1da6dee3e7995109cbb459c467db491fd1ee811d9dd16fe3bac54a8d11ed2"
+    },
+    {
+      "path": "diagrams/activation.png",
+      "bytes": 46347,
+      "sha256": "a15e3631f710b65856e8f9b3dc5a67d7dca209c8b378500ec1b1325aa1543875"
+    },
+    {
+      "path": "diagrams/architecture.drawio",
+      "bytes": 2683,
+      "sha256": "338c973e46775eaaa0bfb2101e428df6fb0c62aa2455517157b7fc9cc937cb3c"
+    },
+    {
+      "path": "diagrams/architecture.png",
+      "bytes": 57112,
+      "sha256": "2a4842ec83f972da4c9e70d3fa0ef8bc370117758248a6623701188376aa5663"
+    },
+    {
+      "path": "diagrams/class-design.drawio",
+      "bytes": 1629,
+      "sha256": "a1c9113cad06a9b3aab4bcbeeddd255340302698d5ced574b36e3899cc1debb6"
+    },
+    {
+      "path": "diagrams/class-design.png",
+      "bytes": 61484,
+      "sha256": "24a40a2dd43deb3fbf511d8d00648c0df90b8aeb55d83aa5c98bacb6bb07d113"
+    },
+    {
+      "path": "diagrams/core-erd.drawio",
+      "bytes": 3138,
+      "sha256": "1fe8d27e60ae5fed824ae637019b7ef5b01baa28ee82e8c990f47a9424a40e57"
+    },
+    {
+      "path": "diagrams/core-erd.png",
+      "bytes": 34770,
+      "sha256": "f22f4b99d49cecd3e4e48888ccd15134a34016f002474dc7708d23788fb004c3"
+    },
+    {
+      "path": "diagrams/order-flow.drawio",
+      "bytes": 2624,
+      "sha256": "40bc6e77501feba0b519662e77a7feb35cec442d15e39653ecef88c3746cb211"
+    },
+    {
+      "path": "diagrams/order-flow.png",
+      "bytes": 41263,
+      "sha256": "c857af6ae27013732b458b538692f432ed127c803a892da1aa7ef34167103150"
+    },
+    {
+      "path": "diagrams/packages.drawio",
+      "bytes": 2118,
+      "sha256": "58dce2302064613c72ed3f4672e358c9f449b284b9b097782d1a697e74778ab3"
+    },
+    {
+      "path": "diagrams/packages.png",
+      "bytes": 30858,
+      "sha256": "62e3b8c490c74ed2aa0a6643f80c361b667bc97d0e5942df3a49edf480a7cf22"
+    },
+    {
+      "path": "diagrams/reconciliation.md",
+      "bytes": 1187,
+      "sha256": "d12372f799d5d7e86da7be5c3ecaf88563ca1e9fa70a80022355fbf0b69620ed"
+    },
+    {
+      "path": "diagrams/seq-approval.png",
+      "bytes": 42685,
+      "sha256": "b330668ac57aa37cdc3e93617e124c631d594e599aed324699be5d92b65f623d"
+    },
+    {
+      "path": "diagrams/seq-menu.png",
+      "bytes": 41684,
+      "sha256": "24a55f3163a9e08f257f1291b319e86d0401f77bb5f31df06d236ebf45471176"
+    },
+    {
+      "path": "diagrams/seq-payment.png",
+      "bytes": 42836,
+      "sha256": "3fcf194dc8dcd0e8bb86818b1d710a667476662b5dbe533e76bf83a8c2fe672a"
+    },
+    {
+      "path": "diagrams/source.drawio",
+      "bytes": 1116621,
+      "sha256": "5c1d3f00af1d1729693cb11b439f02b998aeba7f9bbe9fdc0e6897b9bf640d6a"
+    },
+    {
+      "path": "diagrams/uc-barista.drawio",
+      "bytes": 1427,
+      "sha256": "e2ecdb4d05a6c8c5cfee716a68cd1066e9be37fb39441998d56bd576f85d2ced"
+    },
+    {
+      "path": "diagrams/uc-barista.png",
+      "bytes": 19139,
+      "sha256": "fd3c2a62767d8f8d997c4fac297d348336227397883d432da0869cc62b547e4d"
+    },
+    {
+      "path": "diagrams/uc-branch-manager.drawio",
+      "bytes": 2483,
+      "sha256": "eeb81c32af1fca24e5cc62664c37c72ebb6b11bc133a93e5f76e211f0ab56ef6"
+    },
+    {
+      "path": "diagrams/uc-branch-manager.png",
+      "bytes": 35372,
+      "sha256": "19f32b4ab05d3935e90a7930d37e8c12534a16b58e1be14b5b5620d71840ef71"
+    },
+    {
+      "path": "diagrams/uc-cashier.drawio",
+      "bytes": 2115,
+      "sha256": "58b3cf5ef158c74cf6540e6ae78144826745ebb2df1eba50a18e8b56eba6486d"
+    },
+    {
+      "path": "diagrams/uc-cashier.png",
+      "bytes": 34834,
+      "sha256": "04b39fd4f62ae5be73d1f8952b1ea2f0aa39ed68026125b16e4e00b4e0e0544c"
+    },
+    {
+      "path": "diagrams/uc-overview.drawio",
+      "bytes": 1410,
+      "sha256": "4a62b0f17cbe835e5705e936fa150136d1e3347b1e29bca12c045dfc8076e206"
+    },
+    {
+      "path": "diagrams/uc-overview.png",
+      "bytes": 30868,
+      "sha256": "09c510a34fdce813b1d41b85ff6c1eea476cf15a2fbca90436c900525aaf38ce"
+    },
+    {
+      "path": "diagrams/uc-owner.drawio",
+      "bytes": 4202,
+      "sha256": "576caaae392a4b6d83d96671bccf59738d3326a9dd4428b752ae958a4aebc114"
+    },
+    {
+      "path": "diagrams/uc-owner.png",
+      "bytes": 70074,
+      "sha256": "d304b7c2682ab1688c280e04e9c98613e520af3df62085b856e849df9857cfe8"
+    },
+    {
+      "path": "diagrams/uc-platform-admin.drawio",
+      "bytes": 2148,
+      "sha256": "def5713aae6e3313d8ebdeb8f8d4f99bb4ea2134ae64630f7715c0e7457e2edf"
+    },
+    {
+      "path": "diagrams/uc-platform-admin.png",
+      "bytes": 32063,
+      "sha256": "1fe7c48122841a0d76eae28efb189c9fa2bd685ba73c0515e9d355147ca53ede"
+    },
+    {
+      "path": "evidence/artifact-verification.md",
+      "bytes": 1406,
+      "sha256": "839831a00ee6d2a3c7b2c4d774a7533de8d14ab44be4e0aba0b0138105a9e9b6"
+    },
+    {
+      "path": "evidence/backend-tests.txt",
+      "bytes": 18130,
+      "sha256": "a1dea1f83b6c0095927d763a8b8ae11990eccb4028feb933ece6ea5353ef7d32"
+    },
+    {
+      "path": "evidence/schema-generation.txt",
+      "bytes": 49,
+      "sha256": "58c373801af7ead5b9bb777d7568ac670fd1e1a3c2628b7c1f4a80deaa813b22"
+    },
+    {
+      "path": "evidence/web-build.txt",
+      "bytes": 1009,
+      "sha256": "cb95ae69e12e051646a82a83a6ca1236d8b66a7120f2ce5f5d6ba2ce03f92896"
+    },
+    {
+      "path": "evidence/web-lint.txt",
+      "bytes": 14,
+      "sha256": "115eb663fc21c83deceace77328775b8ca7a0df6474420da7c424a3f9aea84d8"
+    },
+    {
+      "path": "evidence/web-tests.json",
+      "bytes": 206696,
+      "sha256": "c69e17a670edcec56eb4caa15a43fe93e0bcaa54bb9cad9f94afaeba665f89f1"
+    },
+    {
+      "path": "evidence/web-typecheck.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "HANDOVER.md",
+      "bytes": 3429,
+      "sha256": "09f797d4a276a6f4af57a2a597dd1f481243bffbeaf8bec49d3a96ab8d6f9174"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6045,
+      "sha256": "6b8f8005fb6accb99cae1a3fc15f2131560030bcf6e90d2d095153530921143b"
+    },
+    {
+      "path": "reports/Report1_Project_Introduction.docx",
+      "bytes": 103624,
+      "sha256": "a7e37c65f89c8c93fcb175caec5cf734dfa7e7327016d01fbb870f8c8dab45e3"
+    },
+    {
+      "path": "reports/Report1_Project_Introduction.pdf",
+      "bytes": 341912,
+      "sha256": "dd3d708f2158d7209c01ffc74cfcb8aab3b2bb3d93550342a50f72c416efd269"
+    },
+    {
+      "path": "reports/Report2_Project_Management_Plan.docx",
+      "bytes": 51415,
+      "sha256": "3bd143ba7a82fe1fc026abf0a776ae41f40bead49306ce75fe7ec9923364b65c"
+    },
+    {
+      "path": "reports/Report2_Project_Management_Plan.pdf",
+      "bytes": 321103,
+      "sha256": "60547d3f930817cd6c8ff833e82c77e5fce8cd1eeb1fd41a49f80d9fb6269612"
+    },
+    {
+      "path": "reports/Report3_SRS.docx",
+      "bytes": 480936,
+      "sha256": "e38dad471af26ce16983a45b671c06fe9d3a88553ced6b1c81c9bc90cd2304b1"
+    },
+    {
+      "path": "reports/Report3_SRS.pdf",
+      "bytes": 831891,
+      "sha256": "25824f407ac665bb55f51e426dee845cb8a17696811ad2b8f9f600657f054e93"
+    },
+    {
+      "path": "reports/Report4_SDD.docx",
+      "bytes": 368666,
+      "sha256": "0c8ada690eddc5478fba14e9fec1b589b2b8f4ba2397553d3536d1c6c918984a"
+    },
+    {
+      "path": "reports/Report4_SDD.pdf",
+      "bytes": 643582,
+      "sha256": "de60f9c5588a251dd0465e73d37efd5bfd8e95b81bfe6acacdcff7bd72709299"
+    },
+    {
+      "path": "reports/Report5_Test_Documentation.docx",
+      "bytes": 49325,
+      "sha256": "bf5d44fa0cb0042036fb33841a3265fda8235c38438cb6e4d57fb843e6136472"
+    },
+    {
+      "path": "reports/Report5_Test_Documentation.pdf",
+      "bytes": 304248,
+      "sha256": "735722b0b758e4e5e1d1e92536dd3dac0b0f75520ba7b548539393b166538064"
+    },
+    {
+      "path": "requirements.json",
+      "bytes": 381301,
+      "sha256": "b489e6f66d3d1b810414f012d1f2e139032566892081efc665c563df44fe3f58"
+    },
+    {
+      "path": "source/android-committed-reference.zip",
+      "bytes": 1431614,
+      "sha256": "3b28aa2b71f70dd4c61d3eefb1bb91b3569c40f6505a359f4445919926cb3ef8"
+    },
+    {
+      "path": "source/backend.zip",
+      "bytes": 11601039,
+      "sha256": "d0c8f73751c4d050ff695195a80eb5fecc6a95cfcb152b4dde296a1317dab0fc"
+    },
+    {
+      "path": "tracking/Project_Tracking.xlsx",
+      "bytes": 25286,
+      "sha256": "29802076f90680671d81cc1a0d3d6e586b6d3e6b3e529b2d441147b0f0953d3a"
+    },
+    {
+      "path": "tracking/Test_Report.xlsx",
+      "bytes": 76259,
+      "sha256": "54a68c15f34fac7351c47bdd96c2d9db550cb565a5f2946dd61eab26d469e250"
+    }
+  ],
+  "publication": {
+    "status": "Local only, excluded from Git at the team request",
+    "tag": "Not created",
+    "remoteCI": "Not run",
+    "commit": "No package commit created"
+  }
+}
