@@ -126,7 +126,7 @@ export const authMock: AuthApi = {
     }
   },
 
-  async changePassword(newPassword) {
+  async changePassword(_currentPassword, newPassword) {
     await mockDelay();
     if (newPassword.trim().length < 6) throw new ApiError(400, "Mật khẩu phải từ 6 ký tự trở lên");
   },

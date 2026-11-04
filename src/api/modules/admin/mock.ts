@@ -273,6 +273,9 @@ const reg = (
   reviewedByEmail: null,
 
   requestedPlan: plans[n % 3],
+  approvedPlan: null,
+  activationExpiresAt: null,
+  supportActions: [],
 
   approved: null,
 

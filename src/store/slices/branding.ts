@@ -58,7 +58,7 @@ export const createBrandingSlice: SliceCreator<BrandingSlice> = (set, get) => ({
 
   refreshBrandingOnNavigate: async (pathname, now = Date.now()) => {
     const { chainId, currentUser, scopeStatus, brandingFetchedAt } = get();
-    if (!chainId || !currentUser || currentUser.role === "admin" || scopeStatus !== "ready") return false;
+    if (!chainId || !currentUser || currentUser.role === "admin" || currentUser.role === "platform-staff" || scopeStatus !== "ready") return false;
     if (PLATFORM_BRAND_PATHS.includes(pathname)) return false;
     if (now - brandingFetchedAt < BRANDING_REFRESH_INTERVAL_MS) return false;
     // Đánh dấu TRƯỚC khi gọi: điều hướng liên tiếp không dồn thêm lệnh, lỗi cũng không bị gọi lại ngay.

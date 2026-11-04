@@ -57,6 +57,9 @@ export interface PlanInfo {
   /** Mã gói thật từ BE; TRIAL cho phép Owner tự nâng cấp. */
 
   planCode?: string;
+  planId?: string;
+  nextPlanId?: string | null;
+  nextPlanName?: string | null;
 
   tier: PlanTier;
 

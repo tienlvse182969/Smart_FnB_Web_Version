@@ -68,7 +68,7 @@ export type ServicePlanInput = {
 
 /** Hồ sơ đăng ký (GU-01 nộp, PA-01..03 xử lý). */
 
-export type RegistrationStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type RegistrationStatus = "PENDING" | "APPROVED" | "ACTIVATED" | "REJECTED";
 
 export type RegistrationApplication = {
   id: string;
@@ -100,11 +100,14 @@ export type RegistrationApplication = {
   reviewedByEmail: string | null;
 
   requestedPlan: ServicePlan | null;
+  approvedPlan: ServicePlan | null;
 };
 
 /** Chi tiết hồ sơ; sau khi duyệt có thêm thông tin doanh nghiệp đã sinh. */
 
 export type RegistrationDetail = RegistrationApplication & {
+  activationExpiresAt: string | null;
+  supportActions: { id: string; action: string; note: string; createdAt: string; actor: { email: string } }[];
   approved: {
     chainId: string;
 
@@ -139,8 +142,6 @@ export type SubmitRegistrationInput = {
 };
 
 export type ApproveRegistrationInput = {
-  /** Trường cũ; BE nay luôn cấp TRIAL 14 ngày sau duyệt. */
-
   planId?: string;
 
   subscriptionMonths?: number;
@@ -163,6 +164,7 @@ export type BusinessSubscription = {
   suspendedAt: string | null;
 
   plan: ServicePlan;
+  nextPlan?: ServicePlan | null;
 
   monthlyPrice: number;
 };

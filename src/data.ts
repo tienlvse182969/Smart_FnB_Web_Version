@@ -4,6 +4,7 @@ import type { RoleKey } from "./types";
 /** Nhãn và mô tả phạm vi chung của từng vai trò (không chứa tên doanh nghiệp/chi nhánh cụ thể). */
 export const roleMeta: Record<RoleKey, { label: string; scope: string }> = {
   admin: { label: "Platform Admin", scope: "Nền tảng" },
+  "platform-staff": { label: "Platform Staff", scope: "Hỗ trợ nền tảng" },
   owner: { label: "Owner", scope: "Toàn chuỗi" },
   manager: { label: "Branch Manager", scope: "Một chi nhánh" },
   cashier: { label: "Cashier", scope: "Ứng dụng tablet" },

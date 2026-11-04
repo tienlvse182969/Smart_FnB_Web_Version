@@ -4,7 +4,7 @@
  * Vai trò người dùng (đặc tả v9 mục 4). Chỉ admin/owner/manager vào được web;
  * cashier/barista dùng ứng dụng tablet.
  */
-export type RoleKey = "admin" | "owner" | "manager" | "cashier" | "barista";
+export type RoleKey = "admin" | "platform-staff" | "owner" | "manager" | "cashier" | "barista";
 
 /**
  * Một tài khoản đăng nhập được — seed sẵn (demo ban đầu) hoặc tạo qua
@@ -34,6 +34,7 @@ export type DemoAccount = {
 
 /** Người dùng đã đăng nhập — gắn tenant/branch context. */
 export type AuthUser = {
+  mustChangePassword?: boolean;
   id: string;
   name: string;
   email: string;
@@ -43,7 +44,7 @@ export type AuthUser = {
 };
 
 /** Tên vai trò do backend trả về (còn WAITER/KITCHEN vì JSON BE hiện tại — web chặn không cho vào). */
-export type BackendRole = "ADMIN" | "OWNER" | "MANAGER" | "WAITER" | "KITCHEN" | "CASHIER" | "BARISTA";
+export type BackendRole = "ADMIN" | "PLATFORM_STAFF" | "OWNER" | "MANAGER" | "WAITER" | "KITCHEN" | "CASHIER" | "BARISTA";
 
 /**
  * Ngữ cảnh của phiên đang đăng nhập (`GET /auth/me`), gồm phạm vi chuỗi và chi nhánh.

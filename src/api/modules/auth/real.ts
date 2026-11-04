@@ -11,6 +11,7 @@ import {
 import { SETUP_TOKEN_INVALID, SETUP_TOKEN_MESSAGE, type AuthApi } from "./index";
 
 interface BackendAuthUser {
+  mustChangePassword?: boolean;
   id: string;
   email: string;
   phone: string | null;
@@ -32,6 +33,7 @@ interface BackendAuthResult {
 /** Vai trò backend → khu vực làm việc trên web. Thiếu ở đây = không vào được web. */
 const WEB_ROLE_BY_BACKEND: Partial<Record<BackendRole, RoleKey>> = {
   ADMIN: "admin",
+  PLATFORM_STAFF: "platform-staff",
   OWNER: "owner",
   MANAGER: "manager",
 };
@@ -67,6 +69,7 @@ function toAuthUser(user: BackendAuthUser): AuthUser {
     // Phạm vi thật được nạp riêng sau đăng nhập (store#loadScope) vì payload
     // auth của backend không chứa chainId/branchId.
     role,
+    mustChangePassword: user.mustChangePassword ?? false,
     tenantId: null,
     branchId: null,
     // Không có cờ "phải đổi mật khẩu": BE đặt mật khẩu qua /auth/setup-password (token trong email); login và /auth/me không trả cờ nào.
@@ -151,10 +154,8 @@ export const authReal: AuthApi = {
   restoreSession,
   getContext: getAuthContext,
   logout: logoutSession,
-  // CHỜ BE: chỉ có /auth/setup-password (cần token một lần trong email). Chưa có endpoint đổi mật khẩu
-  // cho người đã đăng nhập.
-  async changePassword() {
-    throw new ApiError(501, "Đổi mật khẩu chưa được backend hỗ trợ.");
+  async changePassword(currentPassword, newPassword) {
+    await request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
   },
   async setupPassword(token, password) {
     try {

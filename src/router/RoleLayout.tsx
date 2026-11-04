@@ -10,6 +10,7 @@ import { roleRoutes, type WebRole } from "./routeConfig";
 
 const SEARCH_PLACEHOLDER: Record<WebRole, string> = {
   admin: "Tìm doanh nghiệp, mã tenant…",
+  "platform-staff": "Tìm hồ sơ, doanh nghiệp…",
   owner: "Tìm chi nhánh, món, tài khoản…",
   manager: "Tìm món, nhân viên, đơn…",
 };

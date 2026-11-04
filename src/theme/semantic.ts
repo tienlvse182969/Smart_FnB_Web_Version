@@ -64,5 +64,6 @@ export const TENANT_STATUS_COLOR = {
 export const REGISTRATION_STATUS_COLOR = {
   pending: "warning", // Chờ duyệt
   approved: "success", // Đã duyệt
+  activated: "success", // Đã kích hoạt
   rejected: "error", // Bị từ chối
 } as const satisfies Record<string, StatusColorKey>;

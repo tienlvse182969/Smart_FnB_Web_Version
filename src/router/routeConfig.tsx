@@ -48,8 +48,10 @@ import Stations from "../roles/branch/Stations";
 import OrderSearch from "../roles/branch/OrderSearch";
 import OrderDetail from "../roles/branch/OrderDetail";
 import AttentionOrders from "../roles/branch/AttentionOrders";
+import PlatformBusinesses from "../roles/platform-staff/Businesses";
+import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
 
-export type WebRole = "admin" | "owner" | "manager";
+export type WebRole = "admin" | "platform-staff" | "owner" | "manager";
 
 export interface RouteDef {
   /** Đường dẫn con, tương đối so với `/admin`, `/owner`, `/manager`. */
@@ -74,6 +76,13 @@ export const adminRoutes: RouteDef[] = [
     element: <SignupRequests />,
   },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlansTable /> },
+  { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
+  { path: "support", label: "Hỗ trợ thuê bao", icon: <CreditCard size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
+];
+
+export const platformStaffRoutes: RouteDef[] = [
+  { path: "signups", label: "Hồ sơ đăng ký", icon: <UserPlus size={18} />, code: "PA-01 · PA-02 · PA-03 · PS-01", element: <SignupRequests /> },
+  { path: "businesses", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
 ];
 
 export const ownerRoutes: RouteDef[] = [
@@ -146,6 +155,7 @@ export const managerRoutes: RouteDef[] = [
 
 export const roleRoutes: Record<WebRole, RouteDef[]> = {
   admin: adminRoutes,
+  "platform-staff": platformStaffRoutes,
   owner: ownerRoutes,
   manager: managerRoutes,
 };
@@ -157,6 +167,6 @@ export function roleHomePath(role: WebRole): string {
 
 /** Vai trò có khu vực trên web. */
 export function isWebRole(role: string): role is WebRole {
-  return role === "admin" || role === "owner" || role === "manager";
+  return role === "admin" || role === "platform-staff" || role === "owner" || role === "manager";
 }
 

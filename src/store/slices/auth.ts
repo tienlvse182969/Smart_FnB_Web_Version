@@ -34,7 +34,7 @@ export interface AuthSlice {
   /** Đăng nhập qua backend bằng email + mật khẩu. */
   login: (email: string, password: string) => Promise<AuthUser>;
   /** Đổi mật khẩu tài khoản đang đăng nhập (bắt buộc lần đầu — CM-01). */
-  changePassword: (newPassword: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   /**
    * Nạp chuỗi, chi nhánh, gói và nhận diện của người đang đăng nhập. `silent` = không đưa màn hình về trạng
@@ -137,7 +137,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
 
     // ADMIN quản trị nền tảng, không thuộc chuỗi nào — backend trả 403 cho cả
     // /restaurant-chains lẫn /branches, nên không gọi.
-    if (currentUser.role === "admin") {
+    if (currentUser.role === "admin" || currentUser.role === "platform-staff") {
       set({
         scopeStatus: "ready",
         scopeError: null,
@@ -231,10 +231,10 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     }
   },
 
-  changePassword: async (newPassword: string) => {
+  changePassword: async (currentPassword: string, newPassword: string) => {
     const { currentUser } = get();
     if (!currentUser) return;
-    await authApi.changePassword(newPassword);
+    await authApi.changePassword(currentPassword, newPassword);
   },
 
   logout: async () => {

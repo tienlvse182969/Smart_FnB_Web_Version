@@ -92,7 +92,7 @@ export default function MyPlan() {
   >(null);
 
   useEffect(() => {
-    if (plan?.planCode !== "TRIAL") return;
+    if (!plan?.planCode) return;
 
     let cancelled = false;
 
@@ -298,6 +298,14 @@ export default function MyPlan() {
             </span>
           </div>
         </Card>
+
+        {plan.planCode !== "TRIAL" && plan.planId && plan.status !== "suspended" && <Card title="Gia hạn gói" style={{ borderRadius: 14 }}>
+          <p style={{ color: palette.textMuted }}>Thanh toán tháng tiếp theo qua PayOS. Có thể bắt đầu trong 7 ngày trước hạn hoặc sau khi gói hết hạn.</p>
+          {plan.nextPlanName && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Gói kỳ sau: ${plan.nextPlanName}`} />}
+          <Button type="primary" loading={checkoutPlanId !== null} disabled={!plan.expiresAt || new Date(plan.expiresAt).getTime() - Date.now() > 7 * 86_400_000 || !paidPlans.some((item) => item.id === (plan.nextPlanId ?? plan.planId))} onClick={() => void startCheckout(plan.nextPlanId ?? plan.planId!)}>
+            Thanh toán kỳ tiếp theo {paidPlans.find((item) => item.id === (plan.nextPlanId ?? plan.planId)) ? `· ${formatVnd(paidPlans.find((item) => item.id === (plan.nextPlanId ?? plan.planId))!.monthlyPrice)}` : ""}
+          </Button>
+        </Card>}
 
         {plan.planCode === "TRIAL" && plan.status !== "suspended" && (
           <Card

@@ -20,7 +20,7 @@ export const createPlanSlice: SliceCreator<PlanSlice> = (set, get) => ({
 
   reloadPlan: async () => {
     const { chainId, currentUser } = get();
-    if (!chainId || !currentUser || currentUser.role === "admin") return;
+    if (!chainId || !currentUser || currentUser.role === "admin" || currentUser.role === "platform-staff") return;
     try {
       const chains = currentUser.role === "owner" ? await branchApi.listChains() : undefined;
       set({ plan: await planApi.getPlan(chainId, { chains }) });

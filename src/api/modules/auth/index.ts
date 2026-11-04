@@ -13,7 +13,7 @@ export interface AuthApi {
   getContext(): Promise<AuthContext>;
   logout(): Promise<void>;
   /** CHỜ BE: chưa có endpoint đổi mật khẩu cho người đã đăng nhập. */
-  changePassword(newPassword: string): Promise<void>;
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
   /**
    * Đặt mật khẩu bằng token một lần trong email (`POST /auth/setup-password`, công khai). Token sai, hết hạn hoặc đã dùng
    * đều ra `ApiError` mã `SETUP_TOKEN_INVALID` (BE trả chung 401, không phân biệt).

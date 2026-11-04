@@ -132,6 +132,9 @@ export const planReal: PlanApi = {
       chainId,
 
       planCode: realPlan?.code,
+      planId: realPlan?.id,
+      nextPlanId: sub?.nextPlan?.id ?? null,
+      nextPlanName: sub?.nextPlan?.name ?? null,
 
       tier,
 

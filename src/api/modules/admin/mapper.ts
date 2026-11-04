@@ -48,6 +48,7 @@ export interface RawSubscription {
   expiresAt: string;
   suspendedAt?: string | null;
   plan: RawPlan;
+  nextPlan?: RawPlan | null;
   events?: unknown[];
 }
 
@@ -60,11 +61,14 @@ export interface RawRegistration {
   representativeEmail: string;
   representativePhone: string;
   headquartersAddress?: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "ACTIVATED" | "REJECTED";
   rejectionReason?: string | null;
   createdAt: string;
   reviewedAt?: string | null;
   requestedPlan?: RawPlan | null;
+  approvedPlan?: RawPlan | null;
+  activationExpiresAt?: string | null;
+  supportActions?: { id: string; action: string; note: string; createdAt: string; actor: { email: string } }[];
   reviewedBy?: { id: string; email: string } | null;
   ownerUser?: { id?: string; email: string } | null;
   approvedChain?: {
@@ -147,6 +151,7 @@ export function mapSubscription(raw: RawSubscription, now?: Date): BusinessSubsc
     expiresAt: raw.expiresAt,
     suspendedAt: raw.suspendedAt ?? null,
     plan: mapPlan(raw.plan),
+    nextPlan: raw.nextPlan ? mapPlan(raw.nextPlan) : null,
     monthlyPrice: parseAmount(raw.monthlyPrice),
   };
 }
@@ -167,6 +172,7 @@ export function mapRegistration(raw: RawRegistration): RegistrationApplication {
     reviewedAt: raw.reviewedAt ?? null,
     reviewedByEmail: raw.reviewedBy?.email ?? null,
     requestedPlan: raw.requestedPlan ? mapPlan(raw.requestedPlan) : null,
+    approvedPlan: raw.approvedPlan ? mapPlan(raw.approvedPlan) : null,
   };
 }
 
@@ -174,6 +180,8 @@ export function mapRegistrationDetail(raw: RawRegistration): RegistrationDetail 
   const chain = raw.approvedChain;
   return {
     ...mapRegistration(raw),
+    activationExpiresAt: raw.activationExpiresAt ?? null,
+    supportActions: raw.supportActions ?? [],
     approved: chain
       ? {
           chainId: chain.id,

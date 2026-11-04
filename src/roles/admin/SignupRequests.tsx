@@ -12,6 +12,9 @@ import type {
 } from "../../types";
 
 import { adminApi, showApiError } from "../../api";
+import { platformStaffApi, changeApprovedPlan, resendActivation } from "../../api/platformStaff";
+import { useAppStore } from "../../store";
+import type { ServicePlan } from "../../types";
 
 import ActionButton from "../../plan/ActionButton";
 
@@ -28,7 +31,8 @@ const PAGE_SIZE = 10;
 const STATUS_OPTIONS: { value: RegistrationStatus | "ALL"; label: string }[] = [
   { value: "PENDING", label: "Chờ duyệt" },
 
-  { value: "APPROVED", label: "Đã duyệt" },
+  { value: "APPROVED", label: "Đã duyệt · chờ kích hoạt" },
+  { value: "ACTIVATED", label: "Đã kích hoạt" },
 
   { value: "REJECTED", label: "Bị từ chối" },
 
@@ -41,6 +45,15 @@ const STATUS_OPTIONS: { value: RegistrationStatus | "ALL"; label: string }[] = [
 
 export default function SignupRequests() {
   const { message, modal } = App.useApp();
+  const isStaff = useAppStore((s) => s.currentUser?.role === "platform-staff");
+  const reviewApi = isStaff ? platformStaffApi : adminApi;
+  const basePath = isStaff ? "/platform-staff" : "/admin";
+  const [plans, setPlans] = useState<ServicePlan[]>([]);
+  const [supportPlanId, setSupportPlanId] = useState<string>();
+  const [supportNote, setSupportNote] = useState("");
+  const [supportSaving, setSupportSaving] = useState(false);
+
+  useEffect(() => { void reviewApi.listPlans().then(setPlans).catch((err) => showApiError(message.error, err, "Không tải được gói dịch vụ")); }, [isStaff, message]);
 
   const [status, setStatus] = useState<RegistrationStatus | "ALL">("PENDING");
 
@@ -67,7 +80,7 @@ export default function SignupRequests() {
 
     try {
       setData(
-        await adminApi.listRegistrations({
+        await reviewApi.listRegistrations({
           page,
 
           limit: PAGE_SIZE,
@@ -82,7 +95,7 @@ export default function SignupRequests() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, message]);
+  }, [page, search, status, message, isStaff]);
 
   useEffect(() => {
     void load();
@@ -97,7 +110,7 @@ export default function SignupRequests() {
 
     let cancelled = false;
 
-    adminApi
+    reviewApi
 
       .getRegistration(openId)
 
@@ -112,7 +125,23 @@ export default function SignupRequests() {
     return () => {
       cancelled = true;
     };
-  }, [openId, message]);
+  }, [openId, message, isStaff]);
+
+  const support = async (action: "plan" | "resend") => {
+    if (!detail) return;
+    if (supportNote.trim().length < 3) { message.warning("Nhập ghi chú ít nhất 3 ký tự"); return; }
+    if (action === "plan" && !supportPlanId) { message.warning("Chọn gói dịch vụ"); return; }
+    setSupportSaving(true);
+    try {
+      const updated = action === "plan"
+        ? await changeApprovedPlan(basePath, detail.id, supportPlanId!, supportNote)
+        : await resendActivation(basePath, detail.id, supportNote);
+      await afterReview(updated);
+      setSupportNote("");
+      message.success(action === "plan" ? "Đã đổi gói được duyệt; QR cũ không còn hiệu lực" : "Đã xếp email kích hoạt mới");
+    } catch (err) { showApiError(message.error, err, "Không thực hiện được yêu cầu hỗ trợ"); }
+    finally { setSupportSaving(false); }
+  };
 
   const afterReview = async (updated: RegistrationDetail) => {
     setDetail(updated);
@@ -124,7 +153,7 @@ export default function SignupRequests() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Hồ sơ đăng ký"
-        sub="Duyệt để tạo doanh nghiệp, tài khoản Owner và gói TRIAL 14 ngày; từ chối phải có lý do"
+        sub="Duyệt gói và gửi liên kết kích hoạt; doanh nghiệp được tạo khi người đăng ký chọn trial hoặc thanh toán"
       />
 
       <div
@@ -202,8 +231,8 @@ export default function SignupRequests() {
           },
 
           {
-            title: "Gói cấp khi duyệt",
-            render: (_, r) => r.status === "PENDING" ? "TRIAL · 14 ngày" : "Xem chi tiết",
+            title: "Gói được duyệt",
+            render: (_, r) => r.approvedPlan?.name ?? r.requestedPlan?.name ?? "Chưa chọn",
           },
 
           {
@@ -240,13 +269,15 @@ export default function SignupRequests() {
             <Field label="Email">{detail.representativeEmail}</Field>
             <Field label="Điện thoại">{detail.representativePhone}</Field>
             {detail.status === "PENDING" && (
-              <Field label="Gói cấp khi duyệt">TRIAL · miễn phí 14 ngày</Field>
+              <Field label="Gói mong muốn">{detail.requestedPlan?.name ?? "Chưa chọn"}</Field>
             )}
             {detail.requestedPlan && (
               <Field label="Gói từng yêu cầu">
                 {`${detail.requestedPlan.name} · ${formatVnd(detail.requestedPlan.monthlyPrice)}/tháng`}
               </Field>
             )}
+            {detail.approvedPlan && <Field label="Gói đã duyệt">{`${detail.approvedPlan.name} · ${formatVnd(detail.approvedPlan.monthlyPrice)}/tháng`}</Field>}
+            {detail.activationExpiresAt && detail.status === "APPROVED" && <Field label="Link hết hạn">{formatDateTime(detail.activationExpiresAt)}</Field>}
             <Field label="Ngày nộp">{formatDateTime(detail.createdAt)}</Field>
             {detail.reviewedAt && (
               <Field label="Xử lý lúc">
@@ -273,6 +304,14 @@ export default function SignupRequests() {
                 </Field>
               </>
             )}
+            {detail.status === "APPROVED" && <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
+              <strong>Hỗ trợ kích hoạt (PS-01)</strong>
+              <Select placeholder="Đổi gói đã duyệt" value={supportPlanId} onChange={setSupportPlanId} options={plans.filter((p) => p.isActive && p.code !== "TRIAL").map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />
+              <Input.TextArea placeholder="Ghi chú hỗ trợ bắt buộc" value={supportNote} onChange={(e) => setSupportNote(e.target.value)} maxLength={1000} rows={2} />
+              <ActionButton loading={supportSaving} onClick={() => void support("plan")}>Đổi gói được duyệt</ActionButton>
+              <ActionButton loading={supportSaving} onClick={() => void support("resend")}>Gửi lại link kích hoạt</ActionButton>
+            </div>}
+            {detail.supportActions.length > 0 && <div style={{ marginTop: 20 }}><strong>Lịch sử hỗ trợ</strong>{detail.supportActions.map((entry) => <div key={entry.id} style={{ padding: "8px 0", borderBottom: "1px solid #eee", fontSize: 12 }}>{formatDateTime(entry.createdAt)} · {entry.actor.email}<br />{entry.note}</div>)}</div>}
 
             {detail.status === "PENDING" && (
               <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
@@ -302,6 +341,8 @@ export default function SignupRequests() {
         <ApproveModal
           open={approving}
           application={detail}
+          plans={plans}
+          approve={(planId) => reviewApi.approveRegistration(detail.id, { planId })}
           onClose={() => setApproving(false)}
           onDone={async (updated) => {
             setApproving(false);
@@ -311,7 +352,7 @@ export default function SignupRequests() {
             modal.success({
               title: `Đã duyệt "${updated.businessName}"`,
 
-              content: `Đã cấp TRIAL 14 ngày và xếp email đặt mật khẩu tới ${updated.approved?.ownerEmail ?? updated.representativeEmail}.`,
+              content: `Đã xếp email kích hoạt 7 ngày tới ${updated.representativeEmail}.`,
             });
           }}
         />
@@ -320,6 +361,7 @@ export default function SignupRequests() {
         <RejectModal
           open={rejecting}
           application={detail}
+          reject={(reason) => reviewApi.rejectRegistration(detail.id, reason)}
           onClose={() => setRejecting(false)}
           onDone={async (updated) => {
             setRejecting(false);
@@ -340,6 +382,8 @@ function ApproveModal({
   open,
 
   application,
+  plans,
+  approve,
 
   onClose,
 
@@ -348,6 +392,8 @@ function ApproveModal({
   open: boolean;
 
   application: RegistrationDetail;
+  plans: ServicePlan[];
+  approve: (planId: string) => Promise<RegistrationDetail>;
 
   onClose: () => void;
 
@@ -357,13 +403,15 @@ function ApproveModal({
 
   const [saving, setSaving] = useState(false);
 
-  const expiresAt = new Date(Date.now() + 14 * 86_400_000).toISOString();
+  const [planId, setPlanId] = useState<string | undefined>(application.requestedPlan?.id);
+  useEffect(() => { if (open) setPlanId(application.requestedPlan?.id); }, [open, application.id, application.requestedPlan?.id]);
 
   const submit = async () => {
     setSaving(true);
 
     try {
-      await onDone(await adminApi.approveRegistration(application.id, {}));
+      if (!planId) { message.warning("Chọn gói dịch vụ"); return; }
+      await onDone(await approve(planId));
     } catch (err) {
       showApiError(message.error, err, "Không duyệt được hồ sơ");
     } finally {
@@ -379,10 +427,8 @@ function ApproveModal({
       footer={null}
       destroyOnHidden
     >
-      <p>
-        Owner sẽ dùng thử gói TRIAL miễn phí trong 14 ngày, với hạn mức giống
-        gói BASIC. Owner có thể thanh toán nâng cấp bất cứ lúc nào.
-      </p>
+      <p>Chọn gói duyệt. Người đăng ký sẽ nhận link 7 ngày để chọn dùng thử Basic hoặc thanh toán tháng đầu qua PayOS. Doanh nghiệp và Owner được tạo khi kích hoạt.</p>
+      <Select style={{ width: "100%" }} placeholder="Gói dịch vụ" value={planId} onChange={setPlanId} options={plans.filter((p) => p.isActive && p.code !== "TRIAL").map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />
       <div
         style={{
           marginTop: 12,
@@ -392,7 +438,7 @@ function ApproveModal({
           fontSize: 13.5,
         }}
       >
-        Ngày hết hạn: <b data-testid="approve-expiry">{dateLabel(expiresAt)}</b>
+        Link kích hoạt có hiệu lực 7 ngày kể từ khi duyệt.
       </div>
       <ActionButton
         type="primary"
@@ -401,7 +447,7 @@ function ApproveModal({
         loading={saving}
         onClick={submit}
       >
-        Duyệt và cấp TRIAL 14 ngày
+        Duyệt và gửi link kích hoạt
       </ActionButton>
     </Modal>
   );
@@ -411,6 +457,7 @@ function RejectModal({
   open,
 
   application,
+  reject,
 
   onClose,
 
@@ -419,6 +466,7 @@ function RejectModal({
   open: boolean;
 
   application: RegistrationDetail;
+  reject: (reason: string) => Promise<RegistrationDetail>;
 
   onClose: () => void;
 
@@ -439,7 +487,7 @@ function RejectModal({
 
     try {
       await onDone(
-        await adminApi.rejectRegistration(application.id, reason.trim()),
+        await reject(reason.trim()),
       );
     } catch (err) {
       showApiError(message.error, err, "Không từ chối được hồ sơ");

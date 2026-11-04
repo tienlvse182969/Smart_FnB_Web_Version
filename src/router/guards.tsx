@@ -6,6 +6,7 @@ import { palette } from "../theme";
 
 const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
+  "platform-staff": "/platform-staff",
   owner: "/owner",
   manager: "/manager",
   cashier: "/login",
@@ -62,6 +63,7 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   if (!allowedRoles.includes(currentUser.role)) {
     return <Navigate to={homeRouteFor(currentUser.role)} replace />;
   }
+  if (currentUser.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   // Không thả người dùng vào màn hình rỗng khi chưa biết họ thuộc chuỗi/chi
   // nhánh nào — mọi dữ liệu bên trong đều phụ thuộc phạm vi này.

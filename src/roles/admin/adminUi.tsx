@@ -25,6 +25,7 @@ export function Chip({ tone, children }: { tone: StatusColorKey; children: React
 const REGISTRATION_LABEL: Record<RegistrationStatus, string> = {
   PENDING: "Chờ duyệt",
   APPROVED: "Đã duyệt",
+  ACTIVATED: "Đã kích hoạt",
   REJECTED: "Bị từ chối",
 };
 

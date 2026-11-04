@@ -12,6 +12,8 @@ import { ROUTE_FLAGS, type RouteFlags } from "../api/flags"
 import LandingPage from "../components/landing/LandingPage"
 import LoginScreen from "../auth/LoginScreen"
 import SetupPasswordScreen from "../auth/SetupPasswordScreen"
+import ActivationScreen from "../auth/ActivationScreen"
+import ChangeTemporaryPasswordScreen from "../auth/ChangeTemporaryPasswordScreen"
 import DisplayLayout from "../display/DisplayLayout"
 import CallScreen from "../display/CallScreen"
 import CustomerDisplayScreen from "../display/CustomerDisplayScreen"
@@ -43,7 +45,7 @@ function LoginWrapper() {
   const handleLogin = async (email: string, password: string) => {
     try {
       const user = await login(email, password)
-      navigate(homeRouteFor(user.role))
+      navigate(user.mustChangePassword ? "/change-password" : homeRouteFor(user.role))
     } catch (err) {
       showApiError(message.error, err, "Đăng nhập thất bại") // luôn tiếng Việt; sai mật khẩu = "Email hoặc mật khẩu không đúng."
     }
@@ -95,8 +97,11 @@ export function buildRoutes(flags: RouteFlags): RouteObject[] {
     path: "/setup-password",
     element: <SetupPasswordScreen />,
   },
+  { path: "/activate", element: <ActivationScreen /> },
+  { path: "/change-password", element: <ChangeTemporaryPasswordScreen /> },
   ...(flags.orderTracking ? [{ path: "/t/:token", element: <OrderTrackingScreen /> }] : []),
   roleArea("admin"),
+  roleArea("platform-staff"),
   roleArea("owner"),
   roleArea("manager"),
   {

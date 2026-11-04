@@ -9,7 +9,7 @@ import MockPanel from "./dev/MockPanel";
 import { describePlan } from "./plan/usePlan";
 
 /** Trang công khai luôn dùng nhận diện nền tảng, kể cả khi trình duyệt đang có phiên tenant (không đụng tới phiên đó). */
-const PLATFORM_BRAND_PATHS = ["/setup-password"];
+const PLATFORM_BRAND_PATHS = ["/setup-password", "/activate", "/change-password"];
 
 export default function App() {
   const { currentUser, tenantBranding, plan, bootstrap } = useAppStore();
@@ -38,6 +38,7 @@ export default function App() {
         platformOnly:
           !currentUser ||
           currentUser.role === "admin" ||
+          currentUser.role === "platform-staff" ||
           PLATFORM_BRAND_PATHS.includes(pathname) ||
           pathname.startsWith("/display/"),
         // Nhận diện chỉ áp từ gói Tiêu chuẩn (BR-41); gói thấp hơn dùng nhận diện nền tảng, cấu hình vẫn được giữ.

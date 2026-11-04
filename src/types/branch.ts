@@ -122,6 +122,7 @@ export interface ApiSubscription {
   status?: string;
   expiresAt?: string;
   plan: ApiPlan;
+  nextPlan?: ApiPlan | null;
   quotas: ApiQuota[];
 }
 
