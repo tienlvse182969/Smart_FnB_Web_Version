@@ -59,6 +59,21 @@ export interface ManagerReportTopping {
   additionalRevenue: number;
 }
 
+export interface ManagerReportCombo {
+  comboId: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface ManagerReportCashDrawer {
+  employeeId: string | null;
+  employeeName: string;
+  cashCollected: number;
+  cashRefunded: number;
+  netCash: number;
+}
+
 export interface ManagerReportHour {
   /** 0–23 theo giờ chi nhánh. */
   hour: number;
@@ -95,6 +110,8 @@ export interface ManagerReport {
   payments: ManagerReportPayment[];
   topItems: ManagerReportItem[];
   topToppings: ManagerReportTopping[];
+  topCombos?: ManagerReportCombo[];
+  cashDrawer?: ManagerReportCashDrawer[];
   ordersByHour: ManagerReportHour[];
   /** Thời gian pha trung bình từ lúc bắt đầu tới lúc xong của từng suất, tính bằng giây; null = chưa có suất nào xong trong kỳ. */
   preparation: { averageSeconds: number | null; completedUnits: number };

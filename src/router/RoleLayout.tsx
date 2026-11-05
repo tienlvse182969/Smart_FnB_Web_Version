@@ -6,7 +6,7 @@ import RefreshBoundary from "../components/RefreshBoundary";
 import { useAppStore } from "../store";
 import AttentionWatcher from "../roles/branch/AttentionWatcher";
 import { useAttentionCount } from "../roles/branch/attentionStore";
-import { roleRoutes, type WebRole } from "./routeConfig";
+import { roleBasePath, roleRoutes, type WebRole } from "./routeConfig";
 
 const SEARCH_PLACEHOLDER: Record<WebRole, string> = {
   admin: "Tìm doanh nghiệp, mã tenant…",
@@ -42,7 +42,8 @@ export default function RoleLayout({ role }: { role: WebRole }) {
 
   // Mục sidebar trùng dài nhất với URL: /manager/orders/needs-attention sáng
   // "orders/needs-attention", còn /manager/orders/123 sáng "orders".
-  const relative = pathname.replace(new RegExp(`^/${role}/?`), "");
+  const basePath = roleBasePath(role);
+  const relative = pathname.startsWith(basePath) ? pathname.slice(basePath.length).replace(/^\//, "") : "";
   const section =
     nav
       .filter((n) => relative === n.key || relative.startsWith(`${n.key}/`))
@@ -60,7 +61,7 @@ export default function RoleLayout({ role }: { role: WebRole }) {
       role={role}
       nav={nav}
       section={section}
-      onSection={(key) => navigate(`/${role}/${key}`)}
+      onSection={(key) => navigate(`${basePath}/${key}`)}
       onLogout={handleLogout}
       branchChip={role === "manager" ? branchName : undefined}
       searchPlaceholder={SEARCH_PLACEHOLDER[role]}

@@ -106,11 +106,11 @@ describe("tiền về sau khi QR hết hạn (#61, #75)", () => {
     );
     const text = screen.getByTestId("order-detail-attention-text").textContent ?? "";
     expect(text).not.toMatch(/#75/);
-    expect(text).toMatch(/Xác nhận thủ công/);
+    expect(text).toMatch(/xác nhận thanh toán thủ công/i);
     expect(screen.getByTestId("order-detail-attention").textContent).toMatch(/Tiền về sau khi QR hết hạn/);
     expect(screen.getByTestId("order-confirm-open")).toBeTruthy();
-    expect(screen.getByTestId("order-cancel-open")).toBeTruthy();
-    expect(screen.getByTestId("order-cancel-open-attention")).toBeTruthy();
+    expect(screen.queryByTestId("order-cancel-open")).toBeNull();
+    expect(screen.queryByTestId("order-cancel-open-attention")).toBeNull();
     // Khoản hiện đúng nhãn enum mới, không "Khác (…)", kèm số nhận được và hạn QR.
     const pays = screen.getByTestId("order-detail-payments").textContent ?? "";
     expect(pays).toMatch(/Cần xử lý/);
@@ -135,22 +135,21 @@ describe("hết món khi đơn đã trả (#67)", () => {
     const alert = screen.getByTestId("order-detail-attention").textContent ?? "";
     expect(alert).toMatch(/Hết món \(đơn đã trả\)/);
     expect(alert).not.toMatch(/lệch/i);
-    expect(screen.getByTestId("order-cancel-open")).toBeTruthy();
+    expect(screen.queryByTestId("order-cancel-open")).toBeNull();
     // #48: tiền mặt hiện khách đưa / tiền thối.
     expect(screen.getByTestId("order-detail-payments").textContent).toMatch(/Khách đưa: 100\.000\s?₫ · Tiền thối: 25\.000\s?₫/);
   });
 });
 
-describe("QĐ 122 (đổi QĐ 85, #59): gói hết hạn không khoá xác nhận tay và huỷ đơn đã trả", () => {
-  it("đơn đã trả + gói expired: nút huỷ vẫn bấm được", async () => {
+describe("Store Manager chỉ xem hoàn tiền", () => {
+  it("đơn đã trả + gói expired: Store Manager vẫn không có nút hoàn tiền", async () => {
     act(() =>
       useAppStore.setState({
         plan: { chainId: "c", tier: "STANDARD", planName: "Demo", status: "expired", expiresAt: "2020-01-01T00:00:00.000Z", limits: [], features: {}, source: { limits: "real", features: "real" } } as never,
       }),
     );
     await show(detail({ status: "SUBMITTED", paymentStatus: "PAID", payments: [payment({ method: "CASH", status: "SUCCESS" })] }));
-    const btn = screen.getByTestId("order-cancel-open") as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
+    expect(screen.queryByTestId("order-cancel-open")).toBeNull();
   });
 });
 
@@ -182,7 +181,7 @@ describe("tên người ở khoản hoàn (#73)", () => {
         ],
       }),
     );
-    expect(screen.getByTestId("refund-requested-by").textContent).toBe("Minh Quản lý (Quản lý chi nhánh)");
+    expect(screen.getByTestId("refund-requested-by").textContent).toBe("Minh Quản lý (Store Manager)");
     expect(screen.getByTestId("refund-completed-by").textContent).toBe("Chủ chuỗi");
   });
 });

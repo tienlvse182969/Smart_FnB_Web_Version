@@ -12,6 +12,8 @@ import type {
   ManagerReportItem,
   ManagerReportPayment,
   ManagerReportTopping,
+  ManagerReportCombo,
+  ManagerReportCashDrawer,
 } from "../../../types";
 import { parseAmount } from "../../../lib/reportFormat";
 
@@ -58,6 +60,20 @@ function mapTopping(r: Raw): ManagerReportTopping {
   return { optionId: str(r.optionId) ?? "", name: str(r.name) ?? "—", quantity: num(r.quantity), additionalRevenue: money(r.additionalRevenue) };
 }
 
+function mapCombo(r: Raw): ManagerReportCombo {
+  return { comboId: str(r.comboId) ?? "", name: str(r.name) ?? "—", quantity: num(r.quantity), revenue: money(r.revenue) };
+}
+
+function mapCashDrawer(r: Raw): ManagerReportCashDrawer {
+  return {
+    employeeId: str(r.employeeId),
+    employeeName: str(r.employeeName) ?? "Chưa xác định",
+    cashCollected: money(r.cashCollected),
+    cashRefunded: money(r.cashRefunded),
+    netCash: money(r.netCash),
+  };
+}
+
 function mapHour(r: Raw): ManagerReportHour {
   return { hour: num(r.hour), orderCount: num(r.orderCount) };
 }
@@ -100,6 +116,8 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
     payments: list(body.payments).map(mapPayment),
     topItems: list(body.topItems).map(mapItem),
     topToppings: list(body.topToppings).map(mapTopping),
+    topCombos: list(body.topCombos).map(mapCombo),
+    cashDrawer: list(body.cashDrawer).map(mapCashDrawer),
     ordersByHour: list(body.ordersByHour).map(mapHour),
     // `averageSeconds` null khi chưa có suất nào xong trong kỳ (BE: AVG của tập rỗng); số 0 là số thật.
     preparation: { averageSeconds: typeof prep.averageSeconds === "number" && Number.isFinite(prep.averageSeconds) ? prep.averageSeconds : null, completedUnits: num(prep.completedUnits) },

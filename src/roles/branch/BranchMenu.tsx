@@ -7,6 +7,11 @@ import { branchOptionsApi, groupBranchOptions, showApiError } from "../../api";
 import { useAppStore } from "../../store";
 import { ActionSwitch } from "../../plan/ActionButton";
 import { palette } from "../../theme";
+import {
+  listBranchCombos, listBranchExtras,
+  setBranchComboAvailability, setBranchExtraAvailability,
+  type BranchCombo, type BranchExtra,
+} from "../../api/modules/branchMenuAvailability";
 
 /** Gộp hoa/thường và dấu để tìm theo tên. */
 const fold = (s: string) =>
@@ -60,6 +65,17 @@ export default function BranchMenu() {
   const currentBranchId = useAppStore((s) => s.currentBranchId);
   const [search, setSearch] = useState("");
   const [options, setOptions] = useState<BranchOptionRow[]>([]);
+  const [extras, setExtras] = useState<BranchExtra[]>([]);
+  const [combos, setCombos] = useState<BranchCombo[]>([]);
+
+  const loadExtraCombos = useCallback(async () => {
+    if (!currentBranchId) { setExtras([]); setCombos([]); return; }
+    const [extraResult, comboResult] = await Promise.allSettled([listBranchExtras(), listBranchCombos()]);
+    if (extraResult.status === "fulfilled") setExtras(extraResult.value);
+    else showApiError(message.error, extraResult.reason, "Không tải được topping tại chi nhánh");
+    if (comboResult.status === "fulfilled") setCombos(comboResult.value);
+    else showApiError(message.error, comboResult.reason, "Không tải được combo tại chi nhánh");
+  }, [currentBranchId, message]);
 
   const loadOptions = useCallback(async () => {
     if (!currentBranchId) {
@@ -75,7 +91,8 @@ export default function BranchMenu() {
 
   useEffect(() => {
     void loadOptions();
-  }, [loadOptions]);
+    void loadExtraCombos();
+  }, [loadOptions, loadExtraCombos]);
 
   const needle = fold(search.trim());
 
@@ -154,6 +171,30 @@ export default function BranchMenu() {
     </Tag>
   );
 
+  const toggleExtra = (extra: BranchExtra, on: boolean) => {
+    const save = async () => {
+      try {
+        await setBranchExtraAvailability(extra.id, on);
+        message.success(on ? "Đã bật bán topping" : "Đã tắt bán topping tại chi nhánh");
+        await loadExtraCombos();
+      } catch (failure) { showApiError(message.error, failure, "Không cập nhật được topping"); }
+    };
+    if (on) void save();
+    else modal.confirm({ title: `Tắt bán topping "${extra.name}"?`, content: "Topping sẽ ẩn khỏi POS của chi nhánh.", okText: "Tắt bán", okButtonProps: { danger: true }, onOk: save });
+  };
+
+  const toggleCombo = (row: BranchCombo, on: boolean) => {
+    const save = async () => {
+      try {
+        await setBranchComboAvailability(row.comboId, on);
+        message.success(on ? "Đã bật bán combo" : "Đã tắt bán combo tại chi nhánh");
+        await loadExtraCombos();
+      } catch (failure) { showApiError(message.error, failure, "Không cập nhật được combo"); }
+    };
+    if (on) void save();
+    else modal.confirm({ title: `Tắt bán combo "${row.combo.name}"?`, content: "Combo sẽ ẩn khỏi POS của chi nhánh.", okText: "Tắt bán", okButtonProps: { danger: true }, onOk: save });
+  };
+
   const itemsTab =
     itemGroups.length === 0 ? (
       <Empty description={search ? "Không có món khớp" : "Chi nhánh chưa có món"} />
@@ -208,6 +249,26 @@ export default function BranchMenu() {
       ))
     );
 
+  const extrasTab = extras.filter((extra) => !needle || fold(extra.name).includes(needle)).map((extra) => (
+    <div key={extra.id} data-testid="branch-extra-row" style={rowStyle(!extra.chainAvailable)}>
+      <div style={{ flex: 1 }}><b>{extra.name}</b>{!extra.chainAvailable && ownerTag}</div>
+      <span style={{ color: palette.textSubtle }}>{money(Number(extra.price))}</span>
+      <SwitchCell>{extra.chainAvailable ? (
+        <ActionSwitch size="small" checked={extra.branchAvailable} onChange={(on) => toggleExtra(extra, on)} />
+      ) : <OwnerLockedSwitch testId="branch-extra-locked" />}</SwitchCell>
+    </div>
+  ));
+
+  const combosTab = combos.filter((row) => !needle || fold(row.combo.name).includes(needle)).map((row) => (
+    <div key={row.comboId} data-testid="branch-combo-row" style={rowStyle(!row.combo.isActive)}>
+      <div style={{ flex: 1 }}><b>{row.combo.name}</b>{!row.combo.isActive && ownerTag}</div>
+      <span style={{ color: palette.textSubtle }}>{money(Number(row.combo.price))}</span>
+      <SwitchCell>{row.combo.isActive ? (
+        <ActionSwitch size="small" checked={row.isAvailable} onChange={(on) => toggleCombo(row, on)} />
+      ) : <OwnerLockedSwitch testId="branch-combo-locked" />}</SwitchCell>
+    </div>
+  ));
+
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle title="Món tại chi nhánh" />
@@ -230,6 +291,8 @@ export default function BranchMenu() {
         items={[
           { key: "items", label: "Món", children: itemsTab },
           { key: "options", label: "Tuỳ chọn", children: optionsTab },
+          { key: "extras", label: "Topping", children: extrasTab.length ? extrasTab : <Empty description="Chưa có topping" /> },
+          { key: "combos", label: "Combo", children: combosTab.length ? combosTab : <Empty description="Chưa có combo" /> },
         ]}
       />
     </Card>

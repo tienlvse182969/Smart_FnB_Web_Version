@@ -35,7 +35,7 @@ const buildColumns = (search: string): ColumnsType<OrderSummary> => [
     dataIndex: "callNumber",
     width: 90,
     render: (v: number | null, o) => (
-      <Link to={`/manager/orders/${o.id}`} state={{ from: search } satisfies OrderDetailLocationState} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600 }}>
+      <Link to={`./${o.id}`} state={{ from: search } satisfies OrderDetailLocationState} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600 }}>
         {v ?? "—"}
       </Link>
     ),
@@ -262,7 +262,7 @@ export default function OrderSearch() {
             scroll={{ x: 1000 }}
             locale={{ emptyText }}
             onRow={(order) => ({
-              onClick: () => navigate(`/manager/orders/${order.id}`, { state: { from: search } satisfies OrderDetailLocationState }),
+              onClick: () => navigate(`./${order.id}`, { state: { from: search } satisfies OrderDetailLocationState }),
               style: { cursor: "pointer" },
             })}
             pagination={{

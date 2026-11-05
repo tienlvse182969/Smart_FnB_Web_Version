@@ -48,10 +48,14 @@ import Stations from "../roles/branch/Stations";
 import OrderSearch from "../roles/branch/OrderSearch";
 import OrderDetail from "../roles/branch/OrderDetail";
 import AttentionOrders from "../roles/branch/AttentionOrders";
+import RefundApprovals from "../roles/branch/RefundApprovals";
 import PlatformBusinesses from "../roles/platform-staff/Businesses";
 import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
 
 export type WebRole = "admin" | "platform-staff" | "owner" | "manager";
+
+/** Mã role nội bộ giữ `manager` để tương thích BE; URL và nhãn hiển thị dùng Store Manager. */
+export const roleBasePath = (role: WebRole) => role === "manager" ? "/store-manager" : `/${role}`;
 
 export interface RouteDef {
   /** Đường dẫn con, tương đối so với `/admin`, `/owner`, `/manager`. */
@@ -144,6 +148,13 @@ export const managerRoutes: RouteDef[] = [
     element: <AttentionOrders />,
   },
   {
+    path: "refund-approvals",
+    label: "Duyệt hoàn tiền",
+    icon: <ListChecks size={18} />,
+    code: "BM-06",
+    element: <RefundApprovals />,
+  },
+  {
     path: "orders/:orderId",
     label: "Chi tiết đơn",
     icon: <Receipt size={18} />,
@@ -162,7 +173,7 @@ export const roleRoutes: Record<WebRole, RouteDef[]> = {
 
 /** Đường dẫn tuyệt đối trang đầu tiên của một vai trò — nơi `/admin`, `/owner`, `/manager` chuyển tới. */
 export function roleHomePath(role: WebRole): string {
-  return `/${role}/${roleRoutes[role][0].path}`;
+  return `${roleBasePath(role)}/${roleRoutes[role][0].path}`;
 }
 
 /** Vai trò có khu vực trên web. */

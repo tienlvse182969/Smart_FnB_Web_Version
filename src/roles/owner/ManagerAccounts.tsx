@@ -47,7 +47,7 @@ export default function ManagerAccounts() {
     try {
       setData(await accountApi.listManagers(tenantId, { page, limit: PAGE_SIZE, search, status }));
     } catch (err) {
-      showApiError(message.error, err, "Không tải được danh sách Manager");
+      showApiError(message.error, err, "Không tải được danh sách Store Manager");
     } finally {
       setLoading(false);
     }
@@ -137,7 +137,7 @@ export default function ManagerAccounts() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Tài khoản nhân viên"
-        sub="Mời Manager, Thu ngân và Pha chế qua email; nhân viên tự đặt mật khẩu"
+        sub="Mời Store Manager, Thu ngân và Pha chế qua email; nhân viên tự đặt mật khẩu"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
             Thêm nhân viên
@@ -148,7 +148,7 @@ export default function ManagerAccounts() {
         items={[
           {
             key: "managers",
-            label: `Branch Manager (${data.pagination.total})`,
+            label: `Store Manager (${data.pagination.total})`,
             children: (
               <>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
@@ -177,7 +177,7 @@ export default function ManagerAccounts() {
                   loading={loading}
                   size="middle"
                   scroll={{ x: 860 }}
-                  locale={{ emptyText: "Chưa có Manager nào khớp" }}
+                  locale={{ emptyText: "Chưa có Store Manager nào khớp" }}
                   pagination={{
                     current: data.pagination.page,
                     pageSize: PAGE_SIZE,
@@ -362,7 +362,7 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
     <Drawer title="Mời nhân viên qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <Field label="Họ tên"><Input aria-label="Họ tên" data-testid="owner-invite-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Vai trò"><Select aria-label="Vai trò" value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} /></Field>
+        <Field label="Vai trò"><Select aria-label="Vai trò" value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Store Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} /></Field>
         <Field label="Email nhận lời mời">
           <Input aria-label="Email nhận lời mời" type="email" data-testid="owner-invite-email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(true)} status={touched && !emailValid ? "error" : undefined} aria-describedby="owner-invite-email-help" autoComplete="email" />
           <div id="owner-invite-email-help" role={touched && !emailValid ? "alert" : undefined} style={{ fontSize: 12, marginTop: 4, color: touched && !emailValid ? palette.error.text : palette.textMuted }}>{touched && !emailValid ? "Nhập email hợp lệ." : "Nhân viên nhận link đặt mật khẩu dùng một lần, hiệu lực 24 giờ."}</div>

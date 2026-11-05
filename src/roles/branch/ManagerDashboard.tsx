@@ -3,14 +3,14 @@ import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton,
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { Banknote, Clock, ReceiptText, RefreshCw, Wallet } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { describeApiError, managerReportApi } from "../../api";
 import { paymentMethodInfo } from "../../api/modules/order/codes";
 import { SectionTitle, StatCard } from "../../components/bits";
 import { RANGE_PRESETS, describeRange, formatCount, formatDateTime, formatVnd, formatVndCompact, type RangePreset } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
-import type { ManagerReport, ManagerReportCancelledOrder, ManagerReportItem, ManagerReportPayment, ManagerReportTopping } from "../../types";
+import type { ManagerReport, ManagerReportCancelledOrder, ManagerReportCashDrawer, ManagerReportCombo, ManagerReportItem, ManagerReportPayment, ManagerReportTopping } from "../../types";
 import {
   GRANULARITY_OPTIONS,
   bucketLabel,
@@ -87,13 +87,26 @@ const toppingColumns: ColumnsType<ManagerReportTopping> = [
   { title: "Doanh thu thêm", dataIndex: "additionalRevenue", align: "right", width: 140, render: (v: number) => formatVnd(v) },
 ];
 
-const cancelColumns: ColumnsType<ManagerReportCancelledOrder> = [
+const comboColumns: ColumnsType<ManagerReportCombo> = [
+  { title: "Combo", dataIndex: "name" },
+  { title: "Số lượng", dataIndex: "quantity", align: "right", render: (v: number) => formatCount(v) },
+  { title: "Doanh thu", dataIndex: "revenue", align: "right", render: (v: number) => formatVnd(v) },
+];
+
+const cashDrawerColumns: ColumnsType<ManagerReportCashDrawer> = [
+  { title: "Thu ngân", dataIndex: "employeeName" },
+  { title: "Tiền mặt thu", dataIndex: "cashCollected", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Tiền mặt hoàn", dataIndex: "cashRefunded", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Còn lại", dataIndex: "netCash", align: "right", render: (v: number) => <b>{formatVnd(v)}</b> },
+];
+
+const cancelColumns = (basePath: string): ColumnsType<ManagerReportCancelledOrder> => [
   { title: "Số gọi", dataIndex: "callNumber", width: 90, render: (v: number | null) => v ?? "—" },
   {
     title: "Mã đơn",
     dataIndex: "orderCode",
     render: (v: string, row) => (
-      <Link to={`/manager/orders/${row.id}`} data-testid="report-cancel-link" style={{ fontFamily: "monospace", fontSize: 12.5 }}>
+      <Link to={`${basePath}/orders/${row.id}`} data-testid="report-cancel-link" style={{ fontFamily: "monospace", fontSize: 12.5 }}>
         {v}
       </Link>
     ),
@@ -115,6 +128,8 @@ function isEmptyReport(r: ManagerReport): boolean {
  * đã hoàn và chờ hoàn; web không tự trừ.
  */
 export default function ManagerDashboard() {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/manager/") ? "/manager" : "/store-manager";
   const chainId = useAppStore((s) => s.chainId);
   const branchId = useAppStore((s) => s.currentBranchId);
   const [params, setParams] = useSearchParams();
@@ -312,6 +327,16 @@ export default function ManagerDashboard() {
                   <Table<ManagerReportTopping> rowKey="optionId" size="small" columns={toppingColumns} dataSource={data.topToppings} pagination={false} />
                 </ReportCard>
               </Col>
+              <Col xs={24} lg={12}>
+                <ReportCard title="Combo bán chạy" sub={`Top ${query.limit}`} testId="report-top-combos" empty={!data.topCombos?.length ? "Chưa có combo nào bán trong kỳ." : undefined}>
+                  <Table<ManagerReportCombo> rowKey="comboId" size="small" columns={comboColumns} dataSource={data.topCombos ?? []} pagination={false} />
+                </ReportCard>
+              </Col>
+              <Col xs={24} lg={12}>
+                <ReportCard title="Tiền mặt theo Thu ngân" testId="report-cash-drawer" empty={!data.cashDrawer?.length ? "Chưa có giao dịch tiền mặt trong kỳ." : undefined}>
+                  <Table<ManagerReportCashDrawer> rowKey={(row) => row.employeeId ?? "unknown"} size="small" columns={cashDrawerColumns} dataSource={data.cashDrawer ?? []} pagination={false} scroll={{ x: 600 }} />
+                </ReportCard>
+              </Col>
               <Col xs={24}>
                 <ReportCard
                   title="Đơn huỷ"
@@ -319,10 +344,10 @@ export default function ManagerDashboard() {
                   testId="report-cancellations"
                   empty={data.cancellations.items.length === 0 ? "Không có đơn huỷ trong kỳ." : undefined}
                 >
-                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 640 }} />
+                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns(basePath)} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 640 }} />
                   {data.cancellations.total > data.cancellations.items.length && (
                     <div style={{ marginTop: 10, fontSize: 13 }}>
-                      <Link to={`/manager/orders?${ordersFilterSearch}`} data-testid="report-cancel-all">
+                      <Link to={`${basePath}/orders?${ordersFilterSearch}`} data-testid="report-cancel-all">
                         Xem tất cả đơn huỷ ở Tra cứu đơn
                       </Link>
                     </div>

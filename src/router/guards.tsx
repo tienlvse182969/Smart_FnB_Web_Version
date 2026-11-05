@@ -8,7 +8,7 @@ const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
   "platform-staff": "/platform-staff",
   owner: "/owner",
-  manager: "/manager",
+  manager: "/store-manager",
   cashier: "/login",
   barista: "/login",
 };

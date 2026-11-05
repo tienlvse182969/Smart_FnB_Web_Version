@@ -19,7 +19,7 @@ import CallScreen from "../display/CallScreen"
 import CustomerDisplayScreen from "../display/CustomerDisplayScreen"
 import OrderTrackingScreen from "../display/OrderTrackingScreen"
 import RoleLayout from "./RoleLayout"
-import { roleHomePath, roleRoutes, type WebRole } from "./routeConfig"
+import { roleBasePath, roleHomePath, roleRoutes, type WebRole } from "./routeConfig"
 import { RoleGuard, homeRouteFor } from "./guards"
 import { useAppStore } from "../store"
 
@@ -61,7 +61,7 @@ function LoginWrapper() {
 function roleArea(role: WebRole): RouteObject {
   const home = roleHomePath(role)
   return {
-    path: `/${role}`,
+    path: roleBasePath(role),
     element: (
       <RoleGuard allowedRoles={[role]}>
         <RoleLayout role={role} />
@@ -76,6 +76,11 @@ function roleArea(role: WebRole): RouteObject {
       { path: "*", element: <Navigate to={home} replace /> },
     ],
   }
+}
+
+function LegacyManagerRedirect() {
+  const location = useLocation()
+  return <Navigate to={`/store-manager${location.pathname.slice("/manager".length)}${location.search}${location.hash}`} replace />
 }
 
 /**
@@ -104,6 +109,7 @@ export function buildRoutes(flags: RouteFlags): RouteObject[] {
   roleArea("platform-staff"),
   roleArea("owner"),
   roleArea("manager"),
+  { path: "/manager/*", element: <LegacyManagerRedirect /> },
   {
     // Màn hình đặt ở quầy: công khai, không sidebar, không đăng nhập người dùng.
     path: "/display",

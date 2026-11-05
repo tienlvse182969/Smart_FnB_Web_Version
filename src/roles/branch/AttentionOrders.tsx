@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button, Card, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError, describeApiError, modeOf, orderApi } from "../../api";
 import {
   ATTENTION_STATUS,
@@ -30,6 +30,8 @@ export default function AttentionOrders() {
   const chainId = useAppStore((s) => s.chainId);
   const branchId = useAppStore((s) => s.currentBranchId);
   const navigate = useNavigate();
+  const location = useLocation();
+  const managerBase = location.pathname.startsWith("/manager/") ? "/manager" : "/store-manager";
   const [rows, setRows] = useState<AttentionRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export default function AttentionOrders() {
       align: "right",
       width: 100,
       render: (_: unknown, r) => (
-        <Button size="small" type="primary" data-testid="attention-open" onClick={() => navigate(`/manager/orders/${r.id}`, { state: { from: "" } })}>
+        <Button size="small" type="primary" data-testid="attention-open" onClick={() => navigate(`${managerBase}/orders/${r.id}`, { state: { from: "" } })}>
           Xem
         </Button>
       ),

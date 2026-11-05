@@ -195,7 +195,7 @@ export default function StaffTable() {
           "Đang tải hạn mức…"
         )}
         <div style={{ fontSize: 12, color: palette.textSubtle }}>
-          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Owner, Branch Manager, Cashier, Barista); tài khoản đã khoá không tính (đặc tả 13.1).
+          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Owner, Store Manager, Cashier, Barista); tài khoản đã khoá không tính (đặc tả 13.1).
         </div>
       </div>
 
@@ -404,7 +404,7 @@ function CreateDrawer({ open, branchName, onClose, onSubmit }: { open: boolean; 
   return (
     <Drawer title="Thêm nhân viên" open={open} onClose={onClose} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
       <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 18 }}>
-        Branch Manager tạo tài khoản Cashier và Barista cho chi nhánh mình. Vai trò quyết lúc tạo. Không đặt mật khẩu: nhân viên nhận email đặt mật khẩu.
+        Store Manager tạo tài khoản Cashier và Barista cho chi nhánh mình. Vai trò quyết lúc tạo. Không đặt mật khẩu: nhân viên nhận email đặt mật khẩu.
       </div>
       <Field label="Họ và tên">
         <Input data-testid="staff-name" value={fullName} maxLength={200} onChange={(e) => setFullName(e.target.value)} placeholder="VD: Nguyễn Văn An" />

@@ -5,9 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError, describeApiError, modeOf, orderApi, showApiError } from "../../api";
 import { confirmErrorInfo, confirmableTransfer } from "../../api/modules/order/manualConfirm";
-import { pendingRefundTotal, paidActionErrorInfo, cancelTarget, refundCompletable } from "../../api/modules/order/paidCancel";
+import { pendingRefundTotal } from "../../api/modules/order/paidCancel";
 import ConfirmTransferModal from "./ConfirmTransferModal";
-import { CancelPaidModal, CompleteRefundModal } from "./RefundModals";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
 import {
@@ -27,8 +26,6 @@ import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import type {
-  CancelPaidInput,
-  CompleteRefundInput,
   ConfirmPaymentInput,
   OrderDetail as OrderDetailData,
   OrderDetailLine,
@@ -42,7 +39,6 @@ export interface OrderDetailLocationState {
   from?: string;
 }
 
-const LIST_PATH = "/manager/orders";
 
 const lineTotalExtras = (line: OrderDetailLine) => line.options.reduce((sum, o) => sum + o.priceDelta, 0);
 
@@ -144,7 +140,7 @@ const paymentColumns: ColumnsType<OrderPaymentRecord> = [
 ];
 
 /** Vai trò BE ghi ở khoản hoàn (BE không trả tên người): hiện bằng tiếng Việt. */
-const ROLE_LABEL: Record<string, string> = { MANAGER: "Quản lý chi nhánh", OWNER: "Chủ chuỗi", SYSTEM: "Hệ thống" };
+const ROLE_LABEL: Record<string, string> = { MANAGER: "Store Manager", CASHIER: "Thu ngân", OWNER: "Chủ chuỗi", SYSTEM: "Hệ thống" };
 const roleLabel = (role: string | null) => (role ? (ROLE_LABEL[role] ?? role) : "—");
 /** #73 (BE `fb7cae9`): tên người kèm vai trò, "Họ tên (Quản lý chi nhánh)"; BE không trả tên (hoặc hệ thống) thì chỉ vai trò. */
 const actorLabel = (name: string | null | undefined, role: string | null) => (name ? (role ? `${name} (${roleLabel(role)})` : name) : roleLabel(role));
@@ -160,13 +156,13 @@ function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord |
         ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
         : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
     case "RECEIVED_AFTER_EXPIRY":
-      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Đã kiểm tra tiền vào tài khoản thì "Xác nhận thủ công" (đơn xuống pha chế), nếu không thì "Huỷ đơn và ghi hoàn tiền" (hoàn đúng số đã nhận).${since}`;
+      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Store Manager kiểm tra và xác nhận thanh toán thủ công khi tiền đã vào tài khoản; trường hợp cần hoàn tiền, Thu ngân gửi yêu cầu hoàn.${since}`;
     case "ITEM_OUT_OF_STOCK":
-      return `Pha chế báo hết món trong đơn đã trả tiền. Xem các dòng "Hết món" bên dưới; không làm được thì huỷ đơn (hoặc dòng) và ghi hoàn tiền.${since}`;
+      return `Pha chế báo hết món trong đơn đã trả tiền. Xem các dòng "Hết món" bên dưới và hướng dẫn Thu ngân xử lý hoàn tiền.${since}`;
     case "OPTION_OUT_OF_STOCK":
-      return `Một tuỳ chọn trong đơn đã trả tiền được báo hết. Xem các dòng "Hết món" bên dưới; không làm được thì huỷ đơn (hoặc dòng) và ghi hoàn tiền.${since}`;
+      return `Một tuỳ chọn trong đơn đã trả tiền được báo hết. Xem các dòng "Hết món" bên dưới và hướng dẫn Thu ngân xử lý hoàn tiền.${since}`;
     case "RECEIVED_AFTER_CANCELLATION":
-      return `Tiền về sau khi đơn đã huỷ. Hoàn lại cho khách rồi đánh dấu đã hoàn.${since}`;
+      return `Tiền về sau khi đơn đã huỷ. Phối hợp với Thu ngân xử lý yêu cầu hoàn tiền.${since}`;
     default:
       return `Đơn đang ở trạng thái cần xử lý nhưng chưa rõ lý do.${since}`;
   }
@@ -184,13 +180,11 @@ export default function OrderDetail() {
   const branchId = useAppStore((s) => s.currentBranchId);
   const navigate = useNavigate();
   const location = useLocation();
+  const listPath = location.pathname.startsWith("/manager/") ? "/manager/orders" : "/store-manager/orders";
   const from = (location.state as OrderDetailLocationState | null)?.from ?? "";
   const { message } = App.useApp();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  /** Id khoản hoàn đang mở hộp "Đánh dấu đã hoàn". */
-  const [completeId, setCompleteId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Bấm đúp nhanh chỉ gửi 1 request (state cập nhật bất đồng bộ nên giữ thêm ref).
   const inFlight = useRef(false);
@@ -249,24 +243,7 @@ export default function OrderDetail() {
     message.info(`Đơn vừa được cập nhật (${orderStatusInfo(order.status).label}), không cần xác nhận nữa.`);
   }, [confirmOpen, submitting, order, message]);
 
-  // Cùng ý quyết định 102 cho hộp huỷ / đánh dấu đã hoàn: dữ liệu mới cho thấy hết điều kiện (đơn đã giao, đã huỷ ở nơi khác, khoản
-  // đã hoàn) → đóng hộp và nói rõ. Không chạy khi đang gửi.
-  useEffect(() => {
-    if (submitting || !order) return;
-    if (cancelOpen && !cancelTarget(order)) {
-      setCancelOpen(false);
-      message.info(`Đơn vừa được cập nhật (${orderStatusInfo(order.status).label}), không huỷ được nữa.`);
-    }
-    if (completeId) {
-      const r = order.refunds.find((x) => x.id === completeId);
-      if (!r || !refundCompletable(r)) {
-        setCompleteId(null);
-        message.info("Khoản hoàn này vừa được cập nhật, không cần đánh dấu nữa.");
-      }
-    }
-  }, [cancelOpen, completeId, submitting, order, message]);
-
-  const back =() => navigate(`${LIST_PATH}${from}`);
+  const back =() => navigate(`${listPath}${from}`);
 
   /**
    * Xác nhận thủ công (quyết định 84): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi);
@@ -285,56 +262,6 @@ export default function OrderDetail() {
       showApiError(message.error, err, "Không xác nhận được thanh toán. Thử lại sau.");
       if (confirmErrorInfo(err).refresh) {
         setConfirmOpen(false);
-        await load(true);
-      }
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  /**
-   * Huỷ đơn đã trả (BM-06): đúng 1 request; thành công → đóng hộp, thông báo, GET lại (KHÔNG vẽ từ phản hồi); 409/404 → câu tiếng Việt qua
-   * `showApiError`, GET lại, đóng hộp; 400/403/5xx/mạng → báo và giữ hộp để sửa hoặc thử lại.
-   */
-  const submitCancel = async (input: CancelPaidInput) => {
-    if (inFlight.current || !chainId || !branchId) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    try {
-      await orderApi.cancelPaidOrder({ chainId, branchId }, orderId, input);
-      setCancelOpen(false);
-      message.success(
-        input.refundMethod === "CASH"
-          ? "Đã huỷ đơn và ghi hoàn tiền mặt. Hãy trả tiền lại cho khách."
-          : "Đã huỷ đơn và ghi khoản chờ hoàn tiền. Sau khi chuyển khoản, bấm “Đánh dấu đã hoàn”.",
-      );
-      await load(true);
-    } catch (err) {
-      showApiError(message.error, err, "Không huỷ được đơn. Thử lại sau.");
-      if (paidActionErrorInfo(err).refresh) {
-        setCancelOpen(false);
-        await load(true);
-      }
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  const submitComplete = async (refundId: string, input: CompleteRefundInput) => {
-    if (inFlight.current || !chainId || !branchId) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    try {
-      await orderApi.completeRefund({ chainId, branchId }, refundId, input);
-      setCompleteId(null);
-      message.success("Đã đánh dấu khoản hoàn là đã hoàn tiền.");
-      await load(true);
-    } catch (err) {
-      showApiError(message.error, err, "Không đánh dấu được khoản hoàn. Thử lại sau.");
-      if (paidActionErrorInfo(err).refresh) {
-        setCompleteId(null);
         await load(true);
       }
     } finally {
@@ -407,9 +334,7 @@ export default function OrderDetail() {
   const confirmable = confirmableTransfer(order);
   const mismatch = order.payments.find((p) => p.status === "AMOUNT_MISMATCH");
   const attentionReason = attentionReasonInfo(order);
-  const target = cancelTarget(order);
   const pendingTotal = pendingRefundTotal(order.refunds);
-  const completing = completeId ? (order.refunds.find((r) => r.id === completeId) ?? null) : null;
 
   const refundColumns: ColumnsType<OrderRefundRecord> = [
     { title: "Số tiền", dataIndex: "amount", align: "right", width: 130, render: (v: number) => <b>{formatVnd(v)}</b> },
@@ -445,19 +370,6 @@ export default function OrderDetail() {
           )}
         </div>
       ),
-    },
-    {
-      title: "",
-      key: "action",
-      width: 170,
-      render: (_: unknown, r) =>
-        // KHÔNG dùng ActionButton: BE chủ ý để khoản phải hoàn vẫn xử lý được khi gói hết hạn/tạm ngưng
-        // (`paid-order-refund.service.ts` `assertRefundAccess`: "Refund obligations remain actionable"), nên không khoá theo chế độ chỉ đọc.
-        refundCompletable(r) ? (
-          <Button size="small" type="primary" data-testid="refund-complete-open" onClick={() => setCompleteId(r.id)}>
-            Đánh dấu đã hoàn
-          </Button>
-        ) : null,
     },
   ];
 
@@ -504,14 +416,6 @@ export default function OrderDetail() {
           showIcon
           style={{ marginBottom: 16 }}
           message={`Đơn cần xử lý — ${attentionReason.label}`}
-          action={
-            // QĐ 122: huỷ đơn đã trả không khoá khi gói hết hạn (tiền đã nhận phải xử lý được).
-            target && target.kind !== "paid" && (
-              <Button danger data-testid="order-cancel-open-attention" onClick={() => setCancelOpen(true)}>
-                Huỷ đơn và ghi hoàn tiền
-              </Button>
-            )
-          }
           description={
             <div data-testid="order-detail-attention-text">
               {attentionText(attentionReason.kind, mismatch ?? null, order.attentionAt ?? null)}
@@ -570,14 +474,8 @@ export default function OrderDetail() {
         style={{ borderRadius: 14 }}
         styles={{ body: { padding: 0 } }}
         extra={
-          (confirmable || target) && (
+          confirmable && (
             <Space>
-              {target && (
-                // QĐ 122 (đổi QĐ 85, theo #59): KHÔNG khoá khi gói hết hạn/tạm ngưng — BE không kiểm gói cho huỷ đơn đã trả và xác nhận tay.
-                <Button danger data-testid="order-cancel-open" onClick={() => setCancelOpen(true)}>
-                  Huỷ đơn và ghi hoàn tiền
-                </Button>
-              )}
               {confirmable && (
                 <Button type="primary" data-testid="order-confirm-open" onClick={() => setConfirmOpen(true)}>
                   Xác nhận thủ công
@@ -623,28 +521,6 @@ export default function OrderDetail() {
             scroll={{ x: 760 }}
           />
         </Card>
-      )}
-
-      {target && (
-        <CancelPaidModal
-          open={cancelOpen}
-          order={order}
-          target={target}
-          submitting={submitting}
-          onCancel={() => setCancelOpen(false)}
-          onSubmit={(input) => void submitCancel(input)}
-        />
-      )}
-
-      {completing && (
-        <CompleteRefundModal
-          open
-          order={order}
-          refund={completing}
-          submitting={submitting}
-          onCancel={() => setCompleteId(null)}
-          onSubmit={(input) => void submitComplete(completing.id, input)}
-        />
       )}
 
       {confirmable && (
