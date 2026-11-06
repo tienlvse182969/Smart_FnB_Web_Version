@@ -46,18 +46,18 @@ describe("describePlan / usePlan", () => {
     expect(v.isExpired).toBe(false);
   });
 
-  it("cờ tính năng theo cấp: Cơ bản không có gì, Tiêu chuẩn có nhận diện + so sánh, Nâng cao có thêm AI", () => {
+  it("cờ tính năng theo cấp: Cơ bản không có gì, Tiêu chuẩn và Nâng cao có nhận diện + so sánh", () => {
     const basic = describePlan(makePlan("BASIC"));
-    expect([basic.hasFeature("branding"), basic.hasFeature("multiBranchCompare"), basic.hasFeature("aiAssistant")]).toEqual([false, false, false]);
+    expect([basic.hasFeature("branding"), basic.hasFeature("multiBranchCompare")]).toEqual([false, false]);
     const standard = describePlan(makePlan("STANDARD"));
-    expect([standard.hasFeature("branding"), standard.hasFeature("multiBranchCompare"), standard.hasFeature("aiAssistant")]).toEqual([true, true, false]);
+    expect([standard.hasFeature("branding"), standard.hasFeature("multiBranchCompare")]).toEqual([true, true]);
     const advanced = describePlan(makePlan("ADVANCED"));
-    expect([advanced.hasFeature("branding"), advanced.hasFeature("multiBranchCompare"), advanced.hasFeature("aiAssistant")]).toEqual([true, true, true]);
+    expect([advanced.hasFeature("branding"), advanced.hasFeature("multiBranchCompare")]).toEqual([true, true]);
   });
 
   it("requiredTierLabel cho thẻ khoá", () => {
     const v = describePlan(makePlan("BASIC"));
-    expect(v.requiredTierLabel("aiAssistant")).toBe("Nâng cao");
+    expect(v.requiredTierLabel("multiBranchCompare")).toBe("Tiêu chuẩn");
     expect(v.requiredTierLabel("branding")).toBe("Tiêu chuẩn");
   });
 
@@ -69,7 +69,7 @@ describe("describePlan / usePlan", () => {
 
   it("chưa biết gói thì không khoá (BE vẫn chặn thật)", () => {
     const v = describePlan(null);
-    expect(v.hasFeature("aiAssistant")).toBe(true);
+    expect(v.hasFeature("branding")).toBe(true);
     expect(v.isExpired).toBe(false);
     expect(v.tier).toBeNull();
   });
@@ -79,44 +79,44 @@ describe("describePlan / usePlan", () => {
     expect(result.current.plan).toBeNull();
     setPlan(makePlan("ADVANCED"));
     expect(result.current.tier).toBe("ADVANCED");
-    expect(result.current.hasFeature("aiAssistant")).toBe(true);
+    expect(result.current.hasFeature("branding")).toBe(true);
     setPlan(makePlan("BASIC"));
-    expect(result.current.hasFeature("aiAssistant")).toBe(false);
+    expect(result.current.hasFeature("branding")).toBe(false);
   });
 });
 
 describe("<FeatureGate>", () => {
   const renderGate = () =>
     render(
-      <FeatureGate feature="aiAssistant">
-        <div>nội dung AI</div>
+      <FeatureGate feature="branding">
+        <div>nội dung nhận diện</div>
       </FeatureGate>,
     );
 
   it("gói có tính năng → hiện nội dung", () => {
     setPlan(makePlan("ADVANCED"));
     renderGate();
-    expect(screen.getByText("nội dung AI")).toBeTruthy();
+    expect(screen.getByText("nội dung nhận diện")).toBeTruthy();
     expect(screen.queryByTestId("feature-lock")).toBeNull();
   });
 
   it("gói thiếu → hiện thẻ khoá kèm tên gói cần nâng, KHÔNG ẩn hẳn", () => {
-    setPlan(makePlan("STANDARD"));
+    setPlan(makePlan("BASIC"));
     renderGate();
-    expect(screen.queryByText("nội dung AI")).toBeNull();
+    expect(screen.queryByText("nội dung nhận diện")).toBeNull();
     const lock = screen.getByTestId("feature-lock");
-    expect(lock.textContent).toContain("Trợ lý AI");
-    expect(lock.textContent).toContain("Nâng cao");
-    expect(lock.textContent).toContain("Tiêu chuẩn"); // gói hiện tại
+    expect(lock.textContent).toContain("Nhận diện thương hiệu");
+    expect(lock.textContent).toContain("Tiêu chuẩn");
+    expect(lock.textContent).toContain("Cơ bản"); // gói hiện tại
   });
 
   it("đổi gói thì khoá/mở theo", () => {
     setPlan(makePlan("BASIC"));
     renderGate();
     expect(screen.getByTestId("feature-lock")).toBeTruthy();
-    setPlan(makePlan("ADVANCED"));
+    setPlan(makePlan("STANDARD"));
     expect(screen.queryByTestId("feature-lock")).toBeNull();
-    expect(screen.getByText("nội dung AI")).toBeTruthy();
+    expect(screen.getByText("nội dung nhận diện")).toBeTruthy();
   });
 
   it("nhận diện: khoá ở Cơ bản, mở từ Tiêu chuẩn", () => {

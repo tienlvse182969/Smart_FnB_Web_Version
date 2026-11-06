@@ -238,13 +238,7 @@ function PlanDrawer({
         <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 2 }}>
           Cấp: {tier ? PLAN_TIER_LABEL[tier] : "Chưa xếp cấp (coi như Cơ bản)"}
         </div>
-        <div style={{ fontSize: 11.5, color: palette.textSubtle, marginBottom: 8 }}>Cờ AI suy từ mã gói theo đặc tả 13.1 — chờ BE lưu cờ AI và cấp (api-contract-plan #30)</div>
-        {FEATURE_KEYS.filter((key) => key === "aiAssistant").map((key) => (
-          <div key={key} data-testid={`plan-feature-${key}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "3px 0" }}>
-            {derived[key].enabled ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />}
-            <span style={{ color: derived[key].enabled ? palette.ink : palette.textSubtle }}>{FEATURE_LABEL[key]}</span>
-          </div>
-        ))}
+        <div style={{ fontSize: 11.5, color: palette.textSubtle }}>Cấp suy từ mã gói (BE chưa lưu cấp). Hai cờ tính năng ở trên là cờ BE lưu trên gói.</div>
       </div>
 
       <ActionButton type="primary" block loading={saving} disabled={!valid} onClick={submit}>

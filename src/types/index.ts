@@ -4,7 +4,6 @@ export * from "./auth";
 export * from "./tenant";
 export * from "./branch";
 export * from "./menu";
-export * from "./ai";
 export * from "./plan";
 export * from "./option";
 export * from "./order";

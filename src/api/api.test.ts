@@ -355,7 +355,6 @@ describe("gói (plan)", () => {
     expect(plan.tier).toBe("STANDARD");
     expect(plan.status).toBe("expired");
     expect(plan.features.branding.enabled).toBe(true);
-    expect(plan.features.aiAssistant.enabled).toBe(false);
     expect(new Date(plan.expiresAt!).getTime()).toBeLessThan(Date.now());
   });
 
@@ -382,13 +381,13 @@ describe("gói (plan)", () => {
     setScenario({ profile: "A", tier: null, expired: false });
     const chainOf = (code: string, flags: object) =>
       ({ id: "c", subscription: { plan: { name: "G", code, ...flags }, quotas: [] } }) as unknown as ApiChain;
-    // Mã ADVANCED nhưng BE tắt hai cờ → theo BE; AI vẫn bật theo mã.
+    // Mã ADVANCED nhưng BE tắt hai cờ → theo BE.
     const off = await planReal.getPlan("c", { chains: [chainOf("ADVANCED", { brandingEnabled: false, multiBranchComparisonEnabled: false })] });
-    expect([off.features.branding.enabled, off.features.multiBranchCompare.enabled, off.features.aiAssistant.enabled]).toEqual([false, false, true]);
+    expect([off.features.branding.enabled, off.features.multiBranchCompare.enabled]).toEqual([false, false]);
     expect(off.source.features).toBe("real");
     // Mã BASIC (lạ) nhưng BE bật cờ → theo BE.
     const on = await planReal.getPlan("c", { chains: [chainOf("DEMO_OPERATIONS", { brandingEnabled: true, multiBranchComparisonEnabled: true })] });
-    expect([on.features.branding.enabled, on.features.multiBranchCompare.enabled, on.features.aiAssistant.enabled]).toEqual([true, true, false]);
+    expect([on.features.branding.enabled, on.features.multiBranchCompare.enabled]).toEqual([true, true]);
     // BE cũ không trả cờ → suy từ mã.
     const legacy = await planReal.getPlan("c", { chains: [chainOf("STANDARD", {})] });
     expect([legacy.features.branding.enabled, legacy.features.multiBranchCompare.enabled]).toEqual([true, true]);
@@ -407,7 +406,7 @@ describe("gói (plan)", () => {
     expect(plan.limits).toEqual([]);
     expect(plan.source.limits).toBe("mock");
     expect(plan.subscriptionUnavailable).toBe(true);
-    expect(plan.features.aiAssistant.requiredTier).toBe("ADVANCED");
+    expect(plan.features.branding.requiredTier).toBe("STANDARD");
   });
 });
 

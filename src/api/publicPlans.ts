@@ -31,8 +31,6 @@ function fromServicePlan(plan: Awaited<ReturnType<typeof adminApi.listPublicPlan
     features: {
       branding: plan.brandingEnabled,
       multiBranchCompare: plan.multiBranchComparisonEnabled,
-      // BE chưa có cờ AI; chỉ cờ này còn tạm suy từ cấp/mã gói.
-      aiAssistant: tier ? featuresForTier(tier).aiAssistant.enabled : false,
     },
   };
 }

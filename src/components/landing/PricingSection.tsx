@@ -14,7 +14,6 @@ function limitLines(plan: PublicPlan): string[] {
     "POS, pha chế, màn hình gọi số, báo cáo chi nhánh",
     ...(plan.features.branding ? ["Nhận diện thương hiệu riêng"] : []),
     ...(plan.features.multiBranchCompare ? ["So sánh doanh thu đa chi nhánh"] : []),
-    ...(plan.features.aiAssistant ? ["Trợ lý AI hỏi đáp số liệu"] : []),
   ];
 }
 

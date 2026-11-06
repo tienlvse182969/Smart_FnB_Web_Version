@@ -25,7 +25,7 @@ const plan = (status: PlanInfo["status"]): PlanInfo => ({
   status,
   expiresAt: status === "active" ? "2099-12-31T23:59:59.999Z" : "2020-01-01T00:00:00.000Z",
   limits: [],
-  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" }, aiAssistant: { enabled: false, requiredTier: "ADVANCED" } },
+  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" } },
   source: { limits: "real", features: "real" },
 });
 

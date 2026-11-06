@@ -31,7 +31,7 @@ describe("quy ước cấp gói theo mã", () => {
     const on = (t: Parameters<typeof featuresForTier>[0]) => Object.entries(featuresForTier(t)).filter(([, f]) => f.enabled).map(([k]) => k);
     expect(on("BASIC")).toEqual([]);
     expect(on("STANDARD")).toEqual(["branding", "multiBranchCompare"]);
-    expect(on("ADVANCED")).toEqual(["branding", "multiBranchCompare", "aiAssistant"]);
+    expect(on("ADVANCED")).toEqual(["branding", "multiBranchCompare"]);
   });
 
   it("gợi ý mã từ tên: ba tên chuẩn ra ba mã cấp, tên khác ra chữ hoa không dấu", () => {
@@ -51,7 +51,6 @@ describe("usePlan/FeatureGate dùng chung một nguồn với quy ước", () =>
     const standard = await planReal.getPlan("c", { chains: [chainWithPlan("STANDARD")] });
     expect(standard.tier).toBe("STANDARD");
     expect(describePlan(standard).hasFeature("branding")).toBe(true);
-    expect(describePlan(standard).hasFeature("aiAssistant")).toBe(false);
     const unknown = await planReal.getPlan("c", { chains: [chainWithPlan("DEMO_OPERATIONS")] });
     expect(unknown.tier).toBe("BASIC");
     expect(describePlan(unknown).hasFeature("branding")).toBe(false);
@@ -75,7 +74,7 @@ describe("một nguồn cấu hình gói mock", () => {
       expect(p.maxAccounts).toBe(MOCK_TIER_LIMITS[tier].accounts);
       expect(MOCK_PLAN_CATALOG.some((c) => c.code === p.code)).toBe(true);
     }
-    expect(pub[2].features.aiAssistant).toBe(true);
+    expect(pub[2].features.multiBranchCompare).toBe(true);
     expect(pub[0].features.branding).toBe(false);
   });
 });
