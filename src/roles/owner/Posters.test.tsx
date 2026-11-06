@@ -66,3 +66,26 @@ describe("chọn tệp", () => {
     expect(add).not.toHaveBeenCalled();
   });
 });
+
+describe("giới hạn 6 áp phích (BR-51)", () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => poster(`p${i}`, { sortOrder: i }));
+
+  it("đủ 6: khoá nút thêm, chưa có cảnh báo vượt", async () => {
+    await show(many(6));
+    expect((screen.getByTestId("poster-add") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId("posters-over-limit")).toBeNull();
+  });
+
+  it("đã có 8 (tạo theo giới hạn cũ): vẫn hiện đủ 8, báo vượt giới hạn, khoá nút thêm, vẫn có nút xoá", async () => {
+    await show(many(8));
+    expect(screen.getAllByTestId(/^poster-row-/)).toHaveLength(8);
+    expect(screen.getByTestId("posters-over-limit").textContent).toMatch(/8 poster, vượt giới hạn 6/);
+    expect((screen.getByTestId("poster-add") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText("Xoá").length).toBeGreaterThan(0);
+  });
+
+  it("không còn ô chỉnh thời lượng", async () => {
+    await show(many(2));
+    expect(screen.queryByLabelText("Thời lượng hiển thị (giây)")).toBeNull();
+  });
+});

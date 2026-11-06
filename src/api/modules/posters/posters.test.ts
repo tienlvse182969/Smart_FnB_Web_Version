@@ -10,7 +10,6 @@ import {
   MAX_POSTERS,
   MAX_POSTER_BYTES,
   comparePosters,
-  validatePosterDuration,
   validatePosterFile,
   validatePosterPatch,
   validatePosterSortOrder,
@@ -46,18 +45,15 @@ describe("kiểm poster (theo BE display-posters)", () => {
     expect(validatePosterFile({ type: "image/png", size: 0 })).toMatch(/rỗng/);
   });
 
-  it("tên 1–120 ký tự sau khi cắt khoảng trắng", () => {
+  it("tên 1–50 ký tự sau khi cắt khoảng trắng", () => {
     expect(validatePosterTitle(undefined)).toBeNull();
-    expect(validatePosterTitle("a".repeat(120))).toBeNull();
-    expect(validatePosterTitle("a".repeat(121))).toMatch(/120/);
+    expect(validatePosterTitle("a".repeat(50))).toBeNull();
+    expect(validatePosterTitle("a".repeat(51))).toMatch(/50/);
     expect(validatePosterTitle("   ")).toMatch(/không được để trống/);
     expect(validatePosterTitle("")).toMatch(/không được để trống/);
   });
 
-  it("thời lượng là số nguyên 3–60; thứ tự là số nguyên 0–10000", () => {
-    expect(validatePosterDuration(undefined)).toBeNull();
-    for (const ok of [3, 8, 60]) expect(validatePosterDuration(ok)).toBeNull();
-    for (const bad of [2, 61, 7.5, Number.NaN]) expect(validatePosterDuration(bad)).toMatch(/3 đến 60/);
+  it("thứ tự là số nguyên 0–10000", () => {
     for (const ok of [0, 5, 10000]) expect(validatePosterSortOrder(ok)).toBeNull();
     for (const bad of [-1, 10001, 1.5]) expect(validatePosterSortOrder(bad)).toMatch(/0 đến 10000/);
   });
@@ -65,7 +61,7 @@ describe("kiểm poster (theo BE display-posters)", () => {
   it("sửa rỗng bị từ chối (BE trả 400); có ít nhất một trường hợp lệ thì qua", () => {
     expect(validatePosterPatch({})).toMatch(/ít nhất một trường/);
     expect(validatePosterPatch({ enabled: false })).toBeNull();
-    expect(validatePosterPatch({ durationSeconds: 90 })).toMatch(/3 đến 60/);
+    expect(validatePosterPatch({ title: "a".repeat(51) })).toMatch(/50/);
   });
 
   it("sắp theo sortOrder, rồi createdAt, rồi id (như BE)", () => {
@@ -138,28 +134,28 @@ describe("real posters — fetch giả, không gọi BE", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("POST vượt 10 poster: BE trả 409, lỗi được ném lại với status 409", async () => {
+  it("POST vượt giới hạn poster: BE trả 409, lỗi được ném lại với status 409", async () => {
     stub(json({ statusCode: 409, message: "A chain may have at most 10 posters; remove one before uploading" }, 409));
     await expect(postersReal.addPoster("c1", { file: file() })).rejects.toMatchObject({ status: 409 });
   });
 
   it("PATCH: chỉ gửi khoá có mặt (tên đã cắt khoảng trắng), đúng route và phương thức", async () => {
-    const fn = stub(json(raw({ durationSeconds: 20, title: "Khuyến mãi" })));
-    const out = await postersReal.updatePoster("c1", "p1", { title: " Khuyến mãi ", durationSeconds: 20 });
+    const fn = stub(json(raw({ title: "Khuyến mãi" })));
+    const out = await postersReal.updatePoster("c1", "p1", { title: " Khuyến mãi " });
     expect(calls(fn)[0]).toMatchObject({ path: "/restaurant-chains/c1/display-posters/p1", method: "PATCH", contentType: "application/json" });
-    expect(JSON.parse(String(calls(fn)[0].body))).toEqual({ title: "Khuyến mãi", durationSeconds: 20 });
-    expect(out.durationSeconds).toBe(20);
+    expect(JSON.parse(String(calls(fn)[0].body))).toEqual({ title: "Khuyến mãi" });
+    expect(out.title).toBe("Khuyến mãi");
     await postersReal.updatePoster("c1", "p1", { enabled: false });
     expect(JSON.parse(String(calls(fn)[1].body))).toEqual({ enabled: false });
     await postersReal.updatePoster("c1", "p1", { sortOrder: 0 });
     expect(JSON.parse(String(calls(fn)[2].body))).toEqual({ sortOrder: 0 });
   });
 
-  it("PATCH rỗng, tên rỗng, thời lượng ngoài 3–60: 400, KHÔNG có request nào", async () => {
+  it("PATCH rỗng, tên rỗng, tên quá 50 ký tự: 400, KHÔNG có request nào", async () => {
     const fn = stub();
     await expect(postersReal.updatePoster("c1", "p1", {})).rejects.toMatchObject({ status: 400 });
     await expect(postersReal.updatePoster("c1", "p1", { title: "  " })).rejects.toMatchObject({ status: 400 });
-    await expect(postersReal.updatePoster("c1", "p1", { durationSeconds: 2 })).rejects.toMatchObject({ status: 400 });
+    await expect(postersReal.updatePoster("c1", "p1", { title: "a".repeat(51) })).rejects.toMatchObject({ status: 400 });
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -202,23 +198,22 @@ describe("mock posters — phản chiếu BE", () => {
     expect(await postersMock.listPosters("c2")).toEqual([]);
   });
 
-  it("tệp sai: 400; đủ 10 poster: 409", async () => {
+  it("tệp sai: 400; đủ 6 poster: 409", async () => {
     await expect(postersMock.addPoster("c1", { file: file("image/gif") })).rejects.toMatchObject({ status: 400 });
     for (let i = 0; i < MAX_POSTERS; i++) await postersMock.addPoster("c1", { file: file() });
     await expect(postersMock.addPoster("c1", { file: file() })).rejects.toMatchObject({ status: 409 });
   });
 
-  it("PATCH đổi tên, bật/tắt, thời lượng, thứ tự; sửa rỗng, tên rỗng, ngoài khoảng, không tồn tại đều bị từ chối", async () => {
+  it("PATCH đổi tên, bật/tắt, thứ tự; sửa rỗng, tên rỗng, ngoài khoảng, không tồn tại đều bị từ chối", async () => {
     const a = await postersMock.addPoster("c1", { file: file() });
-    expect(await postersMock.updatePoster("c1", a.id, { title: " Matcha ", enabled: false, durationSeconds: 15, sortOrder: 7 })).toMatchObject({
+    expect(await postersMock.updatePoster("c1", a.id, { title: " Matcha ", enabled: false, sortOrder: 7 })).toMatchObject({
       title: "Matcha",
       enabled: false,
-      durationSeconds: 15,
       sortOrder: 7,
     });
     await expect(postersMock.updatePoster("c1", a.id, {})).rejects.toMatchObject({ status: 400 });
     await expect(postersMock.updatePoster("c1", a.id, { title: "" })).rejects.toMatchObject({ status: 400 });
-    await expect(postersMock.updatePoster("c1", a.id, { durationSeconds: 61 })).rejects.toMatchObject({ status: 400 });
+    await expect(postersMock.updatePoster("c1", a.id, { title: "a".repeat(51) })).rejects.toMatchObject({ status: 400 });
     await expect(postersMock.updatePoster("c1", "khong-co", { enabled: true })).rejects.toMatchObject({ status: 404 });
   });
 

@@ -60,7 +60,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   manager_report: "real (7.3, BM-03): GET /manager/reports (từ/đến theo ngày giờ Việt Nam, kỳ ngày/tuần/tháng, top 10), chỉ đọc; tách khỏi `report` của Owner (/reports/*); mock = VITE_API_MANAGER_REPORT=mock",
   admin: "real: hồ sơ đăng ký, gói dịch vụ, doanh nghiệp, tài khoản Platform Staff, hoá đơn thuê bao. BE chưa có doanh thu nền tảng (PA-06)",
   payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
-  posters: "real (OW-11, BE 77526c3): GET/POST/PATCH/DELETE restaurant-chains/{id}/display-posters (chỉ OWNER, tối đa 10, ≤ 5 MB, thời lượng 3–60 giây); BE không có đổi ảnh tại chỗ, không có sắp xếp hàng loạt, không khoá theo gói; mock = VITE_API_POSTERS=mock",
+  posters: "real (OW-11): GET/POST/PATCH/DELETE restaurant-chains/{id}/display-posters (chỉ OWNER). Web theo đặc tả BR-51/52: tối đa 6 ảnh, ≤ 5 MB, tên ≤ 50, xoay 8 giây cố định; BE cho tới 10 ảnh, tên 120, thời lượng 3–60 giây. BE không có đổi ảnh tại chỗ; mock = VITE_API_POSTERS=mock",
 };
 
 type Env = Record<string, string | undefined>;
