@@ -195,7 +195,7 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
             </ActionButton>
           )}
           <ActionButton block icon={<KeyRound size={16} />} disabled={business.owners.length === 0} onClick={() => onDialog("reset")}>
-            Đặt lại mật khẩu Owner
+            Đặt lại mật khẩu Brand Manager
           </ActionButton>
         </div>
       )}
@@ -423,14 +423,14 @@ function ResetModal({ open, business, onClose }: DialogProps) {
   };
 
   return (
-    <Modal title="Đặt lại mật khẩu Owner" open={open} onCancel={onClose} footer={null} destroyOnHidden>
+    <Modal title="Đặt lại mật khẩu Brand Manager" open={open} onCancel={onClose} footer={null} destroyOnHidden>
       <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-        Hệ thống thu hồi các phiên đang đăng nhập của Owner và xếp một email đặt mật khẩu mới (dùng một lần, hiệu lực 24 giờ). Thao tác này không hiện mật
+        Hệ thống thu hồi các phiên đang đăng nhập của Brand Manager và xếp một email đặt mật khẩu mới (dùng một lần, hiệu lực 24 giờ). Thao tác này không hiện mật
         khẩu.
       </div>
       {business.owners.length > 1 && (
         <>
-          {label("Chọn Owner")}
+          {label("Chọn Brand Manager")}
           <Select
             style={{ width: "100%" }}
             value={ownerId}
@@ -441,7 +441,7 @@ function ResetModal({ open, business, onClose }: DialogProps) {
       )}
       {owner && (
         <div style={{ marginTop: 12, padding: "10px 14px", background: palette.paperSubtle, borderRadius: 10, fontSize: 13.5 }}>
-          Owner: <b>{owner.name}</b> · {owner.email}
+          Brand Manager: <b>{owner.name}</b> · {owner.email}
         </div>
       )}
       <ActionButton type="primary" danger block style={{ marginTop: 16 }} loading={saving} disabled={!owner} onClick={submit}>

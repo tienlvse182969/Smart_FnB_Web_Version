@@ -83,6 +83,11 @@ function LegacyManagerRedirect() {
   return <Navigate to={`/store-manager${location.pathname.slice("/manager".length)}${location.search}${location.hash}`} replace />
 }
 
+function LegacyOwnerRedirect() {
+  const location = useLocation()
+  return <Navigate to={`/brand-manager${location.pathname.slice("/owner".length)}${location.search}${location.hash}`} replace />
+}
+
 /**
  * Bảng route. `/t/:token` và `/display/customer` chỉ đăng ký khi cờ bật (quyết định 91–92, `api/flags.ts` `RouteFlags`); tắt thì
  * đường dẫn rơi vào `*` như route lạ. Tách thành hàm để test cả hai trạng thái cờ.
@@ -109,6 +114,7 @@ export function buildRoutes(flags: RouteFlags): RouteObject[] {
   roleArea("platform-staff"),
   roleArea("owner"),
   roleArea("manager"),
+  { path: "/owner/*", element: <LegacyOwnerRedirect /> },
   { path: "/manager/*", element: <LegacyManagerRedirect /> },
   {
     // Màn hình đặt ở quầy: công khai, không sidebar, không đăng nhập người dùng.

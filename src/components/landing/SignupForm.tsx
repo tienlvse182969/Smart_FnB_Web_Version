@@ -91,7 +91,7 @@ export default function SignupForm() {
             Hồ sơ của bạn đang chờ duyệt
           </h2>
           <p className="mt-4 text-sm text-zinc-600 md:text-base">
-            Khi hồ sơ được duyệt, tài khoản Owner sẽ nhận email đặt mật khẩu và được dùng thử SmartFnB
+            Khi hồ sơ được duyệt, tài khoản Brand Manager sẽ nhận email đặt mật khẩu và được dùng thử SmartFnB
             miễn phí 14 ngày. Bạn có thể nâng cấp gói bất cứ lúc nào trong thời gian dùng thử.
           </p>
         </div>

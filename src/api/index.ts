@@ -9,6 +9,18 @@ export { branchApi, describeBranchError, planUpgradeHint, type BranchApi } from 
 export { reportApi, type ReportApi } from "./modules/report";
 export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
 export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
+export {
+  advancedMenuApi,
+  type BranchPriceCell,
+  type BranchPriceMatrix,
+  type ChainCombo,
+  type ComboComponent,
+  type MenuExtra,
+  type MenuImport,
+  type MenuImportDraft,
+  type MenuImportDraftItem,
+  type SaveComboInput,
+} from "./modules/advancedMenu";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { branchOptionsApi, groupBranchOptions, type BranchOptionsApi } from "./modules/branchOptions";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";

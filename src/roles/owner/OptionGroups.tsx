@@ -324,11 +324,11 @@ function GroupDetail({
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12.5, color: palette.textMuted }}>Xem còn bán tại chi nhánh:</span>
           <Select allowClear placeholder="Chọn chi nhánh" size="small" style={{ width: 200 }} value={branchId} onChange={setBranchId} options={branches.map((b) => ({ value: b.id, label: b.name }))} />
-          <span style={{ fontSize: 12, color: palette.textSubtle }}>Chỉ xem — Manager bật/tắt tại chi nhánh (giai đoạn 5)</span>
+          <span style={{ fontSize: 12, color: palette.textSubtle }}>Chỉ xem — Store Manager bật/tắt tại chi nhánh (giai đoạn 5)</span>
         </div>
       ) : (
         <div data-testid="branch-states-note" style={{ fontSize: 12, color: palette.textSubtle, marginBottom: 10 }}>
-          Trạng thái "còn bán" theo chi nhánh chưa xem được ở chế độ này; Manager bật/tắt tại chi nhánh.
+          Trạng thái "còn bán" theo chi nhánh chưa xem được ở chế độ này; Store Manager bật/tắt tại chi nhánh.
         </div>
       )}
       {group.options.length === 0 && !adding && (

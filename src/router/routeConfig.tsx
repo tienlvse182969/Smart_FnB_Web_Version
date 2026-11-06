@@ -1,23 +1,24 @@
 /**
- * Cấu hình route DUY NHẤT cho khu vực Admin / Owner / Manager.
+ * Cấu hình route DUY NHẤT cho khu vực Admin / Brand Manager / Store Manager.
  * Sidebar (RoleLayout) và cây route (router/index.tsx) đều đọc từ đây — không
  * khai báo màn hình ở nơi nào khác. `code` là mã use case trong đặc tả v9 (mục 14).
  */
 import type { ReactNode } from "react";
 import {
-  Bot,
   BarChart3,
   Building2,
   ClipboardList,
   CreditCard,
   Images,
   LayoutDashboard,
+  Layers3,
   ListChecks,
   Package,
   Palette,
   Printer,
   Receipt,
   ReceiptText,
+  ScanLine,
   ScrollText,
   Sliders,
   Store,
@@ -39,9 +40,10 @@ import OptionGroups from "../roles/owner/OptionGroups";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
 import Branding from "../roles/owner/Branding";
 import Posters from "../roles/owner/Posters";
-import AiAssistant from "../roles/owner/AiAssistant";
 import PayosLink from "../roles/owner/PayosLink";
 import MyPlan from "../roles/owner/MyPlan";
+import AdvancedMenu from "../roles/owner/AdvancedMenu";
+import MenuImport from "../roles/owner/MenuImport";
 import ManagerDashboard from "../roles/branch/ManagerDashboard";
 import BranchInfo from "../roles/branch/BranchInfo";
 import BranchMenu from "../roles/branch/BranchMenu";
@@ -58,11 +60,15 @@ import PlatformInvoices from "../roles/admin/PlatformInvoices";
 
 export type WebRole = "admin" | "platform-staff" | "owner" | "manager";
 
-/** Mã role nội bộ giữ `manager` để tương thích BE; URL và nhãn hiển thị dùng Store Manager. */
-export const roleBasePath = (role: WebRole) => role === "manager" ? "/store-manager" : `/${role}`;
+/** Mã role nội bộ giữ `owner`/`manager` để tương thích BE và dữ liệu cũ. */
+export const roleBasePath = (role: WebRole) => {
+  if (role === "owner") return "/brand-manager";
+  if (role === "manager") return "/store-manager";
+  return `/${role}`;
+};
 
 export interface RouteDef {
-  /** Đường dẫn con, tương đối so với `/admin`, `/owner`, `/manager`. */
+  /** Đường dẫn con, tương đối so với đường dẫn gốc của từng vai trò. */
   path: string;
   label: string;
   icon: ReactNode;
@@ -107,6 +113,20 @@ export const ownerRoutes: RouteDef[] = [
     code: "OW-03",
     element: <OptionGroups />,
   },
+  {
+    path: "menu/advanced",
+    label: "Sản phẩm nâng cao",
+    icon: <Layers3 size={18} />,
+    code: "OW-14 · OW-15 · OW-16",
+    element: <AdvancedMenu />,
+  },
+  {
+    path: "menu/import",
+    label: "Nhập menu từ ảnh",
+    icon: <ScanLine size={18} />,
+    code: "OW-12",
+    element: <MenuImport />,
+  },
   { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
   {
     path: "payos",
@@ -117,7 +137,6 @@ export const ownerRoutes: RouteDef[] = [
   },
   { path: "branding", label: "Nhận diện", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
   { path: "posters", label: "Poster màn hình sau", icon: <Images size={18} />, code: "OW-11", element: <Posters /> },
-  { path: "ai", label: "Trợ lý số liệu", icon: <Bot size={18} />, code: "OW-09", element: <AiAssistant /> },
   {
     path: "plan",
     label: "Gói của tôi",
@@ -177,7 +196,7 @@ export const roleRoutes: Record<WebRole, RouteDef[]> = {
   manager: managerRoutes,
 };
 
-/** Đường dẫn tuyệt đối trang đầu tiên của một vai trò — nơi `/admin`, `/owner`, `/manager` chuyển tới. */
+/** Đường dẫn tuyệt đối trang đầu tiên của một vai trò. */
 export function roleHomePath(role: WebRole): string {
   return `${roleBasePath(role)}/${roleRoutes[role][0].path}`;
 }

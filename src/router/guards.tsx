@@ -7,7 +7,7 @@ import { palette } from "../theme";
 const ROLE_HOME: Record<RoleKey, string> = {
   admin: "/admin",
   "platform-staff": "/platform-staff",
-  owner: "/owner",
+  owner: "/brand-manager",
   manager: "/store-manager",
   cashier: "/login",
   barista: "/login",

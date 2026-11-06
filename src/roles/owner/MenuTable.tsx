@@ -261,7 +261,7 @@ function AssignDrawer({
   return (
     <Drawer title={item ? `Gán chi nhánh · ${item.name}` : ""} open={!!item} onClose={onClose} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
       <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 14 }}>
-        Chọn các chi nhánh bán món này. Chi nhánh bỏ chọn sẽ ngừng bán; chi nhánh mới chọn do Manager bật "còn bán" mỗi ngày.
+        Chọn các chi nhánh bán món này. Chi nhánh bỏ chọn sẽ ngừng bán; chi nhánh mới chọn do Store Manager bật "còn bán" mỗi ngày.
       </div>
       <div style={{ display: "grid", gap: 10 }}>
         {branches.map((b) => (

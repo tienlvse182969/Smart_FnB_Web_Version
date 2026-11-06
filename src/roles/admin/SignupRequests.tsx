@@ -299,7 +299,7 @@ export default function SignupRequests() {
                 <Field label="Hết hạn">
                   {dateLabel(detail.approved.expiresAt)}
                 </Field>
-                <Field label="Tài khoản Owner">
+                <Field label="Tài khoản Brand Manager">
                   {dash(detail.approved.ownerEmail)}
                 </Field>
               </>
@@ -427,7 +427,7 @@ function ApproveModal({
       footer={null}
       destroyOnHidden
     >
-      <p>Chọn gói duyệt. Người đăng ký sẽ nhận link 7 ngày để chọn dùng thử Basic hoặc thanh toán tháng đầu qua PayOS. Doanh nghiệp và Owner được tạo khi kích hoạt.</p>
+      <p>Chọn gói duyệt. Người đăng ký sẽ nhận link 7 ngày để chọn dùng thử Basic hoặc thanh toán tháng đầu qua PayOS. Doanh nghiệp và Brand Manager được tạo khi kích hoạt.</p>
       <Select style={{ width: "100%" }} placeholder="Gói dịch vụ" value={planId} onChange={setPlanId} options={plans.filter((p) => p.isActive && p.code !== "TRIAL").map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />
       <div
         style={{

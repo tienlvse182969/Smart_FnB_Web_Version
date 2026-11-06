@@ -172,7 +172,7 @@ export default function Branding() {
     <div>
       <SectionTitle
         title="Nhận diện thương hiệu"
-        sub="Áp dụng cho web Owner và Branch Manager, màn hình phía khách, màn hình gọi số, bill và phiếu số của chuỗi (BR-41)"
+        sub="Áp dụng cho web Brand Manager và Store Manager, màn hình phía khách, màn hình gọi số, bill và phiếu số của chuỗi (BR-41)"
       />
       {locked && (
         <div
@@ -283,7 +283,7 @@ export default function Branding() {
               <LogoDot logoUrl={shownLogo} primary={primaryColor} onPrimary={textOnPrimary} />
               <span style={{ color: textOnPrimary, fontSize: 13, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
             </div>
-            <div style={{ padding: "10px 16px", fontSize: 11.5, color: palette.textMuted }}>Header web Branch Manager</div>
+            <div style={{ padding: "10px 16px", fontSize: 11.5, color: palette.textMuted }}>Header web Store Manager</div>
           </Card>
 
           {/* Màn hình phía khách */}

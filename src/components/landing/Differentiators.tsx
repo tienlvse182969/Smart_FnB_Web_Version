@@ -150,7 +150,7 @@ const items = [
   {
     title: "Tuỳ chọn món có giá cộng thêm",
     description:
-      "Owner tạo nhóm tuỳ chọn như size, đường, đá, topping, đặt quy tắc chọn bắt buộc hoặc tối đa bao nhiêu, rồi gắn một nhóm cho nhiều món. Giá tính ở backend và được lưu vào đơn lúc bán.",
+      "Brand Manager tạo nhóm tuỳ chọn như size, đường, đá, topping, đặt quy tắc chọn bắt buộc hoặc tối đa bao nhiêu, rồi gắn một nhóm cho nhiều món. Giá tính ở backend và được lưu vào đơn lúc bán.",
     Mock: OptionTableMock,
   },
   {

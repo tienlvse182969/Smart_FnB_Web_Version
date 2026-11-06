@@ -71,12 +71,12 @@ export default function ActivationScreen() {
   return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "#f3f5f8" }}>
     <Card style={{ width: "min(100%, 520px)", borderRadius: 16 }}>
       <Typography.Title level={3}>Kích hoạt Smart F&B</Typography.Title>
-      {loading ? <Spin /> : done ? <Alert type="success" showIcon message="Doanh nghiệp đã được kích hoạt" description={<span>Email thiết lập mật khẩu Owner đã được gửi. Sau khi đặt mật khẩu, bạn có thể <Link to="/login">đăng nhập</Link>.</span>} /> : <>
+      {loading ? <Spin /> : done ? <Alert type="success" showIcon message="Doanh nghiệp đã được kích hoạt" description={<span>Email thiết lập mật khẩu Brand Manager đã được gửi. Sau khi đặt mật khẩu, bạn có thể <Link to="/login">đăng nhập</Link>.</span>} /> : <>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
         {activation && <>
-          <Typography.Paragraph><strong>{activation.businessName}</strong><br />Email Owner: {activation.representativeEmail}</Typography.Paragraph>
+          <Typography.Paragraph><strong>{activation.businessName}</strong><br />Email Brand Manager: {activation.representativeEmail}</Typography.Paragraph>
           <Typography.Paragraph>Gói được duyệt: <strong>{activation.approvedPlan.name}</strong> · {formatVnd(Number(activation.approvedPlan.monthlyPrice))}/tháng</Typography.Paragraph>
-          <Typography.Paragraph type="secondary">Chọn một cách kích hoạt. Tài khoản Owner được tạo sau khi xác nhận lựa chọn.</Typography.Paragraph>
+          <Typography.Paragraph type="secondary">Chọn một cách kích hoạt. Tài khoản Brand Manager được tạo sau khi xác nhận lựa chọn.</Typography.Paragraph>
           {activation.trialAvailable && <Button block disabled={busy || checkout?.status === "PENDING"} onClick={() => void chooseTrial()} style={{ marginBottom: 10 }}>Dùng thử Basic 14 ngày</Button>}
           <Button type="primary" block loading={busy} onClick={() => void choosePaid()}>Thanh toán tháng đầu qua PayOS</Button>
           {checkout?.status === "PENDING" && <Alert type="info" showIcon style={{ marginTop: 16 }} message="Đang chờ PayOS xác nhận thanh toán" description={checkout.checkoutUrl ? <a href={checkout.checkoutUrl}>Mở lại trang thanh toán</a> : undefined} />}

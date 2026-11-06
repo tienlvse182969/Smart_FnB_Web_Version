@@ -5,7 +5,7 @@ import type { RoleKey } from "./types";
 export const roleMeta: Record<RoleKey, { label: string; scope: string }> = {
   admin: { label: "Platform Admin", scope: "Nền tảng" },
   "platform-staff": { label: "Platform Staff", scope: "Hỗ trợ nền tảng" },
-  owner: { label: "Owner", scope: "Toàn chuỗi" },
+  owner: { label: "Brand Manager", scope: "Toàn chuỗi" },
   manager: { label: "Store Manager", scope: "Một chi nhánh" },
   cashier: { label: "Cashier", scope: "Ứng dụng tablet" },
   barista: { label: "Barista", scope: "Ứng dụng tablet" },
