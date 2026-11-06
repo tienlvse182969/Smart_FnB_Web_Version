@@ -1,7 +1,7 @@
 /**
  * Module combos — combo và combo biến thể (OW-14), gán combo cho chi nhánh (OW-04). Mục 26, BR-77, BR-78, BR-12.
  * Real: BE `combos.controller.ts` (`/restaurant-chains/:chainId/combos`), chỉ OWNER. Giá riêng theo chi nhánh (OW-16) ở module `branchPrices`.
- * BE chưa có endpoint tải ảnh combo: `imageUrl` chỉ nhận địa chỉ ảnh dạng chữ.
+ * BE chưa có API tải ảnh combo (chỉ món và logo có): web không đặt ảnh combo, không gửi `imageUrl`, giữ nguyên ảnh đã có.
  */
 import type { Combo, ComboInput, ComboPatch } from "../../../types";
 import { defineApi } from "../../define";

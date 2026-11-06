@@ -33,6 +33,7 @@ function body(input: Partial<ComboInput>): Record<string, unknown> {
   if (input.categoryId !== undefined) out.categoryId = input.categoryId;
   if (input.name !== undefined) out.name = input.name.trim();
   if (input.description !== undefined) out.description = input.description?.trim() ? input.description.trim() : null;
+  // Web không đặt ảnh combo (BE chưa có API tải ảnh): chỉ gửi imageUrl nếu nơi gọi truyền.
   if (input.imageUrl !== undefined) out.imageUrl = input.imageUrl?.trim() ? input.imageUrl.trim() : null;
   if (input.price !== undefined) out.price = input.price;
   if (input.isActive !== undefined) out.isActive = input.isActive;

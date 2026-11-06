@@ -83,6 +83,8 @@ describe("trình soạn combo", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const sent = create.mock.calls[0][1];
     expect(sent).toMatchObject({ name: "Combo Sáng", categoryId: "cat", price: 39000 });
+    expect(sent).not.toHaveProperty("imageUrl"); // BE chưa có API tải ảnh combo: web không đặt ảnh
+    expect(screen.queryByText(/Ảnh combo/)).toBeNull();
     expect(sent.components.map((c) => [c.type, c.name, c.choices[0].menuItemId])).toEqual([
       ["FIXED", "Bánh mì thịt", "a"],
       ["FIXED", "Cà phê sữa", "b"],
@@ -193,6 +195,7 @@ describe("danh sách combo và gán chi nhánh", () => {
     await waitFor(() => expect(screen.getByText("Combo Sáng")).toBeTruthy());
     expect(screen.getByTestId("combo-branches").textContent).toBe("1/2 chi nhánh");
     expect(document.body.textContent).toMatch(/39\.000/);
+    expect(screen.getByTestId("combo-thumb-default")).toBeTruthy(); // chưa có ảnh: hiện ảnh mặc định
     await combosApi.updateCombo("c1", created.id, { isActive: false });
   });
 

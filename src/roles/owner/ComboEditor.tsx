@@ -5,7 +5,6 @@ import type { Combo, ComboComponent, MenuCategory, MenuItem } from "../../types"
 import { combosApi, optionsApi, showApiError } from "../../api";
 import {
   MAX_COMBO_DESCRIPTION,
-  MAX_COMBO_IMAGE_URL,
   MAX_COMBO_NAME,
   MAX_COMPONENTS,
   MAX_COMPONENT_NAME,
@@ -63,7 +62,7 @@ interface Props {
 /**
  * OW-14 (mục 26, BR-77): soạn combo — thông tin chung, 2–6 thành phần (món cố định hoặc nhóm biến thể 2–10 món, mỗi món một phụ thu và đúng
  * một món mặc định), size cố định chỉ trong size của món, không chọn combo làm thành phần. Hiện so sánh giá combo với mua lẻ (theo giá chuỗi)
- * và cảnh báo món thành phần đang tắt cấp chuỗi. Ảnh combo chỉ nhận địa chỉ ảnh vì BE chưa có tải ảnh lên.
+ * và cảnh báo món thành phần đang tắt cấp chuỗi. Không có trường ảnh: BE chưa có API tải ảnh combo (xem Record of Changes); ảnh đã có của combo được giữ nguyên.
  */
 export default function ComboEditor({ target, categories, items, onClose, onSaved }: Props) {
   const { message, modal } = App.useApp();
@@ -74,7 +73,6 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [price, setPrice] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -84,8 +82,8 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
   const [sizes, setSizes] = useState<Map<string, { code: string; name: string }[]>>(new Map());
   const requested = useRef(new Set<string>());
 
-  const snapshot = (parts: { categoryId?: string; name: string; description: string; imageUrl: string; price: number | null; isActive: boolean; drafts: Draft[] }) =>
-    JSON.stringify([parts.categoryId, parts.name, parts.description, parts.imageUrl, parts.price, parts.isActive, parts.drafts.map(({ key: _k, ...c }) => c)]);
+  const snapshot = (parts: { categoryId?: string; name: string; description: string; price: number | null; isActive: boolean; drafts: Draft[] }) =>
+    JSON.stringify([parts.categoryId, parts.name, parts.description, parts.price, parts.isActive, parts.drafts.map(({ key: _k, ...c }) => c)]);
 
   useEffect(() => {
     if (!target) return;
@@ -93,7 +91,6 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       categoryId: existing?.categoryId ?? categories[0]?.id,
       name: existing?.name ?? "",
       description: existing?.description ?? "",
-      imageUrl: existing?.imageUrl ?? "",
       price: existing?.price ?? null,
       isActive: existing?.isActive ?? true,
       drafts: toDrafts(existing),
@@ -101,7 +98,6 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
     setCategoryId(start.categoryId);
     setName(start.name);
     setDescription(start.description);
-    setImageUrl(start.imageUrl);
     setPrice(start.price);
     setIsActive(start.isActive);
     setDrafts(start.drafts);
@@ -138,8 +134,8 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
   }, [chosenIds, chainId]);
 
   const components = useMemo(() => toComponents(drafts, items), [drafts, items]);
-  const problems = comboProblems({ name, categoryId: categoryId ?? "", price: price ?? Number.NaN, components, description, imageUrl });
-  const dirty = !!target && snapshot({ categoryId, name, description, imageUrl, price, isActive, drafts }) !== initialKey;
+  const problems = comboProblems({ name, categoryId: categoryId ?? "", price: price ?? Number.NaN, components, description });
+  const dirty = !!target && snapshot({ categoryId, name, description, price, isActive, drafts }) !== initialKey;
   useUnsavedGuard(dirty);
 
   const itemPrice = (id: string) => items.find((x) => x.id === id)?.price;
@@ -166,7 +162,7 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
     if (!chainId || saving || problems.length || price === null || !categoryId) return;
     setSaving(true);
     try {
-      const common = { categoryId, name: name.trim(), description: description.trim() || null, imageUrl: imageUrl.trim() || null, price, isActive, components };
+      const common = { categoryId, name: name.trim(), description: description.trim() || null, price, isActive, components };
       if (existing) await combosApi.updateCombo(chainId, existing.id, common);
       else await combosApi.createCombo(chainId, common);
       await onSaved(existing ? "Đã cập nhật combo" : "Đã tạo combo — mặc định bán ở mọi chi nhánh đang hoạt động");
@@ -210,10 +206,6 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={MAX_COMBO_DESCRIPTION} rows={2} onChange={(e) => setDescription(e.target.value)} />
-      </Field>
-      <Field label="Ảnh combo (địa chỉ ảnh)">
-        <Input value={imageUrl} maxLength={MAX_COMBO_IMAGE_URL} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" />
-        <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 4 }}>Máy chủ chưa có chức năng tải ảnh combo lên, nên chỉ dán được địa chỉ ảnh.</div>
       </Field>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <Switch size="small" checked={isActive} onChange={setIsActive} aria-label="Kinh doanh combo" />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, App, Card, Checkbox, Drawer, Select, Table } from "antd";
-import { Pencil, Plus, Store, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, Plus, Store, Trash2 } from "lucide-react";
 import type { Combo, MenuCategory, MenuItem } from "../../types";
 import { combosApi, describeApiError, menuApi, showApiError } from "../../api";
 import { branchGapReasons } from "../../api/modules/combos/rules";
@@ -135,9 +135,12 @@ export default function CombosPage() {
               title: "Combo",
               dataIndex: "name",
               render: (name: string, row) => (
-                <div style={{ opacity: row.isActive ? 1 : 0.5 }}>
-                  <div style={{ fontWeight: 600 }}>{name}</div>
-                  <div style={{ fontSize: 12, color: palette.textSubtle }}>{categoryName(row.categoryId)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, opacity: row.isActive ? 1 : 0.5 }}>
+                  <ComboThumb url={row.imageUrl} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{name}</div>
+                    <div style={{ fontSize: 12, color: palette.textSubtle }}>{categoryName(row.categoryId)}</div>
+                  </div>
                 </div>
               ),
             },
@@ -283,5 +286,20 @@ function BranchesDrawer({
         Lưu chi nhánh bán combo
       </ActionButton>
     </Drawer>
+  );
+}
+
+/** Ảnh combo nếu có; chưa có thì hiện ảnh mặc định (BE chưa có API tải ảnh combo nên web không đặt được ảnh). */
+function ComboThumb({ url }: { url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [url]);
+  const show = !!url && !failed;
+  return (
+    <div
+      data-testid={show ? "combo-thumb-image" : "combo-thumb-default"}
+      style={{ width: 38, height: 38, borderRadius: 8, background: palette.paper, display: "grid", placeItems: "center", overflow: "hidden", flexShrink: 0 }}
+    >
+      {show ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setFailed(true)} /> : <ImageOff size={16} color={palette.textSubtle} />}
+    </div>
   );
 }
