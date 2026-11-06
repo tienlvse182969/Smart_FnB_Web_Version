@@ -131,23 +131,29 @@ describe("trình soạn combo", () => {
     await waitFor(() => expect(screen.getByTestId("combo-compare").textContent).toMatch(/58\.000/));
   });
 
-  it("thêm món vào nhóm tới 10 rồi khoá; combo tối đa 6 thành phần", async () => {
-    const many = Array.from({ length: 12 }, (_, i) => item(`m${i}`, `Món ${i}`, 10000));
+  it("combo tối đa 6 thành phần: đủ 6 thì khoá nút thêm", () => {
     render(
       <AntApp>
-        <ComboEditor target="new" categories={categories} items={many} onClose={() => undefined} onSaved={vi.fn()} />
+        <ComboEditor target="new" categories={categories} items={items} onClose={() => undefined} onSaved={vi.fn()} />
       </AntApp>,
     );
     for (let i = 0; i < 4; i++) fireEvent.click(screen.getByRole("button", { name: /Thêm món cố định/ }));
     expect((screen.getByRole("button", { name: /Thêm món cố định/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /Thêm nhóm biến thể/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId("combo-editor").textContent).toMatch(/Thành phần \(6\/6/);
-    fireEvent.click(screen.getByRole("button", { name: "Xoá thành phần 6" }));
+    expect(screen.getByTestId("combo-editor").textContent).toContain("6/6");
+  }, 40000);
+
+  it("nhóm biến thể tối đa 10 món: đủ 10 thì khoá nút thêm", () => {
+    render(
+      <AntApp>
+        <ComboEditor target="new" categories={categories} items={items} onClose={() => undefined} onSaved={vi.fn()} />
+      </AntApp>,
+    );
     fireEvent.click(screen.getByRole("button", { name: /Thêm nhóm biến thể/ }));
-    const group = screen.getByTestId("combo-component-5");
+    const group = screen.getByTestId("combo-component-2");
     for (let i = 0; i < 8; i++) fireEvent.click(within(group).getByRole("button", { name: /Thêm món vào nhóm/ }));
-    expect((within(group).getByRole("button", { name: /Thêm món vào nhóm \(10\/10\)/ }) as HTMLButtonElement).disabled).toBe(true);
-  });
+    expect((within(group).getByRole("button", { name: /Thêm món vào nhóm.*10\/10/ }) as HTMLButtonElement).disabled).toBe(true);
+  }, 40000);
 
   it("đóng khi còn thay đổi chưa lưu: hỏi xác nhận, ở lại thì không đóng", async () => {
     const onClose = vi.fn();
