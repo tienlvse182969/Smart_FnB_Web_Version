@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useInRouterContext } from "react-router-dom";
 import type { PriceProductType } from "../../types";
 import { branchPricesApi } from "../../api";
 import { money } from "../../data";
@@ -12,6 +12,7 @@ import { palette } from "../../theme";
  */
 export default function BranchPriceNote({ type, productId, chainPrice }: { type: PriceProductType; productId: string; chainPrice: number }) {
   const chainId = useAppStore((s) => s.chainId);
+  const inRouter = useInRouterContext();
   const [counts, setCounts] = useState<{ custom: number; assigned: number } | null>(null);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function BranchPriceNote({ type, productId, chainPrice }: { type:
           {" "}· <b>{counts.custom}</b>/{counts.assigned} chi nhánh đang có giá riêng.{" "}
         </>
       ) : null}
-      <Link to="/owner/menu/prices">Đặt giá theo chi nhánh</Link>
+      {inRouter ? <Link to="/owner/menu/prices">Đặt giá theo chi nhánh</Link> : <a href="/owner/menu/prices">Đặt giá theo chi nhánh</a>}
     </div>
   );
 }
