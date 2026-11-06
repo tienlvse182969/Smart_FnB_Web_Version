@@ -2,9 +2,13 @@ import { App, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table,
 import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
-import type { MenuCategory, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
-import { menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import type { MenuCategory, MenuExtra, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
+import { extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
+import MoneyInput from "../../components/MoneyInput";
+import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import { modeOf } from "../../api/flags";
+import ItemExtrasEditor, { itemExtrasKey, itemExtrasProblem, type ItemExtrasValue } from "./ItemExtrasEditor";
 import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
@@ -295,7 +299,7 @@ function ItemDrawer({
   onClose: () => void;
   onSaved: (text: string) => Promise<void>;
 }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const chainId = useAppStore((s) => s.chainId);
   const isNew = item === "new";
   const existing = item && item !== "new" ? item : null;
@@ -320,6 +324,10 @@ function ItemDrawer({
   const [noBatch, setNoBatch] = useState(false);
   // Danh sách nhóm đã lưu, để chỉ gửi lệnh khi có thay đổi (mỗi lệnh một request).
   const [savedGroupIds, setSavedGroupIds] = useState<string[]>([]);
+  // Topping thêm của món (OW-15): thư viện của chuỗi + cấu hình gắn vào món, chỉ gửi khi đổi.
+  const [extraLibrary, setExtraLibrary] = useState<MenuExtra[]>([]);
+  const [extras, setExtras] = useState<ItemExtrasValue>({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] });
+  const [savedExtrasKey, setSavedExtrasKey] = useState(itemExtrasKey({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] }));
 
   useEffect(() => {
     if (!item || !chainId) return;
@@ -333,6 +341,20 @@ function ItemDrawer({
         setSavedGroupIds(ids);
       },
       (err) => showApiError(message.error, err, "Không tải được tuỳ chọn món"),
+    );
+  }, [item, chainId]);
+
+  useEffect(() => {
+    if (!item || !chainId) return;
+    const id = item !== "new" ? item.id : null;
+    Promise.all([extrasApi.listExtras(chainId), id ? extrasApi.getItemExtras(chainId, id) : null]).then(
+      ([library, config]) => {
+        const value: ItemExtrasValue = config ? { maxExtras: config.maxExtras, links: config.extras } : { maxExtras: DEFAULT_MAX_EXTRAS, links: [] };
+        setExtraLibrary(library);
+        setExtras(value);
+        setSavedExtrasKey(itemExtrasKey(value));
+      },
+      (err) => showApiError(message.error, err, "Không tải được topping của món"),
     );
   }, [item, chainId]);
 
@@ -382,7 +404,7 @@ function ItemDrawer({
   };
 
   const valid =
-    !!categoryId && !!name.trim() && price !== null && Number.isInteger(price) && price >= 0 && (!isNew || SKU_PATTERN.test(sku)) && (!isNew || branchIds.length > 0);
+    !!categoryId && !!name.trim() && price !== null && Number.isInteger(price) && price >= 0 && (!isNew || SKU_PATTERN.test(sku)) && (!isNew || branchIds.length > 0) && !itemExtrasProblem(extras);
 
   /** Gắn nhóm tuỳ chọn cho món bằng MỘT lệnh `setItemGroups`, chỉ khi danh sách đổi. Cờ "không gom món" đi cùng lệnh lưu món (`allowBatching`). */
   const saveItemOptions = async (itemId: string, created: boolean) => {
@@ -391,8 +413,35 @@ function ItemDrawer({
     if (groupsChanged) await optionsApi.setItemGroups(chainId, itemId, groupIds);
   };
 
+  // Còn thay đổi chưa lưu: cảnh báo khi đóng khung hoặc đóng tab.
+  const dirty =
+    !!item &&
+    (name !== (existing?.name ?? "") ||
+      price !== (existing?.price ?? null) ||
+      description !== (existing?.description ?? "") ||
+      imageUrl !== (existing?.imageUrl ?? "") ||
+      !!imageFile ||
+      groupIds.join(",") !== savedGroupIds.join(",") ||
+      itemExtrasKey(extras) !== savedExtrasKey);
+  useUnsavedGuard(dirty);
+  const requestClose = () => {
+    if (saving) return;
+    if (!dirty) return onClose();
+    modal.confirm({ title: "Bỏ thay đổi?", content: UNSAVED_PROMPT, okText: "Bỏ thay đổi", okButtonProps: { danger: true }, cancelText: "Ở lại", onOk: onClose });
+  };
+
+  /** Gắn topping cho món bằng MỘT lệnh `setItemExtras`, chỉ khi cấu hình đổi (món mới: chỉ khi có topping hoặc đổi tổng số phần). */
+  const saveItemExtras = async (itemId: string) => {
+    if (!chainId || itemExtrasKey(extras) === savedExtrasKey) return;
+    await extrasApi.setItemExtras(chainId, itemId, {
+      maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
+      extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
+    });
+    setSavedExtrasKey(itemExtrasKey(extras));
+  };
+
   const save = async () => {
-    if (!chainId || !valid || !categoryId || price === null) return;
+    if (!chainId || !valid || !categoryId || price === null || saving) return;
     setSaving(true);
     let itemWasCreated = !!createdItem;
     try {
@@ -412,6 +461,7 @@ function ItemDrawer({
         setCreatedItem(created);
         itemWasCreated = true;
         await saveItemOptions(created.id, true);
+        await saveItemExtras(created.id);
         if (imageFile) await menuApi.uploadItemImage(chainId, created.id, imageFile);
         await onSaved("Đã thêm món vào menu chuỗi");
       } else if (existing || createdItem) {
@@ -433,6 +483,7 @@ function ItemDrawer({
           await menuApi.updateItem(chainId, current.id, patch);
         }
         await saveItemOptions(current.id, !!createdItem);
+        await saveItemExtras(current.id);
         if (imageFile) await menuApi.uploadItemImage(chainId, current.id, imageFile);
         await onSaved(createdItem ? "Đã thêm món vào menu chuỗi" : "Đã cập nhật món");
       }
@@ -447,7 +498,7 @@ function ItemDrawer({
     <Drawer
       title={isNew ? "Thêm món" : `Sửa món · ${existing?.name ?? ""}`}
       open={!!item}
-      onClose={onClose}
+      onClose={requestClose}
       styles={{ wrapper: { width: 440 }, body: { padding: 24 } }}
     >
       <Field label="Danh mục">
@@ -476,20 +527,7 @@ function ItemDrawer({
         />
       </Field>
       <Field label="Giá (₫, số nguyên)">
-        <InputNumber
-          value={price}
-          onChange={setPrice}
-          style={{ width: "100%" }}
-          min={0}
-          precision={0}
-          step={1000}
-          inputMode="numeric"
-          formatter={(value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-          parser={(value) => Number.parseInt(value?.replace(/\D/g, "") ?? "", 10)}
-          onKeyDown={(event) => {
-            if (event.key.length === 1 && !/\d/.test(event.key)) event.preventDefault();
-          }}
-        />
+        <MoneyInput value={price} onChange={setPrice} />
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
@@ -526,6 +564,9 @@ function ItemDrawer({
       )}
       <Field label="Tuỳ chọn món">
         <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
+      </Field>
+      <Field label="Topping thêm (OW-15)">
+        <ItemExtrasEditor library={extraLibrary} value={extras} onChange={setExtras} />
       </Field>
       <Field label="Xem trước tại POS">
         <OptionPreview itemName={name.trim()} itemPrice={price ?? 0} groups={groupIds.flatMap((id) => allGroups.find((g) => g.id === id) ?? [])} />
