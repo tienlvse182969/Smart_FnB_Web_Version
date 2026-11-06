@@ -67,7 +67,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   stations: "real (5.5): GET/POST /stations; đổi tên, ngừng dùng, sửa máy in chờ BE (#27); ghép/thu hồi thiết bị ở 5.6",
   order: "real: GET /manager/orders và /manager/orders/:id (BM-04); POST /payments/:id/confirm (BM-05); duyệt/từ chối yêu cầu hoàn của Thu ngân qua /manager/refund-approval-requests (BM-06). BE đã gỡ POST /manager/orders/:id/cancel-paid; POST /refunds/:id/complete chỉ còn cho khoản hoàn chuyển khoản cũ; mock = VITE_API_ORDER=mock",
   manager_report: "real (7.3, BM-03): GET /manager/reports (từ/đến theo ngày giờ Việt Nam, kỳ ngày/tuần/tháng, top 10), chỉ đọc; tách khỏi `report` của Owner (/reports/*); mock = VITE_API_MANAGER_REPORT=mock",
-  admin: "real: hồ sơ đăng ký, gói dịch vụ, doanh nghiệp, tài khoản Platform Staff, hoá đơn thuê bao. BE chưa có doanh thu nền tảng (PA-06)",
+  admin: "real: hồ sơ đăng ký, gói dịch vụ, doanh nghiệp, tài khoản Platform Staff, hoá đơn thuê bao. Doanh thu nền tảng và hoá đơn thuê bao (PA-06): BE có `GET /admin/platform-revenue`, `/admin/platform-billing/invoices` (chỉ ADMIN) từ BE `28afe57`; web gọi thẳng qua `adminAnalyticsApi` (không có bản mock)",
   payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
   posters: "real (OW-11): GET/POST/PATCH/DELETE restaurant-chains/{id}/display-posters (chỉ OWNER). Web theo đặc tả BR-51/52: tối đa 6 ảnh, ≤ 5 MB, tên ≤ 50, xoay 8 giây cố định; BE cho tới 10 ảnh, tên 120, thời lượng 3–60 giây. BE không có đổi ảnh tại chỗ; mock = VITE_API_POSTERS=mock",
 };
