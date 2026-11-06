@@ -9,7 +9,6 @@ import { describePairingError } from "./modules/stations/pairing";
 import { classifyContextFailure, type StoredPairing } from "./device/session";
 import { fitToCapacity } from "../display/callBoard";
 import { confirmableTransfer, isLateAfterExpiry } from "./modules/order/manualConfirm";
-import { cancelTarget, refundAmountFor } from "./modules/order/paidCancel";
 import { branchDeviceState, mapBranchDevice, mapStation } from "./modules/stations/mapper";
 import { toPatchBody, validateStationPatch } from "./modules/stations/rules";
 import { stationsMock } from "./modules/stations/mock";
@@ -111,15 +110,8 @@ describe("#75: tiền về sau QR hết hạn có đường xử lý (BE 7d7f2dc
     expect(confirmableTransfer({ ...order, payments: [{ ...late, method: "CASH" }] })).toBeNull();
   });
 
-  it("huỷ đơn: kind 'late', cả đơn, hoàn đúng số đã nhận; không cho chọn dòng", () => {
-    const target = cancelTarget({ ...order, refunds: [] });
-    expect(target).toMatchObject({ kind: "late", paymentId: "p-late", received: 75000, balance: 75000 });
-    expect(refundAmountFor(target!, [{ id: "l1", total: 20000 } as never], ["l1"])).toBe(75000);
-  });
-
-  it("khoản chuyển khoản lệch tiền vẫn ưu tiên và vẫn 'mismatch'", () => {
+  it("khoản chuyển khoản lệch tiền vẫn được ưu tiên xác nhận", () => {
     const mismatch: OrderPaymentRecord = { ...late, id: "p-mis", status: "AMOUNT_MISMATCH", failureReason: null, receivedAmount: 60000 };
-    expect(cancelTarget({ ...order, payments: [mismatch] })).toMatchObject({ kind: "mismatch", received: 60000 });
     expect(confirmableTransfer({ ...order, payments: [mismatch, late] })?.id).toBe("p-mis");
   });
 });

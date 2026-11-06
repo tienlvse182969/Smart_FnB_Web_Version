@@ -9,7 +9,6 @@
  * `scn-qr-conflict` (bấm xác nhận thì BE trả 409 PAYMENT_ALREADY_SETTLED: webhook vừa về).
  */
 import type {
-  CancelPaidInput,
   CompleteRefundInput,
   ConfirmPaymentInput,
   Order,
@@ -77,7 +76,6 @@ function cancelsOf(chainId: string): Map<string, MockCancel> {
   if (!map) cancelOverlays.set(key, (map = new Map()));
   return map;
 }
-let cancelSeq = 0;
 
 function refundOf(c: MockCancel, paymentId: string | null, lines: OrderLine[]): OrderRefundRecord {
   return {
@@ -492,49 +490,6 @@ export const orderMock: OrderApi = {
     const found = allOrders(chainId, branchId).find((o) => o.id === orderId);
     if (!found) throw new ApiError(404, "Đơn không tồn tại");
     return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
-  },
-
-  async cancelPaidOrder({ chainId, branchId }, orderId, input: CancelPaidInput) {
-    await mockDelay();
-    assertMockWritable();
-    const order = allOrders(chainId, branchId).find((o) => o.id === orderId);
-    if (!order) throw new ApiError(404, "Counter order was not found in your branch");
-    const reason = input.reason.trim();
-    if (reason.length < 3 || reason.length > 500) throw new ApiError(400, "reason must be longer than or equal to 3 characters");
-    const cancels = cancelsOf(chainId);
-    const detail = toDetail(order, overlayOf(chainId), cancels.get(orderId));
-    const payment = detail.payments.find((p) => p.status === "SUCCESS") ?? detail.payments.find((p) => p.status === "AMOUNT_MISMATCH" || p.status === "REQUIRES_ATTENTION");
-    if (!payment) throw new ApiError(409, "Order has no received payment to refund");
-    if (!["SUBMITTED", "PREPARING", "READY", "REQUIRES_ATTENTION"].includes(detail.status)) {
-      throw new ApiError(409, "Delivered, completed or already cancelled orders cannot be cancelled");
-    }
-    const ids = input.orderItemIds ?? [];
-    const active = detail.lines.filter((l) => l.status !== "CANCELLED");
-    if (payment.status !== "SUCCESS" && ids.length > 0) throw new ApiError(409, "An underpaid order must be cancelled in full");
-    const picked = ids.length === 0 ? active : active.filter((l) => ids.includes(l.id));
-    if (picked.length === 0 || (ids.length > 0 && picked.length !== ids.length)) {
-      throw new ApiError(409, "One or more order lines are already cancelled or unavailable");
-    }
-    const received = payment.receivedAmount ?? payment.amount;
-    const already = detail.refunds.reduce((s, r) => s + r.amount, 0);
-    const balance = received - already;
-    const amount = ids.length === 0 ? balance : Math.min(picked.reduce((s, l) => s + l.total, 0), balance);
-    if (amount <= 0) throw new ApiError(409, "Refund amount must be positive");
-    const now = new Date().toISOString();
-    const full = picked.length === active.length;
-    const prior = cancels.get(orderId);
-    cancels.set(orderId, {
-      refundId: `mock-refund-${++cancelSeq}`,
-      reason,
-      method: input.refundMethod,
-      amount,
-      status: input.refundMethod === "CASH" ? "COMPLETED" : "PENDING",
-      at: now,
-      completedAt: input.refundMethod === "CASH" ? now : null,
-      note: null,
-      lineIds: [...(prior?.lineIds ?? []), ...picked.map((l) => l.id)],
-      full: full || (prior?.full ?? false),
-    });
   },
 
   async completeRefund({ chainId }, refundId, input: CompleteRefundInput) {

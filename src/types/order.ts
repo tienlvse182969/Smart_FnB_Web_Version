@@ -153,15 +153,6 @@ export type OrderRefundRecord = {
   completedByName?: string | null;
 };
 
-/** Thân `POST /manager/orders/:orderId/cancel-paid` (BE `CancelPaidOrderDto`, `manager.dto.ts`; `forbidNonWhitelisted`). */
-export type CancelPaidInput = {
-  /** 3–500 ký tự sau khi trim. */
-  reason: string;
-  refundMethod: "CASH" | "BANK_TRANSFER";
-  /** Bỏ trống/không gửi = huỷ cả đơn. */
-  orderItemIds?: string[];
-};
-
 /** Thân `POST /refunds/:refundId/complete` (BE `CompleteRefundDto`). */
 export type CompleteRefundInput = {
   /** Tối đa 500 ký tự, không bắt buộc. */

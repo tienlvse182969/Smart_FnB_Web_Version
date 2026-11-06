@@ -7,12 +7,14 @@ export type RefundApprovalRequest = {
   status: "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
   amount: string;
   reason: string;
+  /** CHANGE_OF_MIND | WRONG_ITEM | OUT_OF_STOCK | LONG_WAIT | OTHER */
+  reasonCode: string;
   orderItemIds: string[];
   requestedAt: string;
   reviewedAt: string | null;
   reviewNote: string | null;
   completedAt: string | null;
-  order: { orderCode: string; callNumber: number | null };
+  order: { orderCode: string; callNumber: number | null; paidAt: string | null };
 };
 
 export async function listManagerRefundApprovals(): Promise<RefundApprovalRequest[]> {

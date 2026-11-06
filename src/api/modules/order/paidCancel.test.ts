@@ -3,14 +3,9 @@ import type { OrderDetail, OrderDetailLine, OrderPaymentRecord, OrderRefundRecor
 import { ApiError, describeApiError } from "../../http/errors";
 import { refundMethodInfo, refundSourceInfo, refundStatusInfo } from "./codes";
 import {
-  buildCancelBody,
-  cancelTarget,
-  cancellableLines,
   paidActionErrorInfo,
   pendingRefundTotal,
-  refundAmountFor,
   refundCompletable,
-  validateCancelReason,
   validateRefundNote,
 } from "./paidCancel";
 
@@ -65,85 +60,13 @@ const order = (over: Partial<Pick<OrderDetail, "status" | "paymentStatus" | "pay
   ...over,
 });
 
-describe("điều kiện hiện nút huỷ đơn đã trả (BE 514c426 cancellableOrderStatuses)", () => {
-  it("đơn đã trả ở SUBMITTED / PREPARING / READY / REQUIRES_ATTENTION → có nút", () => {
-    for (const status of ["SUBMITTED", "PREPARING", "READY"]) {
-      expect(cancelTarget(order({ status }))?.kind, status).toBe("paid");
-    }
-  });
-
-  it("đơn đã giao, hoàn tất, đã huỷ, chờ thanh toán → KHÔNG có nút (BE 409)", () => {
-    for (const status of ["DELIVERED", "COMPLETED", "CANCELLED", "CONFIRMED", "PENDING"]) {
-      expect(cancelTarget(order({ status })), status).toBeNull();
-    }
-  });
-
-  it("đơn chưa trả hoặc khoản chưa thành công → không có nút", () => {
-    expect(cancelTarget(order({ paymentStatus: "UNPAID" }))).toBeNull();
-    expect(cancelTarget(order({ payments: [pay({ status: "PENDING", method: "BANK_TRANSFER" })] }))).toBeNull();
-    expect(cancelTarget(order({ payments: [] }))).toBeNull();
-  });
-
-  it("lệch thiếu (AMOUNT_MISMATCH, Cần xử lý): có nút, số hoàn = số đã nhận", () => {
-    const t = cancelTarget(
-      order({ status: "REQUIRES_ATTENTION", paymentStatus: "UNPAID", payments: [pay({ status: "AMOUNT_MISMATCH", method: "BANK_TRANSFER", amount: 100000, receivedAmount: 70000 })] }),
-    );
-    expect(t).toMatchObject({ kind: "mismatch", paymentId: "pay-1", received: 70000, balance: 70000 });
-  });
-
-  it("số đã nhận lấy `receivedAmount` nếu có; trừ các khoản đã hoàn; hết số dư → không có nút", () => {
-    expect(cancelTarget(order({ payments: [pay({ receivedAmount: 105000 })] }))?.balance).toBe(105000);
-    expect(cancelTarget(order({ refunds: [refund({ amount: 30000 })] }))?.balance).toBe(70000);
-    expect(cancelTarget(order({ refunds: [refund({ amount: 100000 })] }))).toBeNull();
-  });
-
-  it("có cả khoản SUCCESS và AMOUNT_MISMATCH: ưu tiên SUCCESS (như BE)", () => {
-    const t = cancelTarget(order({ payments: [pay({ id: "m", status: "AMOUNT_MISMATCH" }), pay({ id: "s", status: "SUCCESS" })] }));
-    expect(t?.paymentId).toBe("s");
-  });
-});
-
-describe("số tiền phải hoàn và dòng huỷ được", () => {
-  const target = { kind: "paid" as const, paymentId: "p", received: 100000, balance: 100000 };
-  const lines = [line("a", 40000), line("b", 70000)];
-
-  it("cả đơn (không chọn) = toàn bộ số dư; huỷ một phần = min(tổng dòng chọn, số dư)", () => {
-    expect(refundAmountFor(target, lines, [])).toBe(100000);
-    expect(refundAmountFor(target, lines, ["a"])).toBe(40000);
-    expect(refundAmountFor(target, lines, ["a", "b"])).toBe(100000); // 110000 vượt số dư
-  });
-
-  it("lệch thiếu: luôn đúng số đã nhận, kể cả khi truyền dòng chọn", () => {
-    const mismatch = { kind: "mismatch" as const, paymentId: "p", received: 70000, balance: 70000 };
-    expect(refundAmountFor(mismatch, lines, ["a"])).toBe(70000);
-  });
-
-  it("dòng đã huỷ hoặc đã nằm trong khoản hoàn thì không chọn được", () => {
-    const o = { lines: [line("a", 1), line("b", 1, "CANCELLED"), line("c", 1)], refunds: [refund({ lines: [{ orderItemId: "c", quantity: 1, refundAmount: 1, isWastage: false }] })] };
-    expect(cancellableLines(o).map((l) => l.id)).toEqual(["a"]);
-  });
-});
-
-describe("lý do, ghi chú, thân gửi BE", () => {
-  it("lý do 3–500 ký tự sau trim (DTO CancelPaidOrderDto)", () => {
-    expect(validateCancelReason("")).toMatch(/nhập lý do/);
-    expect(validateCancelReason("  ab  ")).toMatch(/ít nhất 3/);
-    expect(validateCancelReason("abc")).toBeNull();
-    expect(validateCancelReason("a".repeat(500))).toBeNull();
-    expect(validateCancelReason("a".repeat(501))).toMatch(/tối đa 500/);
-  });
-
+describe("ghi chú hoàn", () => {
   it("ghi chú hoàn tối đa 500, không bắt buộc", () => {
     expect(validateRefundNote("")).toBeNull();
     expect(validateRefundNote("a".repeat(500))).toBeNull();
     expect(validateRefundNote("a".repeat(501))).toMatch(/tối đa 500/);
   });
 
-  it("thân gửi đúng 2–3 ô; orderItemIds chỉ khi chọn dòng; lý do đã trim", () => {
-    expect(buildCancelBody({ reason: "  Khách đổi ý ", refundMethod: "CASH" })).toEqual({ reason: "Khách đổi ý", refundMethod: "CASH" });
-    expect(buildCancelBody({ reason: "abc", refundMethod: "BANK_TRANSFER", orderItemIds: [] })).toEqual({ reason: "abc", refundMethod: "BANK_TRANSFER" });
-    expect(buildCancelBody({ reason: "abc", refundMethod: "BANK_TRANSFER", orderItemIds: ["x"] })).toEqual({ reason: "abc", refundMethod: "BANK_TRANSFER", orderItemIds: ["x"] });
-  });
 });
 
 describe("đánh dấu đã hoàn", () => {
