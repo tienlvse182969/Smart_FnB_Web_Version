@@ -5,7 +5,7 @@ import { mockControl } from "../../mock/control";
 import { mapCombo } from "./mapper";
 import { combosMock, resetCombosMock } from "./mock";
 import { combosReal } from "./real";
-import { branchGapReasons, comboProblems, commonSizeCodes, componentProblems, disabledChoiceItems, retailTotal } from "./rules";
+import { branchGapReasons, comboProblems, commonSizeCodes, componentProblems, defaultSurchargeTotal, disabledChoiceItems, retailTotal } from "./rules";
 
 mockControl.latency = [0, 0];
 mockControl.failure = null;
@@ -76,12 +76,29 @@ describe("quy tắc combo (BR-77)", () => {
 
 describe("giá mua lẻ (mục 26.2) và cảnh báo", () => {
   const prices: Record<string, number> = { a: 25000, b: 30000, c: 28000 };
-  it("Σ số lượng × (giá món mặc định + phụ thu của món mặc định)", () => {
+  it("mua lẻ = Σ giá món mặc định × số lượng (không cộng phụ thu); phụ thu tính phía combo", () => {
     expect(retailTotal([fixed("a"), variant(["b", "c"])], (id) => prices[id])).toBe(55000);
+    expect(defaultSurchargeTotal([fixed("a"), variant(["b", "c"])])).toBe(0);
     const matchaDefault = variant(["c", "b"]);
     matchaDefault.choices[0].surcharge = 5000;
-    expect(retailTotal([fixed("a", { quantity: 2 }), matchaDefault], (id) => prices[id])).toBe(2 * 25000 + 28000 + 5000);
+    const comps = [fixed("a", { quantity: 2 }), matchaDefault];
+    expect(retailTotal(comps, (id) => prices[id])).toBe(2 * 25000 + 28000);
+    expect(defaultSurchargeTotal(comps)).toBe(5000);
+    expect(defaultSurchargeTotal([variant(["c", "b"], { quantity: 2 })].map((c) => ({ ...c, choices: c.choices.map((x, i) => ({ ...x, surcharge: i === 0 ? 5000 : 0 })) })))).toBe(10000);
     expect(retailTotal([fixed("a"), fixed("")], (id) => prices[id])).toBe(25000);
+  });
+
+  it("ví dụ mục 26.2: Combo Sáng 39.000 (Bánh mì 25.000 + Trà sữa matcha 30.000, phụ thu 5.000): mua lẻ 55.000, phía combo 44.000", () => {
+    const matcha = variant(["cf", "tra", "matcha"]);
+    matcha.choices = [
+      { menuItemId: "matcha", surcharge: 5000, isDefault: true },
+      { menuItemId: "cf", surcharge: 0, isDefault: false },
+      { menuItemId: "tra", surcharge: 0, isDefault: false },
+    ];
+    const comps = [fixed("banhmi"), matcha];
+    const price = (id: string) => ({ banhmi: 25000, matcha: 30000, cf: 20000, tra: 22000 })[id];
+    expect(retailTotal(comps, price)).toBe(55000);
+    expect(39000 + defaultSurchargeTotal(comps)).toBe(44000);
   });
 
   it("món thành phần đang tắt cấp chuỗi", () => {

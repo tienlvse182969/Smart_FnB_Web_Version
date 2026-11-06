@@ -61,15 +61,20 @@ export function comboProblems(input: Pick<ComboInput, "name" | "categoryId" | "p
 const defaultChoice = (component: ComboComponent) => component.choices.find((c) => c.isDefault);
 
 /**
- * Giá mua lẻ theo giá chuỗi (mục 26.2): Σ số lượng × (giá món mặc định + phụ thu của món mặc định). Món chưa chọn/không tìm thấy bỏ qua.
- * Chỉ để hiển thị so sánh với giá combo, không chặn lưu.
+ * Giá mua lẻ theo giá chuỗi (mục 26.2): Σ (giá chuỗi của món mặc định × số lượng thành phần). KHÔNG cộng phụ thu: phụ thu thuộc phía combo
+ * (xem `defaultSurchargeTotal`). Món chưa chọn/không tìm thấy bỏ qua. Chỉ để hiển thị so sánh, không chặn lưu.
  */
 export function retailTotal(components: ComboComponent[], priceOf: (menuItemId: string) => number | undefined): number {
   return components.reduce((sum, component) => {
     const choice = defaultChoice(component);
     const price = choice ? priceOf(choice.menuItemId) : undefined;
-    return choice && price !== undefined ? sum + component.quantity * (price + choice.surcharge) : sum;
+    return price !== undefined ? sum + component.quantity * price : sum;
   }, 0);
+}
+
+/** Phụ thu của các món mặc định × số lượng thành phần: cộng vào phía combo khi so sánh với mua lẻ (mục 26.2). */
+export function defaultSurchargeTotal(components: ComboComponent[]): number {
+  return components.reduce((sum, component) => sum + component.quantity * (defaultChoice(component)?.surcharge ?? 0), 0);
 }
 
 /** Món thành phần đang tắt cấp chuỗi (cảnh báo cạnh thành phần). Trả tên món, theo thứ tự thành phần. */

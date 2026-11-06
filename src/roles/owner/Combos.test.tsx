@@ -129,8 +129,10 @@ describe("trình soạn combo", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Món mặc định 2 của thành phần 2" }));
     expect((screen.getByRole("radio", { name: "Món mặc định 2 của thành phần 2" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("radio", { name: "Món mặc định 1 của thành phần 2" }) as HTMLInputElement).checked).toBe(false);
-    // Mua lẻ lấy món mặc định mới: 25.000 + (28.000 + 5.000) = 58.000.
-    await waitFor(() => expect(screen.getByTestId("combo-compare").textContent).toMatch(/58\.000/));
+    // Mua lẻ = 25.000 + 28.000 = 53.000 (không cộng phụ thu); phía combo = 39.000 + 5.000 = 44.000.
+    await waitFor(() => expect(screen.getByTestId("combo-compare").textContent).toMatch(/53\.000/));
+    expect(screen.getByTestId("combo-compare").textContent).toMatch(/44\.000/);
+    expect(screen.getByTestId("combo-compare").textContent).toMatch(/phụ thu món mặc định 5\.000/);
   });
 
   it("combo tối đa 6 thành phần: đủ 6 thì khoá nút thêm", () => {

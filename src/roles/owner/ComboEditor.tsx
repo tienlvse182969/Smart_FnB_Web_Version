@@ -14,6 +14,7 @@ import {
   MIN_QUANTITY,
   comboProblems,
   commonSizeCodes,
+  defaultSurchargeTotal,
   disabledChoiceItems,
   retailTotal,
 } from "../../api/modules/combos/rules";
@@ -140,7 +141,9 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
 
   const itemPrice = (id: string) => items.find((x) => x.id === id)?.price;
   const retail = retailTotal(components, itemPrice);
-  const full = price !== null && retail > 0 ? { retail, diff: retail - price } : null;
+  // Phụ thu của món mặc định tính ở phía combo, không cộng vào mua lẻ (mục 26.2).
+  const surcharge = defaultSurchargeTotal(components);
+  const full = price !== null && retail > 0 ? { retail, surcharge, comboTotal: price + surcharge, diff: retail - (price + surcharge) } : null;
 
   const patchDraft = (key: string, change: Partial<Draft>) => setDrafts((cur) => cur.map((d) => (d.key === key ? { ...d, ...change } : d)));
   const moveDraft = (index: number, delta: -1 | 1) =>
@@ -357,7 +360,7 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       <div data-testid="combo-compare" style={{ background: palette.paperSubtle, borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 13 }}>
         {full ? (
           <>
-            Giá combo <b>{money(price ?? 0)}</b> · Mua lẻ theo giá chuỗi (món mặc định) <b>{money(full.retail)}</b> ·{" "}
+            Combo <b>{money(full.comboTotal)}</b>{full.surcharge > 0 ? <> (giá {money(price ?? 0)} + phụ thu món mặc định {money(full.surcharge)})</> : null} · Mua lẻ theo giá chuỗi (món mặc định) <b>{money(full.retail)}</b> ·{" "}
             {full.diff > 0 ? (
               <Tag color="success" style={{ margin: 0 }}>Rẻ hơn mua lẻ {money(full.diff)}</Tag>
             ) : full.diff < 0 ? (
