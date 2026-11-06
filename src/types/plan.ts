@@ -23,7 +23,7 @@ export const PLAN_TIER_LABEL: Record<PlanTier, string> = {
 
 /** Tính năng bị khoá theo gói (đặc tả 13.1, 13.4). */
 
-export type FeatureKey = "branding" | "multiBranchCompare" | "aiAssistant";
+export type FeatureKey = "branding" | "multiBranchCompare";
 
 export interface PlanFeature {
   enabled: boolean;

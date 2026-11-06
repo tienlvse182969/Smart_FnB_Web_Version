@@ -34,7 +34,7 @@ const plan = (over: Partial<PlanInfo> = {}): PlanInfo => ({
   status: "active",
   expiresAt: "2099-12-31T23:59:59.999Z",
   limits: [{ resource: "accounts", used: 7, limit: 20, remaining: 13 }, { resource: "branches", used: 2, limit: 5, remaining: 3 }],
-  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" }, aiAssistant: { enabled: false, requiredTier: "ADVANCED" } },
+  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" } },
   source: { limits: "real", features: "real" },
   ...over,
 });

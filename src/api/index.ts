@@ -11,16 +11,13 @@ export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
 export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export {
   advancedMenuApi,
-  type BranchPriceCell,
-  type BranchPriceMatrix,
-  type ChainCombo,
-  type ComboComponent,
-  type MenuExtra,
   type MenuImport,
   type MenuImportDraft,
   type MenuImportDraftItem,
-  type SaveComboInput,
 } from "./modules/advancedMenu";
+export { extrasApi, type ExtrasApi } from "./modules/extras";
+export { combosApi, type CombosApi } from "./modules/combos";
+export { branchPricesApi, type BranchPricesApi } from "./modules/branchPrices";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { branchOptionsApi, groupBranchOptions, type BranchOptionsApi } from "./modules/branchOptions";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
@@ -30,7 +27,6 @@ export { isIpv4, isMac, validateStationInput, validateStationPatch } from "./mod
 export { branchDeviceState } from "./modules/stations/mapper";
 export { orderApi, type OrderApi, type OrderScope } from "./modules/order";
 export { managerReportApi, type ManagerReportApi, type ManagerReportScope } from "./modules/managerReport";
-export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "./modules/payos";
 export { postersApi, type PostersApi, type PosterAddInput, type PosterPatch } from "./modules/posters";

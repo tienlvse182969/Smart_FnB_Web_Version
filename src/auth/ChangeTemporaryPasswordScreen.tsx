@@ -1,4 +1,5 @@
 import { App, Button, Card, Input, Typography } from "antd";
+import { palette } from "../theme";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { request } from "../api/http/client";
@@ -30,7 +31,7 @@ export default function ChangeTemporaryPasswordScreen() {
     finally { setBusy(false); }
   };
 
-  return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#f3f5f8", padding: 24 }}>
+  return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: palette.paper, padding: 24 }}>
     <Card style={{ width: "min(100%, 440px)", borderRadius: 16 }}>
       <Typography.Title level={3}>Đổi mật khẩu tạm</Typography.Title>
       <Typography.Paragraph type="secondary">Bạn cần đổi mật khẩu trước khi dùng hệ thống. Mật khẩu tạm có hiệu lực 72 giờ.</Typography.Paragraph>

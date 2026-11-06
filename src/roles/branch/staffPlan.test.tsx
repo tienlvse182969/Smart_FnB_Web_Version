@@ -29,7 +29,7 @@ const plan = (over: Partial<PlanInfo> = {}, accounts = { used: 7, limit: 20 }): 
     { resource: "branches", used: 2, limit: 5, remaining: 3 },
     { resource: "accounts", used: accounts.used, limit: accounts.limit, remaining: Math.max(0, accounts.limit - accounts.used) },
   ],
-  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" }, aiAssistant: { enabled: false, requiredTier: "ADVANCED" } },
+  features: { branding: { enabled: true, requiredTier: "STANDARD" }, multiBranchCompare: { enabled: true, requiredTier: "STANDARD" } },
   source: { limits: "real", features: "real" },
   ...over,
 });

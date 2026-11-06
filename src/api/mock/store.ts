@@ -4,7 +4,6 @@
  * Khoá theo (doanh nghiệp mock, chainId) để đổi doanh nghiệp mock thì dữ liệu sinh lại từ đầu.
  */
 import type {
-  AiQueryLog,
   BranchOptionState,
   ItemOptionConfig,
   Branding,
@@ -58,7 +57,6 @@ export interface ChainState {
   /** Tài khoản đăng nhập được: Owner, Manager (mock). */
   accounts: DemoAccount[];
   orders: Map<string, Order[]>;
-  aiLogs: AiQueryLog[];
   /** Chi nhánh đã sinh nhân sự. */
   staffSeeded: Set<string>;
 }
@@ -88,7 +86,6 @@ export function getChainState(chainId: string): ChainState {
       branding: buildBranding(profile, chainId),
       accounts: [],
       orders: new Map(),
-      aiLogs: [],
       staffSeeded: new Set(),
     };
     for (const m of state.menuItems) {

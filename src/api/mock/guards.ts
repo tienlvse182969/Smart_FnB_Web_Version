@@ -18,7 +18,7 @@ export function assertMockWritable(): void {
 }
 
 /** BR-08: gói không có tính năng thì BE chặn dù FE có ẩn nút hay không. */
-export function assertMockFeature(feature: "branding" | "multiBranchCompare" | "aiAssistant"): void {
+export function assertMockFeature(feature: "branding" | "multiBranchCompare"): void {
   const f = mockPlanBase().features[feature];
   if (!f.enabled) {
     throw new ApiError(403, "Gói hiện tại không có tính năng này.", [], "PLAN_FEATURE_UNAVAILABLE");

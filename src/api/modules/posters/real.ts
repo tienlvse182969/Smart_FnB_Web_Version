@@ -2,7 +2,7 @@
  * Bản REAL của module posters — BE `display-posters.controller.ts` (`restaurant-chains/:chainId/display-posters`), chỉ OWNER:
  *   GET    /                (cả poster đang tắt, theo thứ tự xoay vòng)
  *   POST   /                (multipart, field `file` DUY NHẤT; BE đặt tên "Poster", 8 giây; ≤ 5 MB; tối đa 10, vượt thì 409)
- *   PATCH  /:posterId       (`title` 1–120, `enabled`, `sortOrder` 0–10000, `durationSeconds` 3–60; trường lạ hoặc rỗng thì 400)
+ *   PATCH  /:posterId       (`title` 1–120, `enabled`, `sortOrder` 0–10000, `durationSeconds` 3–60 (web không gửi trường này, BR-52); trường lạ hoặc rỗng thì 400)
  *   DELETE /:posterId       (xoá mềm, trả 200 `{ deleted: true }`)
  * `imageUrl` BE trả là đường dẫn tương đối `/uploads/posters/...` (ngoài `/api/v1`); web ghép với origin máy chủ như logo nhận diện.
  * Ghi lúc doanh nghiệp hết hạn/tạm ngưng thì 403; đọc vẫn được. Không có endpoint đổi ảnh hay sắp xếp (xem `index.ts`).
@@ -63,7 +63,6 @@ export const postersReal: PostersApi = {
     if (patch.title !== undefined) body.title = patch.title.trim();
     if (patch.enabled !== undefined) body.enabled = patch.enabled;
     if (patch.sortOrder !== undefined) body.sortOrder = patch.sortOrder;
-    if (patch.durationSeconds !== undefined) body.durationSeconds = patch.durationSeconds;
     return mapPoster(await request<RawPoster>(`${base(chainId)}/${id}`, { method: "PATCH", body }));
   },
 

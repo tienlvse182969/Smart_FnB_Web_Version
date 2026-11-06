@@ -63,7 +63,6 @@ describe("màn Gói của tôi (dữ liệu thật, quyết định 52)", () => 
     expect(screen.queryByTestId("myplan-limit-warn-accounts")).toBeNull();
     expect(screen.getByTestId("myplan-feature-branding").getAttribute("data-enabled")).toBe("true");
     expect(screen.getByTestId("myplan-feature-multiBranchCompare").getAttribute("data-enabled")).toBe("false");
-    expect(screen.getByTestId("myplan-feature-aiAssistant").getAttribute("data-enabled")).toBe("unknown"); // BE chưa trả cờ AI
     expect(text("myplan-contact")).toBe(PLAN_CONTACT_TEXT);
     expect(screen.queryAllByRole("button")).toHaveLength(0); // không có nút gia hạn/đổi gói (quyết định 37)
   });
@@ -103,6 +102,5 @@ describe("màn Gói của tôi (dữ liệu thật, quyết định 52)", () => 
     expect(text("myplan-status")).toBe("Đang hoạt động");
     expect(text("myplan-expiry")).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
     expect(screen.getByTestId("myplan-feature-branding").getAttribute("data-enabled")).toBe("false");
-    expect(screen.getByTestId("myplan-feature-aiAssistant").getAttribute("data-enabled")).toBe("false");
   });
 });

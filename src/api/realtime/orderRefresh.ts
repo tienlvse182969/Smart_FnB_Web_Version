@@ -46,6 +46,9 @@ export const ORDER_EVENT_TYPES: ReadonlySet<string> = new Set([
   "order.finalized",
   "payment.cancelled",
   "payment.expired",
+  // BM-06 (BE paid-order-refund.service.ts): Thu ngân gửi yêu cầu hoàn / Store Manager duyệt hoặc từ chối.
+  "refund.approval-requested",
+  "refund.approval-reviewed",
 ]);
 
 export const REFRESH_DEBOUNCE_MS = 500;

@@ -9,7 +9,6 @@ import { usePlan } from "./usePlan";
 export const FEATURE_LABEL: Record<FeatureKey, string> = {
   branding: "Nhận diện thương hiệu",
   multiBranchCompare: "So sánh đa chi nhánh",
-  aiAssistant: "Trợ lý AI",
 };
 
 interface FeatureGateProps {

@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { App, Card, InputNumber, Switch, Tag, Typography } from "antd";
+import { Alert, App, Card, Switch, Tag, Typography } from "antd";
 import { ArrowDown, ArrowUp, ImagePlus, Images, Trash2 } from "lucide-react";
 import type { Poster } from "../../types";
 import { postersApi, showApiError } from "../../api";
 import {
   ACCEPTED_POSTER_TYPES,
   MAX_POSTERS,
-  MAX_POSTER_DURATION,
   MAX_POSTER_MB,
   MAX_POSTER_TITLE_LENGTH,
-  MIN_POSTER_DURATION,
+  POSTER_ROTATION_SECONDS,
   validatePosterFile,
 } from "../../api/modules/posters/validate";
 import { SectionTitle } from "../../components/bits";
@@ -20,7 +19,8 @@ import { palette } from "../../theme";
 import { DEFAULT_POSTER_IMAGE } from "../../theme/posterAssets";
 
 /**
- * Poster màn hình sau (OW-11): Owner thêm, bật/tắt, đặt tên, chỉnh thời lượng, đổi thứ tự và xoá poster hiện trên màn hình phụ của thu ngân.
+ * Poster màn hình sau (OW-11): Owner thêm, bật/tắt, đặt tên, đổi thứ tự và xoá poster hiện trên màn hình phụ của thu ngân.
+ * BR-51/BR-52: tối đa 6 poster, PNG/JPG/WebP ≤ 5 MB, tên ≤ 50 ký tự, mỗi poster hiện cố định 8 giây (không chỉnh).
  * Poster thuộc CHUỖI nên mọi chi nhánh đổi theo (màn hình sau tự làm mới trong vòng khoảng 1 phút; BE chưa đẩy realtime).
  * BE không có đổi ảnh tại chỗ: muốn đổi ảnh thì thêm poster mới rồi xoá poster cũ. Chọn ảnh là tải lên ngay, không có bước Lưu.
  */
@@ -89,9 +89,6 @@ export default function Posters() {
     void run(p.id, () => postersApi.updatePoster(chainId, p.id, { title: next }), "Đã đổi tên poster", "Không đổi được tên poster");
   };
 
-  const setDuration = (p: Poster, durationSeconds: number) =>
-    chainId && run(p.id, () => postersApi.updatePoster(chainId, p.id, { durationSeconds }), "Đã đổi thời lượng", "Không đổi được thời lượng");
-
   /**
    * BE chỉ có PATCH `sortOrder` từng poster (không tự dịch dòng khác, và `sortOrder` có thể trùng nhau sau khi xoá). Nên sau khi đổi chỗ hai poster kề nhau,
    * đặt `sortOrder` = vị trí mới cho MỌI poster còn lệch, tuần tự; lỗi giữa chừng thì `run` nạp lại bản thật.
@@ -127,6 +124,7 @@ export default function Posters() {
   };
 
   const full = posters.length >= MAX_POSTERS;
+  const overLimit = posters.length > MAX_POSTERS;
 
   return (
     <div data-testid="posters-page">
@@ -146,6 +144,16 @@ export default function Posters() {
           </ActionButton>
         }
       />
+      {overLimit && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          data-testid="posters-over-limit"
+          message={`Đang có ${posters.length} poster, vượt giới hạn ${MAX_POSTERS}`}
+          description={`Các poster hiện có vẫn hiển thị, và vẫn tắt, xoá, đổi thứ tự được. Muốn thêm mới, hãy xoá bớt để còn tối đa ${MAX_POSTERS}.`}
+        />
+      )}
       <input ref={addInputRef} type="file" accept={ACCEPTED_POSTER_TYPES.join(",")} style={{ display: "none" }} onChange={handleAdd} data-testid="poster-add-input" />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, alignItems: "start" }}>
@@ -184,7 +192,6 @@ export default function Posters() {
                         <Switch size="small" checked={p.enabled} disabled={writeGuard.disabled || busy !== null} onChange={(c) => toggle(p, c)} aria-label="Hiển thị poster" />
                         {p.enabled ? "Đang hiển thị" : "Đang tắt"}
                       </span>
-                      <DurationInput poster={p} disabled={writeGuard.disabled || busy !== null} onCommit={(s) => setDuration(p, s)} />
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "auto" }}>
                       <ActionButton size="small" aria-label="Lên" icon={<ArrowUp size={14} />} disabled={i === 0 || busy !== null} onClick={() => move(i, -1)} />
@@ -211,72 +218,18 @@ export default function Posters() {
   );
 }
 
-/** Ô thời lượng (giây): giữ giá trị đang gõ ở local, chỉ lưu khi rời ô hoặc nhấn Enter và giá trị hợp lệ, khác bản đã lưu. */
-function DurationInput({ poster, disabled, onCommit }: { poster: Poster; disabled: boolean; onCommit: (seconds: number) => unknown }) {
-  const [value, setValueState] = useState<number | null>(poster.durationSeconds);
-  // Giá trị mới nhất, đọc được ngay cả khi blur/Enter đến trước lần render kế (không đọc `value` cũ của closure).
-  const latest = useRef<number | null>(poster.durationSeconds);
-  /** Giá trị đã gửi mà bản lưu chưa nạp lại — Enter rồi blur liền nhau không gửi hai lần. */
-  const sent = useRef<number | null>(null);
-  const setValue = (next: number | null) => {
-    latest.current = next;
-    setValueState(next);
-  };
-
-  // Bản đã lưu đổi (nạp lại sau khi lưu) thì ô theo bản mới.
-  useEffect(() => {
-    latest.current = poster.durationSeconds;
-    sent.current = null;
-    setValueState(poster.durationSeconds);
-  }, [poster.durationSeconds]);
-
-  const commit = () => {
-    const next = latest.current;
-    if (next === null || !Number.isInteger(next) || next < MIN_POSTER_DURATION || next > MAX_POSTER_DURATION) {
-      setValue(poster.durationSeconds);
-      return;
-    }
-    if (next === poster.durationSeconds || next === sent.current) return;
-    sent.current = next;
-    // Xong (kể cả lỗi) thì cho phép gửi lại cùng giá trị; trong lúc chờ, blur sau Enter bị chặn ở trên.
-    void Promise.resolve(onCommit(next)).finally(() => {
-      sent.current = null;
-    });
-  };
-
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      Hiện
-      <InputNumber
-        size="small"
-        min={MIN_POSTER_DURATION}
-        max={MAX_POSTER_DURATION}
-        precision={0}
-        value={value}
-        disabled={disabled}
-        style={{ width: 62 }}
-        aria-label="Thời lượng hiển thị (giây)"
-        onChange={setValue}
-        onBlur={commit}
-        onPressEnter={commit}
-      />
-      giây
-    </span>
-  );
-}
-
-/** Xem trước màn hình sau: nền là ảnh mờ, ảnh rõ ở giữa (`contain`), xoay các poster đang bật theo thứ tự, mỗi poster đúng thời lượng của nó. */
+/** Xem trước màn hình sau: nền là ảnh mờ, ảnh rõ ở giữa (`contain`), xoay các poster đang bật theo thứ tự, mỗi poster đúng 8 giây. */
 function Preview({ posters }: { posters: Poster[] }) {
   const active = posters.filter((p) => p.enabled);
   const [index, setIndex] = useState(0);
   const slot = active.length ? index % active.length : 0;
   const current = active[slot];
-  // Khoá thay đổi khi danh sách đang bật, thứ tự hoặc thời lượng đổi, để hẹn giờ dựng lại đúng.
-  const signature = active.map((p) => `${p.id}:${p.durationSeconds}`).join("|");
+  // Khoá thay đổi khi danh sách đang bật, hoặc thứ tự đổi, để hẹn giờ dựng lại đúng.
+  const signature = active.map((p) => p.id).join("|");
 
   useEffect(() => {
     if (active.length < 2 || !current) return;
-    const timer = setTimeout(() => setIndex((slot + 1) % active.length), current.durationSeconds * 1000);
+    const timer = setTimeout(() => setIndex((slot + 1) % active.length), POSTER_ROTATION_SECONDS * 1000);
     return () => clearTimeout(timer);
     // `signature` đại diện cho `active` và `current` (danh sách đang bật, thứ tự, thời lượng).
   }, [signature, slot]);
@@ -311,7 +264,7 @@ function Preview({ posters }: { posters: Poster[] }) {
         ))}
       </div>
       <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 10, textAlign: "center" }}>
-        {active.length > 1 ? `Xoay vòng ${active.length} poster · "${current.title}" hiện ${current.durationSeconds} giây` : active.length === 1 ? "Chỉ 1 poster đang bật — hiện cố định" : ""}
+        {active.length > 1 ? `Xoay vòng ${active.length} poster · "${current.title}" hiện ${POSTER_ROTATION_SECONDS} giây` : active.length === 1 ? "Chỉ 1 poster đang bật — hiện cố định" : ""}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
  * quản lý gói của Admin và Landing — MỘT nguồn duy nhất.
  *
  * Quy ước: mã gói (`code`) BASIC / STANDARD / ADVANCED ứng với Cơ bản / Tiêu chuẩn / Nâng cao. Cờ tính năng suy ra
- * từ cấp theo bảng đặc tả 13.1. CHỜ BE: BE chưa có cột cấp (`tier`) và cờ tính năng trên gói (docs/api-contract-plan.md,
+ * từ cấp theo bảng đặc tả 13.1 (chỉ 2 cờ: nhận diện, so sánh đa chi nhánh). CHỜ BE: BE chưa có cột cấp (`tier`) và cờ tính năng trên gói (docs/api-contract-plan.md,
  * mục 2 và 7); khi có thì bỏ file này và đọc thẳng từ API.
  */
 import {
@@ -17,7 +17,6 @@ import {
 export const FEATURE_REQUIRED_TIER: Record<FeatureKey, PlanTier> = {
   branding: "STANDARD",
   multiBranchCompare: "STANDARD",
-  aiAssistant: "ADVANCED",
 };
 
 export const FEATURE_KEYS = Object.keys(FEATURE_REQUIRED_TIER) as FeatureKey[];
@@ -46,7 +45,7 @@ export function featuresForTier(tier: PlanTier): Record<FeatureKey, PlanFeature>
     enabled: rank >= PLAN_TIER_ORDER.indexOf(FEATURE_REQUIRED_TIER[key]),
     requiredTier: FEATURE_REQUIRED_TIER[key],
   });
-  return { branding: make("branding"), multiBranchCompare: make("multiBranchCompare"), aiAssistant: make("aiAssistant") };
+  return { branding: make("branding"), multiBranchCompare: make("multiBranchCompare") };
 }
 
 /** Gợi ý mã gói từ tên: ba tên chuẩn ra đúng ba mã cấp; tên khác → chữ hoa không dấu nối bằng `_`. */

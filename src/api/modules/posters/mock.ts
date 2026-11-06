@@ -5,7 +5,7 @@ import { assertMockWritable } from "../../mock/guards";
 import { genId, nowISO } from "../../mock/util";
 import type { PostersApi } from "./index";
 import { loadPersistedPosters, savePersistedPosters } from "./persist";
-import { DEFAULT_POSTER_DURATION, DEFAULT_POSTER_TITLE, MAX_POSTERS, comparePosters, validatePosterFile, validatePosterPatch } from "./validate";
+import { POSTER_ROTATION_SECONDS, DEFAULT_POSTER_TITLE, MAX_POSTERS, comparePosters, validatePosterFile, validatePosterPatch } from "./validate";
 
 /** Mock giữ ảnh dạng data URL (không có máy chủ lưu tệp). */
 const readAsDataUrl = (file: File): Promise<string> =>
@@ -66,7 +66,7 @@ export const postersMock: PostersApi = {
       title: DEFAULT_POSTER_TITLE,
       enabled: true,
       sortOrder: list.length,
-      durationSeconds: DEFAULT_POSTER_DURATION,
+      durationSeconds: POSTER_ROTATION_SECONDS,
       createdAt: now,
       updatedAt: now,
     };
@@ -87,7 +87,6 @@ export const postersMock: PostersApi = {
       ...(patch.title !== undefined && { title: patch.title.trim() }),
       ...(patch.enabled !== undefined && { enabled: patch.enabled }),
       ...(patch.sortOrder !== undefined && { sortOrder: patch.sortOrder }),
-      ...(patch.durationSeconds !== undefined && { durationSeconds: patch.durationSeconds }),
       updatedAt: nowISO(),
     };
     commit(chainId, next);

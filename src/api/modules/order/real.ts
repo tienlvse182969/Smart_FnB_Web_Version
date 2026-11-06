@@ -5,7 +5,6 @@
  */
 import { request } from "../../http/client";
 import { mapOrderDetail, mapOrderPage } from "./mapper";
-import { buildCancelBody } from "./paidCancel";
 import { buildOrderQueryString } from "./query";
 import type { OrderApi } from "./index";
 
@@ -25,11 +24,6 @@ export const orderReal: OrderApi = {
     if (input.transactionRef) body.transactionRef = input.transactionRef;
     // Bỏ qua phản hồi (`{...payment, order, tracking}`): màn GET lại chi tiết đơn (quyết định 84).
     await request<unknown>(`/payments/${encodeURIComponent(paymentId)}/confirm`, { method: "POST", body });
-  },
-
-  async cancelPaidOrder(_scope, orderId, input) {
-    // Đúng 3 ô của `CancelPaidOrderDto` (BE bật `forbidNonWhitelisted`); bỏ qua phản hồi, màn GET lại chi tiết (quyết định 84).
-    await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}/cancel-paid`, { method: "POST", body: buildCancelBody(input) });
   },
 
   async completeRefund(_scope, refundId, input) {

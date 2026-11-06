@@ -1,15 +1,14 @@
 /**
- * Kiểm poster trước khi gửi, theo BE (`display-posters.service.ts`, `dto/display-poster.dto.ts`): ảnh PNG/JPG/WebP ≤ 5 MB, tối đa 10 poster
- * mỗi chuỗi (kể cả poster đang tắt), tên 1–120 ký tự, thời lượng 3–60 giây, `sortOrder` 0–10000. BE còn kiểm chữ ký tệp.
+ * Kiểm poster trước khi gửi, theo đặc tả v14 (BR-51, BR-52): ảnh PNG/JPG/WebP ≤ 5 MB, tối đa 6 poster mỗi doanh nghiệp (kể cả poster đang tắt),
+ * tên ≤ 50 ký tự, xoay vòng cố định 8 giây (không chỉnh thời lượng). BE lỏng hơn ở tên (120) và số lượng (10): web theo đặc tả.
  */
 export const MAX_POSTER_MB = 5;
 export const MAX_POSTER_BYTES = MAX_POSTER_MB * 1024 * 1024;
 export const ACCEPTED_POSTER_TYPES = ["image/png", "image/jpeg", "image/webp"];
-export const MAX_POSTERS = 10;
-export const MAX_POSTER_TITLE_LENGTH = 120;
-export const MIN_POSTER_DURATION = 3;
-export const MAX_POSTER_DURATION = 60;
-export const DEFAULT_POSTER_DURATION = 8;
+export const MAX_POSTERS = 6;
+export const MAX_POSTER_TITLE_LENGTH = 50;
+/** BR-52: mỗi poster hiện đúng 8 giây ở màn hình phía khách; không có ô chỉnh. */
+export const POSTER_ROTATION_SECONDS = 8;
 export const MAX_POSTER_SORT_ORDER = 10000;
 export const DEFAULT_POSTER_TITLE = "Poster";
 
@@ -21,21 +20,12 @@ export function validatePosterFile(file: { type: string; size: number }): string
   return null;
 }
 
-/** Lỗi tên poster (đã cắt khoảng trắng đầu cuối, 1–120 ký tự), hoặc `null` nếu hợp lệ. Bỏ trống tham số = không đổi tên. */
+/** Lỗi tên poster (đã cắt khoảng trắng đầu cuối, 1–50 ký tự), hoặc `null` nếu hợp lệ. Bỏ trống tham số = không đổi tên. */
 export function validatePosterTitle(title: string | undefined): string | null {
   if (title === undefined) return null;
   const length = title.trim().length;
   if (length === 0) return "Tên poster không được để trống";
   if (length > MAX_POSTER_TITLE_LENGTH) return `Tên poster tối đa ${MAX_POSTER_TITLE_LENGTH} ký tự`;
-  return null;
-}
-
-/** Lỗi thời lượng (số nguyên 3–60 giây), hoặc `null` nếu hợp lệ. Bỏ trống tham số = không đổi. */
-export function validatePosterDuration(seconds: number | undefined): string | null {
-  if (seconds === undefined) return null;
-  if (!Number.isInteger(seconds) || seconds < MIN_POSTER_DURATION || seconds > MAX_POSTER_DURATION) {
-    return `Thời lượng phải là số nguyên từ ${MIN_POSTER_DURATION} đến ${MAX_POSTER_DURATION} giây`;
-  }
   return null;
 }
 
@@ -47,11 +37,11 @@ export function validatePosterSortOrder(sortOrder: number | undefined): string |
 }
 
 /** Lỗi đầu tiên của một lần sửa poster (PATCH), hoặc `null`. Sửa rỗng cũng là lỗi (BE trả 400). */
-export function validatePosterPatch(patch: { title?: string; enabled?: boolean; sortOrder?: number; durationSeconds?: number }): string | null {
-  if (patch.title === undefined && patch.enabled === undefined && patch.sortOrder === undefined && patch.durationSeconds === undefined) {
+export function validatePosterPatch(patch: { title?: string; enabled?: boolean; sortOrder?: number }): string | null {
+  if (patch.title === undefined && patch.enabled === undefined && patch.sortOrder === undefined) {
     return "Cần ít nhất một trường để cập nhật poster";
   }
-  return validatePosterTitle(patch.title) ?? validatePosterSortOrder(patch.sortOrder) ?? validatePosterDuration(patch.durationSeconds);
+  return validatePosterTitle(patch.title) ?? validatePosterSortOrder(patch.sortOrder);
 }
 
 /** Sắp theo thứ tự xoay vòng của BE: `sortOrder`, rồi thời điểm tạo, rồi `id`. */

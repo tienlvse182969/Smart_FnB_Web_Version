@@ -1,4 +1,5 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Typography } from "antd";
+import { palette } from "../../theme";
 import { useCallback, useEffect, useState } from "react";
 import { platformStaffApi } from "../../api/platformStaff";
 import { showApiError } from "../../api";
@@ -82,7 +83,7 @@ export default function PlatformBusinesses() {
           <Button loading={busy} onClick={() => void support("resend")}>Gửi lại hóa đơn PayOS đang chờ</Button>
         </div>
         <Typography.Title level={5} style={{ marginTop: 24 }}>Lịch sử thanh toán nền tảng</Typography.Title>
-        {billing?.checkouts.length ? billing.checkouts.map((checkout) => <div key={checkout.id} style={{ borderTop: "1px solid #eee", padding: "12px 0", fontSize: 13 }}>
+        {billing?.checkouts.length ? billing.checkouts.map((checkout) => <div key={checkout.id} style={{ borderTop: `1px solid ${palette.line}`, padding: "12px 0", fontSize: 13 }}>
           {formatDateTime(checkout.createdAt)} · {formatVnd(Number(checkout.amount))} · <strong>{checkout.status}</strong>
           {checkout.reviewReason && <div>{checkout.reviewReason}</div>}
           <div style={{ marginTop: 6 }}><Button size="small" loading={busy} onClick={() => void support("recheck", checkout.id)}>Kiểm tra lại với PayOS</Button></div>

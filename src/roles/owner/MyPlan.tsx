@@ -38,11 +38,9 @@ export const FEATURE_LABEL: Record<FeatureKey, string> = {
   branding: "Nhận diện thương hiệu",
 
   multiBranchCompare: "So sánh đa chi nhánh",
-
-  aiAssistant: "Trợ lý AI",
 };
 
-/** Cờ BE thật sự trả trên gói (`plan-quota.service.ts:23-24`); cờ AI chưa có ở BE (#30). */
+/** Cờ BE thật sự trả trên gói (`plan-quota.service.ts:23-24`); BE chỉ có 2 cờ này (đặc tả 13.1). */
 
 const BACKEND_FLAGS: FeatureKey[] = ["branding", "multiBranchCompare"];
 

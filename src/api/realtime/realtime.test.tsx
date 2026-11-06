@@ -28,6 +28,8 @@ describe("sự kiện đơn của BE (quyết định 74)", () => {
         "preparation.item.undone",
         "preparation.order.delivered",
         "preparation.order.queued",
+        "refund.approval-requested",
+        "refund.approval-reviewed",
         "refund.completed",
         "refund.pending",
       ].sort(),

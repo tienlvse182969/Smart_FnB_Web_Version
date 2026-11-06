@@ -17,13 +17,12 @@ export interface PosterPatch {
   title?: string;
   enabled?: boolean;
   sortOrder?: number;
-  durationSeconds?: number;
 }
 
 export interface PostersApi {
   /** Trả theo thứ tự xoay vòng (`sortOrder`, rồi `createdAt`, rồi `id`), gồm cả poster đang tắt. Chưa có poster nào = màn hình sau dùng ảnh mặc định. */
   listPosters(chainId: string): Promise<Poster[]>;
-  /** BE đặt tên "Poster", thời lượng 8 giây, `sortOrder` = số poster hiện có. Vượt `MAX_POSTERS` thì 409. */
+  /** BE đặt tên "Poster", thời lượng 8 giây, `sortOrder` = số poster hiện có. Web chặn từ 6 poster (BR-51); BE cho tới 10 và trả 409 khi vượt. */
   addPoster(chainId: string, input: PosterAddInput): Promise<Poster>;
   updatePoster(chainId: string, id: string, patch: PosterPatch): Promise<Poster>;
   /** Xoá mềm: tệp ảnh vẫn nằm trên máy chủ, nhưng poster biến mất khỏi danh sách và màn hình sau. */
