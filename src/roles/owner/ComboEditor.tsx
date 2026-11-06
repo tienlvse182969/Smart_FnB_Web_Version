@@ -19,6 +19,7 @@ import {
   retailTotal,
 } from "../../api/modules/combos/rules";
 import MoneyInput from "../../components/MoneyInput";
+import BranchPriceNote from "./BranchPriceNote";
 import { money } from "../../data";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import ActionButton from "../../plan/ActionButton";
@@ -206,6 +207,7 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       </Field>
       <Field label="Giá combo (₫, số nguyên) — giá chuỗi">
         <MoneyInput value={price} onChange={setPrice} data-testid="combo-price" />
+        {existing && <BranchPriceNote type="COMBO" productId={existing.id} chainPrice={existing.price} />}
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={MAX_COMBO_DESCRIPTION} rows={2} onChange={(e) => setDescription(e.target.value)} />

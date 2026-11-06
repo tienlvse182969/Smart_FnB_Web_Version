@@ -8,6 +8,7 @@ import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
 import MoneyInput from "../../components/MoneyInput";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import { modeOf } from "../../api/flags";
+import BranchPriceNote from "./BranchPriceNote";
 import ItemExtrasEditor, { itemExtrasKey, itemExtrasProblem, type ItemExtrasValue } from "./ItemExtrasEditor";
 import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
@@ -528,6 +529,7 @@ function ItemDrawer({
       </Field>
       <Field label="Giá (₫, số nguyên)">
         <MoneyInput value={price} onChange={setPrice} />
+        {existing && <BranchPriceNote type="ITEM" productId={existing.id} chainPrice={existing.price} />}
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />

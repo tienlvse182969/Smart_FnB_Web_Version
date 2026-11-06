@@ -36,6 +36,8 @@ import Reports from "../roles/owner/Reports";
 import Branches from "../roles/owner/Branches";
 import MenuTable from "../roles/owner/MenuTable";
 import CategoriesTable from "../roles/owner/CategoriesTable";
+import BranchPrices from "../roles/owner/BranchPrices";
+import BranchPriceList from "../roles/branch/BranchPriceList";
 import CombosPage from "../roles/owner/CombosPage";
 import ExtrasLibrary from "../roles/owner/ExtrasLibrary";
 import OptionGroups from "../roles/owner/OptionGroups";
@@ -111,6 +113,7 @@ export const ownerRoutes: RouteDef[] = [
   },
   { path: "menu/extras", label: "Topping thêm", icon: <CirclePlus size={18} />, code: "OW-15", element: <ExtrasLibrary /> },
   { path: "menu/combos", label: "Combo", icon: <Layers size={18} />, code: "OW-14 · OW-04", element: <CombosPage /> },
+  { path: "menu/prices", label: "Giá theo chi nhánh", icon: <Tags size={18} />, code: "OW-16", element: <BranchPrices /> },
   { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
   {
     path: "payos",
@@ -134,6 +137,7 @@ export const managerRoutes: RouteDef[] = [
   { path: "dashboard", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "BM-03", element: <ManagerDashboard /> },
   { path: "branch-info", label: "Thông tin chi nhánh", icon: <Building2 size={18} />, element: <BranchInfo /> },
   { path: "menu", label: "Món tại chi nhánh", icon: <UtensilsCrossed size={18} />, code: "BM-02", element: <BranchMenu /> },
+  { path: "prices", label: "Bảng giá chi nhánh", icon: <Tags size={18} />, code: "OW-16", element: <BranchPriceList /> },
   { path: "staff", label: "Nhân viên", icon: <UsersRound size={18} />, code: "BM-01", element: <StaffTable /> },
   {
     path: "stations",

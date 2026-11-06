@@ -11,6 +11,7 @@ export { planApi, type PlanApi, type GetPlanOptions } from "./modules/plan";
 export { menuApi, SKU_PATTERN, suggestSku, type MenuApi } from "./modules/menu";
 export { extrasApi, type ExtrasApi } from "./modules/extras";
 export { combosApi, type CombosApi } from "./modules/combos";
+export { branchPricesApi, type BranchPricesApi } from "./modules/branchPrices";
 export { optionsApi, type OptionsApi, type OptionGroupInput } from "./modules/options";
 export { branchOptionsApi, groupBranchOptions, type BranchOptionsApi } from "./modules/branchOptions";
 export { brandingApi, type BrandingApi, type BrandingInput } from "./modules/branding";
