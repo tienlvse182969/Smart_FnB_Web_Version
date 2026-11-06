@@ -19,6 +19,8 @@ import {
   ReceiptText,
   ScrollText,
   Sliders,
+  Layers,
+  CirclePlus,
   Store,
   Tags,
   UserCog,
@@ -34,6 +36,7 @@ import Reports from "../roles/owner/Reports";
 import Branches from "../roles/owner/Branches";
 import MenuTable from "../roles/owner/MenuTable";
 import CategoriesTable from "../roles/owner/CategoriesTable";
+import CombosPage from "../roles/owner/CombosPage";
 import ExtrasLibrary from "../roles/owner/ExtrasLibrary";
 import OptionGroups from "../roles/owner/OptionGroups";
 import ManagerAccounts from "../roles/owner/ManagerAccounts";
@@ -106,7 +109,8 @@ export const ownerRoutes: RouteDef[] = [
     code: "OW-03",
     element: <OptionGroups />,
   },
-  { path: "menu/extras", label: "Topping thêm", icon: <Sliders size={18} />, code: "OW-15", element: <ExtrasLibrary /> },
+  { path: "menu/extras", label: "Topping thêm", icon: <CirclePlus size={18} />, code: "OW-15", element: <ExtrasLibrary /> },
+  { path: "menu/combos", label: "Combo", icon: <Layers size={18} />, code: "OW-14 · OW-04", element: <CombosPage /> },
   { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
   {
     path: "payos",
