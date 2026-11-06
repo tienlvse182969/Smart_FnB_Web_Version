@@ -311,7 +311,7 @@ export default function SignupRequests() {
               <ActionButton loading={supportSaving} onClick={() => void support("plan")}>Đổi gói được duyệt</ActionButton>
               <ActionButton loading={supportSaving} onClick={() => void support("resend")}>Gửi lại link kích hoạt</ActionButton>
             </div>}
-            {detail.supportActions.length > 0 && <div style={{ marginTop: 20 }}><strong>Lịch sử hỗ trợ</strong>{detail.supportActions.map((entry) => <div key={entry.id} style={{ padding: "8px 0", borderBottom: "1px solid #eee", fontSize: 12 }}>{formatDateTime(entry.createdAt)} · {entry.actor.email}<br />{entry.note}</div>)}</div>}
+            {detail.supportActions.length > 0 && <div style={{ marginTop: 20 }}><strong>Lịch sử hỗ trợ</strong>{detail.supportActions.map((entry) => <div key={entry.id} style={{ padding: "8px 0", borderBottom: `1px solid ${palette.line}`, fontSize: 12 }}>{formatDateTime(entry.createdAt)} · {entry.actor.email}<br />{entry.note}</div>)}</div>}
 
             {detail.status === "PENDING" && (
               <div style={{ display: "flex", gap: 10, marginTop: 22 }}>

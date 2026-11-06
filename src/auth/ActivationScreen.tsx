@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Spin, Typography } from "antd";
+import { palette } from "../theme";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { request } from "../api/http/client";
@@ -68,7 +69,7 @@ export default function ActivationScreen() {
     } catch { setError("Không tạo được liên kết PayOS. Vui lòng thử lại sau."); setBusy(false); }
   };
 
-  return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "#f3f5f8" }}>
+  return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: palette.paper }}>
     <Card style={{ width: "min(100%, 520px)", borderRadius: 16 }}>
       <Typography.Title level={3}>Kích hoạt Smart F&B</Typography.Title>
       {loading ? <Spin /> : done ? <Alert type="success" showIcon message="Doanh nghiệp đã được kích hoạt" description={<span>Email thiết lập mật khẩu Owner đã được gửi. Sau khi đặt mật khẩu, bạn có thể <Link to="/login">đăng nhập</Link>.</span>} /> : <>
