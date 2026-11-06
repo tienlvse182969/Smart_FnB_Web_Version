@@ -215,18 +215,19 @@ function RenewModal({ open, business, onClose, onDone }: DialogProps & { onDone:
   const { message } = App.useApp();
   const [months, setMonths] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState("");
   const current = business.subscription ? new Date(business.subscription.expiresAt) : new Date();
   // BE: cộng từ ngày hết hạn hiện tại nếu còn hạn, ngược lại từ hôm nay.
   const next = addMonthsISO(current > new Date() ? current : new Date(), months);
 
   useEffect(() => {
-    if (open) setMonths(1);
+    if (open) { setMonths(1); setNote(""); }
   }, [open]);
 
   const submit = async () => {
     setSaving(true);
     try {
-      const updated = await adminApi.renewBusiness(business.id, { months });
+      const updated = await adminApi.renewBusiness(business.id, { months, note: note.trim() });
       await onDone(`Đã gia hạn tới ${dateLabel(updated.subscription?.expiresAt)}`);
     } catch (err) {
       showApiError(message.error, err, "Không gia hạn được");
@@ -244,7 +245,9 @@ function RenewModal({ open, business, onClose, onDone }: DialogProps & { onDone:
         <br />
         Hết hạn mới: <b data-testid="renew-expiry">{dateLabel(next)}</b>
       </div>
-      <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} onClick={submit}>
+      {label("Lý do gia hạn thủ công (bắt buộc)")}
+      <Input.TextArea rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
+      <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} disabled={note.trim().length < 3} onClick={submit}>
         Gia hạn
       </ActionButton>
     </Modal>
@@ -257,11 +260,13 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
   const [planId, setPlanId] = useState<string | undefined>();
   const [pick, setPick] = useState<PlanChangeDirection>("UPGRADE");
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState("");
   const sub = business.subscription;
 
   useEffect(() => {
     if (!open) return;
     setPlanId(undefined);
+    setNote("");
     adminApi
       .listPlans()
       .then((all) => setPlans(all.filter((p) => p.isActive && p.id !== sub?.plan.id)))
@@ -284,7 +289,7 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
     setSaving(true);
     try {
       // TODO(BE, lệch BR-11): BE trả 409 khi hạ gói mà đang vượt hạn mức gói mới; đặc tả BR-11 cho phép hạ gói, chỉ chặn tạo mới.
-      await adminApi.changeBusinessPlan(business.id, { planId, direction });
+      await adminApi.changeBusinessPlan(business.id, { planId, direction, note: note.trim() });
       await onDone("Đã đổi gói dịch vụ");
     } catch (err) {
       showApiError(message.error, err, "Không đổi được gói");
@@ -320,7 +325,9 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
           {direction === "UPGRADE" ? "Nâng gói" : "Hạ gói"} — dữ liệu hiện có được giữ nguyên.
         </div>
       )}
-      <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} disabled={!planId} onClick={submit}>
+      {label("Lý do đổi gói giữa kỳ (bắt buộc)")}
+      <Input.TextArea rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
+      <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} disabled={!planId || note.trim().length < 3} onClick={submit}>
         Đổi gói
       </ActionButton>
     </Modal>
@@ -347,7 +354,7 @@ function StatusModal({
     setSaving(true);
     try {
       if (suspend) await adminApi.suspendBusiness(business.id, reason.trim());
-      else await adminApi.reactivateBusiness(business.id, reason.trim() || undefined);
+      else await adminApi.reactivateBusiness(business.id, reason.trim());
       await onDone(suspend ? `Đã tạm ngưng ${business.name} (chế độ chỉ đọc)` : `Đã kích hoạt lại ${business.name}`);
     } catch (err) {
       showApiError(message.error, err, suspend ? "Không tạm ngưng được" : "Không kích hoạt lại được");
@@ -369,7 +376,7 @@ function StatusModal({
           Doanh nghiệp chuyển sang chế độ chỉ đọc; các phiên đăng nhập của họ bị thu hồi.
         </div>
       )}
-      {label(suspend ? "Lý do (bắt buộc)" : "Lý do (tuỳ chọn)")}
+      {label("Lý do (bắt buộc)")}
       <Input.TextArea rows={3} maxLength={500} showCount value={reason} onChange={(e) => setReason(e.target.value)} />
       <ActionButton
         type="primary"
@@ -378,7 +385,7 @@ function StatusModal({
         style={{ marginTop: 16 }}
         loading={saving}
         // Đặc tả 5.2: tạm ngưng kèm lý do — BE cho tuỳ chọn nhưng web bắt buộc.
-        disabled={suspend && !reason.trim()}
+        disabled={reason.trim().length < 3}
         onClick={submit}
       >
         {suspend ? "Tạm ngưng" : "Kích hoạt lại"}

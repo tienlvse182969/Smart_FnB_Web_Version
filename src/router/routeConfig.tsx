@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import {
   Bot,
+  BarChart3,
   Building2,
   ClipboardList,
   CreditCard,
@@ -16,6 +17,7 @@ import {
   Palette,
   Printer,
   Receipt,
+  ReceiptText,
   ScrollText,
   Sliders,
   Store,
@@ -51,6 +53,8 @@ import AttentionOrders from "../roles/branch/AttentionOrders";
 import RefundApprovals from "../roles/branch/RefundApprovals";
 import PlatformBusinesses from "../roles/platform-staff/Businesses";
 import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
+import PlatformRevenue from "../roles/admin/PlatformRevenue";
+import PlatformInvoices from "../roles/admin/PlatformInvoices";
 
 export type WebRole = "admin" | "platform-staff" | "owner" | "manager";
 
@@ -80,6 +84,8 @@ export const adminRoutes: RouteDef[] = [
     element: <SignupRequests />,
   },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlansTable /> },
+  { path: "platform-revenue", label: "Doanh thu nền tảng", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
+  { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
   { path: "support", label: "Hỗ trợ thuê bao", icon: <CreditCard size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
 ];

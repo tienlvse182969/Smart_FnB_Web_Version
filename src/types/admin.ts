@@ -226,3 +226,54 @@ export type ChangePlanInput = {
 };
 
 export type OwnerPasswordResetResult = { ownerId: string; expiresAt: string };
+
+export type AdminOverviewMetrics = {
+  registrations: Record<RegistrationStatus, number>;
+  businesses: { total: number; paid: number; trial: number; expired: number; suspended: number };
+  activePlans: number;
+  mrr: number;
+  revenueThisMonth: number;
+  invoicesNeedReview: number;
+  generatedAt: string;
+};
+
+export type PlatformRevenueGroupBy = "day" | "month" | "year";
+
+export type PlatformRevenueReport = {
+  range: { from: string; to: string; groupBy: PlatformRevenueGroupBy };
+  summary: {
+    revenue: number;
+    invoiceCount: number;
+    mrr: number;
+    paidBusinesses: number;
+    trialBusinesses: number;
+    expiredBusinesses: number;
+    suspendedBusinesses: number;
+    trialConversionRate: number;
+    unpaidInvoices: number;
+    reviewInvoices: number;
+    outstandingAmount: number;
+    manualRenewals: number;
+  };
+  series: { period: string; revenue: number; invoiceCount: number }[];
+  plans: { planId: string; planName: string; revenue: number; invoiceCount: number }[];
+};
+
+export type PlatformInvoiceStatus = "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW";
+export type PlatformInvoiceSource = "REGISTRATION" | "SUBSCRIPTION";
+
+export type PlatformInvoice = {
+  source: PlatformInvoiceSource;
+  id: string;
+  referenceCode: string;
+  businessId: string | null;
+  businessCode: string;
+  businessName: string;
+  planId: string;
+  planName: string;
+  amount: number;
+  status: PlatformInvoiceStatus;
+  paidAt: string | null;
+  reviewReason: string | null;
+  createdAt: string;
+};
