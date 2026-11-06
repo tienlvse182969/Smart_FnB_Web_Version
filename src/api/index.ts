@@ -18,7 +18,6 @@ export { isIpv4, isMac, validateStationInput, validateStationPatch } from "./mod
 export { branchDeviceState } from "./modules/stations/mapper";
 export { orderApi, type OrderApi, type OrderScope } from "./modules/order";
 export { managerReportApi, type ManagerReportApi, type ManagerReportScope } from "./modules/managerReport";
-export { aiApi, SAMPLE_QUESTIONS, type AiApi } from "./modules/ai";
 export { adminApi, type AdminApi } from "./modules/admin";
 export { payosApi, type PayosApi, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "./modules/payos";
 export { postersApi, type PostersApi, type PosterAddInput, type PosterPatch } from "./modules/posters";

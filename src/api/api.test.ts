@@ -12,7 +12,6 @@ import { planMock } from "./modules/plan/mock";
 import { planReal } from "./modules/plan/real";
 import { branchMock } from "./modules/branch/mock";
 import { reportMock } from "./modules/report/mock";
-import { aiMock } from "./modules/ai/mock";
 import { menuMock } from "./modules/menu/mock";
 import { optionsMock } from "./modules/options/mock";
 import type { ApiChain } from "../types";
@@ -21,13 +20,10 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("cờ module", () => {
-  it("mặc định: auth/branch/report/plan/admin/menu/options/branding/account/stations/payos/order = real, còn lại mock", () => {
+  it("mặc định: mọi module = real", () => {
     const modes = resolveModes({});
     expect(modes).toEqual(DEFAULT_MODES);
     for (const m of ["auth", "branch", "report", "plan", "admin", "menu", "options", "branding", "account", "stations", "branch_options", "payos", "order", "manager_report"] as const) expect(modes[m]).toBe("real");
-    for (const m of ["ai"] as const) {
-      expect(modes[m]).toBe("mock");
-    }
   });
 
   it("VITE_API_BRANCH_OPTIONS ghi đè riêng, không đụng cờ options của Owner", () => {
@@ -538,57 +534,6 @@ describe("mock chạy được với ID thật (không có lớp ánh xạ)", ()
     const top = await reportMock.getTopItems({ chainId, limit: 3 });
     expect(top.items.length).toBeLessThanOrEqual(3);
     expect(top.items[0].quantity).toBeGreaterThan(0);
-  });
-
-  it("AI: trả số liệu thật từ bộ đơn mock, không rỗng; chỉ gói Nâng cao", async () => {
-    setScenario({ profile: "A", tier: null, expired: false });
-    const chainId = (await branchMock.listChains())[0].id;
-    const revenue = await aiMock.ask(chainId, "u", "Hôm nay chi nhánh nào doanh thu cao nhất?");
-    expect(revenue.table?.rows.length).toBeGreaterThan(0);
-    const top = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
-    expect(top.table?.rows.length).toBeGreaterThan(0);
-    const orders = await aiMock.ask(chainId, "u", "Tuần trước mỗi chi nhánh có bao nhiêu đơn?");
-    expect(orders.table?.rows.length).toBeGreaterThan(0);
-    const refused = await aiMock.ask(chainId, "u", "lợi nhuận tháng này là bao nhiêu");
-    expect(refused.refused).toBe(true);
-
-    setScenario({ tier: "STANDARD" });
-    await expect(aiMock.ask(chainId, "u", "doanh thu hôm nay")).rejects.toMatchObject({ status: 403, code: "PLAN_FEATURE_UNAVAILABLE" });
-  });
-
-  it("AI vào sáng mùng 1 (01/10 03:00, chưa có đơn trong tháng): 'tháng này' trả câu trả lời hợp lệ, không ném lỗi", async () => {
-    vi.setSystemTime(new Date("2026-10-01T03:00:00+07:00"));
-    try {
-      setScenario({ profile: "A", tier: null, expired: false });
-      // chainId mới để đơn mock sinh lại theo giờ giả (đơn được sinh lần đầu rồi giữ trong bộ nhớ).
-      const chainId = "aaaaaaaa-0000-4000-8000-000000000101";
-      const answer = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
-      expect(typeof answer.narrative).toBe("string");
-      expect(answer.narrative.length).toBeGreaterThan(0);
-      expect(answer.refused).toBeFalsy();
-      expect(answer.table?.rows.length ?? 0).toBeGreaterThanOrEqual(0);
-    } finally {
-      vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
-    }
-  });
-
-  it("AI không phụ thuộc giờ chạy: 00:30 'hôm nay' có đơn; sáng mùng 1 'tháng này' có món bán chạy", async () => {
-    const cases = ["2026-10-15T00:30:00+07:00", "2026-11-01T00:30:00+07:00", "2026-11-01T07:10:00+07:00", "2026-10-15T03:00:00+07:00"];
-    try {
-      for (const at of cases) {
-        vi.setSystemTime(new Date(at));
-        setScenario({ profile: "A", tier: null, expired: false });
-        resetMockStates(); // đơn mock được sinh lần đầu rồi giữ trong bộ nhớ: sinh lại theo giờ giả
-        const chainId = (await branchMock.listChains())[0].id;
-        const orders = await aiMock.ask(chainId, "u", "Hôm nay mỗi chi nhánh có bao nhiêu đơn?");
-        expect(orders.narrative, at).toMatch(/đơn \(huỷ/);
-        expect(orders.table?.rows.some((r) => Number(r[1]) > 0), at).toBe(true);
-        const top = await aiMock.ask(chainId, "u", "Top 5 món bán chạy tháng này");
-        expect(top.table?.rows.length, at).toBeGreaterThan(0);
-      }
-    } finally {
-      vi.setSystemTime(new Date(process.env.TEST_NOW ?? "2026-10-15T10:30:00+07:00"));
-    }
   });
 
   it("tạo chi nhánh vượt hạn mức → PLAN_LIMIT_REACHED như BE", async () => {
