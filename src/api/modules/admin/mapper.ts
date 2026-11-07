@@ -227,7 +227,7 @@ export function mapBusiness(raw: RawBusiness, now?: Date): Business {
 
 export function mapPage<R, T>(raw: RawPage<R>, map: (item: R) => T): Paginated<T> {
   return {
-    items: raw.items.map(map),
+    items: raw.items.map((item) => map(item)),
     pagination: {
       page: raw.pagination.page,
       limit: raw.pagination.limit,

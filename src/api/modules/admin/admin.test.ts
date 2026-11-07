@@ -243,6 +243,18 @@ describe("mapper — BR-07: không để dữ liệu ví lọt vào web", () => 
     expect(walletKeys(page)).toEqual([]);
   });
 
+  it("danh sách doanh nghiệp truyền mapper trực tiếp không biến index thành thời điểm", () => {
+    const page = mapPage(
+      {
+        items: [rawBusiness],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      },
+      mapBusiness,
+    );
+
+    expect(page.items[0].subscription?.state).toBe("active");
+  });
+
   it("whitelist: trường lạ của BE không được chép sang", () => {
     const withExtra = { ...rawBusiness, internalNote: "bí mật" } as RawBusiness;
 
