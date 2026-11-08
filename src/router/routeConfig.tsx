@@ -97,7 +97,6 @@ export const adminRoutes: RouteDef[] = [
   { path: "platform-revenue", label: "Doanh thu nền tảng", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
   { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
-  { path: "support", label: "Hỗ trợ thuê bao", icon: <CreditCard size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
 ];
 
 export const platformStaffRoutes: RouteDef[] = [
