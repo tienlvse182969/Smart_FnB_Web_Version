@@ -9,6 +9,7 @@ import { syncSelectionRule, validateGroupFields, validateOptionFields, type Sele
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle } from "../../components/bits";
+import MoneyInput from "../../components/MoneyInput";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import { formatVnd } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
@@ -448,7 +449,7 @@ function OptionRow({
         }}
       />
       <Input data-testid="opt-code" style={{ flex: 1.2, minWidth: 100 }} value={code} maxLength={50} placeholder="Mã" onChange={(e) => setCode(e.target.value.toUpperCase())} />
-      <InputNumber data-testid="opt-price" style={{ width: 110 }} value={price} min={0} precision={0} step={1000} onChange={(v) => setPrice(v)} />
+      <MoneyInput data-testid="opt-price" style={{ width: 110 }} value={price} onChange={(v) => setPrice(v)} />
       {option && (
         <>
           {caps.isDefault ? (

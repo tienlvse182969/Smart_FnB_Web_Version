@@ -7,7 +7,6 @@ import {
   Empty,
   Image,
   Input,
-  InputNumber,
   Modal,
   Progress,
   Select,
@@ -29,6 +28,7 @@ import {
   type MenuImportDraftItem,
 } from "../../api"
 import { API_BASE_URL } from "../../config"
+import MoneyInput from "../../components/MoneyInput"
 import { money } from "../../data"
 import { useAppStore } from "../../store"
 import { palette } from "../../theme"
@@ -403,9 +403,7 @@ export default function MenuImport() {
                         title: "Giá",
                         width: 145,
                         render: (_, item, itemIndex) => (
-                          <InputNumber
-                            min={0}
-                            precision={0}
+                          <MoneyInput
                             value={item.price}
                             addonAfter="₫"
                             onChange={(value) =>
@@ -618,9 +616,7 @@ export default function MenuImport() {
                         )
                       }
                     />
-                    <InputNumber
-                      min={0}
-                      precision={0}
+                    <MoneyInput
                       addonBefore="Cộng"
                       addonAfter="₫"
                       value={size.priceDelta}
@@ -737,9 +733,7 @@ export default function MenuImport() {
                         )
                       }
                     />
-                    <InputNumber
-                      min={0}
-                      precision={0}
+                    <MoneyInput
                       addonBefore="Giá"
                       addonAfter="₫"
                       value={extra.price}
