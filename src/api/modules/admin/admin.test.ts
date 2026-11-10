@@ -298,7 +298,14 @@ describe("mapper — dữ liệu", () => {
       branchCount: 3,
       accountCount: 14,
       monthlyOrderCount: 2310,
+      // Hạn mức đang hiệu lực từ BE v17.1; BE cũ không trả → null/0.
+      branchLimit: null,
+      accountLimit: null,
+      activeExtraBranches: 0,
+      activeAccountPacks: 0,
+      pendingInvitationCount: 0,
     });
+    expect("tableCount" in b.usage).toBe(false);
   });
 
   it("hồ sơ đã duyệt có thông tin doanh nghiệp đã tạo và email Owner", () => {

@@ -124,6 +124,23 @@ export interface ApiSubscription {
   plan: ApiPlan;
   nextPlan?: ApiPlan | null;
   quotas: ApiQuota[];
+  /** Hạn mức và cờ tính năng ĐANG CÓ HIỆU LỰC (kỳ đã trả chứa thời điểm hiện tại, BE v17.1). */
+  effective?: {
+    source: "PERIOD" | "PLAN";
+    planCode: string;
+    planName: string;
+    extraBranches: number;
+    accountPacks: number;
+    branchLimit: number;
+    accountLimit: number;
+    brandingEnabled: boolean;
+    multiBranchComparisonEnabled: boolean;
+    periodStartsAt: string;
+    periodEndsAt: string;
+  };
+  accountUsage?: { owners: number; employees: number; pendingInvitations: number };
+  nextRegistration?: { registeredByRole: string | null; registeredAt: string | null } | null;
+  pendingStartsAt?: string | null;
 }
 
 export interface ApiChain {

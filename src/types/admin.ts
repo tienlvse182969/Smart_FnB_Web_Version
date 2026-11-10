@@ -199,6 +199,13 @@ export type BusinessUsage = {
   accountCount: number;
 
   monthlyOrderCount: number;
+
+  /** Hạn mức đang có hiệu lực (gói + mua thêm của kỳ hiện tại) — cùng phép tính với màn Gói của tôi (BE v17.1). */
+  branchLimit?: number | null;
+  accountLimit?: number | null;
+  activeExtraBranches?: number;
+  activeAccountPacks?: number;
+  pendingInvitationCount?: number;
 };
 
 export type Business = {

@@ -1,13 +1,14 @@
-import { App, Alert, Button, Card, InputNumber, Progress, Select, Skeleton, Tag } from "antd";
+import { App, Alert, Button, Card, Progress, Skeleton, Tag } from "antd";
 
 import { Check, X } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { adminApi, showApiError } from "../../api";
 
 import { platformBillingApi } from "../../api/platformBilling";
 import { subscriptionScheduleApi, type NextInvoicePreview, type SubscriptionInvoice } from "../../api/subscriptionSchedule";
+import NextPeriodPanel, { type NextPeriodAdapter } from "./NextPeriodPanel";
 
 import { SectionTitle } from "../../components/bits";
 
@@ -87,10 +88,21 @@ export default function MyPlan() {
   const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
   const [nextPreview, setNextPreview] = useState<NextInvoicePreview | null>(null);
   const [invoices, setInvoices] = useState<SubscriptionInvoice[]>([]);
-  const [selectedNextPlan, setSelectedNextPlan] = useState<string>();
-  const [extraBranches, setExtraBranches] = useState(0);
-  const [accountPacks, setAccountPacks] = useState(0);
-  const [scheduleBusy, setScheduleBusy] = useState(false);
+  /** Brand Manager registers the next period on the same contract Platform Staff uses (31.4). */
+  const nextAdapter = useMemo<NextPeriodAdapter | null>(
+    () =>
+      chainId
+        ? {
+            preview: (draft) => subscriptionScheduleApi.preview(chainId, draft),
+            candidates: () => subscriptionScheduleApi.keepCandidates(chainId),
+            save: ({ clear, note: _note, ...input }) =>
+              clear
+                ? subscriptionScheduleApi.clearPlan(chainId, { keepBranchIds: input.keepBranchIds, keepAccountIds: input.keepAccountIds })
+                : subscriptionScheduleApi.register(chainId, input),
+          }
+        : null,
+    [chainId],
+  );
 
   const [checkoutStatus, setCheckoutStatus] = useState<
     "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | null
@@ -138,32 +150,16 @@ export default function MyPlan() {
         if (cancelled) return;
         setNextPreview(preview);
         setInvoices(rows);
-        setSelectedNextPlan(preview.plan.id);
-        setExtraBranches(preview.extraBranches);
-        setAccountPacks(preview.accountPacks);
       })
       .catch((error) => { if (!cancelled) showApiError(message.error, error, "Không tải được kỳ thuê bao tiếp theo"); });
     return () => { cancelled = true; };
   }, [chainId, plan?.planCode, message]);
 
-  const saveSchedule = async (mode: "plan" | "addons" | "clear") => {
+  const afterNextSaved = async (preview: NextInvoicePreview) => {
     if (!chainId) return;
-    setScheduleBusy(true);
-    try {
-      const preview = mode === "plan" && selectedNextPlan
-        ? await subscriptionScheduleApi.putPlan(chainId, selectedNextPlan)
-        : mode === "addons"
-          ? await subscriptionScheduleApi.putAddons(chainId, extraBranches, accountPacks)
-          : await subscriptionScheduleApi.clearPlan(chainId);
-      setNextPreview(preview);
-      setSelectedNextPlan(preview.plan.id);
-      setExtraBranches(preview.extraBranches);
-      setAccountPacks(preview.accountPacks);
-      setInvoices(await subscriptionScheduleApi.invoices(chainId));
-      await reloadPlan();
-      message.success("Đã lưu đăng ký cho kỳ tiếp theo");
-    } catch (error) { showApiError(message.error, error, "Không lưu được đăng ký kỳ tới"); }
-    finally { setScheduleBusy(false); }
+    setNextPreview(preview);
+    setInvoices(await subscriptionScheduleApi.invoices(chainId));
+    await reloadPlan();
   };
 
   useEffect(() => {
@@ -353,29 +349,14 @@ export default function MyPlan() {
         </Card>
 
         {plan.planCode !== "TRIAL" && plan.planId && plan.status !== "suspended" && <>
-          <Card title="Đăng ký cho kỳ tiếp theo" style={{ borderRadius: 14 }}>
-            {nextPreview && <p style={{ color: palette.textMuted }}>Áp dụng từ {formatDateVN(nextPreview.startsAt)}. Thanh toán sớm không mở hạn mức hoặc tính năng trước ngày này.</p>}
-            {nextPreview?.paidUpcoming ? <Alert showIcon type="success" message={`Kỳ tiếp theo đã thanh toán; gói mới áp dụng từ ${formatDateVN(nextPreview.currentPeriodEndsAt)}`} /> : <>
-              <div style={{ display: "grid", gap: 10 }}>
-                <label>Gói kỳ tới</label>
-                <Select value={selectedNextPlan} onChange={setSelectedNextPlan} options={paidPlans.map((item) => ({ value: item.id, label: `${item.name} · ${formatVnd(item.monthlyPrice)}/tháng` }))} />
-                <Button loading={scheduleBusy} disabled={!selectedNextPlan || selectedNextPlan === nextPreview?.plan.id} onClick={() => void saveSchedule("plan")}>Đăng ký hoặc đổi gói kỳ tới</Button>
-                {nextPreview?.plan.id !== plan.planId && <Button loading={scheduleBusy} onClick={() => void saveSchedule("clear")}>Huỷ đổi gói kỳ tới</Button>}
-                <label>Thêm chi nhánh cho kỳ tới (mỗi chi nhánh kèm {nextPreview?.plan.extraBranchAccounts ?? 8} tài khoản)</label>
-                <InputNumber min={0} max={Math.max(0, 10 - (nextPreview?.plan.maxBranches ?? 10))} value={extraBranches} onChange={(value) => setExtraBranches(value ?? 0)} style={{ width: "100%" }} />
-                <label>Gói thêm 5 tài khoản cho kỳ tới (tối đa 4)</label>
-                <InputNumber min={0} max={4} value={accountPacks} onChange={(value) => setAccountPacks(value ?? 0)} style={{ width: "100%" }} />
-                <div>Tạm tính: <strong>{formatVnd((nextPreview?.plan.monthlyPrice ?? 0) + extraBranches * (nextPreview?.plan.extraBranchPrice ?? 0) + accountPacks * (nextPreview?.plan.extraAccountPackPrice ?? 0))}</strong>/tháng</div>
-                <Button loading={scheduleBusy} onClick={() => void saveSchedule("addons")}>Lưu phần mua thêm kỳ tới</Button>
-              </div>
-              {nextPreview && <Alert showIcon type="info" style={{ marginTop: 12 }} message={`Đã đăng ký: ${nextPreview.plan.name} · ${nextPreview.branchLimit} chi nhánh · ${nextPreview.accountLimit} tài khoản · ${formatVnd(nextPreview.total)}/tháng`} />}
-            </>}
+          <Card title="Gói và mua thêm cho kỳ tới" style={{ borderRadius: 14 }}>
+            {nextAdapter && <NextPeriodPanel adapter={nextAdapter} catalog={paidPlans} onSaved={afterNextSaved} />}
           </Card>
           <Card title="Hóa đơn thuê bao" style={{ borderRadius: 14 }}>
             {invoices.length === 0 ? <p>Chưa có hóa đơn. Hóa đơn kỳ tới được lập khi còn 7 ngày tới hạn.</p> : invoices.map((invoice) => <div key={invoice.id} style={{ borderBottom: `1px solid ${palette.line}`, padding: "10px 0" }}>
               <strong>{invoice.planName}</strong> · {invoice.status === "PAID" ? "Đã thanh toán" : invoice.status === "CANCELLED" ? "Đã huỷ" : "Chưa thanh toán"}<br />
               Kỳ {formatDateVN(invoice.periodStartsAt)} – {formatDateVN(invoice.periodEndsAt)}
-              {invoice.lines.map((line) => <div key={line.id ?? line.kind}>{line.description} × {line.quantity}: {formatVnd(line.amount)}</div>)}
+              {invoice.lines.map((line) => <div key={line.id ?? line.kind}>{line.description} × {line.quantity} · {formatVnd(line.unitPrice)} = {formatVnd(line.amount)}</div>)}
               <strong>Tổng: {formatVnd(invoice.total)}</strong>
             </div>)}
             {nextPreview && !nextPreview.paidUpcoming && <Button type="primary" loading={checkoutPlanId !== null} disabled={new Date(nextPreview.currentPeriodEndsAt).getTime() - Date.now() > 7 * 86_400_000} onClick={() => void startCheckout(nextPreview.plan.id)} style={{ marginTop: 12 }}>Thanh toán kỳ tiếp theo qua PayOS · {formatVnd(nextPreview.total)}</Button>}
@@ -449,6 +430,13 @@ export default function MyPlan() {
           style={{ borderRadius: 14 }}
           styles={{ body: { padding: 22 } }}
         >
+          {plan.activeAddons && (
+            <div data-testid="myplan-active-addons" style={{ fontSize: 13, color: palette.textMuted, marginBottom: 12 }}>
+              Mua thêm đang có hiệu lực: {plan.activeAddons.extraBranches} chi nhánh, {plan.activeAddons.accountPacks} gói 5 tài khoản.
+              {plan.accountUsage && ` Tài khoản đã dùng gồm ${plan.accountUsage.owners} Brand Manager, ${plan.accountUsage.employees} nhân viên (có ${plan.accountUsage.pendingInvitations} lời mời đang chờ).`}
+              {plan.paidUpcomingStartsAt && ` Kỳ tới đã thanh toán; hạn mức mới chỉ áp dụng từ ${formatDateVN(plan.paidUpcomingStartsAt)}.`}
+            </div>
+          )}
           {plan.limits.length === 0 ? (
             <div style={{ fontSize: 13.5, color: palette.textMuted }}>
               Chưa có dữ liệu hạn mức.

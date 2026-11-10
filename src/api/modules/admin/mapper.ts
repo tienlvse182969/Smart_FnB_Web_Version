@@ -109,7 +109,7 @@ export interface RawBusiness {
       user: { id?: string; email: string; phone?: string | null; status?: string };
     };
   }[];
-  usage?: { branchCount?: number; accountCount?: number; tableCount?: number; monthlyOrderCount?: number };
+  usage?: { branchCount?: number; accountCount?: number; tableCount?: number; monthlyOrderCount?: number; branchLimit?: number | null; accountLimit?: number | null; activeExtraBranches?: number; activeAccountPacks?: number; pendingInvitationCount?: number };
 }
 
 export interface RawPage<T> {
@@ -229,6 +229,11 @@ export function mapBusiness(raw: RawBusiness, now?: Date): Business {
       branchCount: raw.usage?.branchCount ?? 0,
       accountCount: raw.usage?.accountCount ?? 0,
       monthlyOrderCount: raw.usage?.monthlyOrderCount ?? 0,
+      branchLimit: raw.usage?.branchLimit ?? null,
+      accountLimit: raw.usage?.accountLimit ?? null,
+      activeExtraBranches: raw.usage?.activeExtraBranches ?? 0,
+      activeAccountPacks: raw.usage?.activeAccountPacks ?? 0,
+      pendingInvitationCount: raw.usage?.pendingInvitationCount ?? 0,
     },
   };
 }

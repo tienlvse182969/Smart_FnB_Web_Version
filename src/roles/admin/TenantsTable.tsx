@@ -1,13 +1,14 @@
 import { App, Card, Drawer, Input, InputNumber, Modal, Progress, Select, Table } from "antd";
 import { Ban, CalendarClock, KeyRound, Layers, Play, Receipt, Repeat, Users } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { Business, Paginated, PlanChangeDirection, ServicePlan } from "../../types";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { Business, Paginated, ServicePlan } from "../../types";
 import { adminApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
 import { formatCount, formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { palette } from "../../theme";
 import { Field, SubscriptionChip, addMonthsISO, dash, dateLabel } from "./adminUi";
+import NextPeriodPanel, { supportAdapter } from "../owner/NextPeriodPanel";
 
 const PAGE_SIZE = 10;
 
@@ -166,8 +167,8 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
             </div>
           )}
           <div style={{ marginTop: 10 }}>
-            <LimitRow icon={<Layers size={15} />} label="Chi nhánh" used={business.usage.branchCount} limit={sub.plan.maxBranches} />
-            <LimitRow icon={<Users size={15} />} label="Tài khoản" used={business.usage.accountCount} limit={sub.plan.maxAccounts} />
+            <LimitRow icon={<Layers size={15} />} label="Chi nhánh" used={business.usage.branchCount} limit={business.usage.branchLimit ?? sub.plan.maxBranches} />
+            <LimitRow icon={<Users size={15} />} label="Tài khoản" used={business.usage.accountCount} limit={business.usage.accountLimit ?? sub.plan.maxAccounts} />
             <Field label="Đơn trong tháng">
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <Receipt size={14} /> {formatCount(business.usage.monthlyOrderCount)}
@@ -254,68 +255,26 @@ function RenewModal({ open, business, onClose, onDone }: DialogProps & { onDone:
   );
 }
 
+/** Admin registers the next period like Platform Staff: never an immediate plan change (BR-10), note required. */
 function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: (text: string) => Promise<void> }) {
   const { message } = App.useApp();
   const [plans, setPlans] = useState<ServicePlan[]>([]);
-  const [planId, setPlanId] = useState<string | undefined>();
-  const [saving, setSaving] = useState(false);
-  const [note, setNote] = useState("");
-  const sub = business.subscription;
+  const adapter = useMemo(() => supportAdapter("/admin", business.id), [business.id]);
 
   useEffect(() => {
     if (!open) return;
-    setPlanId(undefined);
-    setNote("");
     adminApi
       .listPlans()
-      .then((all) => setPlans(all.filter((p) => p.isActive && p.id !== sub?.plan.id)))
+      .then(setPlans)
       .catch((err) => showApiError(message.error, err, "Không tải được danh sách gói"));
-  }, [open, sub?.plan.id, message]);
-
-  const target = plans.find((p) => p.id === planId);
-  const direction: PlanChangeDirection | null = !target || !sub
-    ? null
-    : target.monthlyPrice >= sub.monthlyPrice
-        ? "UPGRADE"
-        : "DOWNGRADE";
-
-  const submit = async () => {
-    if (!planId || !direction) return;
-    setSaving(true);
-    try {
-      await adminApi.changeBusinessPlan(business.id, { planId, direction, note: note.trim() });
-      await onDone("Đã đặt gói cho kỳ tới");
-    } catch (err) {
-      showApiError(message.error, err, "Không đổi được gói");
-    } finally {
-      setSaving(false);
-    }
-  };
+  }, [open, message]);
 
   return (
-    <Modal title={`Đặt gói kỳ tới · ${business.name}`} open={open} onCancel={onClose} footer={null} destroyOnHidden>
-      <div style={{ fontSize: 13.5, marginBottom: 8 }}>
-        Gói hiện tại: <b>{sub?.plan.name}</b> · {formatVnd(sub?.monthlyPrice ?? 0)}/tháng
-      </div>
-      {label("Gói mới")}
-      <Select
-        style={{ width: "100%" }}
-        value={planId}
-        onChange={setPlanId}
-        placeholder="Chọn gói"
-        options={plans.map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng · ${p.maxBranches} chi nhánh · ${p.maxAccounts} tài khoản` }))}
-      />
-      {direction && (
-        <div style={{ marginTop: 12, fontSize: 13, color: palette.textMuted }}>
-          {direction === "UPGRADE" ? "Nâng gói" : "Hạ gói"} — dữ liệu hiện có được giữ nguyên.
-        </div>
-      )}
-      <p style={{ color: palette.textMuted }}>Gói mới chỉ áp dụng từ kỳ thuê bao tiếp theo. Ghi chú yêu cầu của doanh nghiệp là bắt buộc.</p>
-      {label("Ghi chú hỗ trợ (bắt buộc)")}
-      <Input.TextArea rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
-      <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} disabled={!planId || note.trim().length < 3} onClick={submit}>
-        Đặt gói kỳ tới
-      </ActionButton>
+    <Modal title={`Gói và mua thêm kỳ tới · ${business.name}`} open={open} onCancel={onClose} footer={null} destroyOnHidden width={560}>
+      <p style={{ color: palette.textMuted, marginTop: 0 }}>
+        Chỉ áp dụng từ kỳ thuê bao tiếp theo; kỳ hiện tại giữ nguyên. Nền tảng không thanh toán thay khách. Ghi chú yêu cầu của doanh nghiệp là bắt buộc.
+      </p>
+      {open && <NextPeriodPanel adapter={adapter} catalog={plans} requireNote onSaved={() => onDone("Đã lưu đăng ký kỳ tới")} />}
     </Modal>
   );
 }
