@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Descriptions, Input, Modal } from "antd";
+import MoneyInput from "../../components/MoneyInput";
 import {
   CONFIRM_AMOUNT_MAX,
   CONFIRM_REASON_MAX,
@@ -141,14 +142,14 @@ export default function ConfirmTransferModal({ open, order, payment, submitting,
               <label htmlFor="confirm-received" style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
                 Số tiền thực nhận (₫) <span style={{ color: palette.error.text }}>*</span>
               </label>
-              <Input
+              <MoneyInput
                 id="confirm-received"
                 data-testid="confirm-received"
-                inputMode="numeric"
                 autoComplete="off"
-                suffix="₫"
-                value={receivedNumber === null ? received : receivedNumber.toLocaleString("vi-VN")}
-                onChange={(e) => setReceived(e.target.value.replace(/[^\d]/g, ""))}
+                addonAfter="₫"
+                max={CONFIRM_AMOUNT_MAX}
+                value={receivedNumber}
+                onChange={(value) => setReceived(value === null ? "" : String(value))}
                 status={check.kind === "short" || overMax ? "error" : undefined}
               />
               <div data-testid="confirm-received-hint" style={{ marginTop: 6, fontSize: 13 }}>

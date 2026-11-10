@@ -3,6 +3,7 @@
  * Căn cứ BE `main` `d98b4c1`: `payments.service.ts:144-186` (Manager, lý do 3–500, `receivedAmount` bắt buộc, chỉ `BANK_TRANSFER`),
  * `counter-payment-settlement.service.ts:94-135` (khoản `PENDING` hoặc `AMOUNT_MISMATCH`; đơn `CONFIRMED` hoặc `REQUIRES_ATTENTION`; nhận thiếu → 409).
  */
+import { parseMoneyText } from "../../../lib/money";
 import type { OrderDetail, OrderPaymentRecord } from "../../../types";
 import { ApiError, PAYMENT_AMOUNT_INSUFFICIENT_TEXT } from "../../http/errors";
 
@@ -59,12 +60,9 @@ export function checkReceived(expected: number, received: number | null): Receiv
   return { kind: "over", change: received - expected };
 }
 
-/** Số tiền gõ trong ô (cho phép dấu chấm/phẩy/dấu cách nghìn) → số nguyên đồng; null nếu rỗng hoặc có ký tự lạ. */
+/** Số tiền gõ trong ô → số nguyên đồng (luật chung `lib/money`: có thể có dấu chấm/cách ngăn nghìn); null nếu rỗng, số lẻ ("7,5"), số âm hoặc ký tự lạ. */
 export function parseVndInput(raw: string): number | null {
-  const digits = raw.replace(/[\s.,]/g, "");
-  if (digits === "" || !/^\d+$/.test(digits)) return null;
-  const value = Number(digits);
-  return Number.isSafeInteger(value) ? value : null;
+  return parseMoneyText(raw);
 }
 
 /** Lý do sau khi trim phải 3–500 ký tự (DTO BE trim rồi kiểm). Trả câu lỗi hoặc null. */

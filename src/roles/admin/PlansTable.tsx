@@ -1,4 +1,5 @@
 import { App, Card, Drawer, Input, InputNumber, Switch, Table } from "antd";
+import MoneyInput from "../../components/MoneyInput";
 import { Check, Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { PLAN_TIER_LABEL, type ServicePlan, type ServicePlanInput } from "../../types";
@@ -210,7 +211,7 @@ function PlanDrawer({
         />
       </Field>
       <Field label="Giá / tháng (₫)">
-        <InputNumber value={monthlyPrice} onChange={setMonthlyPrice} style={{ width: "100%" }} min={0} precision={0} />
+        <MoneyInput value={monthlyPrice} onChange={setMonthlyPrice} data-testid="plan-price" />
       </Field>
       <Field label="Số chi nhánh tối đa">
         <InputNumber value={maxBranches} onChange={setMaxBranches} style={{ width: "100%" }} min={1} precision={0} />

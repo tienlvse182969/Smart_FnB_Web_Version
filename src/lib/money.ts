@@ -26,7 +26,7 @@ export function sanitizeMoneyDigits(text: string): string {
  * hiểu nhầm thành 15 hoặc 2550.
  */
 export function parseMoneyText(text: string | null | undefined): number | null {
-  const cleaned = (text ?? "").replace(/[\s ₫đĐ]/g, "");
+  const cleaned = (text ?? "").replace(/[\s ₫]/g, "");
   if (cleaned === "") return null;
   if (!/^(\d+|\d{1,3}(\.\d{3})+)$/.test(cleaned)) return null;
   const value = Number(cleaned.replace(/\./g, ""));
