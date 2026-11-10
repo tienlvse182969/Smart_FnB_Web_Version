@@ -146,7 +146,7 @@ export default function Reports() {
         </div>
       </Card>
 
-      <KpiRow comparison={blocks.comparison} paymentMethods={blocks.paymentMethods} />
+      <KpiRow comparison={blocks.comparison} />
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24}>
@@ -260,16 +260,8 @@ function ChartShell<T>({
 
 /* ------------------------------------------------------------------ thẻ số ------------------------------------------------------------------ */
 
-function KpiRow({
-  comparison,
-  paymentMethods,
-}: {
-  comparison: ReturnType<typeof useReportData>["comparison"];
-  paymentMethods: ReturnType<typeof useReportData>["paymentMethods"];
-}) {
+function KpiRow({ comparison }: { comparison: ReturnType<typeof useReportData>["comparison"] }) {
   const k = summarizeKpi(comparison.data ?? undefined);
-  // Tiền mặt đã hoàn: số BE gom theo hình thức gốc CASH của khoản đã hoàn (BR-83), không tự cộng từ chỗ khác.
-  const cash = paymentMethods.data?.methods.find((m) => m.method === "CASH");
 
   const fromComparison = (value: React.ReactNode) =>
     comparison.error ? <ErrorText onRetry={comparison.reload} error={comparison.error} /> : value;
@@ -318,13 +310,12 @@ function KpiRow({
     {
       key: "cash-refund",
       label: "Tiền mặt đã hoàn",
-      value: paymentMethods.error ? (
-        <ErrorText onRetry={paymentMethods.reload} error={paymentMethods.error} />
-      ) : (
-        formatVnd(parseAmount(cash?.refundAmount))
-      ),
+      // BR-81, BR-83: mọi khoản hoàn đều là tiền mặt tại quầy, bất kể đơn trả bằng tiền mặt hay QR — nên đây là TỔNG hoàn
+      // BE gom theo ngày huỷ (`totals.refundAmount`), KHÔNG lọc theo hình thức gốc của đơn. BE chưa có số "tiền mặt đã hoàn" riêng;
+      // số này gồm cả khoản hoàn còn chờ của đơn cũ (nếu có) và không gồm khoản tiền về muộn (LATE_PAYMENT).
+      value: fromComparison(formatVnd(k.refundAmount)),
       icon: <Coins size={16} />,
-      loading: paymentMethods.loading,
+      loading: comparison.loading,
     },
     {
       key: "pending",
