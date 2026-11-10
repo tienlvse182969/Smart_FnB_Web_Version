@@ -5,17 +5,6 @@
 import type { OrderRefundRecord } from "../../../types";
 import { ApiError } from "../../http/errors";
 
-export const REFUND_NOTE_MAX = 500;
-
-export function validateRefundNote(raw: string): string | null {
-  return raw.trim().length > REFUND_NOTE_MAX ? `Ghi chú tối đa ${REFUND_NOTE_MAX} ký tự.` : null;
-}
-
-/** Khoản mà nút "Đánh dấu đã hoàn" áp dụng: chuyển khoản đang chờ (BE: chỉ PENDING + BANK_TRANSFER; tiền mặt đã hoàn ngay). */
-export function refundCompletable(refund: Pick<OrderRefundRecord, "status" | "method">): boolean {
-  return refund.status === "PENDING" && refund.method === "BANK_TRANSFER";
-}
-
 /** Tổng tiền còn chờ hoàn của đơn. */
 export function pendingRefundTotal(refunds: OrderRefundRecord[]): number {
   return refunds.filter((r) => r.status === "PENDING").reduce((s, r) => s + r.amount, 0);

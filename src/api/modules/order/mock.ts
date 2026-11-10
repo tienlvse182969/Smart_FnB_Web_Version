@@ -9,7 +9,6 @@
  * `scn-qr-conflict` (bấm xác nhận thì BE trả 409 PAYMENT_ALREADY_SETTLED: webhook vừa về).
  */
 import type {
-  CompleteRefundInput,
   ConfirmPaymentInput,
   Order,
   OrderDetail,
@@ -490,18 +489,6 @@ export const orderMock: OrderApi = {
     const found = allOrders(chainId, branchId).find((o) => o.id === orderId);
     if (!found) throw new ApiError(404, "Đơn không tồn tại");
     return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
-  },
-
-  async completeRefund({ chainId }, refundId, input: CompleteRefundInput) {
-    await mockDelay();
-    assertMockWritable();
-    const entry = [...cancelsOf(chainId).values()].find((c) => c.refundId === refundId);
-    if (!entry) throw new ApiError(404, "Refund not found");
-    if (entry.status !== "PENDING") throw new ApiError(409, "Only a pending refund can be completed");
-    if (entry.method !== "BANK_TRANSFER") throw new ApiError(409, "Cash refunds are completed when the order is cancelled");
-    entry.status = "COMPLETED";
-    entry.completedAt = new Date().toISOString();
-    entry.note = input.note?.trim() || null;
   },
 
   async confirmPayment({ chainId, branchId }, paymentId, input: ConfirmPaymentInput) {

@@ -4,7 +4,7 @@
  * `refundApprovals.ts`; route `manager/orders/:id/cancel-paid` đã bị BE gỡ nên không còn lời gọi nào.
  * Mock vẫn là nguồn đơn của trợ lý AI mock và báo cáo mock (qua `getBranchOrders`, không qua module này).
  */
-import type { CompleteRefundInput, ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery } from "../../../types";
+import type { ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery } from "../../../types";
 import { defineApi } from "../../define";
 import { orderMock } from "./mock";
 import { orderReal } from "./real";
@@ -28,11 +28,6 @@ export interface OrderApi {
    * 404, 409 `PAYMENT_ALREADY_SETTLED` / `PAYMENT_AMOUNT_INSUFFICIENT` / tiền mặt / đơn không còn chờ thanh toán.
    */
   confirmPayment(scope: OrderScope, paymentId: string, input: ConfirmPaymentInput): Promise<void>;
-  /**
-   * BM-06: đánh dấu khoản hoàn chuyển khoản đã chi trả ngoài hệ thống (`POST /refunds/:refundId/complete`, Owner hoặc Manager).
-   * Lỗi: 403, 404, 409 khoản không còn chờ hoặc là tiền mặt.
-   */
-  completeRefund(scope: OrderScope, refundId: string, input: CompleteRefundInput): Promise<void>;
 }
 
 export const orderApi = defineApi<OrderApi>("order", { real: orderReal, mock: orderMock });

@@ -25,10 +25,4 @@ export const orderReal: OrderApi = {
     // Bỏ qua phản hồi (`{...payment, order, tracking}`): màn GET lại chi tiết đơn (quyết định 84).
     await request<unknown>(`/payments/${encodeURIComponent(paymentId)}/confirm`, { method: "POST", body });
   },
-
-  async completeRefund(_scope, refundId, input) {
-    const body: Record<string, unknown> = {};
-    if (input.note?.trim()) body.note = input.note.trim();
-    await request<unknown>(`/refunds/${encodeURIComponent(refundId)}/complete`, { method: "POST", body });
-  },
 };

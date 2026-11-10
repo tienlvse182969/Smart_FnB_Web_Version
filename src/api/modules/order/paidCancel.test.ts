@@ -5,8 +5,6 @@ import { refundMethodInfo, refundSourceInfo, refundStatusInfo } from "./codes";
 import {
   paidActionErrorInfo,
   pendingRefundTotal,
-  refundCompletable,
-  validateRefundNote,
 } from "./paidCancel";
 
 const pay = (over: Partial<OrderPaymentRecord> = {}): OrderPaymentRecord => ({
@@ -60,22 +58,7 @@ const order = (over: Partial<Pick<OrderDetail, "status" | "paymentStatus" | "pay
   ...over,
 });
 
-describe("ghi chú hoàn", () => {
-  it("ghi chú hoàn tối đa 500, không bắt buộc", () => {
-    expect(validateRefundNote("")).toBeNull();
-    expect(validateRefundNote("a".repeat(500))).toBeNull();
-    expect(validateRefundNote("a".repeat(501))).toMatch(/tối đa 500/);
-  });
-
-});
-
-describe("đánh dấu đã hoàn", () => {
-  it("chỉ khoản chuyển khoản đang chờ; tiền mặt (đã hoàn ngay) và khoản đã hoàn thì không", () => {
-    expect(refundCompletable(refund())).toBe(true);
-    expect(refundCompletable(refund({ method: "CASH", status: "COMPLETED" }))).toBe(false);
-    expect(refundCompletable(refund({ status: "COMPLETED" }))).toBe(false);
-  });
-
+describe("khoản hoàn còn chờ", () => {
   it("tổng còn chờ chỉ cộng khoản PENDING", () => {
     expect(pendingRefundTotal([refund({ amount: 30000 }), refund({ id: "r2", amount: 20000, status: "COMPLETED" }), refund({ id: "r3", amount: 5000 })])).toBe(35000);
   });
