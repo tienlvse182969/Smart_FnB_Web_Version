@@ -9,7 +9,7 @@ import MockPanel from "./dev/MockPanel";
 import { describePlan } from "./plan/usePlan";
 
 /** Trang công khai luôn dùng nhận diện nền tảng, kể cả khi trình duyệt đang có phiên tenant (không đụng tới phiên đó). */
-const PLATFORM_BRAND_PATHS = ["/setup-password", "/activate", "/change-password"];
+const PLATFORM_BRAND_PATHS = ["/setup-password", "/activate"];
 
 export default function App() {
   const { currentUser, tenantBranding, plan, bootstrap } = useAppStore();

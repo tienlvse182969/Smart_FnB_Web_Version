@@ -196,9 +196,9 @@ describe("#62/#63/#64: nhân viên", () => {
     expect(mapStaffEmployee(raw({ invitationStatus: "WEIRD" }))!.invitationStatus).toBeNull();
   });
 
-  it("nhãn tách 'Chưa kích hoạt (đã mời)', 'Lời mời hết hạn', 'Đã ngừng'; chỉ INACTIVE", () => {
-    expect(invitationLabel({ status: "INACTIVE", invitationStatus: "INVITED" })).toBe("Chưa kích hoạt (đã mời)");
-    expect(invitationLabel({ status: "INACTIVE", invitationStatus: "INVITATION_EXPIRED" })).toBe("Lời mời hết hạn");
+  it("nhãn tách 'Chờ kích hoạt', 'Link hết hạn', 'Đã ngừng'; chỉ INACTIVE", () => {
+    expect(invitationLabel({ status: "INACTIVE", invitationStatus: "INVITED" })).toBe("Chờ kích hoạt");
+    expect(invitationLabel({ status: "INACTIVE", invitationStatus: "INVITATION_EXPIRED" })).toBe("Link hết hạn");
     expect(invitationLabel({ status: "INACTIVE", invitationStatus: "DEACTIVATED" })).toBe("Đã ngừng");
     expect(invitationLabel({ status: "INACTIVE", invitationStatus: null })).toBeNull();
     expect(invitationLabel({ status: "ACTIVE", invitationStatus: "ACTIVE" })).toBeNull();

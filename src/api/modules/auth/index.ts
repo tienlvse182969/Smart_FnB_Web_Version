@@ -23,7 +23,7 @@ export interface AuthApi {
 
 /** Mã lỗi phía web cho token đặt mật khẩu không dùng được: status 401 của BE giữ nguyên, chỉ gắn mã (xem `http/errors.ts`). */
 export { SETUP_TOKEN_INVALID } from "../../http/errors";
-export const SETUP_TOKEN_MESSAGE = "Liên kết đặt mật khẩu không hợp lệ, đã hết hạn hoặc đã được dùng.";
+export const SETUP_TOKEN_MESSAGE = "Link đặt mật khẩu không hợp lệ, đã hết hạn, đã được dùng hoặc đã bị thay bằng link mới.";
 
 export const TABLET_ONLY_MESSAGE = "Vui lòng sử dụng ứng dụng tablet";
 export const NO_WEB_ACCESS_MESSAGE = "Tài khoản này không có quyền truy cập trang quản trị";

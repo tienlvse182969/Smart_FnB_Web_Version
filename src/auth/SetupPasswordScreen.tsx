@@ -71,7 +71,7 @@ export default function SetupPasswordScreen() {
           <div data-testid="setup-problem" style={{ marginTop: 16 }}>
             <div style={{ color: palette.error.text, background: palette.error.bg, border: `1px solid ${palette.error.border}`, borderRadius: 10, padding: "12px 14px", fontSize: 14 }}>
               {problem}
-              <div style={{ color: palette.textMuted, fontSize: 13, marginTop: 6 }}>Nhờ quản trị viên gửi lại email đặt mật khẩu nếu cần.</div>
+              <div style={{ color: palette.textMuted, fontSize: 13, marginTop: 6 }}>Liên hệ cấp trên của bạn và nhờ bấm Gửi lại để nhận link đặt mật khẩu mới.</div>
             </div>
             <Link to="/login" data-testid="setup-to-login" style={{ display: "inline-block", marginTop: 16 }}>
               Về trang đăng nhập
@@ -79,7 +79,7 @@ export default function SetupPasswordScreen() {
           </div>
         ) : (
           <>
-            <div style={{ color: palette.textMuted, fontSize: 14, marginTop: 4, marginBottom: 20 }}>Chọn mật khẩu mới cho tài khoản được mời qua email.</div>
+            <div style={{ color: palette.textMuted, fontSize: 14, marginTop: 4, marginBottom: 20 }}>Chọn mật khẩu riêng cho tài khoản của bạn (kích hoạt tài khoản mới, hoặc đặt lại mật khẩu).</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
               <Input.Password
                 size="large"
