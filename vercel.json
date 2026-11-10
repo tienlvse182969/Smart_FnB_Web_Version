@@ -4,6 +4,31 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "build": {
+    "env": {
+      "VITE_API_AUTH": "real",
+      "VITE_API_BRANCH": "real",
+      "VITE_API_REPORT": "real",
+      "VITE_API_PLAN": "real",
+      "VITE_API_MENU": "real",
+      "VITE_API_OPTIONS": "real",
+      "VITE_API_EXTRAS": "real",
+      "VITE_API_COMBOS": "real",
+      "VITE_API_BRANCH_PRICES": "real",
+      "VITE_API_BRANCH_OPTIONS": "real",
+      "VITE_API_BRANDING": "real",
+      "VITE_API_ACCOUNT": "real",
+      "VITE_API_STATIONS": "real",
+      "VITE_API_ORDER": "real",
+      "VITE_API_MANAGER_REPORT": "real",
+      "VITE_API_ADMIN": "real",
+      "VITE_API_PAYOS": "real",
+      "VITE_API_POSTERS": "real"
+    }
+  }
 }
