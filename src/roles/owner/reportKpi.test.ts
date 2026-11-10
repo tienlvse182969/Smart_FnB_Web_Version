@@ -43,7 +43,13 @@ describe("summarizeKpi (OW-08, BR-50)", () => {
     });
   });
 
-  it("nhiều chi nhánh: giá trị đơn trung bình là null (BE không trả ở tổng, web không tự chia)", () => {
+  it("BE trả giá trị đơn trung bình ở tổng thì dùng đúng số đó, không tự chia", () => {
+    const two = comparison([row(), row({ branch: { ...ref, id: "b2" } })]);
+    two.totals.averageOrderValue = "98000.00";
+    expect(summarizeKpi(two).averageOrderValue).toBe(98000);
+  });
+
+  it("BE cũ không trả ở tổng, nhiều chi nhánh: giá trị đơn trung bình là null (web không tự chia)", () => {
     const two = comparison([row(), row({ branch: { ...ref, id: "b2" } })]);
     expect(summarizeKpi(two).averageOrderValue).toBeNull();
     expect(summarizeKpi(two).netRevenue).toBe(950000);

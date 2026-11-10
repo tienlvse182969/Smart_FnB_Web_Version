@@ -54,7 +54,7 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
 export const FLAG_NOTES: Record<ApiModule, string> = {
   auth: "real: login/refresh/logout, POST /auth/setup-password (link lời mời), POST /auth/change-password. BE chưa có cập nhật hồ sơ cá nhân (CM-02)",
   branch: "real",
-  report: "real; BE chưa đếm đơn quầy (lọc COMPLETED) — chờ BE",
+  report: "real (OW-08): 6 endpoint /reports/* (comparison, timeseries, top-items, payment-methods, top-combos, top-toppings), chỉ OWNER; phạm vi ≥ 2 chi nhánh cần gói có so sánh (403 PLAN_FEATURE_NOT_ENABLED). BE chưa trả: người hoàn (BR-50) — chờ BE",
   plan: "real: trạng thái, hạn dùng, hạn mức, cờ nhận diện/so sánh nhiều chi nhánh (BE plan-quota.service.ts). BE không có cờ AI",
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
   options: "real (OW-03): CRUD nhóm/tuỳ chọn, mặc định, xem trạng thái theo chi nhánh và gắn nhóm vào món; cần deploy BE và migration mới",

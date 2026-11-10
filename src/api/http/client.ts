@@ -109,7 +109,9 @@ async function send(path: string, init: RequestInit, token: string | null): Prom
 
   try {
     return await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  } catch {
+  } catch (err) {
+    // Request bị huỷ chủ động (đổi bộ lọc, rời màn): để lỗi huỷ đi tiếp, không báo là mất kết nối.
+    if (init.signal?.aborted) throw err;
     throw new ApiError(0, "Không kết nối được máy chủ. Kiểm tra backend có đang chạy không.");
   }
 }
@@ -169,6 +171,8 @@ interface RequestOptions {
   body?: unknown;
   /** true = không gắn Bearer và không thử refresh (login, refresh, logout). */
   anonymous?: boolean;
+  /** Huỷ request đang chờ (đổi bộ lọc, rời màn). Bị huỷ thì `fetch` ném AbortError, không phải ApiError. */
+  signal?: AbortSignal;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -182,8 +186,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 async function requestOnce<T>(path: string, options: RequestOptions): Promise<T> {
-  const { method = "GET", body, anonymous = false } = options;
-  const init: RequestInit = { method };
+  const { method = "GET", body, anonymous = false, signal } = options;
+  const init: RequestInit = { method, signal };
   if (body !== undefined) init.body = body instanceof FormData ? body : JSON.stringify(body);
 
   const token = anonymous ? null : getAccessToken();

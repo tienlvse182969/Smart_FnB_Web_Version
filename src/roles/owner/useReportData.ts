@@ -1,13 +1,70 @@
-/** Nạp ba báo cáo doanh thu song song, kèm trạng thái tải / lỗi / thử lại. */
-import { useCallback, useEffect, useState } from "react";
-import { describeApiError, reportApi } from "../../api";
+/**
+ * Nạp các khối báo cáo Owner, MỖI KHỐI MỘT yêu cầu riêng: khối lỗi không kéo theo khối khác (mỗi khối có lỗi và
+ * nút Thử lại riêng). Đổi bộ lọc thì huỷ yêu cầu cũ và xoá dữ liệu cũ — không bao giờ hiện số của bộ lọc trước.
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
+import { reportApi } from "../../api";
 import type { DateRange } from "../../lib/reportFormat";
-import type { ReportGranularity, RevenueComparison, RevenueTimeseries, TopItems } from "../../types";
+import type {
+  PaymentMethodsReport,
+  ReportGranularity,
+  RevenueComparison,
+  RevenueTimeseries,
+  TopCombos,
+  TopItems,
+  TopToppings,
+} from "../../types";
 
-export interface ReportBundle {
-  comparison: RevenueComparison;
-  timeseries: RevenueTimeseries;
-  topItems: TopItems;
+export interface BlockState<T> {
+  data: T | null;
+  loading: boolean;
+  /** Lỗi thô (ApiError hoặc Error); màn hình tự chọn cách mô tả. */
+  error: unknown;
+  reload: () => void;
+}
+
+/** Yêu cầu bị huỷ chủ động (đổi bộ lọc) — không phải lỗi để báo người dùng. */
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/**
+ * Chạy `fetcher` mỗi khi `key` đổi (hoặc bấm Thử lại). `key` là chuỗi đại diện cho bộ lọc, nên effect không bị
+ * kích hoạt lại chỉ vì mảng/đối tượng đổi tham chiếu.
+ */
+export function useReportBlock<T>(key: string, fetcher: (signal: AbortSignal) => Promise<T>): BlockState<T> {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [nonce, setNonce] = useState(0);
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setData(null);
+    setError(null);
+    setLoading(true);
+
+    fetcherRef
+      .current(controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setData(result);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted || isAbort(err)) return;
+        setError(err);
+        setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [key, nonce]);
+
+  return { data, loading, error, reload };
 }
 
 export interface ReportQuery extends DateRange {
@@ -16,53 +73,33 @@ export interface ReportQuery extends DateRange {
   granularity?: ReportGranularity;
 }
 
-export interface ReportState {
-  data: ReportBundle | null;
-  loading: boolean;
-  error: string | null;
-  reload: () => void;
+export interface ReportBlocks {
+  comparison: BlockState<RevenueComparison>;
+  timeseries: BlockState<RevenueTimeseries>;
+  paymentMethods: BlockState<PaymentMethodsReport>;
+  topItems: BlockState<TopItems>;
+  topCombos: BlockState<TopCombos>;
+  topToppings: BlockState<TopToppings>;
 }
 
-export function useReportData(query: ReportQuery): ReportState {
-  const [data, setData] = useState<ReportBundle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+const TOP_LIMIT = 10;
 
-  const { from, to, granularity } = query;
-  // Mảng đổi tham chiếu mỗi lần render, nên khoá effect bằng chuỗi đã nối.
-  const branchKey = (query.branchIds ?? []).join(",");
+export function useReportData(query: ReportQuery): ReportBlocks {
+  const { from, to, granularity = "day" } = query;
+  const branchIds = query.branchIds;
+  const scopeKey = `${from}|${to}|${(branchIds ?? []).join(",")}`;
+  const params = { from, to, branchIds };
 
-  const reload = useCallback(() => setNonce((value) => value + 1), []);
-
-  useEffect(() => {
-    const branchIds = branchKey ? branchKey.split(",") : undefined;
-    const params = { from, to, branchIds };
-    let cancelled = false;
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all([
-      reportApi.getRevenueComparison(params),
-      reportApi.getRevenueTimeseries({ ...params, granularity: granularity ?? "day" }),
-      reportApi.getTopItems({ ...params, limit: 10 }),
-    ])
-      .then(([comparison, timeseries, topItems]) => {
-        if (cancelled) return;
-        setData({ comparison, timeseries, topItems });
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(describeApiError(err));
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [from, to, branchKey, granularity, nonce]);
-
-  return { data, loading, error, reload };
+  return {
+    comparison: useReportBlock(scopeKey, (signal) => reportApi.getRevenueComparison({ ...params, signal })),
+    timeseries: useReportBlock(`${scopeKey}|${granularity}`, (signal) =>
+      reportApi.getRevenueTimeseries({ ...params, granularity, signal }),
+    ),
+    paymentMethods: useReportBlock(scopeKey, (signal) => reportApi.getPaymentMethods({ ...params, signal })),
+    topItems: useReportBlock(scopeKey, (signal) => reportApi.getTopItems({ ...params, limit: TOP_LIMIT, signal })),
+    topCombos: useReportBlock(scopeKey, (signal) => reportApi.getTopCombos({ ...params, limit: TOP_LIMIT, signal })),
+    topToppings: useReportBlock(scopeKey, (signal) =>
+      reportApi.getTopToppings({ ...params, limit: TOP_LIMIT, signal }),
+    ),
+  };
 }

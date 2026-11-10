@@ -4,6 +4,7 @@
  */
 import type {
   ApiBranch,
+  PaymentMethodsReport,
   ReportBranchRef,
   ReportGranularity,
   ReportRange,
@@ -11,8 +12,10 @@ import type {
   RevenueComparison,
   RevenuePoint,
   RevenueTimeseries,
+  TopCombos,
   TopItemRow,
   TopItems,
+  TopToppings,
 } from "../../../types";
 import { mockDelay } from "../../mock/control";
 import { revenueEvents } from "../../mock/data/orders";
@@ -201,5 +204,24 @@ export const reportMock: ReportApi = {
         orderLineCount: v.lines,
       }));
     return { range: scope.range, items };
+  },
+
+  // Dữ liệu mock chưa có hình thức thanh toán theo khoản, combo hay topping: trả rỗng đúng shape (không bịa số).
+  async getPaymentMethods(params = {}): Promise<PaymentMethodsReport> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, methods: [], branches: scope.branches.map((b) => ({ branch: refOf(b), methods: [] })) };
+  },
+
+  async getTopCombos(params = {}): Promise<TopCombos> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, items: [] };
+  },
+
+  async getTopToppings(params = {}): Promise<TopToppings> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, items: [] };
   },
 };
