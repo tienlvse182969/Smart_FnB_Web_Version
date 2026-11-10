@@ -149,6 +149,7 @@ export type SubmitRegistrationInput = {
   headquartersAddress?: string;
 
   requestedPlanId?: string;
+  trialRequested?: boolean;
 };
 
 export type ApproveRegistrationInput = {
