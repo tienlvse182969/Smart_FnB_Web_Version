@@ -80,7 +80,7 @@ const lib: MenuExtra[] = [
   { id: "b", name: "Pudding", price: 6000, isActive: false },
 ];
 
-function Harness({ initial, spy }: { initial: ItemExtrasValue; spy?: (v: ItemExtrasValue) => void }) {
+function Harness({ initial, spy, serverError }: { initial: ItemExtrasValue; spy?: (v: ItemExtrasValue) => void; serverError?: string | null }) {
   const [value, setValue] = useState(initial);
   return (
     <AntApp>
@@ -91,6 +91,7 @@ function Harness({ initial, spy }: { initial: ItemExtrasValue; spy?: (v: ItemExt
           setValue(v);
           spy?.(v);
         }}
+        serverError={serverError}
       />
     </AntApp>
   );
@@ -133,6 +134,13 @@ describe("topping theo món", () => {
     expect((spy.mock.calls.at(-1)![0] as ItemExtrasValue).links.map((l) => l.extraId)).toEqual(["b", "a"]);
     fireEvent.click(screen.getByRole("button", { name: "Gỡ topping Trân châu" }));
     expect((spy.mock.calls.at(-1)![0] as ItemExtrasValue).links.map((l) => l.extraId)).toEqual(["b"]);
+  });
+
+  it("lỗi 400 của BE (tổng vượt ngưỡng BE) hiện ngay dưới ô tổng, dữ liệu đang nhập giữ nguyên", () => {
+    render(<Harness initial={{ maxExtras: 150, links: [link()] }} serverError="Tổng số phần topping tối đa không được lớn hơn 100." />);
+    expect(screen.getByTestId("item-extras-server-error").textContent).toMatch(/không được lớn hơn 100/);
+    expect((screen.getByTestId("item-extras-max") as HTMLInputElement).value).toBe("150");
+    expect(screen.getByTestId("item-extra-a")).toBeTruthy();
   });
 
   it("tổng phần dưới 1: hiện lỗi; từ 1 trở lên (kể cả trên 100) không lỗi vì đặc tả không đặt trần", () => {

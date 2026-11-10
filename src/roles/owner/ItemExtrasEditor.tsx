@@ -37,10 +37,13 @@ export default function ItemExtrasEditor({
   library,
   value,
   onChange,
+  serverError,
 }: {
   library: MenuExtra[];
   value: ItemExtrasValue;
   onChange: (next: ItemExtrasValue) => void;
+  /** Lỗi 400 của BE khi lưu cấu hình topping (ví dụ tổng vượt ngưỡng BE): hiện ngay dưới ô, dữ liệu đang nhập được giữ nguyên. */
+  serverError?: string | null;
 }) {
   const { links } = value;
   const set = (next: ItemExtraLink[]) => onChange({ ...value, links: next });
@@ -67,6 +70,7 @@ export default function ItemExtrasEditor({
           onChange={(v) => onChange({ ...value, maxExtras: v })}
           aria-label="Tổng số phần topping tối đa"
           data-testid="item-extras-max"
+          status={serverError ? "error" : undefined}
           style={{ width: 70 }}
         />
         <span style={{ fontSize: 12, color: palette.textSubtle }}>(mặc định {DEFAULT_MAX_EXTRAS})</span>
@@ -130,6 +134,11 @@ export default function ItemExtrasEditor({
         options={available.map((x) => ({ value: x.id, label: x.isActive ? x.name : `${x.name} (đang tắt)` }))}
         data-testid="item-extra-add"
       />
+      {serverError && (
+        <div data-testid="item-extras-server-error" role="alert" style={{ fontSize: 12, color: palette.error.text, marginTop: 6 }}>
+          {serverError}
+        </div>
+      )}
       {problem && (
         <div data-testid="item-extras-problem" style={{ fontSize: 12, color: palette.error.text, marginTop: 6 }}>
           {problem}

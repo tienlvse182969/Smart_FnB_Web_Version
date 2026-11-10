@@ -3,7 +3,8 @@ import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, Upload, X } 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
 import type { MenuCategory, MenuExtra, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
-import { extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import { describeApiError, extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import { ApiError } from "../../api/http/errors";
 import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
 import MoneyInput from "../../components/MoneyInput";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
@@ -328,6 +329,7 @@ function ItemDrawer({
   // Topping thêm của món (OW-15): thư viện của chuỗi + cấu hình gắn vào món, chỉ gửi khi đổi.
   const [extraLibrary, setExtraLibrary] = useState<MenuExtra[]>([]);
   const [extras, setExtras] = useState<ItemExtrasValue>({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] });
+  const [extrasServerError, setExtrasServerError] = useState<string | null>(null);
   const [savedExtrasKey, setSavedExtrasKey] = useState(itemExtrasKey({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] }));
 
   useEffect(() => {
@@ -434,10 +436,17 @@ function ItemDrawer({
   /** Gắn topping cho món bằng MỘT lệnh `setItemExtras`, chỉ khi cấu hình đổi (món mới: chỉ khi có topping hoặc đổi tổng số phần). */
   const saveItemExtras = async (itemId: string) => {
     if (!chainId || itemExtrasKey(extras) === savedExtrasKey) return;
-    await extrasApi.setItemExtras(chainId, itemId, {
-      maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
-      extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
-    });
+    try {
+      await extrasApi.setItemExtras(chainId, itemId, {
+        maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
+        extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
+      });
+    } catch (err) {
+      // 400 của BE (vd. tổng phần vượt ngưỡng BE): hiện ngay tại ô topping; dữ liệu đang nhập giữ nguyên để sửa và lưu lại.
+      if (err instanceof ApiError && err.status === 400) setExtrasServerError(describeApiError(err));
+      throw err;
+    }
+    setExtrasServerError(null);
     setSavedExtrasKey(itemExtrasKey(extras));
   };
 
@@ -568,7 +577,15 @@ function ItemDrawer({
         <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
       </Field>
       <Field label="Topping thêm (OW-15)">
-        <ItemExtrasEditor library={extraLibrary} value={extras} onChange={setExtras} />
+        <ItemExtrasEditor
+          library={extraLibrary}
+          value={extras}
+          onChange={(next) => {
+            setExtras(next);
+            setExtrasServerError(null);
+          }}
+          serverError={extrasServerError}
+        />
       </Field>
       <Field label="Xem trước tại POS">
         <OptionPreview itemName={name.trim()} itemPrice={price ?? 0} groups={groupIds.flatMap((id) => allGroups.find((g) => g.id === id) ?? [])} />
