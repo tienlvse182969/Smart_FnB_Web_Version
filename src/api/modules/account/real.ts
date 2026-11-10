@@ -31,9 +31,6 @@ export const accountReal: AccountApi = {
     return { account: mapManager(raw.account), expiresAt: raw.invitationExpiresAt, emailStatus: raw.emailStatus };
   },
 
-  async setDirectPassword(accountId, password) {
-    await request(`/employees/${accountId}/password`, { method: "PATCH", body: { password } });
-  },
   // --- Manager: thật ---------------------------------------------------------------------------------------------
   async listManagers(_chainId, query = {}) {
     // BE lấy phạm vi từ token Owner (mọi chuỗi được gán) nên `_chainId` không gửi đi.

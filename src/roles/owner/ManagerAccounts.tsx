@@ -13,7 +13,7 @@ import StaffReasonModal from "../branch/StaffReasonModal";
 
 const PAGE_SIZE = 20;
 
-const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
+const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Hoạt động", SUSPENDED: "Bị khoá", INACTIVE: "Chờ kích hoạt" };
 
 /**
  * Owner mời Manager, Cashier và Barista qua email.
@@ -33,7 +33,6 @@ export default function ManagerAccounts() {
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
-  const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string } | null>(null);
 
   const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; account: ManagerAccount | StaffAccount } | null>(null);
   const [reasonBusy, setReasonBusy] = useState(false);
@@ -83,7 +82,6 @@ export default function ManagerAccounts() {
 
   const confirmLock = (m: ManagerAccount | StaffAccount) => setReasonFor({ kind: m.status === "ACTIVE" ? "lock" : "unlock", account: m });
   const confirmReset = (m: ManagerAccount | StaffAccount) => {
-    if (!m.email.includes("@")) { setPasswordTarget({ id: m.id, name: m.name }); return; }
     setReasonFor({ kind: "reset", account: m });
   };
   const submitReason = async (reason: string) => {
@@ -103,11 +101,12 @@ export default function ManagerAccounts() {
     } catch (err) { showApiError(message.error, err, "Không thực hiện được thao tác"); }
     finally { reasonInFlight.current = false; setReasonBusy(false); }
   };
-  const actions = (r: ManagerAccount | StaffAccount) => (
+  /** Đặt lại mật khẩu chỉ cho cấp ngay dưới (BR-56): Brand Manager → Store Manager. Thu ngân và Pha chế do Store Manager đặt lại. */
+  const actions = (r: ManagerAccount | StaffAccount, canReset: boolean) => (
     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-      <ActionButton size="small" icon={<KeyRound size={14} />} disabled={r.invitationState === "CANCELLED" || r.status === "SUSPENDED"} onClick={() => confirmReset(r)}>
-        {r.invitationState === "PENDING" ? "Gửi lại lời mời" : "Reset mật khẩu"}
-      </ActionButton>
+      {canReset && <ActionButton size="small" icon={<KeyRound size={14} />} disabled={r.invitationState === "CANCELLED" || r.status === "SUSPENDED"} onClick={() => confirmReset(r)}>
+        {r.invitationState === "PENDING" ? "Gửi lại link" : "Đặt lại mật khẩu"}
+      </ActionButton>}
       <ActionButton size="small" icon={r.status === "SUSPENDED" ? <Unlock size={14} /> : <Lock size={14} />} disabled={r.invitationState === "CANCELLED" || r.invitationState === "PENDING" || r.status === "INACTIVE"} onClick={() => confirmLock(r)}>
         {r.status === "SUSPENDED" ? "Mở khoá" : "Khoá"}
       </ActionButton>
@@ -228,7 +227,7 @@ export default function ManagerAccounts() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ nhận lời mời" : STATUS_LABEL[s]}
+                          {r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ kích hoạt" : STATUS_LABEL[s]}
                         </span>
                       ),
                     },
@@ -237,7 +236,7 @@ export default function ManagerAccounts() {
                       title: "",
                       key: "act",
                       align: "right",
-                      render: (_, r) => actions(r),
+                      render: (_, r) => actions(r, true),
                     },
                   ]}
                 />
@@ -270,12 +269,12 @@ export default function ManagerAccounts() {
                     {
                       title: "",
                       key: "password",
-                      render: (_, r) => actions(r),
+                      render: (_, r) => actions(r, false),
                     },
                     {
                       title: "Trạng thái",
                       dataIndex: "status",
-                      render: (s: AccountStatus, r) => <Tag color={s === "ACTIVE" ? "green" : undefined}>{r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ nhận lời mời" : STATUS_LABEL[s]}</Tag>,
+                      render: (s: AccountStatus, r) => <Tag color={s === "ACTIVE" ? "green" : undefined}>{r.invitationState === "CANCELLED" ? "Đã huỷ lời mời" : r.invitationState === "PENDING" ? "Chờ kích hoạt" : STATUS_LABEL[s]}</Tag>,
                     },
                   ]}
                 />
@@ -313,22 +312,6 @@ export default function ManagerAccounts() {
         }}
       />
       <StaffReasonModal open={!!reasonFor} busy={reasonBusy} kind={reasonFor?.kind ?? "reset"} staffName={reasonFor?.account.name ?? ""} email={reasonFor?.account.email ?? ""} roleLabel="Nhân viên" branchName={reasonFor?.account.branchName ?? ""} pending={reasonFor?.account.invitationState === "PENDING"} onCancel={() => { if (!reasonBusy) setReasonFor(null); }} onSubmit={(reason) => void submitReason(reason)} />
-      <SetPasswordDrawer
-        target={passwordTarget}
-        onClose={() => setPasswordTarget(null)}
-        onSave={async (password) => {
-          if (!passwordTarget) return false;
-          try {
-            await accountApi.setDirectPassword(passwordTarget.id, password);
-            setPasswordTarget(null);
-            message.success("Đã đổi mật khẩu và đăng xuất các phiên cũ");
-            return true;
-          } catch (err) {
-            showApiError(message.error, err, "Không đặt lại được mật khẩu");
-            return false;
-          }
-        }}
-      />
     </Card>
   );
 }
@@ -371,25 +354,6 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
         <p style={{ color: palette.textMuted }}>Tài khoản chưa đăng nhập được cho tới khi nhân viên đặt mật khẩu. Lời mời đang chờ vẫn tính vào hạn mức gói.</p>
         <ActionButton htmlType="submit" type="primary" block loading={saving} disabled={!valid || saving} data-testid="owner-invite-submit">Gửi lời mời</ActionButton>
       </form>
-    </Drawer>
-  );
-}
-
-function SetPasswordDrawer({ target, onClose, onSave }: { target: { id: string; name: string } | null; onClose: () => void; onSave: (password: string) => Promise<boolean> }) {
-  const { message } = App.useApp();
-  const [password, setPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  return (
-    <Drawer title={`Đặt lại mật khẩu: ${target?.name ?? ""}`} open={!!target} onClose={() => { setPassword(""); onClose(); }} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
-      <Field label="Mật khẩu mới (từ 8 ký tự, có thể chỉ gồm số)">
-        <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
-      </Field>
-      <p style={{ color: palette.textMuted }}>Sau khi lưu, mọi phiên đăng nhập cũ sẽ bị thu hồi.</p>
-      <ActionButton type="primary" block loading={saving} onClick={() => {
-        if (password.length < 8) { message.error("Mật khẩu cần ít nhất 8 ký tự"); return; }
-        setSaving(true);
-        void onSave(password).then((ok) => { if (ok) setPassword(""); }).finally(() => setSaving(false));
-      }}>Lưu mật khẩu</ActionButton>
     </Drawer>
   );
 }

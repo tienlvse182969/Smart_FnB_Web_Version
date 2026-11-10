@@ -119,11 +119,6 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
     expect(emailStatus).toBe("SENT");
     expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "Nguyễn Văn An", email: "an@x.vn", role: "CASHIER" } });
     expect(call(fetchMock).url).toMatch(/\/employees\/invitations$/);
-    const resetFetch = respond({ message: "ok" });
-    vi.stubGlobal("fetch", resetFetch);
-    await accountReal.setDirectPassword("e1", "87654321");
-    expect(call(resetFetch)).toMatchObject({ method: "PATCH", body: { password: "87654321" } });
-    expect(call(resetFetch).url).toMatch(/\/employees\/e1\/password$/);
   });
 });
 
