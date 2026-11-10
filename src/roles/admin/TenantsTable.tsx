@@ -1,4 +1,4 @@
-import { App, Card, Drawer, Input, InputNumber, Modal, Progress, Radio, Select, Table } from "antd";
+import { App, Card, Drawer, Input, InputNumber, Modal, Progress, Select, Table } from "antd";
 import { Ban, CalendarClock, KeyRound, Layers, Play, Receipt, Repeat, Users } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Business, Paginated, PlanChangeDirection, ServicePlan } from "../../types";
@@ -183,7 +183,7 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
             Gia hạn
           </ActionButton>
           <ActionButton block icon={<Repeat size={16} />} onClick={() => onDialog("plan")}>
-            Đổi gói
+            Đặt gói kỳ tới
           </ActionButton>
           {sub.state === "suspended" ? (
             <ActionButton block icon={<Play size={16} />} onClick={() => onDialog("reactivate")}>
@@ -258,7 +258,6 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
   const { message } = App.useApp();
   const [plans, setPlans] = useState<ServicePlan[]>([]);
   const [planId, setPlanId] = useState<string | undefined>();
-  const [pick, setPick] = useState<PlanChangeDirection>("UPGRADE");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
   const sub = business.subscription;
@@ -274,13 +273,9 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
   }, [open, sub?.plan.id, message]);
 
   const target = plans.find((p) => p.id === planId);
-  // Hướng đổi suy từ giá; bằng giá thì Admin tự chọn Nâng/Hạ.
-  const sameThePrice = !!target && !!sub && target.monthlyPrice === sub.monthlyPrice;
   const direction: PlanChangeDirection | null = !target || !sub
     ? null
-    : sameThePrice
-      ? pick
-      : target.monthlyPrice > sub.monthlyPrice
+    : target.monthlyPrice >= sub.monthlyPrice
         ? "UPGRADE"
         : "DOWNGRADE";
 
@@ -288,9 +283,8 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
     if (!planId || !direction) return;
     setSaving(true);
     try {
-      // TODO(BE, lệch BR-11): BE trả 409 khi hạ gói mà đang vượt hạn mức gói mới; đặc tả BR-11 cho phép hạ gói, chỉ chặn tạo mới.
       await adminApi.changeBusinessPlan(business.id, { planId, direction, note: note.trim() });
-      await onDone("Đã đổi gói dịch vụ");
+      await onDone("Đã đặt gói cho kỳ tới");
     } catch (err) {
       showApiError(message.error, err, "Không đổi được gói");
     } finally {
@@ -299,7 +293,7 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
   };
 
   return (
-    <Modal title={`Đổi gói · ${business.name}`} open={open} onCancel={onClose} footer={null} destroyOnHidden>
+    <Modal title={`Đặt gói kỳ tới · ${business.name}`} open={open} onCancel={onClose} footer={null} destroyOnHidden>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
         Gói hiện tại: <b>{sub?.plan.name}</b> · {formatVnd(sub?.monthlyPrice ?? 0)}/tháng
       </div>
@@ -311,24 +305,16 @@ function PlanModal({ open, business, onClose, onDone }: DialogProps & { onDone: 
         placeholder="Chọn gói"
         options={plans.map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng · ${p.maxBranches} chi nhánh · ${p.maxAccounts} tài khoản` }))}
       />
-      {sameThePrice && (
-        <div style={{ marginTop: 12 }}>
-          {label("Hai gói cùng giá — đây là nâng hay hạ gói?")}
-          <Radio.Group value={pick} onChange={(e) => setPick(e.target.value)}>
-            <Radio value="UPGRADE">Nâng gói</Radio>
-            <Radio value="DOWNGRADE">Hạ gói</Radio>
-          </Radio.Group>
-        </div>
-      )}
       {direction && (
         <div style={{ marginTop: 12, fontSize: 13, color: palette.textMuted }}>
           {direction === "UPGRADE" ? "Nâng gói" : "Hạ gói"} — dữ liệu hiện có được giữ nguyên.
         </div>
       )}
-      {label("Lý do đổi gói giữa kỳ (bắt buộc)")}
+      <p style={{ color: palette.textMuted }}>Gói mới chỉ áp dụng từ kỳ thuê bao tiếp theo. Ghi chú yêu cầu của doanh nghiệp là bắt buộc.</p>
+      {label("Ghi chú hỗ trợ (bắt buộc)")}
       <Input.TextArea rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
       <ActionButton type="primary" block style={{ marginTop: 16 }} loading={saving} disabled={!planId || note.trim().length < 3} onClick={submit}>
-        Đổi gói
+        Đặt gói kỳ tới
       </ActionButton>
     </Modal>
   );

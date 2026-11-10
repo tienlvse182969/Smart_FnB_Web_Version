@@ -26,6 +26,10 @@ export interface RawPlan {
   monthlyPrice: string | number;
   maxBranches: number;
   maxAccounts: number;
+  extraBranchPrice?: number;
+  extraBranchAccounts?: number;
+  extraAccountPackPrice?: number;
+  extraBranchEnabled?: boolean;
   maxTables?: number;
   /** Có từ BE `dfe8100`; thiếu (BE cũ) thì coi như tắt. */
   brandingEnabled?: boolean;
@@ -124,6 +128,10 @@ export function mapPlan(raw: RawPlan): ServicePlan {
     monthlyPrice: parseAmount(raw.monthlyPrice),
     maxBranches: raw.maxBranches,
     maxAccounts: raw.maxAccounts,
+    extraBranchPrice: raw.extraBranchPrice ?? 0,
+    extraBranchAccounts: raw.extraBranchAccounts ?? 8,
+    extraAccountPackPrice: raw.extraAccountPackPrice ?? 50000,
+    extraBranchEnabled: raw.extraBranchEnabled ?? false,
     brandingEnabled: raw.brandingEnabled ?? false,
     multiBranchComparisonEnabled: raw.multiBranchComparisonEnabled ?? false,
     isActive: raw.isActive,

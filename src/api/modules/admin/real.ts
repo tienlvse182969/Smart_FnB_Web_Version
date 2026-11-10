@@ -77,7 +77,7 @@ export const adminReal: AdminApi = {
 
   async changeBusinessPlan(id, input) {
     return mapBusiness(
-      await request<RawBusiness>(`/admin/businesses/${id}/subscription/change-plan`, { method: "POST", body: input }),
+      await request<RawBusiness>(`/admin/businesses/${id}/next-plan`, { method: "POST", body: { planId: input.planId, note: input.note } }),
     );
   },
 

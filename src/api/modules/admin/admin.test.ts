@@ -512,7 +512,8 @@ describe("mock admin — cùng shape và quy tắc với BE, không ví", () => 
       direction: "UPGRADE",
     });
 
-    expect(up.subscription?.plan.code).toBe("STANDARD");
+    expect(up.subscription?.plan.code).toBe("BASIC");
+    expect(up.subscription?.nextPlan?.code).toBe("STANDARD");
   });
 
   it("tạm ngưng / kích hoạt lại; kích hoạt khi đã hết hạn phải gia hạn trước", async () => {

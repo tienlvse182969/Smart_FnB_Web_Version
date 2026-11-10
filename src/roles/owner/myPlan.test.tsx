@@ -63,8 +63,7 @@ describe("màn Gói của tôi (dữ liệu thật, quyết định 52)", () => 
     expect(screen.queryByTestId("myplan-limit-warn-accounts")).toBeNull();
     expect(screen.getByTestId("myplan-feature-branding").getAttribute("data-enabled")).toBe("true");
     expect(screen.getByTestId("myplan-feature-multiBranchCompare").getAttribute("data-enabled")).toBe("false");
-    expect(text("myplan-contact")).toBe(PLAN_CONTACT_TEXT);
-    expect(screen.queryAllByRole("button")).toHaveLength(0); // không có nút gia hạn/đổi gói (quyết định 37)
+    expect(screen.queryByTestId("myplan-contact")).toBeNull();
   });
 
   it("ngày hết hạn quy về giờ Việt Nam: 2099-12-31T23:59:59.999Z (UTC) hiện 01/01/2100", async () => {

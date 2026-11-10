@@ -54,6 +54,10 @@ let plans: ServicePlan[] = [
     maxBranches: p.maxBranches,
 
     maxAccounts: p.maxAccounts,
+    extraBranchPrice: p.code === "BASIC" ? 250_000 : p.code === "STANDARD" ? 220_000 : 0,
+    extraBranchAccounts: 8,
+    extraAccountPackPrice: 50_000,
+    extraBranchEnabled: p.code !== "ADVANCED",
 
     brandingEnabled: featuresForTier(p.tier).branding.enabled,
 
@@ -71,6 +75,10 @@ let plans: ServicePlan[] = [
     monthlyPrice: 150_000,
     maxBranches: 1,
     maxAccounts: 5,
+    extraBranchPrice: 0,
+    extraBranchAccounts: 8,
+    extraAccountPackPrice: 50_000,
+    extraBranchEnabled: false,
     brandingEnabled: false,
     multiBranchComparisonEnabled: false,
     isActive: false,
@@ -674,9 +682,7 @@ export const adminMock: AdminApi = {
       }
     }
 
-    sub.plan = target;
-
-    sub.monthlyPrice = target.monthlyPrice;
+    sub.nextPlan = target;
 
     return view(b);
   },
@@ -753,6 +759,10 @@ export const adminMock: AdminApi = {
       description: input.description ?? null,
       isActive: input.isActive ?? true,
       ...input,
+      extraBranchPrice: input.extraBranchPrice ?? 0,
+      extraBranchAccounts: input.extraBranchAccounts ?? 8,
+      extraAccountPackPrice: input.extraAccountPackPrice ?? 50_000,
+      extraBranchEnabled: input.extraBranchEnabled ?? false,
     };
 
     plans = [...plans, plan];
