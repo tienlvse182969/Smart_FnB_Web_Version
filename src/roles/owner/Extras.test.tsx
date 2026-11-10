@@ -101,7 +101,16 @@ const link = (over: Partial<ItemExtraLink> = {}): ItemExtraLink => ({ extraId: "
 describe("topping theo món", () => {
   it("quy tắc: tổng phần 0–100, số phần mỗi ly 1–5, giá số nguyên ≥ 0", () => {
     expect(itemExtrasProblem({ maxExtras: 5, links: [link()] })).toBeNull();
-    expect(itemExtrasProblem({ maxExtras: null, links: [] })).toMatch(/0 đến 100/);
+    expect(itemExtrasProblem({ maxExtras: null, links: [] })).toMatch(/từ 1 trở lên/);
+    expect(itemExtrasProblem({ maxExtras: 0, links: [] })).toMatch(/từ 1 trở lên/);
+    expect(itemExtrasProblem({ maxExtras: 2.5, links: [] })).toMatch(/từ 1 trở lên/);
+    // Tổng số phần không có trần trong đặc tả (BR-80): 100 và 250 đều hợp lệ ở web.
+    expect(itemExtrasProblem({ maxExtras: 100, links: [link()] })).toBeNull();
+    expect(itemExtrasProblem({ maxExtras: 250, links: [link()] })).toBeNull();
+    // Số phần mỗi lần gắn: 0 và 6 bị chặn, 1 và 5 hợp lệ.
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 0 })] })).toMatch(/từ 1 đến 5/);
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 1 })] })).toBeNull();
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 5 })] })).toBeNull();
     expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 6 })] })).toMatch(/từ 1 đến 5/);
     expect(itemExtrasProblem({ maxExtras: 5, links: [link({ price: -1 })] })).toMatch(/số nguyên đồng/);
   });
@@ -126,8 +135,11 @@ describe("topping theo món", () => {
     expect((spy.mock.calls.at(-1)![0] as ItemExtrasValue).links.map((l) => l.extraId)).toEqual(["b"]);
   });
 
-  it("tổng phần vượt ngưỡng: hiện lỗi", () => {
+  it("tổng phần dưới 1: hiện lỗi; từ 1 trở lên (kể cả trên 100) không lỗi vì đặc tả không đặt trần", () => {
+    const { unmount } = render(<Harness initial={{ maxExtras: 0, links: [] }} />);
+    expect(screen.getByTestId("item-extras-problem").textContent).toMatch(/từ 1 trở lên/);
+    unmount();
     render(<Harness initial={{ maxExtras: 101, links: [] }} />);
-    expect(screen.getByTestId("item-extras-problem").textContent).toMatch(/0 đến 100/);
+    expect(screen.queryByTestId("item-extras-problem")).toBeNull();
   });
 });

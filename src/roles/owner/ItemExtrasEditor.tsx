@@ -1,7 +1,7 @@
 import { InputNumber, Select, Tag } from "antd";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import type { ItemExtraLink, MenuExtra } from "../../types";
-import { DEFAULT_MAX_EXTRAS, MAX_ITEM_EXTRAS_TOTAL, MAX_PORTIONS, MIN_PORTIONS } from "../../api/modules/extras/rules";
+import { DEFAULT_MAX_EXTRAS, MAX_PORTIONS, MIN_ITEM_EXTRAS_TOTAL, MIN_PORTIONS } from "../../api/modules/extras/rules";
 import MoneyInput from "../../components/MoneyInput";
 import ActionButton from "../../plan/ActionButton";
 import { palette } from "../../theme";
@@ -13,8 +13,8 @@ export interface ItemExtrasValue {
 
 /** Lỗi đầu tiên của cấu hình đang nhập (cùng ngưỡng BE), hoặc null. Dùng để khoá nút Lưu món. */
 export function itemExtrasProblem(value: ItemExtrasValue): string | null {
-  if (value.maxExtras === null || !Number.isInteger(value.maxExtras) || value.maxExtras < 0 || value.maxExtras > MAX_ITEM_EXTRAS_TOTAL) {
-    return `Tổng số phần topping tối đa phải từ 0 đến ${MAX_ITEM_EXTRAS_TOTAL}`;
+  if (value.maxExtras === null || !Number.isInteger(value.maxExtras) || value.maxExtras < MIN_ITEM_EXTRAS_TOTAL) {
+    return `Tổng số phần topping tối đa phải là số nguyên từ ${MIN_ITEM_EXTRAS_TOTAL} trở lên`;
   }
   for (const link of value.links) {
     if (!Number.isInteger(link.price) || link.price < 0) return `Giá cộng thêm của "${link.name}" phải là số nguyên đồng, từ 0 trở lên`;
@@ -61,8 +61,7 @@ export default function ItemExtrasEditor({
         <span style={{ fontSize: 13 }}>Tổng số phần topping tối đa mỗi ly</span>
         <InputNumber
           size="small"
-          min={0}
-          max={MAX_ITEM_EXTRAS_TOTAL}
+          min={MIN_ITEM_EXTRAS_TOTAL}
           precision={0}
           value={value.maxExtras}
           onChange={(v) => onChange({ ...value, maxExtras: v })}
