@@ -7,7 +7,7 @@ describe("Platform Staff routes", () => {
     expect(isWebRole("platform-staff")).toBe(true);
     expect(roleHomePath("platform-staff")).toBe("/platform-staff/signups");
     expect(homeRouteFor("platform-staff")).toBe("/platform-staff");
-    expect(platformStaffRoutes.map((route) => route.path)).toEqual(["signups", "businesses"]);
+    expect(platformStaffRoutes.map((route) => route.path)).toEqual(["signups", "businesses", "plans"]);
     expect(adminRoutes.map((route) => route.path)).toContain("staff");
     expect(adminRoutes.map((route) => route.path)).not.toContain("support");
   });

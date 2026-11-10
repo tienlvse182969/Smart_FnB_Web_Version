@@ -57,7 +57,9 @@ import OrderSearch from "../roles/branch/OrderSearch";
 import OrderDetail from "../roles/branch/OrderDetail";
 import AttentionOrders from "../roles/branch/AttentionOrders";
 import RefundApprovals from "../roles/branch/RefundApprovals";
+import TransactionLedger from "../roles/branch/TransactionLedger";
 import PlatformBusinesses from "../roles/platform-staff/Businesses";
+import PlatformStaffPlans from "../roles/platform-staff/PlatformStaffPlans";
 import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
 import PlatformRevenue from "../roles/admin/PlatformRevenue";
 import PlatformInvoices from "../roles/admin/PlatformInvoices";
@@ -102,6 +104,7 @@ export const adminRoutes: RouteDef[] = [
 export const platformStaffRoutes: RouteDef[] = [
   { path: "signups", label: "Hồ sơ đăng ký", icon: <UserPlus size={18} />, code: "PA-01 · PA-02 · PA-03 · PS-01", element: <SignupRequests /> },
   { path: "businesses", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
+  { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlatformStaffPlans /> },
 ];
 
 export const ownerRoutes: RouteDef[] = [
@@ -171,6 +174,13 @@ export const managerRoutes: RouteDef[] = [
     icon: <ListChecks size={18} />,
     code: "BM-05",
     element: <AttentionOrders />,
+  },
+  {
+    path: "ledger",
+    label: "Sổ giao dịch",
+    icon: <ScrollText size={18} />,
+    code: "BM-07",
+    element: <TransactionLedger />,
   },
   {
     path: "refund-approvals",
