@@ -3,11 +3,11 @@ import { adminRoutes, isWebRole, platformStaffRoutes, roleHomePath } from "./rou
 import { homeRouteFor } from "./guards";
 
 describe("Platform Staff routes", () => {
-  it("has its own working area and only registration and aggregate business screens", () => {
+  it("has its own working area, business screens and password reset requests", () => {
     expect(isWebRole("platform-staff")).toBe(true);
     expect(roleHomePath("platform-staff")).toBe("/platform-staff/signups");
     expect(homeRouteFor("platform-staff")).toBe("/platform-staff");
-    expect(platformStaffRoutes.map((route) => route.path)).toEqual(["signups", "businesses"]);
+    expect(platformStaffRoutes.map((route) => route.path)).toEqual(["signups", "businesses", "password-reset-requests"]);
     expect(adminRoutes.map((route) => route.path)).toContain("staff");
     expect(adminRoutes.map((route) => route.path)).not.toContain("support");
   });

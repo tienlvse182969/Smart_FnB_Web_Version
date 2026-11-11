@@ -20,15 +20,22 @@ export default function SetupPasswordScreen() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [tokenRejected, setTokenRejected] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [verifying, setVerifying] = useState(true);
 
   // Xoá token khỏi thanh địa chỉ/lịch sử ngay khi trang đã đọc xong (giữ state của router).
   useEffect(() => {
     if (window.location.search) window.history.replaceState(window.history.state, "", window.location.pathname);
   }, []);
 
+  useEffect(() => {
+    if (!token) { setVerifying(false); return; }
+    void authApi.verifyPasswordToken(token).then(() => setVerified(true)).catch(() => setTokenRejected(true)).finally(() => setVerifying(false));
+  }, [token]);
+
   const failed = failedPasswordRules(password);
   const mismatch = confirm.length > 0 && confirm !== password;
-  const canSubmit = !!token && password.length > 0 && failed.length === 0 && confirm === password && !busy;
+  const canSubmit = !!token && verified && password.length > 0 && failed.length === 0 && confirm === password && !busy;
 
   const submit = async () => {
     if (!token || !canSubmit) return;
@@ -47,8 +54,8 @@ export default function SetupPasswordScreen() {
   const problem = !token ? "Liên kết không hợp lệ." : tokenRejected ? SETUP_TOKEN_MESSAGE : null;
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 0.9fr)", background: palette.surface }}>
-      <div style={{ background: palette.brandPrimary, color: palette.onBrand, padding: "56px 60px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]" style={{ background: palette.surface }}>
+      <div className="hidden lg:flex" style={{ background: palette.brandPrimary, color: palette.onBrand, padding: "56px 60px", flexDirection: "column", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, background: palette.surface, display: "grid", placeItems: "center" }}>
             <UtensilsCrossed size={22} color={palette.brandPrimary} />
@@ -64,10 +71,10 @@ export default function SetupPasswordScreen() {
         <div style={{ fontSize: 12.5, color: onBrandAlpha(40) }}>Thu ngân &amp; pha chế dùng ứng dụng tablet</div>
       </div>
 
-      <div style={{ padding: "56px 56px", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 520 }}>
+      <div className="px-6 py-10 lg:px-14" style={{ display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 520 }}>
         <div style={{ fontSize: 22, fontWeight: 700 }}>Đặt mật khẩu</div>
 
-        {problem ? (
+        {verifying ? <div style={{ marginTop: 16 }}>Đang kiểm tra liên kết...</div> : problem ? (
           <div data-testid="setup-problem" style={{ marginTop: 16 }}>
             <div style={{ color: palette.error.text, background: palette.error.bg, border: `1px solid ${palette.error.border}`, borderRadius: 10, padding: "12px 14px", fontSize: 14 }}>
               {problem}

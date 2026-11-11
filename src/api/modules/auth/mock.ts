@@ -139,6 +139,12 @@ export const authMock: AuthApi = {
     if (token !== "mock-valid" || consumedTokens.has(token)) throw new ApiError(401, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
     consumedTokens.add(token);
   },
+  async requestPasswordReset(_email) { await mockDelay(); },
+  async verifyPasswordToken(token) {
+    await mockDelay();
+    if (token !== 'mock-valid' || consumedTokens.has(token)) throw new ApiError(401, SETUP_TOKEN_MESSAGE, [], SETUP_TOKEN_INVALID);
+    return { expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(), purpose: 'SELF_RESET' };
+  },
 };
 
 /** Token mock đã dùng (một lần, như `usedAt` của BE). Mất khi tải lại trang. */

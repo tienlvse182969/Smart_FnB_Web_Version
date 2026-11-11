@@ -12,7 +12,7 @@ mockControl.latency = [0, 0];
 mockControl.failure = null;
 
 describe("luật mật khẩu (theo SetupPasswordDto của BE)", () => {
-  it("hợp lệ: 8–128 ký tự, có chữ thường, chữ hoa và chữ số", () => {
+  it("hợp lệ: 8–128 ký tự, có chữ và chữ số", () => {
     expect(failedPasswordRules("StrongPass123")).toEqual([]);
     expect(failedPasswordRules("Abcdefg1")).toEqual([]);
     expect(failedPasswordRules("A1" + "a".repeat(126))).toEqual([]);
@@ -20,14 +20,14 @@ describe("luật mật khẩu (theo SetupPasswordDto của BE)", () => {
 
   it("từng luật bị vi phạm riêng lẻ", () => {
     expect(failedPasswordRules("Abc1").map((r) => r.key)).toEqual(["length"]);
-    expect(failedPasswordRules("ABCDEFG1").map((r) => r.key)).toEqual(["lower"]);
-    expect(failedPasswordRules("abcdefg1").map((r) => r.key)).toEqual(["upper"]);
+    expect(failedPasswordRules("12345678").map((r) => r.key)).toEqual(["letter"]);
+    expect(failedPasswordRules("abcdefg1")).toEqual([]);
     expect(failedPasswordRules("Abcdefgh").map((r) => r.key)).toEqual(["digit"]);
     expect(failedPasswordRules("A1" + "a".repeat(127)).map((r) => r.key)).toEqual(["length"]);
   });
 
-  it("chỉ có đúng 4 luật như BE, không luật thêm (ký tự đặc biệt không bắt buộc)", () => {
-    expect(PASSWORD_RULES.map((r) => r.key)).toEqual(["length", "lower", "upper", "digit"]);
+  it("chỉ có đúng 3 luật như BE, không luật thêm (ký tự đặc biệt không bắt buộc)", () => {
+    expect(PASSWORD_RULES.map((r) => r.key)).toEqual(["length", "letter", "digit"]);
     expect(failedPasswordRules("Abcdefg1")).toEqual([]);
   });
 });
@@ -45,7 +45,7 @@ describe("authMock.setupPassword", () => {
   });
 
   it("mật khẩu yếu bị từ chối 400 với cùng luật, trước cả khi xét token", async () => {
-    await expect(authMock.setupPassword("mock-valid", "yeu")).rejects.toMatchObject({ status: 400, details: expect.arrayContaining(["Có chữ hoa"]) });
+    await expect(authMock.setupPassword("mock-valid", "yeu")).rejects.toMatchObject({ status: 400, details: expect.arrayContaining(["Có chữ số"]) });
     await expect(authMock.setupPassword("mock-expired", "yeu")).rejects.toMatchObject({ status: 400 });
   });
 });

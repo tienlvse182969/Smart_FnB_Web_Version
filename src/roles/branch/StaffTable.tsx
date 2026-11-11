@@ -255,6 +255,7 @@ export default function StaffTable() {
           },
           // BE `fb7cae9` (#62) trả `user.lastLoginAt`: cột có ở cả real lẫn mock.
           { title: "Đăng nhập gần nhất", dataIndex: "lastLoginAt", render: (v: string | null) => (v ? formatDateTime(v) : "Chưa từng") },
+          { title: "Đổi mật khẩu", render: (_, s) => s.lastPasswordChangedAt ? <span>{formatDateTime(s.lastPasswordChangedAt)}<br /><small>{s.lastPasswordChangeMethod === "SELF_RESET" ? "Tự đặt lại" : s.lastPasswordChangeMethod === "SUPERIOR_RESET" ? "Cấp trên đặt lại" : s.lastPasswordChangeMethod === "FIRST_SETUP" ? "Đặt lần đầu" : "Tự đổi"}</small></span> : "Chưa đặt" },
           {
             title: "",
             align: "right",

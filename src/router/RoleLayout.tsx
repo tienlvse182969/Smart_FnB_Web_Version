@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import RoleShell, { type NavItem } from "../layout/RoleShell";
 import { page } from "../components/bits";
@@ -7,6 +8,9 @@ import { useAppStore } from "../store";
 import AttentionWatcher from "../roles/branch/AttentionWatcher";
 import { useAttentionCount } from "../roles/branch/attentionStore";
 import { roleBasePath, roleRoutes, type WebRole } from "./routeConfig";
+import { modeOf } from "../api/flags";
+import { request } from "../api/http/client";
+import { subscribeOperations } from "../api/realtime/operations";
 
 const SEARCH_PLACEHOLDER: Record<WebRole, string> = {
   admin: "Tìm doanh nghiệp, mã tenant…",
@@ -26,6 +30,22 @@ export default function RoleLayout({ role }: { role: WebRole }) {
   const logout = useAppStore((s) => s.logout);
   const branches = useAppStore((s) => s.branches);
   const currentBranchId = useAppStore((s) => s.currentBranchId);
+  const [resetCount, setResetCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (role === "manager" || modeOf("auth") === "mock") return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const result = await request<{ count: number }>("/password-reset-requests/count");
+        if (alive) setResetCount(result.count);
+      } catch { if (alive) setResetCount(null); }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 30000);
+    const unsubscribe = subscribeOperations({ onEvent: (event) => { if (event.type.startsWith("password-reset.")) void load(); }, onStatus: (status, info) => { if (status === "connected" && info.reconnected) void load(); } });
+    return () => { alive = false; window.clearInterval(timer); unsubscribe(); };
+  }, [role]);
 
   // Số đơn "Cần xử lý" (BM-05, lượt 7.5): chỉ Manager; `null` khi chưa biết thì không hiện số.
   const attentionCount = useAttentionCount();
@@ -37,7 +57,7 @@ export default function RoleLayout({ role }: { role: WebRole }) {
       key: d.path,
       label: d.label,
       icon: d.icon,
-      badge: role === "manager" && d.path === "orders/needs-attention" ? attentionCount : undefined,
+      badge: d.path === "password-reset-requests" ? resetCount : role === "manager" && d.path === "orders/needs-attention" ? attentionCount : undefined,
     }));
 
   // Mục sidebar trùng dài nhất với URL: /manager/orders/needs-attention sáng

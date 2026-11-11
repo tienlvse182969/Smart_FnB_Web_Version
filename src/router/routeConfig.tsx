@@ -61,6 +61,7 @@ import PlatformBusinesses from "../roles/platform-staff/Businesses";
 import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
 import PlatformRevenue from "../roles/admin/PlatformRevenue";
 import PlatformInvoices from "../roles/admin/PlatformInvoices";
+import PasswordResetRequests from "../auth/PasswordResetRequests";
 
 export type WebRole = "admin" | "platform-staff" | "owner" | "manager";
 
@@ -97,11 +98,13 @@ export const adminRoutes: RouteDef[] = [
   { path: "platform-revenue", label: "Doanh thu nền tảng", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
   { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "PA-07", element: <PasswordResetRequests /> },
 ];
 
 export const platformStaffRoutes: RouteDef[] = [
   { path: "signups", label: "Hồ sơ đăng ký", icon: <UserPlus size={18} />, code: "PA-01 · PA-02 · PA-03 · PS-01", element: <SignupRequests /> },
   { path: "businesses", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "PS-01", element: <PasswordResetRequests /> },
 ];
 
 export const ownerRoutes: RouteDef[] = [
@@ -127,6 +130,7 @@ export const ownerRoutes: RouteDef[] = [
     element: <MenuImport />,
   },
   { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "OW-05", element: <PasswordResetRequests /> },
   {
     path: "payos",
     label: "Liên kết PayOS",
