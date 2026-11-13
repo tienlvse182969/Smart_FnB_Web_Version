@@ -23,6 +23,7 @@ export const API_MODULES = [
   "admin",
   "payos",
   "posters",
+  "ledger",
 ] as const;
 
 export type ApiModule = (typeof API_MODULES)[number];
@@ -48,6 +49,7 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   admin: "real",
   payos: "real",
   posters: "real",
+  ledger: "real",
 };
 
 /** Ghi chú cho bảng cờ: vì sao module đang ở chế độ đó. */
@@ -70,6 +72,7 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   admin: "real: hồ sơ đăng ký, gói dịch vụ, doanh nghiệp, tài khoản Platform Staff, hoá đơn thuê bao. Doanh thu nền tảng và hoá đơn thuê bao (PA-06): BE có `GET /admin/platform-revenue`, `/admin/platform-billing/invoices` (chỉ ADMIN) từ BE `28afe57`; web gọi thẳng qua `adminAnalyticsApi` (không có bản mock)",
   payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
   posters: "real (OW-11): GET/POST/PATCH/DELETE restaurant-chains/{id}/display-posters (chỉ OWNER). Web theo đặc tả BR-51/52: tối đa 6 ảnh, ≤ 5 MB, tên ≤ 50, xoay 8 giây cố định; BE cho tới 10 ảnh, tên 120, thời lượng 3–60 giây. BE không có đổi ảnh tại chỗ; mock = VITE_API_POSTERS=mock",
+  ledger: "real (BM-07, mục 32): GET /branches/{id}/cash-ledger (Store Manager, Brand Manager) và /restaurant-chains/{id}/cash-ledger (Brand Manager), query from/to; chỉ đọc. BE chưa trả lọc loại/hình thức/thu ngân, phân trang, người thao tác, ghi chú, 5 tổng (L6); mock = VITE_API_LEDGER=mock chỉ trả sổ rỗng",
 };
 
 type Env = Record<string, string | undefined>;

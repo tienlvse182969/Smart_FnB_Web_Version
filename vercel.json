@@ -28,7 +28,8 @@
       "VITE_API_MANAGER_REPORT": "real",
       "VITE_API_ADMIN": "real",
       "VITE_API_PAYOS": "real",
-      "VITE_API_POSTERS": "real"
+      "VITE_API_POSTERS": "real",
+      "VITE_API_LEDGER": "real"
     }
   }
 }

@@ -31,6 +31,7 @@ import {
 } from "../../lib/reportFormat";
 import { type BlockState, useReportBlock, useReportData } from "./useReportData";
 import { summarizeKpi } from "./reportKpi";
+import LedgerByBranch from "./LedgerByBranch";
 import { ALL_BRANCHES, branchStatusSuffix, branchesWithOwnPrice, isPlanFeatureError, resolveReportScope } from "./reportScope";
 import { palette } from "../../theme";
 
@@ -176,6 +177,9 @@ export default function Reports() {
         </Col>
         <Col xs={24}>
           <TopToppingsTable block={blocks.topToppings} />
+        </Col>
+        <Col xs={24}>
+          <LedgerByBranch branches={branches} range={range} />
         </Col>
       </Row>
     </div>
