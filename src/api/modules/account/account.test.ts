@@ -21,7 +21,7 @@ const raw: RawEmployee = {
 describe("mapper Manager — whitelist", () => {
   it("chỉ giữ đúng các trường của ManagerAccount", () => {
     const m = mapManager(raw);
-    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "invitationExpiresAt", "invitationState", "lastLoginAt", "name", "status"]);
+    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "invitationExpiresAt", "invitationState", "lastLoginAt", "lastPasswordChangeMethod", "lastPasswordChangedAt", "name", "status"]);
     expect(m).toMatchObject({ id: "e1", name: "An Nguyen", email: "an@x.vn", status: "ACTIVE", branchId: "b1", branchName: "CN Thảo Điền" });
   });
 

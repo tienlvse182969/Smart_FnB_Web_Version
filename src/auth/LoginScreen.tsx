@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { App, Button, Input } from "antd";
+import { App, Button, Input, Modal } from "antd";
 import { LogIn, UtensilsCrossed } from "lucide-react";
+import { authApi, showApiError } from "../api";
 import { useAppStore } from "../store";
 import { palette, onBrandAlpha } from "../theme";
 
@@ -13,6 +14,23 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
   const isLoading = useAppStore((s) => s.isLoading);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  const sendReset = async () => {
+    if (!forgotEmail.trim()) return;
+    setForgotBusy(true);
+    try {
+      await authApi.requestPasswordReset(forgotEmail.trim());
+      setForgotSent(true);
+    } catch (error) {
+      showApiError(message.error, error, "Không gửi được yêu cầu. Vui lòng thử lại.");
+    } finally {
+      setForgotBusy(false);
+    }
+  };
 
   const handleLogin = () => {
     if (!email.trim()) {
@@ -133,7 +151,16 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         >
           Đăng nhập
         </Button>
+        <Button type="link" style={{ alignSelf: "flex-end", marginTop: 12 }} onClick={() => { setForgotEmail(email.includes("@") ? email : ""); setForgotSent(false); setForgotOpen(true); }}>
+          Quên mật khẩu?
+        </Button>
       </div>
+      <Modal title="Quên mật khẩu" open={forgotOpen} onCancel={() => setForgotOpen(false)} onOk={forgotSent ? () => setForgotOpen(false) : sendReset} okText={forgotSent ? "Đóng" : "Gửi yêu cầu"} okButtonProps={{ disabled: !forgotSent && !forgotEmail.trim(), loading: forgotBusy }}>
+        {forgotSent ? <p>Nếu email đúng, hướng dẫn đặt lại đã được gửi đi.</p> : <>
+          <p>Nhập email của tài khoản. Nếu cần cấp trên xử lý, yêu cầu sẽ xuất hiện trong hệ thống của họ.</p>
+          <Input type="email" placeholder="Email tài khoản" autoComplete="email" value={forgotEmail} onChange={(event) => setForgotEmail(event.target.value)} onPressEnter={sendReset} />
+        </>}
+      </Modal>
     </div>
   );
 }

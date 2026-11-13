@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { request } from "../api/http/client";
 import { formatVnd } from "../lib/reportFormat";
 
-type Activation = { businessName: string; representativeEmail: string; approvedPlan: { name: string; code: string; monthlyPrice: string | number }; expiresAt: string; trialAvailable: boolean };
+type Activation = { businessName: string; representativeEmail: string; approvedPlan: { name: string; code: string; monthlyPrice: string | number }; expiresAt: string; trialAvailable: boolean; activationMode: "TRIAL" | "PAID" | "LEGACY" };
 type Checkout = { id: string; checkoutUrl: string | null; status: "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW"; reviewReason?: string | null };
 
 export default function ActivationScreen() {
@@ -76,10 +76,10 @@ export default function ActivationScreen() {
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
         {activation && <>
           <Typography.Paragraph><strong>{activation.businessName}</strong><br />Email Brand Manager: {activation.representativeEmail}</Typography.Paragraph>
-          <Typography.Paragraph>Gói được duyệt: <strong>{activation.approvedPlan.name}</strong> · {formatVnd(Number(activation.approvedPlan.monthlyPrice))}/tháng</Typography.Paragraph>
-          <Typography.Paragraph type="secondary">Chọn một cách kích hoạt. Tài khoản Brand Manager được tạo sau khi xác nhận lựa chọn.</Typography.Paragraph>
-          {activation.trialAvailable && <Button block disabled={busy || checkout?.status === "PENDING"} onClick={() => void chooseTrial()} style={{ marginBottom: 10 }}>Dùng thử Basic 14 ngày</Button>}
-          <Button type="primary" block loading={busy} onClick={() => void choosePaid()}>Thanh toán tháng đầu qua PayOS</Button>
+          <Typography.Paragraph>Gói đã đăng ký: <strong>{activation.approvedPlan.name}</strong>{activation.activationMode !== "TRIAL" && <> · {formatVnd(Number(activation.approvedPlan.monthlyPrice))}/tháng</>}</Typography.Paragraph>
+          <Typography.Paragraph type="secondary">{activation.activationMode === "TRIAL" ? "Kích hoạt gói dùng thử miễn phí. Sau đó bạn sẽ nhận email đặt mật khẩu Brand Manager." : "Thanh toán kỳ đầu qua PayOS. Sau khi PayOS xác nhận, hệ thống sẽ gửi email đặt mật khẩu Brand Manager."}</Typography.Paragraph>
+          {activation.trialAvailable && <Button block type={activation.activationMode === "TRIAL" ? "primary" : "default"} loading={busy} disabled={checkout?.status === "PENDING"} onClick={() => void chooseTrial()} style={{ marginBottom: 10 }}>Kích hoạt dùng thử 14 ngày</Button>}
+          {activation.activationMode !== "TRIAL" && <Button type="primary" block loading={busy} disabled={checkout?.status === "NEEDS_REVIEW"} onClick={() => void choosePaid()}>Thanh toán tháng đầu qua PayOS</Button>}
           {checkout?.status === "PENDING" && <Alert type="info" showIcon style={{ marginTop: 16 }} message="Đang chờ PayOS xác nhận thanh toán" description={checkout.checkoutUrl ? <a href={checkout.checkoutUrl}>Mở lại trang thanh toán</a> : undefined} />}
           {checkout?.status === "NEEDS_REVIEW" && <Alert type="warning" showIcon style={{ marginTop: 16 }} message="Thanh toán cần được kiểm tra" description="Vui lòng liên hệ hỗ trợ, không thanh toán lại." />}
         </>}

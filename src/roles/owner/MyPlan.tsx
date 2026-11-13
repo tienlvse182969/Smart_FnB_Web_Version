@@ -2,11 +2,13 @@ import { App, Alert, Button, Card, Progress, Skeleton, Tag } from "antd";
 
 import { Check, X } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { adminApi, showApiError } from "../../api";
 
 import { platformBillingApi } from "../../api/platformBilling";
+import { subscriptionScheduleApi, type NextInvoicePreview, type SubscriptionInvoice } from "../../api/subscriptionSchedule";
+import NextPeriodPanel, { type NextPeriodAdapter } from "./NextPeriodPanel";
 
 import { SectionTitle } from "../../components/bits";
 
@@ -84,6 +86,23 @@ export default function MyPlan() {
   const [loadingPlans, setLoadingPlans] = useState(false);
 
   const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+  const [nextPreview, setNextPreview] = useState<NextInvoicePreview | null>(null);
+  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>([]);
+  /** Brand Manager registers the next period on the same contract Platform Staff uses (31.4). */
+  const nextAdapter = useMemo<NextPeriodAdapter | null>(
+    () =>
+      chainId
+        ? {
+            preview: (draft) => subscriptionScheduleApi.preview(chainId, draft),
+            candidates: () => subscriptionScheduleApi.keepCandidates(chainId),
+            save: ({ clear, note: _note, ...input }) =>
+              clear
+                ? subscriptionScheduleApi.clearPlan(chainId, { keepBranchIds: input.keepBranchIds, keepAccountIds: input.keepAccountIds })
+                : subscriptionScheduleApi.register(chainId, input),
+          }
+        : null,
+    [chainId],
+  );
 
   const [checkoutStatus, setCheckoutStatus] = useState<
     "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW" | null
@@ -124,6 +143,26 @@ export default function MyPlan() {
   }, [plan?.planCode, message]);
 
   useEffect(() => {
+    if (!chainId || !plan?.planCode || plan.planCode === "TRIAL" || plan.source.features !== "real") return;
+    let cancelled = false;
+    Promise.all([subscriptionScheduleApi.preview(chainId), subscriptionScheduleApi.invoices(chainId)])
+      .then(([preview, rows]) => {
+        if (cancelled) return;
+        setNextPreview(preview);
+        setInvoices(rows);
+      })
+      .catch((error) => { if (!cancelled) showApiError(message.error, error, "Không tải được kỳ thuê bao tiếp theo"); });
+    return () => { cancelled = true; };
+  }, [chainId, plan?.planCode, message]);
+
+  const afterNextSaved = async (preview: NextInvoicePreview) => {
+    if (!chainId) return;
+    setNextPreview(preview);
+    setInvoices(await subscriptionScheduleApi.invoices(chainId));
+    await reloadPlan();
+  };
+
+  useEffect(() => {
     if (!chainId) return;
 
     const checkoutId = new URLSearchParams(window.location.search).get(
@@ -149,6 +188,16 @@ export default function MyPlan() {
 
         if (checkout.status === "PAID") {
           await reloadPlan();
+          if (plan?.planCode !== "TRIAL") {
+            const [preview, rows] = await Promise.all([
+              subscriptionScheduleApi.preview(chainId),
+              subscriptionScheduleApi.invoices(chainId),
+            ]);
+            if (!cancelled) {
+              setNextPreview(preview);
+              setInvoices(rows);
+            }
+          }
 
           window.history.replaceState({}, "", window.location.pathname);
         } else if (checkout.status === "PENDING" && ++attempts < 20) {
@@ -172,7 +221,7 @@ export default function MyPlan() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [chainId, message, reloadPlan]);
+  }, [chainId, message, reloadPlan, plan?.planCode]);
 
   const startCheckout = async (planId: string) => {
     if (!chainId) return;
@@ -247,7 +296,9 @@ export default function MyPlan() {
             }
             message={
               checkoutStatus === "PAID"
-                ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
+                ? plan.planCode === "TRIAL"
+                  ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
+                  : "Thanh toán đã được PayOS xác nhận. Gói và hạn mức kỳ tới áp dụng từ ngày bắt đầu kỳ mới."
                 : checkoutStatus === "NEEDS_REVIEW"
                   ? "PayOS đã báo có tiền nhưng giao dịch cần đối soát. Vui lòng liên hệ quản trị SmartFnB, không thanh toán lại."
                   : checkoutStatus === "FAILED"
@@ -297,13 +348,20 @@ export default function MyPlan() {
           </div>
         </Card>
 
-        {plan.planCode !== "TRIAL" && plan.planId && plan.status !== "suspended" && <Card title="Gia hạn gói" style={{ borderRadius: 14 }}>
-          <p style={{ color: palette.textMuted }}>Thanh toán tháng tiếp theo qua PayOS. Có thể bắt đầu trong 7 ngày trước hạn hoặc sau khi gói hết hạn.</p>
-          {plan.nextPlanName && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Gói kỳ sau: ${plan.nextPlanName}`} />}
-          <Button type="primary" loading={checkoutPlanId !== null} disabled={!plan.expiresAt || new Date(plan.expiresAt).getTime() - Date.now() > 7 * 86_400_000 || !paidPlans.some((item) => item.id === (plan.nextPlanId ?? plan.planId))} onClick={() => void startCheckout(plan.nextPlanId ?? plan.planId!)}>
-            Thanh toán kỳ tiếp theo {paidPlans.find((item) => item.id === (plan.nextPlanId ?? plan.planId)) ? `· ${formatVnd(paidPlans.find((item) => item.id === (plan.nextPlanId ?? plan.planId))!.monthlyPrice)}` : ""}
-          </Button>
-        </Card>}
+        {plan.planCode !== "TRIAL" && plan.planId && plan.status !== "suspended" && <>
+          <Card title="Gói và mua thêm cho kỳ tới" style={{ borderRadius: 14 }}>
+            {nextAdapter && <NextPeriodPanel adapter={nextAdapter} catalog={paidPlans} onSaved={afterNextSaved} />}
+          </Card>
+          <Card title="Hóa đơn thuê bao" style={{ borderRadius: 14 }}>
+            {invoices.length === 0 ? <p>Chưa có hóa đơn. Hóa đơn kỳ tới được lập khi còn 7 ngày tới hạn.</p> : invoices.map((invoice) => <div key={invoice.id} style={{ borderBottom: `1px solid ${palette.line}`, padding: "10px 0" }}>
+              <strong>{invoice.planName}</strong> · {invoice.status === "PAID" ? "Đã thanh toán" : invoice.status === "CANCELLED" ? "Đã huỷ" : "Chưa thanh toán"}<br />
+              Kỳ {formatDateVN(invoice.periodStartsAt)} – {formatDateVN(invoice.periodEndsAt)}
+              {invoice.lines.map((line) => <div key={line.id ?? line.kind}>{line.description} × {line.quantity} · {formatVnd(line.unitPrice)} = {formatVnd(line.amount)}</div>)}
+              <strong>Tổng: {formatVnd(invoice.total)}</strong>
+            </div>)}
+            {nextPreview && !nextPreview.paidUpcoming && <Button type="primary" loading={checkoutPlanId !== null} disabled={new Date(nextPreview.currentPeriodEndsAt).getTime() - Date.now() > 7 * 86_400_000} onClick={() => void startCheckout(nextPreview.plan.id)} style={{ marginTop: 12 }}>Thanh toán kỳ tiếp theo qua PayOS · {formatVnd(nextPreview.total)}</Button>}
+          </Card>
+        </>}
 
         {plan.planCode === "TRIAL" && plan.status !== "suspended" && (
           <Card
@@ -372,6 +430,13 @@ export default function MyPlan() {
           style={{ borderRadius: 14 }}
           styles={{ body: { padding: 22 } }}
         >
+          {plan.activeAddons && (
+            <div data-testid="myplan-active-addons" style={{ fontSize: 13, color: palette.textMuted, marginBottom: 12 }}>
+              Mua thêm đang có hiệu lực: {plan.activeAddons.extraBranches} chi nhánh, {plan.activeAddons.accountPacks} gói 5 tài khoản.
+              {plan.accountUsage && ` Tài khoản đã dùng gồm ${plan.accountUsage.owners} Brand Manager, ${plan.accountUsage.employees} nhân viên (có ${plan.accountUsage.pendingInvitations} lời mời đang chờ).`}
+              {plan.paidUpcomingStartsAt && ` Kỳ tới đã thanh toán; hạn mức mới chỉ áp dụng từ ${formatDateVN(plan.paidUpcomingStartsAt)}.`}
+            </div>
+          )}
           {plan.limits.length === 0 ? (
             <div style={{ fontSize: 13.5, color: palette.textMuted }}>
               Chưa có dữ liệu hạn mức.
@@ -467,14 +532,6 @@ export default function MyPlan() {
           })}
         </Card>
 
-        {plan.planCode !== "TRIAL" && (
-          <div
-            data-testid="myplan-contact"
-            style={{ fontSize: 13.5, color: palette.textMuted }}
-          >
-            {PLAN_CONTACT_TEXT}
-          </div>
-        )}
       </div>
     </div>
   );

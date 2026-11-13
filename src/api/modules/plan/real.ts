@@ -103,20 +103,23 @@ export const planReal: PlanApi = {
     const overridden =
       getScenario().tier !== null && getScenario().tier !== undefined;
 
+    // v17.1: cờ của kỳ đang có hiệu lực (đã chốt khi thanh toán) thắng cờ gói hiện tại; trả sớm không mở tính năng trước kỳ mới.
+    const flags = sub?.effective ?? realPlan;
+
     const hasBackendFlags =
-      !!realPlan &&
-      typeof realPlan.brandingEnabled === "boolean" &&
-      typeof realPlan.multiBranchComparisonEnabled === "boolean";
+      !!flags &&
+      typeof flags.brandingEnabled === "boolean" &&
+      typeof flags.multiBranchComparisonEnabled === "boolean";
 
     if (hasBackendFlags && !overridden) {
       features.branding = {
         ...features.branding,
-        enabled: realPlan.brandingEnabled === true,
+        enabled: flags.brandingEnabled === true,
       };
 
       features.multiBranchCompare = {
         ...features.multiBranchCompare,
-        enabled: realPlan.multiBranchComparisonEnabled === true,
+        enabled: flags.multiBranchComparisonEnabled === true,
       };
     }
 
@@ -135,6 +138,9 @@ export const planReal: PlanApi = {
       planId: realPlan?.id,
       nextPlanId: sub?.nextPlan?.id ?? null,
       nextPlanName: sub?.nextPlan?.name ?? null,
+      ...(sub?.effective && { activeAddons: { extraBranches: sub.effective.extraBranches, accountPacks: sub.effective.accountPacks } }),
+      ...(sub?.accountUsage && { accountUsage: sub.accountUsage }),
+      paidUpcomingStartsAt: sub?.pendingStartsAt ?? null,
 
       tier,
 

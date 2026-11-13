@@ -50,15 +50,14 @@ const tab = async (name: string) => {
   fireEvent.click(el);
 };
 
-describe("BranchOperations (Owner 'Giờ & khu vực') — chế độ chỉ đọc (quyết định 97)", () => {
-  it("gói hoạt động: nút Lưu giờ, Lưu ngày đặc biệt, Thêm khu vực, Lưu trữ mở", async () => {
+describe("BranchOperations (Owner) — chế độ chỉ đọc (quyết định 97)", () => {
+  it("gói hoạt động: nút Lưu giờ, Lưu ngày đặc biệt, Lưu trữ mở", async () => {
     mount("active");
     await waitFor(() => expect(screen.getByTestId("hour-save-1")).toBeTruthy());
     expect((screen.getByTestId("hour-save-1") as HTMLButtonElement).disabled).toBe(false);
     await tab("Ngày đặc biệt");
     expect((screen.getByTestId("special-save") as HTMLButtonElement).disabled).toBe(false);
-    await tab("Khu vực");
-    expect((screen.getByTestId("area-save") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole("tab", { name: "Khu vực" })).toBeNull();
     await tab("Lưu trữ");
     expect((screen.getByTestId("branch-archive") as HTMLButtonElement).disabled).toBe(false);
   });
@@ -71,8 +70,6 @@ describe("BranchOperations (Owner 'Giờ & khu vực') — chế độ chỉ đ�
     expect(save.closest('[data-testid="action-guard"]')).toBeTruthy();
     await tab("Ngày đặc biệt");
     expect((screen.getByTestId("special-save") as HTMLButtonElement).disabled).toBe(true);
-    await tab("Khu vực");
-    expect((screen.getByTestId("area-save") as HTMLButtonElement).disabled).toBe(true);
     await tab("Lưu trữ");
     expect((screen.getByTestId("branch-archive") as HTMLButtonElement).disabled).toBe(true);
     expect(document.querySelectorAll(".ant-message-notice")).toHaveLength(0);

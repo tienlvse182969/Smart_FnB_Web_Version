@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { adminApi, showApiError } from "../../api";
 import { palette } from "../../theme";
+import { formatVnd } from "../../lib/reportFormat";
+import type { ServicePlan } from "../../types";
 
 type FormValues = {
   businessName: string;
@@ -26,8 +28,18 @@ const phonePattern = /^0\d{9,10}$/;
 
 export default function SignupForm() {
   const [values, setValues] = useState<FormValues>(initialValues);
+  const [plans, setPlans] = useState<ServicePlan[]>([]);
+  const [planChoice, setPlanChoice] = useState("TRIAL");
+  const [plansError, setPlansError] = useState("");
+  const [planError, setPlanError] = useState("");
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [submitted, setSubmitted] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void adminApi.listPublicPlans().then((items) => { if (active) { setPlans(items); setPlansError(""); } })
+      .catch(() => { if (active) setPlansError("Không tải được các gói trả phí. Vui lòng thử lại sau."); });
+    return () => { active = false; };
+  }, []);
   const updateField = (field: keyof FormValues) => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -45,9 +57,11 @@ export default function SignupForm() {
     }
     if (!emailPattern.test(values.representativeEmail.trim())) nextErrors.representativeEmail = "Email không hợp lệ";
     if (!phonePattern.test(values.representativePhone.trim())) nextErrors.representativePhone = "Số điện thoại không hợp lệ";
+    const invalidPlan = planChoice !== "TRIAL" && !plans.some((plan) => plan.id === planChoice);
+    setPlanError(invalidPlan ? "Gói trả phí đã chọn không còn khả dụng. Vui lòng chọn lại." : "");
 
     setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    return Object.keys(nextErrors).length === 0 && !invalidPlan;
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +82,7 @@ export default function SignupForm() {
         representativeEmail: values.representativeEmail.trim(),
         representativePhone: values.representativePhone.trim(),
         headquartersAddress: values.headquartersAddress.trim() || undefined,
+        ...(planChoice === "TRIAL" ? { trialRequested: true } : { requestedPlanId: planChoice }),
       });
       setSubmitted(true);
     } catch (err) {
@@ -91,8 +106,9 @@ export default function SignupForm() {
             Hồ sơ của bạn đang chờ duyệt
           </h2>
           <p className="mt-4 text-sm text-zinc-600 md:text-base">
-            Khi hồ sơ được duyệt, tài khoản Brand Manager sẽ nhận email đặt mật khẩu và được dùng thử SmartFnB
-            miễn phí 14 ngày. Bạn có thể nâng cấp gói bất cứ lúc nào trong thời gian dùng thử.
+            {planChoice === "TRIAL"
+              ? "Khi hồ sơ được duyệt, bạn sẽ nhận link kích hoạt 14 ngày dùng thử và email đặt mật khẩu."
+              : "Khi hồ sơ được duyệt, bạn sẽ nhận link thanh toán PayOS. Sau khi PayOS xác nhận, hệ thống gửi email đặt mật khẩu Brand Manager."}
           </p>
         </div>
       </section>
@@ -107,9 +123,7 @@ export default function SignupForm() {
           Nộp hồ sơ đăng ký
         </h2>
         <p className="mt-3 text-sm text-zinc-600">
-          Gửi hồ sơ để Admin xét duyệt. Sau khi được duyệt, bạn sẽ nhận email đặt mật khẩu và
-          bắt đầu 14 ngày dùng thử miễn phí với hạn mức giống gói BASIC. Không cần chọn gói trả phí
-          lúc đăng ký.
+          Chọn dùng thử 14 ngày hoặc gói trả phí mong muốn. Bạn chỉ thanh toán qua PayOS sau khi hồ sơ được duyệt.
         </p>
 
         <form
@@ -161,6 +175,25 @@ export default function SignupForm() {
             onChange={updateField("representativePhone")}
             error={errors.representativePhone}
           />
+
+          <fieldset>
+            <legend className="mb-3 text-sm font-medium" style={{ color: "var(--fnb-ink)" }}>Gói dịch vụ mong muốn</legend>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4">
+                <input type="radio" name="planChoice" value="TRIAL" checked={planChoice === "TRIAL"} onChange={() => setPlanChoice("TRIAL")} className="mt-1" />
+                <span><strong>Dùng thử 14 ngày</strong><span className="mt-1 block text-sm text-zinc-600">Miễn phí, hạn mức tương đương BASIC. Không cần PayOS.</span></span>
+              </label>
+              {plans.map((plan) => (
+                <label key={plan.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4">
+                  <input type="radio" name="planChoice" value={plan.id} checked={planChoice === plan.id} onChange={() => setPlanChoice(plan.id)} className="mt-1" />
+                  <span><strong>{plan.name} · {formatVnd(plan.monthlyPrice)}/tháng</strong><span className="mt-1 block text-sm text-zinc-600">{plan.description || `${plan.maxBranches} chi nhánh · ${plan.maxAccounts} tài khoản`}</span></span>
+                </label>
+              ))}
+            </div>
+            {plansError && <p role="status" className="mt-2 text-sm text-amber-700">{plansError}</p>}
+            {planError && <p role="alert" className="mt-2 text-sm text-red-700">{planError}</p>}
+            <p className="mt-2 text-xs text-zinc-500">Gói trả phí được thanh toán trên PayOS sau khi hồ sơ được duyệt.</p>
+          </fieldset>
 
           {submitError && (
             <p role="alert" className="text-sm" style={{ color: palette.error.text }}>

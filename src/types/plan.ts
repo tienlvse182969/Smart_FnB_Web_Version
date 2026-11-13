@@ -60,6 +60,12 @@ export interface PlanInfo {
   planId?: string;
   nextPlanId?: string | null;
   nextPlanName?: string | null;
+  /** Phần mua thêm đang có hiệu lực trong kỳ hiện tại (BR-91). */
+  activeAddons?: { extraBranches: number; accountPacks: number };
+  /** Tài khoản đã dùng gồm Brand Manager, nhân viên và lời mời đang chờ (13.1) — cùng phép tính với API mời nhân viên. */
+  accountUsage?: { owners: number; employees: number; pendingInvitations: number };
+  /** Ngày bắt đầu kỳ tới đã thanh toán trước (chưa có hiệu lực). */
+  paidUpcomingStartsAt?: string | null;
 
   tier: PlanTier;
 

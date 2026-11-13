@@ -19,6 +19,8 @@ export interface AuthApi {
    * đều ra `ApiError` mã `SETUP_TOKEN_INVALID` (BE trả chung 401, không phân biệt).
    */
   setupPassword(token: string, password: string): Promise<void>;
+  requestPasswordReset(email: string): Promise<void>;
+  verifyPasswordToken(token: string): Promise<{ expiresAt: string; purpose: string }>;
 }
 
 /** Mã lỗi phía web cho token đặt mật khẩu không dùng được: status 401 của BE giữ nguyên, chỉ gắn mã (xem `http/errors.ts`). */

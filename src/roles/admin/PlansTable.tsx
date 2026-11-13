@@ -64,6 +64,8 @@ export default function PlansTable() {
           { title: "Giá / tháng", dataIndex: "monthlyPrice", align: "right", render: (v: number) => formatVnd(v) },
           { title: "Chi nhánh tối đa", dataIndex: "maxBranches", align: "right" },
           { title: "Tài khoản tối đa", dataIndex: "maxAccounts", align: "right" },
+          { title: "Thêm chi nhánh", render: (_, r) => r.extraBranchEnabled ? formatVnd(r.extraBranchPrice) : "Không bán" },
+          { title: "Thêm 5 tài khoản", dataIndex: "extraAccountPackPrice", render: (v: number) => formatVnd(v) },
           { title: "Nhận diện", dataIndex: "brandingEnabled", align: "center", render: (v: boolean) => (v ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />) },
           { title: "So sánh chi nhánh", dataIndex: "multiBranchComparisonEnabled", align: "center", render: (v: boolean) => (v ? <Check size={14} color={palette.success.text} /> : <Minus size={14} color={palette.textSubtle} />) },
           { title: "Trạng thái", dataIndex: "isActive", render: (v: boolean) => <Chip tone={v ? "success" : "neutral"}>{v ? "Đang bán" : "Ngừng bán"}</Chip> },
@@ -140,6 +142,10 @@ function PlanDrawer({
   const [monthlyPrice, setMonthlyPrice] = useState<number | null>(null);
   const [maxBranches, setMaxBranches] = useState<number | null>(null);
   const [maxAccounts, setMaxAccounts] = useState<number | null>(null);
+  const [extraBranchPrice, setExtraBranchPrice] = useState<number | null>(null);
+  const [extraBranchAccounts, setExtraBranchAccounts] = useState<number | null>(8);
+  const [extraAccountPackPrice, setExtraAccountPackPrice] = useState<number | null>(50000);
+  const [extraBranchEnabled, setExtraBranchEnabled] = useState(false);
   const [brandingEnabled, setBrandingEnabled] = useState(false);
   const [comparisonEnabled, setComparisonEnabled] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -153,6 +159,10 @@ function PlanDrawer({
     setMonthlyPrice(existing?.monthlyPrice ?? null);
     setMaxBranches(existing?.maxBranches ?? null);
     setMaxAccounts(existing?.maxAccounts ?? null);
+    setExtraBranchPrice(existing?.extraBranchPrice ?? 0);
+    setExtraBranchAccounts(existing?.extraBranchAccounts ?? 8);
+    setExtraAccountPackPrice(existing?.extraAccountPackPrice ?? 50000);
+    setExtraBranchEnabled(existing?.extraBranchEnabled ?? false);
     setBrandingEnabled(existing?.brandingEnabled ?? false);
     setComparisonEnabled(existing?.multiBranchComparisonEnabled ?? false);
     setIsActive(existing?.isActive ?? true);
@@ -180,6 +190,10 @@ function PlanDrawer({
         monthlyPrice: monthlyPrice!,
         maxBranches: maxBranches!,
         maxAccounts: maxAccounts!,
+        extraBranchPrice: extraBranchPrice ?? 0,
+        extraBranchAccounts: extraBranchAccounts ?? 8,
+        extraAccountPackPrice: extraAccountPackPrice ?? 50000,
+        extraBranchEnabled,
         brandingEnabled,
         multiBranchComparisonEnabled: comparisonEnabled,
         isActive,
@@ -219,6 +233,14 @@ function PlanDrawer({
       <Field label="Số tài khoản tối đa">
         <InputNumber value={maxAccounts} onChange={setMaxAccounts} style={{ width: "100%" }} min={1} precision={0} />
       </Field>
+      <Field label="Cho phép mua thêm chi nhánh">
+        <Switch checked={extraBranchEnabled} onChange={setExtraBranchEnabled} />
+      </Field>
+      {extraBranchEnabled && <>
+        <Field label="Giá thêm 1 chi nhánh / kỳ (₫)"><InputNumber value={extraBranchPrice} onChange={setExtraBranchPrice} style={{ width: "100%" }} min={0} precision={0} /></Field>
+        <Field label="Tài khoản kèm 1 chi nhánh"><InputNumber value={extraBranchAccounts} onChange={setExtraBranchAccounts} style={{ width: "100%" }} min={0} precision={0} /></Field>
+      </>}
+      <Field label="Giá thêm 5 tài khoản / kỳ (₫)"><InputNumber value={extraAccountPackPrice} onChange={setExtraAccountPackPrice} style={{ width: "100%" }} min={0} precision={0} /></Field>
       <Field label="Đang bán">
         <Switch checked={isActive} onChange={setIsActive} />
       </Field>

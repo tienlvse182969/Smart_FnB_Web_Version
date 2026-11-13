@@ -37,6 +37,11 @@ export type ServicePlan = {
 
   maxAccounts: number;
 
+  extraBranchPrice: number;
+  extraBranchAccounts: number;
+  extraAccountPackPrice: number;
+  extraBranchEnabled: boolean;
+
   /** Cờ tính năng BE đã lưu trên gói (BE `dfe8100`). Cờ AI và cấp (`tier`) chưa có ở BE: vẫn suy từ mã gói (`plan/tiers.ts`). */
 
   brandingEnabled: boolean;
@@ -58,6 +63,11 @@ export type ServicePlanInput = {
   maxBranches: number;
 
   maxAccounts: number;
+
+  extraBranchPrice?: number;
+  extraBranchAccounts?: number;
+  extraAccountPackPrice?: number;
+  extraBranchEnabled?: boolean;
 
   brandingEnabled: boolean;
 
@@ -139,6 +149,7 @@ export type SubmitRegistrationInput = {
   headquartersAddress?: string;
 
   requestedPlanId?: string;
+  trialRequested?: boolean;
 };
 
 export type ApproveRegistrationInput = {
@@ -189,6 +200,13 @@ export type BusinessUsage = {
   accountCount: number;
 
   monthlyOrderCount: number;
+
+  /** Hạn mức đang có hiệu lực (gói + mua thêm của kỳ hiện tại) — cùng phép tính với màn Gói của tôi (BE v17.1). */
+  branchLimit?: number | null;
+  accountLimit?: number | null;
+  activeExtraBranches?: number;
+  activeAccountPacks?: number;
+  pendingInvitationCount?: number;
 };
 
 export type Business = {
