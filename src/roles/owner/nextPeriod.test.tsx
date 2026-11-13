@@ -96,3 +96,19 @@ describe("NextPeriodPanel", () => {
     expect(panel.textContent).not.toMatch(/đã kích hoạt/i);
   });
 });
+
+describe("NextPeriodPanel — tải kỳ tới", () => {
+  it("lỗi tải hiện thông báo kèm Thử lại, bấm Thử lại tải lại và hiện panel (31.4)", async () => {
+    const previewFn = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(preview());
+    mount({ preview: previewFn, candidates: vi.fn(), save: vi.fn() });
+    await waitFor(() => expect(screen.getByTestId("next-load-error")).toBeTruthy());
+    fireEvent.click(screen.getByText("Thử lại"));
+    await waitFor(() => expect(screen.getByTestId("next-period")).toBeTruthy());
+    expect(previewFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("đang tải hiện khung chờ, không để trống", () => {
+    mount({ preview: () => new Promise(() => undefined), candidates: vi.fn(), save: vi.fn() });
+    expect(screen.getByTestId("next-loading")).toBeTruthy();
+  });
+});

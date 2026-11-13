@@ -1,6 +1,6 @@
-import { Alert, App, Button, Checkbox, Input, InputNumber, Modal, Select, Tag } from "antd";
+import { Alert, App, Button, Checkbox, Input, InputNumber, Modal, Select, Skeleton, Tag } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { showApiError } from "../../api";
+import { describeApiError, showApiError } from "../../api";
 import { ApiError } from "../../api/http/errors";
 import { supportNextPeriodApi, type KeepCandidates, type NextDraft, type NextInvoicePreview, type NextPeriodInput } from "../../api/subscriptionSchedule";
 import { formatDateVN, formatVnd } from "../../lib/reportFormat";
@@ -79,6 +79,8 @@ export default function NextPeriodPanel({ adapter, catalog, requireNote = false,
   const [keepOpen, setKeepOpen] = useState(false);
   const [keepBranchIds, setKeepBranchIds] = useState<string[]>([]);
   const [keepAccountIds, setKeepAccountIds] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const paidPlans = useMemo(() => catalog.filter((p) => p.isActive && p.code !== "TRIAL" && Number(p.monthlyPrice) > 0), [catalog]);
   const pricing = useMemo(() => paidPlans.map(asPricing), [paidPlans]);
@@ -91,9 +93,10 @@ export default function NextPeriodPanel({ adapter, catalog, requireNote = false,
 
   useEffect(() => {
     let cancelled = false;
-    adapter.preview().then((next) => { if (!cancelled) reset(next); }).catch((error) => { if (!cancelled) showApiError(message.error, error, "Không tải được kỳ thuê bao tiếp theo"); });
+    setLoadError(null);
+    adapter.preview().then((next) => { if (!cancelled) reset(next); }).catch((error) => { if (!cancelled) setLoadError(describeApiError(error)); });
     return () => { cancelled = true; };
-  }, [adapter, message, reset]);
+  }, [adapter, reset, reloadKey]);
 
   const plan = pricing.find((p) => p.id === selection.planId) ?? (preview ? asPricing(preview.plan) : null);
   const violation = plan ? addonViolation(plan, selection, pricing) : null;
@@ -158,7 +161,19 @@ export default function NextPeriodPanel({ adapter, catalog, requireNote = false,
 
   const keep = candidates && limits ? keepPlan(candidates, limits, keepBranchIds, keepAccountIds) : null;
 
-  if (!preview || !plan || !limits) return null;
+  if (loadError && !preview) {
+    return (
+      <Alert
+        showIcon
+        type="error"
+        data-testid="next-load-error"
+        message="Không tải được kỳ thuê bao tiếp theo"
+        description={loadError}
+        action={<Button size="small" onClick={() => setReloadKey((n) => n + 1)}>Thử lại</Button>}
+      />
+    );
+  }
+  if (!preview || !plan || !limits) return <div data-testid="next-loading"><Skeleton active paragraph={{ rows: 4 }} /></div>;
   return (
     <div style={{ display: "grid", gap: 12 }} data-testid="next-period">
       <div style={{ color: palette.textMuted, fontSize: 13.5 }}>
