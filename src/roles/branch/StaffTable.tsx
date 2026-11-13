@@ -228,6 +228,7 @@ export default function StaffTable() {
                   {s.email} · {s.employeeCode}
                   {s.phone ? ` · ${s.phone}` : ""}
                 </div>
+                {(s.emailSendStatus === "FAILED" || s.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}
               </div>
             ),
           },

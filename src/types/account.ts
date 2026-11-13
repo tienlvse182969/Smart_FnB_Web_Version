@@ -17,6 +17,8 @@ export type ManagerAccount = {
   lastLoginAt: string | null;
   lastPasswordChangedAt?: string | null;
   lastPasswordChangeMethod?: string | null;
+  emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null;
+  emailSentAt?: string | null;
   branchId: string;
   branchName: string;
   invitationState?: "PENDING" | "ACCEPTED" | "CANCELLED" | null;
@@ -67,6 +69,8 @@ export type StaffEmployee = {
   lastLoginAt: string | null;
   lastPasswordChangedAt?: string | null;
   lastPasswordChangeMethod?: string | null;
+  emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null;
+  emailSentAt?: string | null;
   branchId: string;
   /**
    * Trạng thái lời mời (BE `fb7cae9`, #64; chỉ `GET/PATCH /manager/staff*`): ACTIVE, SUSPENDED, INVITED (đã mời, còn hạn),

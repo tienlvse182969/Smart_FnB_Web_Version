@@ -10,9 +10,12 @@ type ResetRequest = {
   status: "PENDING" | "RESET" | "REJECTED" | "EXPIRED";
   createdAt: string;
   expiresAt: string;
-  user: { email: string; status: string; role: { code: string }; employee?: { firstName: string; lastName: string } | null; owner?: { firstName: string; lastName: string } | null };
-  handledBy?: { email: string } | null;
+  user: { email: string; status: string; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; role: { code: string }; employee?: { firstName: string; lastName: string } | null; owner?: { firstName: string; lastName: string } | null };
+  handledByName?: string | null;
 };
+
+type ResolveResult = { status: "RESET" | "REJECTED"; emailStatus?: "PENDING" | "SENT" | "FAILED" | null };
+const emailResult = (status?: "PENDING" | "SENT" | "FAILED" | null) => status === "SENT" ? "Đã gửi link đặt mật khẩu" : "Chưa gửi được email. Hãy kiểm tra cấu hình và gửi lại.";
 
 export default function PasswordResetRequests() {
   const { message } = App.useApp();
@@ -41,8 +44,9 @@ export default function PasswordResetRequests() {
   const resolve = async (item: ResetRequest, action: "approve" | "reject", rejectionNote?: string) => {
     setBusy(true);
     try {
-      await request(`/password-reset-requests/${item.id}/${action}`, { method: "POST", ...(action === "reject" ? { body: { note: rejectionNote?.trim() } } : {}) });
-      message.success(action === "approve" ? "Đã gửi link đặt mật khẩu cho nhân viên" : "Đã từ chối yêu cầu");
+      const result = await request<ResolveResult>(`/password-reset-requests/${item.id}/${action}`, { method: "POST", ...(action === "reject" ? { body: { note: rejectionNote?.trim() } } : {}) });
+      if (action === "approve" && result.emailStatus !== "SENT") message.warning(emailResult(result.emailStatus));
+      else message.success(action === "approve" ? emailResult(result.emailStatus) : "Đã từ chối yêu cầu");
       setActive(null); setNote(""); await load();
     } catch (error) { showApiError(message.error, error, "Không xử lý được yêu cầu"); await load(); }
     finally { setBusy(false); }
@@ -50,7 +54,7 @@ export default function PasswordResetRequests() {
 
   const resend = async (item: ResetRequest) => {
     setBusy(true);
-    try { await request(`/password-reset-requests/${item.id}/resend`, { method: "POST" }); message.success("Đã gửi lại link đặt mật khẩu"); await load(); }
+    try { const result = await request<{ emailStatus?: "PENDING" | "SENT" | "FAILED" }>(`/password-reset-requests/${item.id}/resend`, { method: "POST" }); if (result.emailStatus === "SENT") message.success("Đã gửi lại link đặt mật khẩu"); else message.warning(emailResult(result.emailStatus)); await load(); }
     catch (error) { showApiError(message.error, error, "Không gửi lại được email"); }
     finally { setBusy(false); }
   };
@@ -58,11 +62,11 @@ export default function PasswordResetRequests() {
   return <Card title="Yêu cầu đặt lại mật khẩu" extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
     <Typography.Paragraph type="secondary">Xác minh người yêu cầu qua điện thoại hoặc trực tiếp trước khi đặt lại. Link chỉ được gửi tới email của tài khoản.</Typography.Paragraph>
     <Table rowKey="id" dataSource={rows} loading={loading} pagination={{ pageSize: 10 }} columns={[
-      { title: "Tài khoản", render: (_, item) => <><strong>{[item.user.owner?.firstName ?? item.user.employee?.firstName, item.user.owner?.lastName ?? item.user.employee?.lastName].filter(Boolean).join(" ") || item.user.email}</strong><div>{item.user.email}</div></> },
+      { title: "Tài khoản", render: (_, item) => <><strong>{[item.user.owner?.firstName ?? item.user.employee?.firstName, item.user.owner?.lastName ?? item.user.employee?.lastName].filter(Boolean).join(" ") || item.user.email}</strong><div>{item.user.email}</div>{(item.user.emailSendStatus === "FAILED" || item.user.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}</> },
       { title: "Vai trò", render: (_, item) => item.user.role.code },
       { title: "Gửi lúc", render: (_, item) => new Date(item.createdAt).toLocaleString("vi-VN") },
       { title: "Trạng thái", render: (_, item) => <Tag color={item.status === "PENDING" ? "gold" : item.status === "RESET" ? "green" : "default"}>{item.status === "PENDING" ? "Chờ xử lý" : item.status === "RESET" ? "Đã đặt lại" : item.status === "REJECTED" ? "Từ chối" : "Hết hạn"}</Tag> },
-      { title: "Xử lý", render: (_, item) => item.status === "RESET" && item.user.status === "INACTIVE" ? <Button disabled={busy} onClick={() => void resend(item)}>Gửi lại email</Button> : item.status !== "PENDING" ? (item.handledBy?.email ?? "—") : <Space><Button type="primary" disabled={item.user.status !== "ACTIVE"} onClick={() => { setDecision("approve"); setActive(item); }}>Đặt lại</Button><Button danger onClick={() => { setDecision("reject"); setActive(item); setNote(""); }}>Từ chối</Button></Space> },
+      { title: "Xử lý", render: (_, item) => item.status === "RESET" && item.user.status === "INACTIVE" ? <><Button disabled={busy} onClick={() => void resend(item)}>Gửi lại email</Button><div>{item.handledByName ?? "—"}</div></> : item.status !== "PENDING" ? (item.handledByName ?? "—") : <Space><Button type="primary" disabled={item.user.status !== "ACTIVE"} onClick={() => { setDecision("approve"); setActive(item); }}>Đặt lại</Button><Button danger onClick={() => { setDecision("reject"); setActive(item); setNote(""); }}>Từ chối</Button></Space> },
     ]} />
     <Modal title={`Xử lý yêu cầu của ${active?.user.email ?? ""}`} open={!!active} onCancel={() => setActive(null)} footer={null}>
       {decision === "approve" ? <>

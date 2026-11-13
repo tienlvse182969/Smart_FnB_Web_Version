@@ -25,6 +25,7 @@ import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { palette } from "../../theme";
 
 import { Field, RegistrationChip, dash, dateLabel } from "./adminUi";
+import AwaitingActivationTable from "../platform-staff/AwaitingActivation";
 
 const PAGE_SIZE = 10;
 
@@ -66,6 +67,7 @@ export default function SignupRequests() {
   );
 
   const [loading, setLoading] = useState(false);
+  const [awaitingReload, setAwaitingReload] = useState(0);
 
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -145,6 +147,7 @@ export default function SignupRequests() {
 
   const afterReview = async (updated: RegistrationDetail) => {
     setDetail(updated);
+    setAwaitingReload((n) => n + 1);
 
     await load();
   };
@@ -181,7 +184,7 @@ export default function SignupRequests() {
         />
       </div>
 
-      <Table<RegistrationApplication>
+      {status === "APPROVED" ? <AwaitingActivationTable search={search} reloadKey={awaitingReload} onOpen={setOpenId} /> : <Table<RegistrationApplication>
         rowKey="id"
         size="middle"
         loading={loading}
@@ -247,7 +250,7 @@ export default function SignupRequests() {
             render: (s: RegistrationStatus) => <RegistrationChip status={s} />,
           },
         ]}
-      />
+      />}
 
       <Drawer
         title={detail?.businessName ?? "Chi tiết hồ sơ"}

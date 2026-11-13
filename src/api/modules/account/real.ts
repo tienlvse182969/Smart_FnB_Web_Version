@@ -31,8 +31,9 @@ export const accountReal: AccountApi = {
     return { account: mapManager(raw.account), expiresAt: raw.invitationExpiresAt, emailStatus: raw.emailStatus };
   },
 
-  async setDirectPassword(accountId, password) {
-    await request(`/employees/${accountId}/password`, { method: "PATCH", body: { password } });
+  async attachLegacyEmail(accountId, email, reason) {
+    const raw = await request<{ expiresAt: string; emailStatus?: "SENT" | "PENDING" | "FAILED" }>(`/employees/${accountId}/legacy-email`, { method: "POST", body: { email: email.trim().toLowerCase(), reason: assertReason(reason) } });
+    return { expiresAt: raw.expiresAt, emailStatus: raw.emailStatus };
   },
   // --- Manager: thật ---------------------------------------------------------------------------------------------
   async listManagers(_chainId, query = {}) {

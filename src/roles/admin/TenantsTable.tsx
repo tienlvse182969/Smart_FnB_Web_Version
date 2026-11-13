@@ -343,9 +343,10 @@ function ResetModal({ open, business, onClose }: DialogProps) {
   const { message, modal } = App.useApp();
   const [ownerId, setOwnerId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState("");
 
   useEffect(() => {
-    if (open) setOwnerId(business.owners[0]?.id);
+    if (open) { setOwnerId(business.owners[0]?.id); setNote(""); }
   }, [open, business.owners]);
 
   const owner = business.owners.find((o) => o.id === ownerId);
@@ -354,7 +355,7 @@ function ResetModal({ open, business, onClose }: DialogProps) {
     if (!owner) return;
     setSaving(true);
     try {
-      const result = await adminApi.resetOwnerPassword(owner.id);
+      const result = await adminApi.resetOwnerPassword(owner.id, note);
       onClose();
       modal.success({
         title: "Đã xếp email đặt lại mật khẩu",
@@ -389,7 +390,9 @@ function ResetModal({ open, business, onClose }: DialogProps) {
           Brand Manager: <b>{owner.name}</b> · {owner.email}
         </div>
       )}
-      <ActionButton type="primary" danger block style={{ marginTop: 16 }} loading={saving} disabled={!owner} onClick={submit}>
+      {label("Ghi chú yêu cầu (bắt buộc)")}
+      <Input.TextArea rows={2} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: đã gọi xác minh Brand Manager" />
+      <ActionButton type="primary" danger block style={{ marginTop: 16 }} loading={saving} disabled={!owner || note.trim().length < 3} onClick={submit}>
         Xác nhận đặt lại mật khẩu
       </ActionButton>
     </Modal>

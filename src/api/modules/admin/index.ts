@@ -40,8 +40,11 @@ export interface AdminApi {
   /** Web bắt buộc lý do (đặc tả 5.2) dù BE cho tuỳ chọn. */
   suspendBusiness(id: string, reason: string): Promise<Business>;
   reactivateBusiness(id: string, reason?: string): Promise<Business>;
-  /** Xếp email đặt mật khẩu một lần cho Owner; BE không trả mật khẩu. */
-  resetOwnerPassword(ownerId: string): Promise<OwnerPasswordResetResult>;
+  /**
+   * PS-01/BR-56: đặt lại mật khẩu Brand Manager (Platform Staff, Admin kế thừa) — thu hồi mật khẩu và phiên cũ,
+   * gửi link một lần tới email của Brand Manager. Ghi chú yêu cầu bắt buộc (≥ 3 ký tự); BE không trả mật khẩu.
+   */
+  resetOwnerPassword(ownerId: string, note: string): Promise<OwnerPasswordResetResult>;
 
   // PA-04 — gói (giai đoạn 3.3 làm đầy đủ; tối thiểu ở đây để duyệt hồ sơ và đổi gói chọn được gói)
   /** Danh sách gói đang bán cho landing/form đăng ký; endpoint công khai, không gắn Bearer. */

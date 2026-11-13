@@ -16,7 +16,7 @@ const PAGE_SIZE = 20;
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
 
 /**
- * Owner mời Manager, Cashier và Barista qua email.
+ * Brand Manager mời Store Manager qua email, chỉ xem Cashier và Barista.
  * Danh sách, khoá/mở khoá và chuyển chi nhánh Manager dùng BE `/employees`.
  */
 export default function ManagerAccounts() {
@@ -33,7 +33,7 @@ export default function ManagerAccounts() {
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
-  const [passwordTarget, setPasswordTarget] = useState<{ id: string; name: string } | null>(null);
+  const [legacyTarget, setLegacyTarget] = useState<{ id: string; name: string; login: string } | null>(null);
 
   const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; account: ManagerAccount | StaffAccount } | null>(null);
   const [reasonBusy, setReasonBusy] = useState(false);
@@ -83,7 +83,7 @@ export default function ManagerAccounts() {
 
   const confirmLock = (m: ManagerAccount | StaffAccount) => setReasonFor({ kind: m.status === "ACTIVE" ? "lock" : "unlock", account: m });
   const confirmReset = (m: ManagerAccount | StaffAccount) => {
-    if (!m.email.includes("@")) { setPasswordTarget({ id: m.id, name: m.name }); return; }
+    if (!m.email.includes("@")) { setLegacyTarget({ id: m.id, name: m.name, login: m.email }); return; }
     setReasonFor({ kind: "reset", account: m });
   };
   const submitReason = async (reason: string) => {
@@ -137,10 +137,10 @@ export default function ManagerAccounts() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Tài khoản nhân viên"
-        sub="Mời Store Manager, Thu ngân và Pha chế qua email; nhân viên tự đặt mật khẩu"
+        sub="Mời Store Manager qua email; xem danh sách Thu ngân và Pha chế của các chi nhánh"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
-            Thêm nhân viên
+            Mời Store Manager
           </ActionButton>
         }
       />
@@ -196,6 +196,7 @@ export default function ManagerAccounts() {
                           <div style={{ fontSize: 12, color: palette.textSubtle }}>
                             {r.email} · {r.employeeCode}
                           </div>
+                          {(r.emailSendStatus === "FAILED" || r.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}
                         </div>
                       ),
                     },
@@ -262,16 +263,12 @@ export default function ManagerAccounts() {
                         <div>
                           <div style={{ fontWeight: 600 }}>{v}</div>
                           <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
+                          {(r.emailSendStatus === "FAILED" || r.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}
                         </div>
                       ),
                     },
                     { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r}</Tag> },
                     { title: "Chi nhánh", dataIndex: "branchName" },
-                    {
-                      title: "",
-                      key: "password",
-                      render: (_, r) => actions(r),
-                    },
                     {
                       title: "Trạng thái",
                       dataIndex: "status",
@@ -295,7 +292,7 @@ export default function ManagerAccounts() {
             const { account: acc, expiresAt, emailStatus } = await accountApi.inviteAccount(tenantId, input);
             setAdding(false);
             modal.success({
-              title: "Đã tạo tài khoản nhân viên",
+              title: "Đã tạo tài khoản Store Manager",
               content: (
                 <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
                   Tài khoản <b>{acc.email}</b> đang chờ đặt mật khẩu. {emailNotice(emailStatus)} Link hết hạn lúc {formatDateTime(expiresAt)}.
@@ -313,18 +310,19 @@ export default function ManagerAccounts() {
         }}
       />
       <StaffReasonModal open={!!reasonFor} busy={reasonBusy} kind={reasonFor?.kind ?? "reset"} staffName={reasonFor?.account.name ?? ""} email={reasonFor?.account.email ?? ""} roleLabel="Nhân viên" branchName={reasonFor?.account.branchName ?? ""} pending={reasonFor?.account.invitationState === "PENDING"} onCancel={() => { if (!reasonBusy) setReasonFor(null); }} onSubmit={(reason) => void submitReason(reason)} />
-      <SetPasswordDrawer
-        target={passwordTarget}
-        onClose={() => setPasswordTarget(null)}
-        onSave={async (password) => {
-          if (!passwordTarget) return false;
+      <LegacyEmailDrawer
+        target={legacyTarget}
+        onClose={() => setLegacyTarget(null)}
+        onSave={async (email, reason) => {
+          if (!legacyTarget) return false;
           try {
-            await accountApi.setDirectPassword(passwordTarget.id, password);
-            setPasswordTarget(null);
-            message.success("Đã đổi mật khẩu và đăng xuất các phiên cũ");
+            const { expiresAt, emailStatus } = await accountApi.attachLegacyEmail(legacyTarget.id, email, reason);
+            setLegacyTarget(null);
+            modal.success({ title: "Đã chuyển sang đăng nhập bằng email", content: <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>Mật khẩu cũ và các phiên đã bị thu hồi. Link đặt mật khẩu gửi tới <b>{email.trim().toLowerCase()}</b>. {emailNotice(emailStatus)} Hết hạn lúc {formatDateTime(expiresAt)}.</div> });
+            await loadManagers();
             return true;
           } catch (err) {
-            showApiError(message.error, err, "Không đặt lại được mật khẩu");
+            showApiError(message.error, err, "Không gắn được email cho tài khoản");
             return false;
           }
         }}
@@ -343,26 +341,24 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<StaffInvitationInput["role"]>("MANAGER");
   const [branchId, setBranchId] = useState<string>();
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
   const [touched, setTouched] = useState(false);
-  useEffect(() => { if (open) { setName(""); setEmail(""); setRole("MANAGER"); setBranchId(branches[0]?.id); setTouched(false); } }, [open]);
+  useEffect(() => { if (open) { setName(""); setEmail(""); setBranchId(branches[0]?.id); setTouched(false); } }, [open]);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const valid = name.trim().length > 0 && name.trim().length <= 200 && emailValid && !!branchId;
   const save = async () => {
     setTouched(true);
     if (!valid || inFlight.current) return;
     inFlight.current = true; setSaving(true);
-    try { await onSave({ name: name.trim(), email: email.trim().toLowerCase(), role, branchId: branchId! }); }
+    try { await onSave({ name: name.trim(), email: email.trim().toLowerCase(), role: "MANAGER", branchId: branchId! }); }
     finally { inFlight.current = false; setSaving(false); }
   };
   return (
-    <Drawer title="Mời nhân viên qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
+    <Drawer title="Mời Store Manager qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <Field label="Họ tên"><Input aria-label="Họ tên" data-testid="owner-invite-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Vai trò"><Select aria-label="Vai trò" value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Store Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} /></Field>
         <Field label="Email nhận lời mời">
           <Input aria-label="Email nhận lời mời" type="email" data-testid="owner-invite-email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(true)} status={touched && !emailValid ? "error" : undefined} aria-describedby="owner-invite-email-help" autoComplete="email" />
           <div id="owner-invite-email-help" role={touched && !emailValid ? "alert" : undefined} style={{ fontSize: 12, marginTop: 4, color: touched && !emailValid ? palette.error.text : palette.textMuted }}>{touched && !emailValid ? "Nhập email hợp lệ." : "Nhân viên nhận link đặt mật khẩu dùng một lần, hiệu lực 24 giờ."}</div>
@@ -375,21 +371,31 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
   );
 }
 
-function SetPasswordDrawer({ target, onClose, onSave }: { target: { id: string; name: string } | null; onClose: () => void; onSave: (password: string) => Promise<boolean> }) {
+/**
+ * BR-54/BR-56: Brand Manager never sets or sees a Store Manager password. A legacy username-only
+ * account is moved to email login: the person receives a one-time link and sets their own password.
+ */
+function LegacyEmailDrawer({ target, onClose, onSave }: { target: { id: string; name: string; login: string } | null; onClose: () => void; onSave: (email: string, reason: string) => Promise<boolean> }) {
   const { message } = App.useApp();
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const reset = () => { setEmail(""); setReason(""); };
   return (
-    <Drawer title={`Đặt lại mật khẩu: ${target?.name ?? ""}`} open={!!target} onClose={() => { setPassword(""); onClose(); }} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
-      <Field label="Mật khẩu mới (từ 8 ký tự, có thể chỉ gồm số)">
-        <Input.Password value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
+    <Drawer title={`Chuyển sang đăng nhập email: ${target?.name ?? ""}`} open={!!target} onClose={() => { reset(); onClose(); }} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
+      <p style={{ color: palette.textMuted, marginTop: 0 }}>Tài khoản <b>{target?.login}</b> được tạo trước khi có đăng nhập bằng email nên không nhận được link đặt mật khẩu. Nhập email thật của Store Manager: mật khẩu cũ và mọi phiên bị thu hồi, hệ thống gửi link đặt mật khẩu dùng một lần (24 giờ) tới email này.</p>
+      <Field label="Email của Store Manager">
+        <Input data-testid="legacy-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />
       </Field>
-      <p style={{ color: palette.textMuted }}>Sau khi lưu, mọi phiên đăng nhập cũ sẽ bị thu hồi.</p>
+      <Field label="Lý do (bắt buộc)">
+        <Input.TextArea data-testid="legacy-reason" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
+      </Field>
       <ActionButton type="primary" block loading={saving} onClick={() => {
-        if (password.length < 8) { message.error("Mật khẩu cần ít nhất 8 ký tự"); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { message.error("Nhập email hợp lệ"); return; }
+        if (reason.trim().length < 3) { message.error("Nhập lý do ít nhất 3 ký tự"); return; }
         setSaving(true);
-        void onSave(password).then((ok) => { if (ok) setPassword(""); }).finally(() => setSaving(false));
-      }}>Lưu mật khẩu</ActionButton>
+        void onSave(email, reason.trim()).then((ok) => { if (ok) reset(); }).finally(() => setSaving(false));
+      }}>Gửi link đặt mật khẩu</ActionButton>
     </Drawer>
   );
 }

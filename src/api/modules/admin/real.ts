@@ -1,4 +1,5 @@
 import { request } from "../../http/client";
+import { ApiError } from "../../http/errors";
 import {
   mapBusiness,
   mapPage,
@@ -96,9 +97,12 @@ export const adminReal: AdminApi = {
     );
   },
 
-  async resetOwnerPassword(ownerId) {
-    const raw = await request<{ ownerId: string; expiresAt: string }>(`/admin/owners/${ownerId}/reset-password`, {
+  async resetOwnerPassword(ownerId, note) {
+    if (note.trim().length < 3) throw new ApiError(400, "Nhập ghi chú yêu cầu ít nhất 3 ký tự");
+    // Một đường duy nhất cho Platform Staff và Platform Admin (kế thừa quyền Staff).
+    const raw = await request<{ ownerId: string; expiresAt: string }>(`/platform-staff/owners/${ownerId}/reset-password`, {
       method: "POST",
+      body: { note: note.trim() },
     });
     return { ownerId: raw.ownerId, expiresAt: raw.expiresAt };
   },

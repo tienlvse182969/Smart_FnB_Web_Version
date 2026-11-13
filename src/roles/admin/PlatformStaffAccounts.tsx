@@ -4,7 +4,7 @@ import { request } from "../../api/http/client";
 import { showApiError } from "../../api";
 import { formatDateTime } from "../../lib/reportFormat";
 
-type Staff = { id: string; email: string; status: "ACTIVE" | "INACTIVE" | "SUSPENDED"; staffInvitationState: string | null; emailVerifiedAt: string | null; invitationExpiresAt: string | null; createdAt: string; lastLoginAt: string | null };
+type Staff = { id: string; email: string; status: "ACTIVE" | "INACTIVE" | "SUSPENDED"; staffInvitationState: string | null; emailVerifiedAt: string | null; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; emailSentAt?: string | null; invitationExpiresAt: string | null; createdAt: string; lastLoginAt: string | null };
 type EmailResult = { emailStatus: "SENT" | "PENDING" | "FAILED" };
 
 export default function PlatformStaffAccounts() {
@@ -46,7 +46,7 @@ export default function PlatformStaffAccounts() {
       <Button type="primary" onClick={() => setOpen(true)}>Tạo tài khoản</Button>
     </Space>
     <Table<Staff> rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 10 }} scroll={{ x: 700 }} columns={[
-      { title: "Email", dataIndex: "email" },
+      { title: "Email", render: (_, row) => <>{row.email}{(row.emailSendStatus === "FAILED" || row.emailSendStatus === "PENDING") && <div><Tag color="warning">Chưa gửi được email</Tag></div>}</> },
       { title: "Trạng thái", render: (_, row) => <Tag color={row.status === "ACTIVE" ? "green" : row.status === "INACTIVE" ? "gold" : "red"}>{row.status === "ACTIVE" ? "Hoạt động" : row.status === "INACTIVE" ? "Chờ xác nhận" : "Đã khóa"}</Tag> },
       { title: "Xác nhận email", render: (_, row) => row.emailVerifiedAt ? `Đã xác nhận · ${formatDateTime(row.emailVerifiedAt)}` : `Chờ đặt mật khẩu · hạn ${row.invitationExpiresAt ? formatDateTime(row.invitationExpiresAt) : "—"}` },
       { title: "Đăng nhập gần nhất", render: (_, row) => row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "—" },

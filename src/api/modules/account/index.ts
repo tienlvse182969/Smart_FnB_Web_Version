@@ -32,8 +32,11 @@ export interface AccountApi {
   createManager(chainId: string, branchId: string, name: string, email: string): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
   /** Owner invites staff by email; password is chosen by the recipient. */
   inviteAccount(chainId: string, input: StaffInvitationInput): Promise<{ account: ManagerAccount } & PasswordSetupNotice>;
-  /** Owner replaces a direct-login password; existing sessions are revoked. */
-  setDirectPassword(accountId: string, password: string): Promise<void>;
+  /**
+   * Chuyển tài khoản Store Manager cũ chỉ có username sang đăng nhập email (BR-54): gắn email thật,
+   * thu hồi mật khẩu và phiên cũ, gửi link đặt mật khẩu một lần. Brand Manager không đặt mật khẩu.
+   */
+  attachLegacyEmail(accountId: string, email: string, reason: string): Promise<PasswordSetupNotice>;
   /** Khoá/mở khoá (`PATCH /employees/{id}/status`); khoá thu hồi mọi phiên của Manager. */
   setManagerActive(accountId: string, active: boolean, reason?: string): Promise<void>;
   /** Thu hồi phiên và xếp email đặt mật khẩu mới (`POST /employees/{id}/reset-password`, hiệu lực 24 giờ). */
