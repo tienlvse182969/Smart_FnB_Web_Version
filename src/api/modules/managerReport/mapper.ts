@@ -78,6 +78,12 @@ function mapHour(r: Raw): ManagerReportHour {
   return { hour: num(r.hour), orderCount: num(r.orderCount) };
 }
 
+function personName(v: unknown): string | null {
+  if (!isObject(v)) return null;
+  const name = [str(v.firstName), str(v.lastName)].filter(Boolean).join(" ").trim();
+  return name || str(v.employeeCode);
+}
+
 function mapCancelled(r: Raw): ManagerReportCancelledOrder {
   return {
     id: str(r.id) ?? "",
@@ -87,6 +93,20 @@ function mapCancelled(r: Raw): ManagerReportCancelledOrder {
     cancelledAt: str(r.cancelledAt),
     reason: str(r.reason),
     refundAmount: money(r.refundAmount),
+    // Người huỷ và người hoàn chỉ có khi BE trả (từ `2491dce`); thiếu thì để trống, không đoán.
+    ...("cancelledBy" in r ? { cancelledByName: personName(r.cancelledBy) } : {}),
+    ...(Array.isArray(r.refunds)
+      ? {
+          refunds: list(r.refunds).map((x) => ({
+            amount: money(x.amount),
+            status: str(x.status) ?? "",
+            reason: str(x.reason),
+            note: str(x.note),
+            requestedByName: personName(x.requestedBy),
+            completedByName: personName(x.completedBy),
+          })),
+        }
+      : {}),
   };
 }
 

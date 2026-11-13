@@ -2,7 +2,12 @@
 import { mockDelay } from "../../mock/control";
 import type { LedgerApi } from "./index";
 
-const EMPTY = () => ({ items: [], summary: { inflow: 0, outflow: 0, net: 0 }, mayBeTruncated: false });
+const EMPTY = () => ({
+  items: [],
+  pagination: { page: 1, pageSize: 50, total: 0, totalPages: 0 },
+  summary: { cashCollected: 0, qrCollected: 0, cashRefunded: 0, netCash: 0, netTotal: 0 },
+  branches: [],
+});
 
 export const ledgerMock: LedgerApi = {
   async getBranchLedger() {

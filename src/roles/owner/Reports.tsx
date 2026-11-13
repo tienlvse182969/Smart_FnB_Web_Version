@@ -179,7 +179,7 @@ export default function Reports() {
           <TopToppingsTable block={blocks.topToppings} />
         </Col>
         <Col xs={24}>
-          <LedgerByBranch branches={branches} range={range} />
+          <LedgerByBranch chainId={branches[0]?.chainId} range={range} />
         </Col>
       </Row>
     </div>

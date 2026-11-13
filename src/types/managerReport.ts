@@ -89,6 +89,20 @@ export interface ManagerReportCancelledOrder {
   reason: string | null;
   /** Tổng khoản hoàn của đơn (0 với đơn huỷ khi chưa trả). */
   refundAmount: number;
+  /** Người huỷ đơn (BE `2491dce`, BR-50); thiếu → chưa có dữ liệu. */
+  cancelledByName?: string | null;
+  /** Từng khoản hoàn kèm người yêu cầu và người hoàn (BE `2491dce`). */
+  refunds?: ManagerReportRefund[];
+}
+
+export interface ManagerReportRefund {
+  amount: number;
+  /** Mã BE RefundStatus: PENDING | COMPLETED. */
+  status: string;
+  reason: string | null;
+  note: string | null;
+  requestedByName: string | null;
+  completedByName: string | null;
 }
 
 export interface ManagerReport {
