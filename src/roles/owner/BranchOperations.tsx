@@ -1,18 +1,11 @@
-import { Alert, App, Button, Drawer, Empty, Input, InputNumber, Select, Space, Spin, Switch, Tabs, Tag } from "antd";
+import { Alert, App, Button, Drawer, Empty, Input, Space, Spin, Switch, Tabs } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { branchApi, describeApiError, showApiError } from "../../api";
-import type { ApiBranchArea, ApiBranchAreaInput, ApiBranchAreaType, ApiBranchDetail, ApiOperatingHour, ApiSpecialHour } from "../../types";
+import type { ApiBranchDetail, ApiOperatingHour, ApiSpecialHour } from "../../types";
 import { palette } from "../../theme";
 import ActionButton from "../../plan/ActionButton";
 
 const DAYS = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
-const AREA_TYPES: { value: ApiBranchAreaType; label: string }[] = [
-  { value: "DINING", label: "Khu ăn uống" },
-  { value: "KITCHEN", label: "Bếp" },
-  { value: "BAR", label: "Quầy pha chế" },
-  { value: "CASHIER", label: "Thu ngân" },
-  { value: "PICKUP", label: "Nhận món" },
-];
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const weekRows = (saved: ApiOperatingHour[]) => DAYS.map((_, dayOfWeek) => saved.find((hour) => hour.dayOfWeek === dayOfWeek) ?? {
   dayOfWeek, isClosed: true, openTime: null, closeTime: null,
@@ -28,14 +21,11 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
   const [busy, setBusy] = useState(false);
   const [hours, setHours] = useState<ApiOperatingHour[]>([]);
   const [special, setSpecial] = useState<ApiSpecialHour[]>([]);
-  const [areas, setAreas] = useState<ApiBranchArea[]>([]);
   const [date, setDate] = useState("");
   const [specialClosed, setSpecialClosed] = useState(false);
   const [specialOpen, setSpecialOpen] = useState("08:00");
   const [specialClose, setSpecialClose] = useState("22:00");
   const [note, setNote] = useState("");
-  const [areaId, setAreaId] = useState<string | null>(null);
-  const [area, setArea] = useState<ApiBranchAreaInput>({ code: "", name: "", type: "DINING", floor: 1 });
 
   const load = useCallback(async () => {
     if (!branchId) return;
@@ -46,7 +36,6 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
       setDetail(next);
       setHours(weekRows(next.operatingHours ?? []));
       setSpecial(next.specialHours ?? []);
-      setAreas(next.areas ?? []);
     } catch (err) {
       setError(describeApiError(err));
     } finally {
@@ -126,26 +115,6 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
     });
   };
 
-  const saveArea = () => {
-    if (!branchId || !area.code.trim() || !area.name.trim()) { message.error("Nhập mã và tên khu vực"); return; }
-    void run(async () => {
-      const input = { ...area, code: area.code.trim().toUpperCase(), name: area.name.trim() };
-      if (areaId) await branchApi.updateArea(branchId, areaId, input);
-      else await branchApi.createArea(branchId, input);
-      setAreas(await branchApi.listAreas(branchId));
-      setAreaId(null);
-      setArea({ code: "", name: "", type: "DINING", floor: 1 });
-    }, areaId ? "Đã cập nhật khu vực" : "Đã thêm khu vực");
-  };
-
-  const toggleArea = (item: ApiBranchArea) => {
-    if (!branchId) return;
-    void run(async () => {
-      await branchApi.updateAreaStatus(branchId, item.id, item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
-      setAreas(await branchApi.listAreas(branchId));
-    }, "Đã đổi trạng thái khu vực");
-  };
-
   const archive = () => {
     if (!branchId || !detail) return;
     modal.confirm({
@@ -189,19 +158,6 @@ export default function BranchOperations({ branchId, onClose, onArchived }: Prop
           {special.length === 0 ? <Empty description="Chưa có lịch ngày đặc biệt" /> : special.map((item) => <div key={item.date} style={{ padding: "12px 0", borderBottom: "1px solid var(--ant-color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div><b>{item.date.slice(0, 10)}</b> · {item.isClosed ? "Nghỉ" : `${item.openTime}–${item.closeTime}`} {item.note && <span style={{ color: palette.textMuted }}>· {item.note}</span>}</div>
             <Space><Button onClick={() => editSpecial(item)}>Sửa</Button><ActionButton danger data-testid="special-delete" onClick={() => removeSpecial(item)}>Xoá</ActionButton></Space>
-          </div>)}
-        </div> },
-        { key: "areas", label: "Khu vực", children: <div>
-          <Space wrap style={{ marginBottom: 12 }}>
-            <Input aria-label="Mã khu vực" placeholder="Mã khu vực" value={area.code} maxLength={50} onChange={(e) => setArea({ ...area, code: e.target.value })} style={{ width: 150 }} />
-            <Input aria-label="Tên khu vực" placeholder="Tên khu vực" value={area.name} maxLength={150} onChange={(e) => setArea({ ...area, name: e.target.value })} style={{ width: 190 }} />
-            <Select aria-label="Loại khu vực" value={area.type} onChange={(type) => setArea({ ...area, type })} options={AREA_TYPES} style={{ width: 155 }} />
-            <InputNumber aria-label="Tầng" min={-10} max={200} value={area.floor} onChange={(floor) => setArea({ ...area, floor: floor ?? 1 })} style={{ width: 75 }} />
-          </Space>
-          <Space><ActionButton type="primary" loading={busy} data-testid="area-save" onClick={saveArea}>{areaId ? "Lưu khu vực" : "Thêm khu vực"}</ActionButton>{areaId && <Button onClick={() => { setAreaId(null); setArea({ code: "", name: "", type: "DINING", floor: 1 }); }}>Huỷ sửa</Button>}</Space>
-          {areas.length === 0 ? <Empty description="Chưa có khu vực" /> : areas.map((item) => <div key={item.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--ant-color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div><b>{item.name}</b> · {item.code} · {AREA_TYPES.find((type) => type.value === item.type)?.label} · Tầng {item.floor} <Tag color={item.status === "ACTIVE" ? "green" : "default"}>{item.status === "ACTIVE" ? "Hoạt động" : "Tạm ngưng"}</Tag></div>
-            <Space><Button onClick={() => { setAreaId(item.id); setArea({ code: item.code, name: item.name, type: item.type, floor: item.floor }); }}>Sửa</Button><ActionButton loading={busy} data-testid="area-toggle" onClick={() => toggleArea(item)}>{item.status === "ACTIVE" ? "Tạm ngưng" : "Mở lại"}</ActionButton></Space>
           </div>)}
         </div> },
         { key: "archive", label: "Lưu trữ", children: <Alert type="warning" showIcon message="Lưu trữ chi nhánh" description="Thao tác này ngừng hoạt động chi nhánh và giải phóng hạn mức của gói." action={<ActionButton danger data-testid="branch-archive" onClick={archive}>Lưu trữ chi nhánh</ActionButton>} /> },
