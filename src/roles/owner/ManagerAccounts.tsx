@@ -11,12 +11,14 @@ import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import StaffReasonModal from "../branch/StaffReasonModal";
 
+/** Nhãn tiếng Việt của vai trò nhân viên (Brand Manager chỉ xem, BR-05). */
+const STAFF_ROLE_VI: Record<string, string> = { CASHIER: "Thu ngân", BARISTA: "Pha chế" };
 const PAGE_SIZE = 20;
 
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Hoạt động", SUSPENDED: "Bị khoá", INACTIVE: "Chờ kích hoạt" };
 
 /**
- * Owner mời Manager, Cashier và Barista qua email.
+ * Brand Manager mời Store Manager qua email (BR-05); Thu ngân và Pha chế do Store Manager mời, khoá, sửa — Brand Manager chỉ xem.
  * Danh sách, khoá/mở khoá và chuyển chi nhánh Manager dùng BE `/employees`.
  */
 export default function ManagerAccounts() {
@@ -135,11 +137,11 @@ export default function ManagerAccounts() {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
-        title="Tài khoản nhân viên"
-        sub="Mời Store Manager, Thu ngân và Pha chế qua email; nhân viên tự đặt mật khẩu"
+        title="Tài khoản quản lý"
+        sub="Mời Store Manager qua email; Thu ngân và Pha chế do Store Manager của chi nhánh quản lý (BR-05)"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
-            Thêm nhân viên
+            Mời Store Manager
           </ActionButton>
         }
       />
@@ -264,13 +266,8 @@ export default function ManagerAccounts() {
                         </div>
                       ),
                     },
-                    { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{r}</Tag> },
+                    { title: "Vai trò", dataIndex: "role", render: (r: string) => <Tag>{STAFF_ROLE_VI[r] ?? r}</Tag> },
                     { title: "Chi nhánh", dataIndex: "branchName" },
-                    {
-                      title: "",
-                      key: "password",
-                      render: (_, r) => actions(r, false),
-                    },
                     {
                       title: "Trạng thái",
                       dataIndex: "status",
@@ -326,26 +323,24 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<StaffInvitationInput["role"]>("MANAGER");
   const [branchId, setBranchId] = useState<string>();
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
   const [touched, setTouched] = useState(false);
-  useEffect(() => { if (open) { setName(""); setEmail(""); setRole("MANAGER"); setBranchId(branches[0]?.id); setTouched(false); } }, [open]);
+  useEffect(() => { if (open) { setName(""); setEmail(""); setBranchId(branches[0]?.id); setTouched(false); } }, [open]);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const valid = name.trim().length > 0 && name.trim().length <= 200 && emailValid && !!branchId;
   const save = async () => {
     setTouched(true);
     if (!valid || inFlight.current) return;
     inFlight.current = true; setSaving(true);
-    try { await onSave({ name: name.trim(), email: email.trim().toLowerCase(), role, branchId: branchId! }); }
+    try { await onSave({ name: name.trim(), email: email.trim().toLowerCase(), role: "MANAGER", branchId: branchId! }); }
     finally { inFlight.current = false; setSaving(false); }
   };
   return (
-    <Drawer title="Mời nhân viên qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
+    <Drawer title="Mời Store Manager qua email" open={open} onClose={() => { if (!saving) onClose(); }} maskClosable={!saving} closable={!saving} styles={{ wrapper: { width: 420, maxWidth: "100vw" }, body: { padding: 24 } }}>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <Field label="Họ tên"><Input aria-label="Họ tên" data-testid="owner-invite-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Vai trò"><Select aria-label="Vai trò" value={role} onChange={setRole} style={{ width: "100%" }} options={[{ value: "MANAGER", label: "Store Manager" }, { value: "CASHIER", label: "Thu ngân" }, { value: "BARISTA", label: "Pha chế" }]} /></Field>
         <Field label="Email nhận lời mời">
           <Input aria-label="Email nhận lời mời" type="email" data-testid="owner-invite-email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(true)} status={touched && !emailValid ? "error" : undefined} aria-describedby="owner-invite-email-help" autoComplete="email" />
           <div id="owner-invite-email-help" role={touched && !emailValid ? "alert" : undefined} style={{ fontSize: 12, marginTop: 4, color: touched && !emailValid ? palette.error.text : palette.textMuted }}>{touched && !emailValid ? "Nhập email hợp lệ." : "Nhân viên nhận link đặt mật khẩu dùng một lần, hiệu lực 24 giờ."}</div>
