@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { App, Button, Input, Modal } from "antd";
 import { LogIn, UtensilsCrossed } from "lucide-react";
-import { authApi, showApiError } from "../api";
+import { ApiError, authApi, showApiError } from "../api";
 import { useAppStore } from "../store";
 import { palette, onBrandAlpha } from "../theme";
 
@@ -9,6 +9,8 @@ import { palette, onBrandAlpha } from "../theme";
  * Đăng nhập bằng email hoặc tên tài khoản + mật khẩu qua backend thật. Không còn bước chọn vai
  * trò — vai trò do backend quyết định và web tự đưa về đúng không gian làm việc.
  */
+const FORGOT_EMAIL_PATTERN = /^[^s@]+@[^s@]+.[^s@]+$/;
+
 export default function LoginScreen({ onLogin }: { onLogin: (email: string, password: string) => void }) {
   const { message } = App.useApp();
   const isLoading = useAppStore((s) => s.isLoading);
@@ -20,13 +22,20 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
   const [forgotSent, setForgotSent] = useState(false);
 
   const sendReset = async () => {
-    if (!forgotEmail.trim()) return;
+    const value = forgotEmail.trim();
+    if (!value || forgotBusy) return; // chống bấm đúp / Enter liên tiếp
+    if (!FORGOT_EMAIL_PATTERN.test(value)) {
+      message.error("Email không hợp lệ");
+      return;
+    }
     setForgotBusy(true);
     try {
-      await authApi.requestPasswordReset(forgotEmail.trim());
+      await authApi.requestPasswordReset(value);
       setForgotSent(true);
     } catch (error) {
-      showApiError(message.error, error, "Không gửi được yêu cầu. Vui lòng thử lại.");
+      // 22.8: vượt 5 lần mỗi giờ theo địa chỉ IP trả 429 với câu chung, không cho biết email có tồn tại hay không.
+      if (error instanceof ApiError && error.status === 429) message.error("Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.");
+      else showApiError(message.error, error, "Không gửi được yêu cầu. Vui lòng thử lại.");
     } finally {
       setForgotBusy(false);
     }
