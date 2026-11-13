@@ -53,6 +53,11 @@ function BranchCard({
         </span>
       </div>
 
+      {b.status === "suspended" && (
+        <div data-testid="branch-suspended-note" style={{ marginTop: 12, fontSize: 12.5, color: palette.warning.text, background: palette.warning.bg, borderRadius: 8, padding: "6px 10px" }}>
+          Chi nhánh đang tạm ngưng nên không bán được; dữ liệu vẫn giữ nguyên. Mở lại ở "Sửa chi nhánh" khi gói còn hạn mức (BR-11).
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
         <ActionButton size="small" onClick={onEdit}>
           Sửa chi nhánh
