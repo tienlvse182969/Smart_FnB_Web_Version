@@ -155,3 +155,29 @@ describe("stationsReal — ghép và thu hồi đúng DTO của BE", () => {
     expect(call(fetchMock).path).toMatch(/\/display-devices\/d9$/);
   });
 });
+
+describe("khoá ghép sau nhập sai (BR-45)", () => {
+  const locked = (lockedUntil?: string) => new ApiError(429, "Pairing is locked for this station", [], "PAIRING_LOCKED", { code: "PAIRING_LOCKED", message: "Pairing is locked for this station", lockedUntil });
+  it("đọc thời điểm hết khoá do BE gửi", async () => {
+    const { pairingLockedUntil } = await import("./pairing");
+    const now = Date.parse("2026-11-13T10:00:00.000Z");
+    expect(pairingLockedUntil(locked("2026-11-13T10:05:00.000Z"), now)).toBe(Date.parse("2026-11-13T10:05:00.000Z"));
+  });
+  it("thiếu hoặc sai lockedUntil thì lấy 5 phút từ bây giờ; lỗi khác không phải khoá", async () => {
+    const { pairingLockedUntil, PAIRING_LOCK_MS } = await import("./pairing");
+    const now = Date.parse("2026-11-13T10:00:00.000Z");
+    expect(pairingLockedUntil(locked(), now)).toBe(now + PAIRING_LOCK_MS);
+    expect(pairingLockedUntil(locked("hôm qua"), now)).toBe(now + PAIRING_LOCK_MS);
+    expect(pairingLockedUntil(locked("2020-01-01T00:00:00.000Z"), now)).toBe(now + PAIRING_LOCK_MS);
+    expect(pairingLockedUntil(new ApiError(429, "slow down"), now)).toBeNull();
+    expect(pairingLockedUntil(new ApiError(400, "x", [], "PAIRING_CODE_INVALID"), now)).toBeNull();
+    expect(pairingLockedUntil(new Error("x"), now)).toBeNull();
+  });
+  it("đếm ngược m:ss", async () => {
+    const { formatCountdown } = await import("./pairing");
+    expect(formatCountdown(272_000)).toBe("4:32");
+    expect(formatCountdown(300_000)).toBe("5:00");
+    expect(formatCountdown(1)).toBe("0:01");
+    expect(formatCountdown(-5)).toBe("0:00");
+  });
+});

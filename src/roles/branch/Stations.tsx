@@ -3,7 +3,7 @@ import { Link2, Pencil, Plus, Unlink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PRINTER_CONNECTION_LABEL, type BranchDevice, type DisplayKind, type PrinterConnection, type Station, type StationDevice, type StationInput, type StationPatch } from "../../types";
 import { branchDeviceState, showApiError, stationsApi, validateStationInput, validateStationPatch } from "../../api";
-import { describePairingError, isPairingCode } from "../../api/modules/stations/pairing";
+import { describePairingError, formatCountdown, isPairingCode, pairingLockedUntil } from "../../api/modules/stations/pairing";
 import ActionButton from "../../plan/ActionButton";
 import { SectionTitle } from "../../components/bits";
 import PairingCodeInput from "../../components/PairingCodeInput";
@@ -341,12 +341,17 @@ export default function Stations() {
 }
 
 /** Hộp ghép màn hình bằng mã 6 số (BR-45). Mã do chính màn hình sinh, hết hạn sau 5 phút, dùng một lần. */
-function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind; station?: Station } | null; onClose: () => void; onPaired: () => Promise<void> }) {
+export function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind; station?: Station } | null; onClose: () => void; onPaired: () => Promise<void> }) {
   const { message, modal } = App.useApp();
   const branchId = useAppStore((s) => s.currentBranchId);
   const [code, setCode] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // BR-45: quầy bị khoá ghép 5 phút sau 5 lần nhập sai; hiện thời gian còn lại và khoá ô nhập tới khi hết.
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const remaining = lockedUntil === null ? 0 : Math.max(0, lockedUntil - now);
+  const locked = remaining > 0;
 
   useEffect(() => {
     if (target) {
@@ -356,6 +361,19 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
     }
   }, [target]);
 
+  useEffect(() => {
+    if (lockedUntil === null) return;
+    const timer = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= lockedUntil) {
+        setLockedUntil(null);
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockedUntil]);
+
   if (!target) return <Modal open={false} footer={null} />;
   const { kind, station } = target;
   const customer = kind === "CUSTOMER_DISPLAY";
@@ -363,6 +381,7 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
   const label = customer ? "màn hình khách" : "màn hình gọi số";
 
   const submit = () => {
+    if (locked) return;
     modal.confirm({
       title: customer ? `Ghép ${label} vào ${station?.name}?` : `Ghép ${label} cho chi nhánh?`,
       content: (
@@ -388,6 +407,13 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
           message.success(customer ? `Đã ghép màn hình khách vào ${station?.name}` : "Đã ghép màn hình gọi số");
           await onPaired();
         } catch (err) {
+          const until = pairingLockedUntil(err);
+          if (until !== null) {
+            setNow(Date.now());
+            setLockedUntil(until);
+            setError(null);
+            return;
+          }
           const text = describePairingError(err, kind);
           if (text) setError(text);
           else showApiError(message.error, err, `Không ghép được ${label}`);
@@ -401,7 +427,12 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
       <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 14 }}>
         Mở app ở chế độ {label} trên thiết bị: màn hình hiện mã 6 số (hết hạn sau 5 phút). Nhập hoặc dán mã vào đây.
       </div>
-      <PairingCodeInput value={code} onChange={(c) => { setCode(c); setError(null); }} />
+      {locked && (
+        <div data-testid="pair-locked" role="alert" style={{ marginBottom: 12, fontSize: 13, color: palette.error.text, background: palette.error.bg, borderRadius: 8, padding: "8px 12px" }}>
+          Quầy đã nhập sai mã quá 5 lần liên tiếp nên bị khoá ghép. Thử lại sau <b data-testid="pair-locked-left">{formatCountdown(remaining)}</b>.
+        </div>
+      )}
+      <PairingCodeInput value={code} disabled={locked} onChange={(c) => { setCode(c); setError(null); }} />
       <Input data-testid="pair-device-name" style={{ marginTop: 14 }} value={deviceName} maxLength={150} onChange={(e) => setDeviceName(e.target.value)} placeholder="Tên máy (tuỳ chọn), VD: Tablet khách quầy 1" />
       {customer && replaced && (
         <div data-testid="pair-warning" style={{ marginTop: 12, fontSize: 13, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "8px 12px" }}>
@@ -413,7 +444,7 @@ function PairModal({ target, onClose, onPaired }: { target: { kind: DisplayKind;
           {error}
         </div>
       )}
-      <ActionButton type="primary" block style={{ marginTop: 16 }} disabled={!isPairingCode(code)} data-testid="pair-submit" onClick={submit}>
+      <ActionButton type="primary" block style={{ marginTop: 16 }} disabled={!isPairingCode(code) || locked} data-testid="pair-submit" onClick={submit}>
         Ghép {label}
       </ActionButton>
     </Modal>
