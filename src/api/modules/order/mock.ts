@@ -520,5 +520,19 @@ export const orderMock: OrderApi = {
     }
     confirmations.set(paymentId, { receivedAmount: input.receivedAmount, reason, transactionRef: input.transactionRef?.trim() || null, at: now, manual: true });
   },
+
+  // PDF phiếu hoàn do BE sinh; mock KHÔNG dựng file giả.
+  async getRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async retryRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async downloadRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
 };
 

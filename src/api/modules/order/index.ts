@@ -4,7 +4,7 @@
  * `refundApprovals.ts`; route `manager/orders/:id/cancel-paid` đã bị BE gỡ nên không còn lời gọi nào.
  * Mock vẫn là nguồn đơn của trợ lý AI mock và báo cáo mock (qua `getBranchOrders`, không qua module này).
  */
-import type { ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery } from "../../../types";
+import type { ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery, RefundDocument } from "../../../types";
 import { defineApi } from "../../define";
 import { orderMock } from "./mock";
 import { orderReal } from "./real";
@@ -28,6 +28,15 @@ export interface OrderApi {
    * 404, 409 `PAYMENT_ALREADY_SETTLED` / `PAYMENT_AMOUNT_INSUFFICIENT` / tiền mặt / đơn không còn chờ thanh toán.
    */
   confirmPayment(scope: OrderScope, paymentId: string, input: ConfirmPaymentInput): Promise<void>;
+  /**
+   * 28.6: trạng thái PDF phiếu hoàn của một khoản hoàn tiền mặt đã xác nhận (`GET cashier/orders/:o/refunds/:r/document`; Store Manager và
+   * Brand Manager dùng chung route). Khoản hoàn cũ chưa có PDF thì BE sinh ở lần xem đầu. Lỗi: 403 ngoài phạm vi, 404 không có khoản hoàn.
+   */
+  getRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<RefundDocument>;
+  /** Sinh lại PDF phiếu hoàn khi Lỗi hoặc kẹt (`POST …/document/retry`); không tạo thêm PDF hay khoản hoàn. */
+  retryRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<RefundDocument>;
+  /** Tải PDF khi BE lưu local (link tương đối, cần Bearer): `GET …/document/download`. */
+  downloadRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<Blob>;
 }
 
 export const orderApi = defineApi<OrderApi>("order", { real: orderReal, mock: orderMock });

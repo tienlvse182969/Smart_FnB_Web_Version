@@ -173,6 +173,8 @@ interface RequestOptions {
   anonymous?: boolean;
   /** Huỷ request đang chờ (đổi bộ lọc, rời màn). Bị huỷ thì `fetch` ném AbortError, không phải ApiError. */
   signal?: AbortSignal;
+  /** true = trả thân phản hồi dạng Blob (tải file PDF) thay vì JSON. */
+  asBlob?: boolean;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -206,6 +208,7 @@ async function requestOnce<T>(path: string, options: RequestOptions): Promise<T>
     res = await send(path, init, fresh);
   }
 
+  if (options.asBlob && res.ok) return (await res.blob()) as T;
   const parsed = await parseBody(res);
   if (!res.ok) throw toApiError(res.status, parsed);
   return parsed as T;

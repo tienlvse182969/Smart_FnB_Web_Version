@@ -5,6 +5,7 @@
  */
 import { request } from "../../http/client";
 import { mapOrderDetail, mapOrderPage } from "./mapper";
+import { mapRefundDocument, refundDocumentPath } from "./refundDocument";
 import { buildOrderQueryString } from "./query";
 import type { OrderApi } from "./index";
 
@@ -24,5 +25,17 @@ export const orderReal: OrderApi = {
     if (input.transactionRef) body.transactionRef = input.transactionRef;
     // Bỏ qua phản hồi (`{...payment, order, tracking}`): màn GET lại chi tiết đơn (quyết định 84).
     await request<unknown>(`/payments/${encodeURIComponent(paymentId)}/confirm`, { method: "POST", body });
+  },
+
+  async getRefundDocument(_scope, orderId, refundId) {
+    return mapRefundDocument(await request<unknown>(refundDocumentPath(orderId, refundId)), { orderId, refundId });
+  },
+
+  async retryRefundDocument(_scope, orderId, refundId) {
+    return mapRefundDocument(await request<unknown>(`${refundDocumentPath(orderId, refundId)}/retry`, { method: "POST" }), { orderId, refundId });
+  },
+
+  async downloadRefundDocument(_scope, orderId, refundId) {
+    return request<Blob>(`${refundDocumentPath(orderId, refundId)}/download`, { asBlob: true });
   },
 };
