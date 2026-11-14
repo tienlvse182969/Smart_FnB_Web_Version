@@ -357,9 +357,10 @@ function ResetModal({ open, business, onClose }: DialogProps) {
     try {
       const result = await adminApi.resetOwnerPassword(owner.id, note);
       onClose();
-      modal.success({
-        title: "Đã xếp email đặt lại mật khẩu",
-        content: `Email gửi tới ${owner.email}, hiệu lực tới ${formatDateTime(result.expiresAt)}.`,
+      const notify = result.emailStatus === "SENT" ? modal.success : modal.warning;
+      notify({
+        title: result.emailStatus === "SENT" ? "Đã gửi email đặt lại mật khẩu" : result.emailStatus === "FAILED" ? "Chưa gửi được email. Vui lòng gửi lại link." : "Email đặt lại mật khẩu đang chờ gửi",
+        content: `Email nhận link: ${owner.email}, hiệu lực tới ${formatDateTime(result.expiresAt)}.`,
       });
     } catch (err) {
       showApiError(message.error, err, "Không đặt lại được mật khẩu");

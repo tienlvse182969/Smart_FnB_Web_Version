@@ -283,6 +283,7 @@ const reg = (
   requestedPlan: plans[n % 3],
   approvedPlan: null,
   activationExpiresAt: null,
+  hasFirstPeriodInvoice: false,
   supportActions: [],
 
   approved: null,

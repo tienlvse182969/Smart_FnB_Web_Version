@@ -104,6 +104,8 @@ export default function SignupRequests() {
   }, [load]);
 
   useEffect(() => {
+    setSupportPlanId(undefined);
+    setSupportNote("");
     if (!openId) {
       setDetail(null);
 
@@ -140,7 +142,8 @@ export default function SignupRequests() {
         : await resendActivation(basePath, detail.id, supportNote);
       await afterReview(updated);
       setSupportNote("");
-      message.success(action === "plan" ? "Đã đổi gói được duyệt; QR cũ không còn hiệu lực" : "Đã xếp email kích hoạt mới");
+      setSupportPlanId(undefined);
+      message.success(action === "plan" ? "Đã đổi gói và xếp email kích hoạt mới" : "Đã xếp email kích hoạt mới");
     } catch (err) { showApiError(message.error, err, "Không thực hiện được yêu cầu hỗ trợ"); }
     finally { setSupportSaving(false); }
   };
@@ -309,9 +312,11 @@ export default function SignupRequests() {
             )}
             {detail.status === "APPROVED" && <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
               <strong>Hỗ trợ kích hoạt (PS-01)</strong>
-              {!detail.requestedPlan && <Select placeholder="Đổi gói đã duyệt" value={supportPlanId} onChange={setSupportPlanId} options={plans.filter((p) => p.isActive && p.code !== "TRIAL").map((p) => ({ value: p.id, label: `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />}
+              {detail.hasFirstPeriodInvoice
+                ? <span>Hồ sơ đã tạo hóa đơn kỳ đầu. Sau khi kích hoạt, có thể đăng ký đổi gói cho kỳ kế tiếp.</span>
+                : <Select placeholder="Đổi gói đã duyệt" value={supportPlanId} onChange={setSupportPlanId} options={plans.filter((p) => p.isActive && p.id !== detail.approvedPlan?.id).map((p) => ({ value: p.id, label: p.code === "TRIAL" ? p.name : `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />}
               <Input.TextArea placeholder="Ghi chú hỗ trợ bắt buộc" value={supportNote} onChange={(e) => setSupportNote(e.target.value)} maxLength={1000} rows={2} />
-              {!detail.requestedPlan && <ActionButton loading={supportSaving} onClick={() => void support("plan")}>Đổi gói được duyệt</ActionButton>}
+              {!detail.hasFirstPeriodInvoice && <ActionButton disabled={!supportPlanId || supportNote.trim().length < 3} loading={supportSaving} onClick={() => void support("plan")}>Đổi gói được duyệt</ActionButton>}
               <ActionButton loading={supportSaving} onClick={() => void support("resend")}>Gửi lại link kích hoạt</ActionButton>
             </div>}
             {detail.supportActions.length > 0 && <div style={{ marginTop: 20 }}><strong>Lịch sử hỗ trợ</strong>{detail.supportActions.map((entry) => <div key={entry.id} style={{ padding: "8px 0", borderBottom: `1px solid ${palette.line}`, fontSize: 12 }}>{formatDateTime(entry.createdAt)} · {entry.actor.email}<br />{entry.note}</div>)}</div>}
