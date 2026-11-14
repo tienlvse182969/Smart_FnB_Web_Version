@@ -1,3 +1,4 @@
+import ReportChart from "../../components/ReportChart";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -38,32 +39,10 @@ function ReportCard({ title, sub, testId, children, empty }: { title: string; su
 
 /** Cột đứng đơn giản (cùng kiểu báo cáo của Owner): chiều cao theo `value / max`. */
 function Bars({ rows, testId, tooltip, valueLabel }: { rows: { key: string; label: string; value: number }[]; testId: string; tooltip: (row: { label: string; value: number }) => string; valueLabel: (value: number) => string }) {
-  const max = Math.max(...rows.map((r) => r.value), 1);
-  return (
-    <div data-testid={testId} style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, marginTop: 12, overflowX: "auto" }}>
-      {rows.map((row) => (
-        <div key={row.key} data-key={row.key} data-value={row.value} style={{ flex: "1 0 28px", textAlign: "center", minWidth: 28 }}>
-          {/* Ngày chỉ có khoản hoàn (BE #43 tính hoàn vào NGÀY HUỶ) có doanh thu ÂM: hiện nhãn "−…" và thanh nhỏ màu cảnh báo. */}
-          <div style={{ fontSize: 10.5, color: row.value < 0 ? palette.error.text : palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>
-            {row.value > 0 ? valueLabel(row.value) : row.value < 0 ? `−${valueLabel(-row.value)}` : ""}
-          </div>
-          <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
-            <div
-              title={tooltip(row)}
-              data-negative={row.value < 0}
-              style={{
-                width: "100%",
-                height: `${row.value < 0 ? 3 : Math.max((row.value / max) * 100, row.value > 0 ? 3 : 0)}%`,
-                background: row.value < 0 ? palette.error.text : palette.brandPrimary,
-                borderRadius: "4px 4px 0 0",
-              }}
-            />
-          </div>
-          <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>{row.label}</div>
-        </div>
-      ))}
-    </div>
-  );
+  return <div data-testid={testId}><ReportChart title={testId === "report-hours-bars" ? "Số đơn theo giờ" : "Doanh thu theo thời gian"}
+    format={valueLabel} highlightPeak={testId === "report-hours-bars"} points={rows.map(row => ({
+      ...row, detail: row.value < 0 ? row.label + " · −" + formatVnd(-row.value) : tooltip(row),
+    }))} /></div>;
 }
 
 const paymentColumns: ColumnsType<ManagerReportPayment> = [
@@ -293,6 +272,16 @@ export default function ManagerDashboard() {
           ) : (
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
               <Col xs={24}>
+                <ReportCard title="Số đơn theo giờ" sub="Tổng số đơn theo khung giờ trong kỳ · giờ Việt Nam (0–23)" testId="report-hours">
+                  <Bars
+                    testId="report-hours-bars"
+                    rows={data.ordersByHour.map((h) => ({ key: String(h.hour), label: `${h.hour}h`, value: h.orderCount }))}
+                    tooltip={(row) => `${row.label} · ${row.value} đơn`}
+                    valueLabel={(v) => String(v)}
+                  />
+                </ReportCard>
+              </Col>
+              <Col xs={24}>
                 <ReportCard title="Doanh thu theo thời gian" sub={GRANULARITY_OPTIONS.find((o) => o.value === data.range.granularity)?.label} testId="report-revenue">
                   <Bars
                     testId="report-revenue-bars"
@@ -307,16 +296,7 @@ export default function ManagerDashboard() {
                   <Table<ManagerReportPayment> rowKey="method" size="small" columns={paymentColumns} dataSource={data.payments} pagination={false} />
                 </ReportCard>
               </Col>
-              <Col xs={24} lg={12}>
-                <ReportCard title="Số đơn theo giờ" sub="Đơn đặt trong kỳ, giờ Việt Nam (0–23)" testId="report-hours">
-                  <Bars
-                    testId="report-hours-bars"
-                    rows={data.ordersByHour.map((h) => ({ key: String(h.hour), label: `${h.hour}h`, value: h.orderCount }))}
-                    tooltip={(row) => `${row.label} · ${row.value} đơn`}
-                    valueLabel={(v) => String(v)}
-                  />
-                </ReportCard>
-              </Col>
+
               <Col xs={24} lg={12}>
                 <ReportCard title="Món bán chạy" sub={`Top ${query.limit}`} testId="report-top-items" empty={data.topItems.length === 0 ? "Chưa có món nào bán trong kỳ." : undefined}>
                   <Table<ManagerReportItem> rowKey="menuItemId" size="small" columns={itemColumns} dataSource={data.topItems} pagination={false} />

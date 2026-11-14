@@ -76,4 +76,12 @@ export const reportReal: ReportApi = {
   getRevenueComparison,
   getRevenueTimeseries,
   getTopItems,
+  getTopCombos: params => request(`/reports/top-combos${buildQuery(params)}`),
+  async getTopToppings(params) {
+    const { items } = await request<{ items: { name: string; quantity: number; additionalRevenue: string }[] }>(
+      `/reports/top-toppings${buildQuery(params)}`,
+    );
+    return { items: items.map(({ name, quantity, additionalRevenue }) => ({ name, quantity, revenue: additionalRevenue })) };
+  },
+  getPaymentMethods: params => request(`/reports/payment-methods${buildQuery(params)}`),
 };

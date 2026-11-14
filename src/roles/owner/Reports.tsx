@@ -1,11 +1,25 @@
-import { useMemo, useState } from "react";
-import { Alert, Button, Card, Col, DatePicker, Row, Segmented, Select, Skeleton, Table } from "antd";
-import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react";
-import dayjs from "dayjs";
-import { SectionTitle, StatCard } from "../../components/bits";
-import { useAppStore } from "../../store";
-import type { ReportGranularity, TopItemRow } from "../../types";
-import FeatureGate from "../../plan/FeatureGate";
+import { useMemo, useState } from "react"
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Row,
+  Segmented,
+  Select,
+  Skeleton,
+  Table,
+} from "antd"
+import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
+import dayjs from "dayjs"
+import { SectionTitle, StatCard } from "../../components/bits"
+import { useAppStore } from "../../store"
+import type { ReportGranularity, RevenueComparison } from "../../types"
+import { Link, useSearchParams } from "react-router-dom"
+import { usePlan } from "../../plan/usePlan"
+import ReportChart from "../../components/ReportChart"
+import { paymentMethodInfo } from "../../api/modules/order/codes"
 import {
   RANGE_PRESETS,
   parseAmount,
@@ -17,33 +31,109 @@ import {
   presetRange,
   type DateRange,
   type RangePreset,
-} from "../../lib/reportFormat";
-import { useReportData } from "./useReportData";
-import { summarizeKpi } from "./reportKpi";
-import { palette } from "../../theme";
+} from "../../lib/reportFormat"
+import { useReportData } from "./useReportData"
+import { summarizeKpi } from "./reportKpi"
 
-const ALL_BRANCHES = "__all__";
+const ALL_BRANCHES = "__all__"
 
 /** Báo cáo doanh thu của Owner — toàn bộ số liệu lấy từ `/reports/*`. */
 export default function Reports() {
-  const branches = useAppStore((s) => s.apiBranches);
-  const [preset, setPreset] = useState<RangePreset | "custom">("7d");
-  const [range, setRange] = useState<DateRange>(() => presetRange("7d"));
-  const [branchId, setBranchId] = useState<string>(ALL_BRANCHES);
-  const [granularity, setGranularity] = useState<ReportGranularity>("day");
+  const accessibleBranches = useAppStore((s) => s.apiBranches)
+  const [preset, setPreset] = useState<RangePreset | "custom">("7d")
+  const [range, setRange] = useState<DateRange>(() => presetRange("7d"))
+  const [url, setUrl] = useSearchParams()
+  const selected = url.get("branch") ?? ALL_BRANCHES
+  const setBranchId = (id: string) =>
+    setUrl((previous) => {
+      const next = new URLSearchParams(previous)
+      if (id === ALL_BRANCHES) next.delete("branch")
+      else next.set("branch", id)
+      return next
+    })
+  const [granularity, setGranularity] = useState<ReportGranularity>("day")
 
-  const branchIds = branchId === ALL_BRANCHES ? undefined : [branchId];
-  const { data, loading, error, reload } = useReportData({ ...range, branchIds, granularity });
+  const plan = usePlan()
+  const scope = useAppStore((s) => s.scopeStatus)
+  const chainId = useAppStore((s) => s.chainId)
+  const branches = accessibleBranches.filter((b) => b.chainId === chainId)
+  const canCompare =
+    branches.length > 1 && !!plan.plan && plan.hasFeature("multiBranchCompare")
+  const branchId = branches.some((b) => b.id === selected)
+    ? selected
+    : canCompare
+      ? ALL_BRANCHES
+      : branches[0]?.id
+  const [product, setProduct] = useState<"items" | "combos" | "toppings">(
+    "items",
+  )
+  const [expanded, setExpanded] = useState(false)
+  const [metric, setMetric] = useState<"revenue" | "orders">("revenue")
+  const params = useMemo(
+    () => ({
+      ...range,
+      chainId: chainId ?? undefined,
+      branchIds: branchId === ALL_BRANCHES ? undefined : [branchId!],
+    }),
+    [range, chainId, branchId],
+  )
+  const { comparison, trend, products, payments } = useReportData(
+    params,
+    granularity,
+    product,
+    scope === "ready" && !!branchId,
+  )
+  if (scope === "error")
+    return <Alert type="error" message="Không tải được phạm vi chi nhánh." />
+  if (scope !== "ready") return <Skeleton active />
+  if (!branchId)
+    return (
+      <Card>
+        Chưa có chi nhánh để xem báo cáo.{" "}
+        <Link to="/brand-manager/branches">Quản lý chi nhánh</Link>
+      </Card>
+    )
+
+  const points = (trend.data?.buckets ?? []).map((key, i) => {
+    const totals = { revenue: 0, orders: 0, refund: 0 }
+    for (const series of trend.data!.series) {
+      const point = series.points[i]
+      totals.revenue += parseAmount(point?.netRevenue ?? point?.revenue)
+      totals.orders += point?.orderCount ?? 0
+      totals.refund += parseAmount(point?.refundAmount)
+    }
+    return {
+      key,
+      label: formatDayLabel(key),
+      value: totals[metric],
+      detail:
+        key +
+        " · " +
+        formatVnd(totals.revenue) +
+        " · " +
+        totals.orders +
+        " đơn · đã hoàn " +
+        formatVnd(totals.refund),
+    }
+  })
+  const ranks = [...(comparison.data?.branches ?? [])].sort(
+    (a, b) => parseAmount(b.revenue) - parseAmount(a.revenue),
+  )
+  const methods = payments.data?.methods ?? []
+  const total = methods.reduce(
+    (sum, row) => sum + parseAmount(row.grossSettledAmount),
+    0,
+  )
 
   const choosePreset = (next: RangePreset) => {
-    setPreset(next);
-    setRange(presetRange(next));
-  };
+    setPreset(next)
+    setRange(presetRange(next))
+  }
 
   const scopeLabel =
     branchId === ALL_BRANCHES
       ? `Toàn bộ ${branches.length} chi nhánh`
-      : (branches.find((b) => b.id === branchId)?.name ?? "Chi nhánh");
+      : (branches.find((b) => b.id === branchId)?.name ?? "Chi nhánh")
 
   return (
     <div>
@@ -52,21 +142,37 @@ export default function Reports() {
         sub={`${scopeLabel} · ${describeRange(range)} · giờ Việt Nam`}
       />
 
-      <Card style={{ borderRadius: 14, marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+      <Card
+        style={{ borderRadius: 14, marginBottom: 16 }}
+        styles={{ body: { padding: 16 } }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
           <Segmented
             value={preset}
             onChange={(value) => choosePreset(value as RangePreset)}
-            options={RANGE_PRESETS.map((p) => ({ label: p.label, value: p.key }))}
+            options={RANGE_PRESETS.map((p) => ({
+              label: p.label,
+              value: p.key,
+            }))}
           />
           <DatePicker.RangePicker
             allowClear={false}
             format="DD/MM/YYYY"
             value={[dayjs(range.from), dayjs(range.to)]}
             onChange={(values) => {
-              if (!values?.[0] || !values?.[1]) return;
-              setPreset("custom");
-              setRange({ from: values[0].format("YYYY-MM-DD"), to: values[1].format("YYYY-MM-DD") });
+              if (!values?.[0] || !values?.[1]) return
+              setPreset("custom")
+              setRange({
+                from: values[0].format("YYYY-MM-DD"),
+                to: values[1].format("YYYY-MM-DD"),
+              })
             }}
           />
           <Select
@@ -76,8 +182,18 @@ export default function Reports() {
             showSearch
             optionFilterProp="label"
             options={[
-              { value: ALL_BRANCHES, label: `Tất cả chi nhánh (${branches.length})` },
-              ...branches.map((b) => ({ value: b.id, label: `${b.name} · ${b.code}` })),
+              ...(canCompare
+                ? [
+                    {
+                      value: ALL_BRANCHES,
+                      label: `Tất cả chi nhánh (${branches.length})`,
+                    },
+                  ]
+                : []),
+              ...branches.map((b) => ({
+                value: b.id,
+                label: `${b.name} · ${b.code}`,
+              })),
             ]}
           />
           <Select
@@ -93,44 +209,181 @@ export default function Reports() {
         </div>
       </Card>
 
-      {error && (
-        <Alert
-          type="error"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="Không tải được báo cáo"
-          description={error}
-          action={
-            <Button size="small" onClick={reload}>
-              Thử lại
-            </Button>
-          }
-        />
-      )}
-
-      <KpiRow data={data} loading={loading} />
-
+      <SectionState section={comparison}>
+        <KpiRow comparison={comparison.data} />
+      </SectionState>
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24}>
-          <TimeseriesChart data={data} loading={loading} />
+        <Col span={24}>
+          <Card title="Doanh thu theo thời gian">
+            <Segmented
+              value={metric}
+              options={[
+                { label: "Doanh thu thuần", value: "revenue" },
+                { label: "Số đơn", value: "orders" },
+              ]}
+              onChange={setMetric}
+            />
+            <SectionState section={trend}>
+              <ReportChart
+                title="Xu hướng bán hàng"
+                mode="line"
+                points={points}
+                format={metric === "orders" ? formatCount : formatVndCompact}
+              />
+            </SectionState>
+          </Card>
         </Col>
-        <Col xs={24} lg={12}>
-          <FeatureGate feature="multiBranchCompare" compact>
-            <BranchComparison data={data} loading={loading} />
-          </FeatureGate>
+        {branchId === ALL_BRANCHES && (
+          <Col span={24}>
+            <Card title="Doanh thu theo chi nhánh">
+              <SectionState section={comparison}>
+                {ranks.map((row) => (
+                  <div key={row.branch.id}>
+                    <Button
+                      type="link"
+                      onClick={() => setBranchId(row.branch.id)}
+                    >
+                      {row.branch.name}
+                    </Button>{" "}
+                    {formatVnd(row.revenue)}
+                    <meter
+                      style={{ width: "100%" }}
+                      aria-label={row.branch.name}
+                      min={Math.min(
+                        0,
+                        ...ranks.map((r) => parseAmount(r.revenue)),
+                      )}
+                      max={Math.max(
+                        1,
+                        ...ranks.map((r) => parseAmount(r.revenue)),
+                      )}
+                      value={parseAmount(row.revenue)}
+                    />
+                  </div>
+                ))}
+              </SectionState>
+            </Card>
+          </Col>
+        )}
+        <Col xs={24} lg={14}>
+          <Card title="Sản phẩm bán chạy">
+            <Segmented<typeof product>
+              value={product}
+              options={[
+                { label: "Món", value: "items" },
+                { label: "Combo", value: "combos" },
+                { label: "Topping", value: "toppings" },
+              ]}
+              onChange={(v) => {
+                setProduct(v)
+                setExpanded(false)
+              }}
+            />
+            <SectionState section={products}>
+              {products.data?.length ? (
+                <>
+                  {products.data.slice(0, 5).map((row, i) => (
+                    <div key={i} style={{ marginTop: 12 }}>
+                      {row.name} · {formatCount(row.quantity)}
+                      <progress
+                        aria-label={row.name}
+                        style={{ width: "100%" }}
+                        value={row.quantity}
+                        max={products.data![0].quantity || 1}
+                      />
+                    </div>
+                  ))}
+                  <Button type="link" onClick={() => setExpanded(!expanded)}>
+                    {expanded ? "Ẩn chi tiết" : "Xem bảng chi tiết"}
+                  </Button>
+                  {expanded && (
+                    <Table
+                      size="small"
+                      dataSource={products.data.map((row, i) => ({
+                        ...row,
+                        key: i,
+                      }))}
+                      columns={[
+                        { title: "Tên", dataIndex: "name" },
+                        { title: "Số lượng", dataIndex: "quantity" },
+                        {
+                          title: "Doanh thu",
+                          dataIndex: "revenue",
+                          render: formatVnd,
+                        },
+                      ]}
+                    />
+                  )}
+                </>
+              ) : (
+                <p>Chưa có sản phẩm bán trong kỳ.</p>
+              )}
+            </SectionState>
+          </Card>
         </Col>
-        <Col xs={24} lg={12}>
-          <TopItemsTable data={data} loading={loading} />
+        <Col xs={24} lg={10}>
+          <Card title="Tỷ trọng thanh toán">
+            <SectionState section={payments}>
+              {total > 0 ? (
+                <>
+                  <p>Theo số tiền ghi nhận trước hoàn</p>
+                  {methods.map((row) => {
+                    const percent =
+                      (100 * parseAmount(row.grossSettledAmount)) / total
+                    return (
+                      <div key={row.method}>
+                        {paymentMethodInfo(row.method).label} ·{" "}
+                        {formatVnd(row.grossSettledAmount)} ·{" "}
+                        {percent.toLocaleString("vi-VN", {
+                          maximumFractionDigits: 1,
+                        })}
+                        %
+                        <progress
+                          aria-label={row.method}
+                          style={{ width: "100%" }}
+                          max={100}
+                          value={percent}
+                        />
+                      </div>
+                    )
+                  })}
+                </>
+              ) : (
+                <p>Chưa có tiền thanh toán trong kỳ.</p>
+              )}
+            </SectionState>
+          </Card>
         </Col>
       </Row>
     </div>
-  );
+  )
 }
 
-type BlockProps = { data: ReturnType<typeof useReportData>["data"]; loading: boolean };
+function SectionState({
+  section,
+  children,
+}: {
+  section: {
+    loading: boolean
+    error?: string
+    reload: () => void
+  }
+  children: React.ReactNode
+}) {
+  if (section.error)
+    return (
+      <Alert
+        type="error"
+        showIcon
+        message={section.error}
+        action={<Button onClick={section.reload}>Thử lại</Button>}
+      />
+    )
+  return section.loading ? <Skeleton active /> : <>{children}</>
+}
 
-function KpiRow({ data, loading }: BlockProps) {
-  const k = summarizeKpi(data?.comparison);
+function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
+  const k = summarizeKpi(comparison)
 
   const tiles = [
     {
@@ -141,216 +394,54 @@ function KpiRow({ data, loading }: BlockProps) {
       icon: <Banknote size={16} />,
       emphasis: true,
     },
-    { key: "orders", label: "Số đơn hoàn tất", value: formatCount(k.orderCount), icon: <ReceiptText size={16} /> },
+    {
+      key: "orders",
+      label: "Số đơn hoàn tất",
+      value: formatCount(k.orderCount),
+      icon: <ReceiptText size={16} />,
+    },
     {
       key: "aov",
       label: "Giá trị đơn trung bình",
-      value: k.averageOrderValue === null ? "—" : formatVnd(k.averageOrderValue),
-      hint: k.averageOrderValue === null ? "Chọn một chi nhánh để xem" : undefined,
+      value:
+        k.averageOrderValue === null ? "—" : formatVnd(k.averageOrderValue),
+      hint:
+        k.averageOrderValue === null ? "Chọn một chi nhánh để xem" : undefined,
       icon: <Wallet size={16} />,
     },
     {
       key: "cancelled",
-      label: "Đơn huỷ sau thanh toán",
-      value: formatCount(k.paidCancellationCount),
-      hint: `Đã hoàn ${formatVnd(k.refundAmount)} (trừ vào ngày huỷ)`,
+      label: "Đã hoàn",
+      value: formatVnd(k.refundAmount),
+      hint: `${formatCount(k.paidCancellationCount)} đơn hủy sau thanh toán`,
       icon: <Undo2 size={16} />,
     },
     {
       key: "pending",
-      label: "Chờ chủ chuỗi hoàn",
+      label: "Đang chờ hoàn",
       value: formatVnd(k.pendingRefundAmount),
       icon: <Hourglass size={16} />,
     },
-  ];
+  ]
 
   return (
     <Row gutter={[16, 16]}>
       {tiles.map((tile) => (
-        <Col xs={12} md={8} key={tile.key} data-testid={`report-kpi-${tile.key}`}>
-          {loading && !data ? (
-            <Card style={{ borderRadius: 14, height: "100%" }} styles={{ body: { padding: 18 } }}>
-              <Skeleton active paragraph={false} title={{ width: "70%" }} />
-            </Card>
-          ) : (
-            <StatCard label={tile.label} value={tile.value} hint={tile.hint} icon={tile.icon} emphasis={tile.emphasis} />
-          )}
+        <Col
+          xs={12}
+          md={8}
+          key={tile.key}
+          data-testid={`report-kpi-${tile.key}`}
+        >
+          <StatCard
+            label={tile.label}
+            value={tile.value}
+            hint={tile.hint}
+            icon={tile.icon}
+            emphasis={tile.emphasis}
+          />
         </Col>
       ))}
     </Row>
-  );
-}
-
-function ChartShell({
-  title,
-  sub,
-  loading,
-  isEmpty,
-  emptyText,
-  children,
-}: {
-  title: string;
-  sub: string;
-  loading: boolean;
-  isEmpty: boolean;
-  emptyText: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card style={{ borderRadius: 14, height: "100%" }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle title={title} sub={sub} />
-      {loading ? (
-        <Skeleton active paragraph={{ rows: 4 }} />
-      ) : isEmpty ? (
-        <div style={{ padding: "36px 0", textAlign: "center", color: palette.textMuted, fontSize: 13.5 }}>
-          {emptyText}
-        </div>
-      ) : (
-        children
-      )}
-    </Card>
-  );
-}
-
-function TimeseriesChart({ data, loading }: BlockProps) {
-  // Cộng mọi chi nhánh lại thành một cột cho mỗi mốc thời gian.
-  const bars = useMemo(() => {
-    if (!data) return [];
-    const { buckets, series } = data.timeseries;
-    return buckets.map((bucket, index) => ({
-      bucket,
-      revenue: series.reduce((sum, s) => sum + parseAmount(s.points[index]?.revenue), 0),
-      refund: series.reduce((sum, s) => sum + parseAmount(s.points[index]?.refundAmount), 0),
-      orders: series.reduce((sum, s) => sum + (s.points[index]?.orderCount ?? 0), 0),
-    }));
-  }, [data]);
-
-  const max = Math.max(...bars.map((b) => b.revenue), 1);
-  const hasRevenue = bars.some((b) => b.revenue > 0);
-
-  return (
-    <ChartShell
-      title="Doanh thu theo thời gian"
-      sub={data ? `Tổng ${formatVnd(bars.reduce((s, b) => s + b.revenue, 0))}` : "Đang tải"}
-      loading={loading && !data}
-      isEmpty={!hasRevenue}
-      emptyText="Không có doanh thu trong khoảng thời gian này."
-    >
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 200, marginTop: 12, overflowX: "auto" }}>
-        {bars.map((bar) => (
-          <div key={bar.bucket} style={{ flex: "1 0 28px", textAlign: "center", minWidth: 28 }}>
-            <div style={{ fontSize: 10.5, color: palette.textMuted, marginBottom: 4, whiteSpace: "nowrap" }}>
-              {bar.revenue > 0 ? formatVndCompact(bar.revenue) : ""}
-            </div>
-            <div style={{ height: 130, display: "flex", alignItems: "flex-end" }}>
-              <div
-                title={`${formatDayLabel(bar.bucket)} · ${formatVnd(bar.revenue)} · ${bar.orders} đơn${bar.refund > 0 ? ` · hoàn ${formatVnd(bar.refund)}` : ""}`}
-                style={{
-                  width: "100%",
-                  height: `${Math.max((bar.revenue / max) * 100, bar.revenue > 0 ? 3 : 0)}%`,
-                  background: palette.brandPrimary,
-                  borderRadius: "4px 4px 0 0",
-                }}
-              />
-            </div>
-            <div style={{ fontSize: 10.5, color: palette.textMuted, marginTop: 6, whiteSpace: "nowrap" }}>
-              {formatDayLabel(bar.bucket)}
-            </div>
-            {bar.refund > 0 && (
-              <div
-                data-testid="report-bar-refund"
-                style={{ fontSize: 10.5, color: palette.error.text, marginTop: 2, whiteSpace: "nowrap" }}
-              >
-                −{formatVndCompact(bar.refund)}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </ChartShell>
-  );
-}
-
-function BranchComparison({ data, loading }: BlockProps) {
-  const rows = data?.comparison.branches ?? [];
-  const max = Math.max(...rows.map((r) => parseAmount(r.revenue)), 1);
-  const hasRevenue = rows.some((r) => parseAmount(r.revenue) > 0);
-
-  return (
-    <ChartShell
-      title="Doanh thu theo chi nhánh"
-      sub={`${rows.length} chi nhánh trong phạm vi`}
-      loading={loading && !data}
-      isEmpty={!hasRevenue}
-      emptyText="Chưa chi nhánh nào có doanh thu trong kỳ."
-    >
-      <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
-        {rows.map((row) => {
-          const revenue = parseAmount(row.revenue);
-          return (
-            <div key={row.branch.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, marginBottom: 5 }}>
-                <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {row.branch.name}
-                </span>
-                <span style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatVnd(revenue)}</span>
-              </div>
-              <div style={{ height: 8, background: palette.paper, borderRadius: 999 }}>
-                <div
-                  style={{
-                    width: `${(revenue / max) * 100}%`,
-                    height: "100%",
-                    background: palette.brandPrimary,
-                    borderRadius: 999,
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 11.5, color: palette.textMuted, marginTop: 4 }}>
-                {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)}
-                {row.paidCancellationCount > 0 &&
-                  ` · huỷ ${formatCount(row.paidCancellationCount)} đơn, hoàn ${formatVnd(row.refundAmount)}`}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </ChartShell>
-  );
-}
-
-function TopItemsTable({ data, loading }: BlockProps) {
-  const items = data?.topItems.items ?? [];
-
-  return (
-    <ChartShell
-      title="Món bán chạy"
-      sub="Xếp theo số lượng bán trong kỳ"
-      loading={loading && !data}
-      isEmpty={items.length === 0}
-      emptyText="Chưa bán được món nào trong khoảng thời gian này."
-    >
-      <Table<TopItemRow>
-        dataSource={items}
-        rowKey={(row) => row.menuItem.id}
-        pagination={false}
-        size="small"
-        style={{ marginTop: 8 }}
-        columns={[
-          { title: "#", dataIndex: "rank", width: 44 },
-          {
-            title: "Món",
-            key: "name",
-            render: (_, row) => row.menuItem.name ?? <span style={{ color: palette.textSubtle }}>Món đã xoá</span>,
-          },
-          { title: "SL", dataIndex: "quantity", align: "right", width: 70, render: (v: number) => formatCount(v) },
-          {
-            title: "Doanh thu",
-            dataIndex: "revenue",
-            align: "right",
-            render: (v: string) => formatVnd(v),
-          },
-        ]}
-      />
-    </ChartShell>
-  );
+  )
 }

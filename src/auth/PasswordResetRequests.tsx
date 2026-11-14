@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { App, Button, Card, Input, Modal, Space, Table, Tag, Typography } from "antd";
 import { request } from "../api/http/client";
@@ -18,6 +19,7 @@ type ResolveResult = { status: "RESET" | "REJECTED"; emailStatus?: "PENDING" | "
 const emailResult = (status?: "PENDING" | "SENT" | "FAILED" | null) => status === "SENT" ? "Đã gửi link đặt mật khẩu" : "Chưa gửi được email. Hãy kiểm tra cấu hình và gửi lại.";
 
 export default function PasswordResetRequests() {
+  const pendingOnly = new URLSearchParams(useLocation().search).get("status") === "PENDING";
   const { message } = App.useApp();
   const [rows, setRows] = useState<ResetRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,10 +32,10 @@ export default function PasswordResetRequests() {
   const load = useCallback(async () => {
     if (isMock) { setRows([]); return; }
     setLoading(true);
-    try { setRows(await request<ResetRequest[]>("/password-reset-requests")); }
+    try { setRows(await request<ResetRequest[]>(pendingOnly ? "/password-reset-requests?status=PENDING" : "/password-reset-requests")); }
     catch (error) { showApiError(message.error, error, "Không tải được yêu cầu đặt lại mật khẩu"); }
     finally { setLoading(false); }
-  }, [isMock, message]);
+  }, [isMock, message, pendingOnly]);
 
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [load]);
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function PasswordResetRequests() {
     finally { setBusy(false); }
   };
 
-  return <Card title="Yêu cầu đặt lại mật khẩu" extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
+  return <Card title={pendingOnly ? "Yêu cầu đặt lại mật khẩu đang chờ" : "Yêu cầu đặt lại mật khẩu"} extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
     <Typography.Paragraph type="secondary">Xác minh người yêu cầu qua điện thoại hoặc trực tiếp trước khi đặt lại. Link chỉ được gửi tới email của tài khoản.</Typography.Paragraph>
     <Table rowKey="id" dataSource={rows} loading={loading} pagination={{ pageSize: 10 }} columns={[
       { title: "Tài khoản", render: (_, item) => <><strong>{[item.user.owner?.firstName ?? item.user.employee?.firstName, item.user.owner?.lastName ?? item.user.employee?.lastName].filter(Boolean).join(" ") || item.user.email}</strong><div>{item.user.email}</div>{(item.user.emailSendStatus === "FAILED" || item.user.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}</> },

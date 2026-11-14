@@ -1,3 +1,4 @@
+import SubscriptionTrend from "./SubscriptionChart";
 import { Col, Row } from "antd";
 import Kpis from "./Kpis";
 import TenantsTable from "./TenantsTable";
@@ -8,6 +9,7 @@ export default function AdminOverview() {
   return (
     <>
       <Kpis />
+      <SubscriptionTrend />
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={15}>
           <TenantsTable />

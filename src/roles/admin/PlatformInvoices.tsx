@@ -19,7 +19,7 @@ export default function PlatformInvoices() {
   const { message } = App.useApp();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<PlatformInvoiceStatus>();
+  const [status, setStatus] = useState<PlatformInvoiceStatus | undefined>(() => new URLSearchParams(window.location.search).get("status") === "NEEDS_REVIEW" ? "NEEDS_REVIEW" : undefined);
   const [data, setData] = useState<Paginated<PlatformInvoice>>();
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<PlatformInvoice>();

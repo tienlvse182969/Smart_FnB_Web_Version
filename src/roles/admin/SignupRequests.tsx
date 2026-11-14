@@ -1,3 +1,4 @@
+import WorkQueue from "../platform-staff/WorkQueue";
 import { App, Card, Drawer, Input, Modal, Select, Table } from "antd";
 
 import { CheckCircle2, X } from "lucide-react";
@@ -162,6 +163,7 @@ export default function SignupRequests() {
         sub="Duyệt gói và gửi liên kết kích hoạt; doanh nghiệp được tạo khi người đăng ký chọn trial hoặc thanh toán"
       />
 
+      {isStaff && <WorkQueue key={awaitingReload} select={next => { setStatus(next); setSearch(""); setPage(1); }} />}
       <div
         style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}
       >
