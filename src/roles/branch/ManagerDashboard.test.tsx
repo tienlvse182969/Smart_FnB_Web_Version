@@ -208,7 +208,14 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     await waitFor(() => expect(screen.getByTestId("report-revenue-bars")).toBeTruthy());
     const neg = document.querySelector('[data-testid="report-revenue-bars"] [data-negative="true"]');
     expect(neg).toBeTruthy();
-    expect(screen.getByTestId("report-revenue-bars").textContent).toMatch(/−/);
+    // Biểu đồ theo giờ: hộp số liệu ghi rõ khung giờ.
+    const hours = screen.getByTestId("report-hours-bars").querySelector("[data-testid=report-chart]")!;
+    fireEvent.keyDown(hours, { key: "ArrowRight" });
+    expect(screen.getByTestId("report-hours-bars").querySelector("[data-testid=chart-tooltip]")!.textContent).toContain("0:00 – 0:59");
+    // Phím End đi tới mốc cuối (ngày chỉ có hoàn tiền): hộp số liệu hiện ngay với dấu "−".
+    const chart = screen.getByTestId("report-revenue-bars").querySelector("[data-testid=report-chart]")!;
+    fireEvent.keyDown(chart, { key: "End" });
+    expect(screen.getByTestId("report-revenue-bars").querySelector("[data-testid=chart-tooltip]")!.textContent).toMatch(/−/);
     expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("950.000");
     expect(screen.getByTestId("report-kpi-gross").textContent).toContain("1.090.000");
     expect(screen.getByTestId("report-kpi-refund").textContent).toContain("140.000");

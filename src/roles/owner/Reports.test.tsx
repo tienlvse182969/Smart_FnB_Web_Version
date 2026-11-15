@@ -163,4 +163,13 @@ it("fills missing subscription days in Vietnam time and preserves the collected 
     ["2026-11-02", 300000],
     ["2026-11-03", 0],
   ])
+  // Hộp số liệu dùng ngày kiểu Việt Nam, không hiện "2026-11-02".
+  expect(points[1].label).toBe("02/11")
+  expect(points[1].detail.startsWith("02/11/2026 · ")).toBe(true)
+  const months = subscriptionPoints({
+    range: { from: "2026-09-30T17:00:00Z", to: "2026-10-31T16:59:59Z", groupBy: "month" },
+    series: [{ period: "2026-10", revenue: 798000, invoiceCount: 2 }],
+  } as PlatformRevenueReport)
+  expect(months.map((p) => p.label)).toEqual(["10/2026"])
+  expect(months[0].detail.startsWith("Tháng 10/2026 · ")).toBe(true)
 })

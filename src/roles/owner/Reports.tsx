@@ -270,6 +270,7 @@ export default function Reports() {
                 points={points}
                 series={series}
                 format={metric === "orders" ? formatCount : formatVndCompact}
+                formatFull={metric === "orders" ? (v) => `${formatCount(v)} đơn` : formatVnd}
               />
               {range.from === range.to && (
                 <div data-testid="single-day-note" style={{ fontSize: 12.5, color: palette.textMuted }}>

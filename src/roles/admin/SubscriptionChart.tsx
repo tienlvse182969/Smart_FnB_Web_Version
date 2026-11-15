@@ -27,17 +27,14 @@ export function subscriptionPoints(data: PlatformRevenueReport) {
   ) {
     const key = at.format(pattern)
     const row = rows.get(key)
+    // Nhãn trục gọn, tiêu đề hộp số liệu đầy đủ, đều theo kiểu Việt Nam (không hiện ngày dạng máy "2026-11-02").
+    const label = groupBy === "day" ? at.format("DD/MM") : groupBy === "month" ? at.format("MM/YYYY") : at.format("YYYY")
+    const heading = groupBy === "day" ? at.format("DD/MM/YYYY") : groupBy === "month" ? `Tháng ${at.format("MM/YYYY")}` : `Năm ${at.format("YYYY")}`
     points.push({
       key,
-      label: groupBy === "day" ? at.format("DD/MM") : key,
+      label,
       value: row?.revenue ?? 0,
-      detail:
-        key +
-        " · " +
-        formatVnd(row?.revenue ?? 0) +
-        " · " +
-        (row?.invoiceCount ?? 0) +
-        " hóa đơn",
+      detail: heading + " · " + formatVnd(row?.revenue ?? 0) + " · " + (row?.invoiceCount ?? 0) + " hoá đơn",
     })
   }
   return points
