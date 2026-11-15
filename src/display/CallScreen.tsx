@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
-import { PLATFORM_LOGO } from "../components/brand/PlatformLogo"
+import BrandMark from "../components/brand/BrandMark"
 import {
   CALLING_EVENT_PREFIX,
   createCallingDisplayPairing,
@@ -370,16 +370,8 @@ export default function CallScreen() {
         className={`flex h-[12vh] shrink-0 items-center justify-between px-[2vw] ${primary ? "" : "bg-slate-800 text-white"}`}
       >
         <div className="flex min-w-0 items-center gap-[1.5vw]">
-          {branding.logoUrl ? (
-            <img
-              className="h-[8vh] w-[8vh] object-contain"
-              src={resolveDisplayAsset(branding.logoUrl) ?? ""}
-              alt=""
-            />
-          ) : (
-            // Chuỗi chưa tải logo → logo gốc; bản trắng/đen theo màu chữ trên thanh tiêu đề.
-            <img className="h-[8vh] w-[8vh] object-contain" src={PLATFORM_LOGO.mark[!primary || isDarkEnoughForWhiteText(primary) ? "light" : "dark"]} alt="" />
-          )}
+          <BrandMark className="h-[8vh] w-[8vh] object-contain" logo={branding.logoUrl ? resolveDisplayAsset(branding.logoUrl) : undefined}
+            tone={!primary || isDarkEnoughForWhiteText(primary) ? "light" : "dark"} />
           <div className="min-w-0">
             <h1 className="truncate text-[4.4vh] leading-tight font-black">
               {branding.displayName}

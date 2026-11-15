@@ -4,7 +4,7 @@ import { ImageUp, Lock, RotateCcw, Save, Send, Ticket } from "lucide-react";
 import { showApiError } from "../../api";
 import { validateLogoFile, MAX_DISPLAY_NAME_LENGTH } from "../../api/modules/branding/validate";
 import { SectionTitle } from "../../components/bits";
-import { PLATFORM_LOGO } from "../../components/brand/PlatformLogo";
+import BrandMark from "../../components/brand/BrandMark";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
@@ -381,16 +381,8 @@ function LogoDot({
         flexShrink: 0,
       }}
     >
-      {logoUrl ? (
-        <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        // Chưa có logo → logo gốc của nền tảng; trên nền màu chủ đạo dùng bản trắng/đen theo màu chữ đạt tương phản.
-        <img
-          src={PLATFORM_LOGO.mark[dark && isDarkEnoughForWhiteText(primary) ? "light" : "dark"]}
-          alt=""
-          style={{ width: "84%", height: "84%", objectFit: "contain" }}
-        />
-      )}
+      <BrandMark logo={logoUrl} tone={dark && isDarkEnoughForWhiteText(primary) ? "light" : "dark"}
+        style={{ width: "84%", height: "84%", objectFit: "contain" }} />
     </div>
   );
 }
