@@ -3,6 +3,7 @@
  * Sidebar (RoleLayout) và cây route (router/index.tsx) đều đọc từ đây — không
  * khai báo màn hình ở nơi nào khác. `code` là mã use case trong đặc tả v9 (mục 14).
  */
+import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   BarChart3,
@@ -35,8 +36,7 @@ import SignupRequests from "../roles/admin/SignupRequests";
 import PlansTable from "../roles/admin/PlansTable";
 import Reports from "../roles/owner/Reports";
 import Branches from "../roles/owner/Branches";
-import MenuTable from "../roles/owner/MenuTable";
-import CategoriesTable from "../roles/owner/CategoriesTable";
+import MenuHub from "../roles/owner/MenuHub";
 import BranchPrices from "../roles/owner/BranchPrices";
 import BranchPriceList from "../roles/branch/BranchPriceList";
 import CombosPage from "../roles/owner/CombosPage";
@@ -84,7 +84,25 @@ export interface RouteDef {
   code?: string;
   /** false = có route nhưng không hiện trên sidebar. */
   nav?: boolean;
+  /** Khoá nhóm sidebar chứa mục này (xem `NAV_GROUPS`); bỏ trống = mục đứng riêng. */
+  group?: string;
+  /** Nhãn nhỏ cạnh tên mục trên sidebar (vd "AI"). */
+  tag?: string;
 }
+
+export interface NavGroupDef {
+  label: string;
+  icon: ReactNode;
+}
+
+/** Nhóm xổ ra trên sidebar, theo vai trò. Thứ tự nhóm = thứ tự mục đầu tiên của nhóm trong `roleRoutes`. */
+export const NAV_GROUPS: Partial<Record<WebRole, Record<string, NavGroupDef>>> = {
+  owner: {
+    menu: { label: "Thực đơn", icon: <UtensilsCrossed size={18} /> },
+    staff: { label: "Nhân sự", icon: <UsersRound size={18} /> },
+    brand: { label: "Thương hiệu", icon: <Palette size={18} /> },
+  },
+};
 
 export const adminRoutes: RouteDef[] = [
   { path: "overview", label: "Tổng quan", icon: <LayoutDashboard size={18} />, element: <AdminOverview /> },
@@ -113,43 +131,27 @@ export const platformStaffRoutes: RouteDef[] = [
 export const ownerRoutes: RouteDef[] = [
   { path: "reports", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "OW-08", element: <Reports /> },
   { path: "branches", label: "Chi nhánh", icon: <Store size={18} />, code: "OW-01", element: <Branches /> },
-  { path: "menu", label: "Menu toàn chuỗi", icon: <UtensilsCrossed size={18} />, code: "OW-02 · OW-04", element: <MenuTable /> },
-  { path: "menu/categories", label: "Danh mục món", icon: <Tags size={18} />, code: "OW-02", element: <CategoriesTable /> },
+  { path: "menu", label: "Món & danh mục", group: "menu", icon: <UtensilsCrossed size={18} />, code: "OW-02 · OW-04", element: <MenuHub /> },
   {
-    path: "menu/options",
-    label: "Tuỳ chọn món",
-    icon: <Sliders size={18} />,
-    code: "OW-03",
-    element: <OptionGroups />,
+    // Route cũ (Danh mục món) giữ nguyên, chuyển sang tab Danh mục của trang gộp.
+    path: "menu/categories",
+    label: "Danh mục món",
+    icon: <Tags size={18} />,
+    code: "OW-02",
+    nav: false,
+    element: <Navigate to="/brand-manager/menu?tab=categories" replace />,
   },
-  { path: "menu/extras", label: "Topping thêm", icon: <CirclePlus size={18} />, code: "OW-15", element: <ExtrasLibrary /> },
-  { path: "menu/combos", label: "Combo", icon: <Layers size={18} />, code: "OW-14 · OW-04", element: <CombosPage /> },
-  { path: "menu/prices", label: "Giá theo chi nhánh", icon: <Tags size={18} />, code: "OW-16", element: <BranchPrices /> },
-  {
-    path: "menu/import",
-    label: "Nhập menu từ ảnh",
-    icon: <ScanLine size={18} />,
-    code: "OW-12",
-    element: <MenuImport />,
-  },
-  { path: "accounts", label: "Tài khoản quản lý", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
-  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "OW-05", element: <PasswordResetRequests /> },
-  {
-    path: "payos",
-    label: "Liên kết PayOS",
-    icon: <CreditCard size={18} />,
-    code: "OW-06",
-    element: <PayosLink />,
-  },
-  { path: "branding", label: "Nhận diện", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
-  { path: "posters", label: "Poster màn hình sau", icon: <Images size={18} />, code: "OW-11", element: <Posters /> },
-  {
-    path: "plan",
-    label: "Gói của tôi",
-    icon: <ScrollText size={18} />,
-    code: "OW-10",
-    element: <MyPlan />,
-  },
+  { path: "menu/options", label: "Tuỳ chọn", group: "menu", icon: <Sliders size={18} />, code: "OW-03", element: <OptionGroups /> },
+  { path: "menu/extras", label: "Topping", group: "menu", icon: <CirclePlus size={18} />, code: "OW-15", element: <ExtrasLibrary /> },
+  { path: "menu/combos", label: "Combo", group: "menu", icon: <Layers size={18} />, code: "OW-14 · OW-04", element: <CombosPage /> },
+  { path: "menu/prices", label: "Giá theo chi nhánh", group: "menu", icon: <Tags size={18} />, code: "OW-16", element: <BranchPrices /> },
+  { path: "menu/import", label: "Nhập từ ảnh", group: "menu", tag: "AI", icon: <ScanLine size={18} />, code: "OW-12", element: <MenuImport /> },
+  { path: "accounts", label: "Tài khoản quản lý", group: "staff", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", group: "staff", icon: <UserCog size={18} />, code: "OW-05", element: <PasswordResetRequests /> },
+  { path: "branding", label: "Nhận diện", group: "brand", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
+  { path: "posters", label: "Áp phích", group: "brand", icon: <Images size={18} />, code: "OW-11", element: <Posters /> },
+  { path: "payos", label: "Liên kết PayOS", group: "brand", icon: <CreditCard size={18} />, code: "OW-06", element: <PayosLink /> },
+  { path: "plan", label: "Gói dịch vụ", icon: <ScrollText size={18} />, code: "OW-10", element: <MyPlan /> },
 ];
 
 export const managerRoutes: RouteDef[] = [

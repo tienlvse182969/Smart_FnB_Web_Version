@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Avatar, Badge, Button, Dropdown, Grid, Input, Layout, Menu } from "antd";
+import { Avatar, Badge, Button, Dropdown, Grid, Input, Layout } from "antd";
 import { Bell, CalendarDays, LogOut, Menu as MenuIcon, Search, Store, User } from "lucide-react";
 import BrandMark from "../components/brand/BrandMark";
 import { roleMeta } from "../data";
@@ -7,12 +7,12 @@ import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
 import ReadOnlyBanner from "../plan/ReadOnlyBanner";
 import ExpiringBanner from "../plan/ExpiringBanner";
-import { onBrandAlpha, useBrand, palette } from "../theme";
+import SidebarNav, { type NavItem } from "./SidebarNav";
+import { useBrand, palette } from "../theme";
 
 const { Sider, Header, Content } = Layout;
 
-/** `badge` > 0 hiện số đếm cạnh nhãn (ví dụ "Đơn cần xử lý", lượt 7.5); 0/null/không có = không hiện. */
-export type NavItem = { key: string; label: string; icon: ReactNode; badge?: number | null };
+export type { NavItem };
 
 const today = new Date().toLocaleDateString("vi-VN", {
   weekday: "long",
@@ -55,10 +55,8 @@ export default function RoleShell({
   // Brand Manager chưa đổi logo (hoặc logo tải lỗi) → dùng logo gốc của nền tảng, như app thu ngân/pha chế.
   const brandLogo = brand.logo;
 
-  // Chữ trên thanh bên đã được chọn trắng/đen theo tương phản với màu thương hiệu (BR-43).
+  // Chữ trên thanh bên là ink của nền thương hiệu (đạt 4.5:1), đặc, không dùng độ mờ.
   const siderFg = palette.onBrand;
-  const siderFgDim = onBrandAlpha(55);
-  const siderBtnBg = onBrandAlpha(10);
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
@@ -82,8 +80,6 @@ export default function RoleShell({
             ? { position: "fixed" as const, left: 0, top: 0, zIndex: 1000, visibility: navOpen ? ("visible" as const) : ("hidden" as const) }
             : { flex: "0 0 244px" }),
           ["--sider-fg" as string]: siderFg,
-          ["--sider-fg-dim" as string]: siderFgDim,
-          ["--sider-btn-bg" as string]: siderBtnBg,
         }}
       >
         <div
@@ -114,36 +110,24 @@ export default function RoleShell({
             <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {brandName}
             </div>
-            <div style={{ fontSize: 11, color: "var(--sider-fg-dim)" }}>
+            <div style={{ fontSize: 11, color: "var(--sider-fg)" }}>
               {showTenantBrand ? "Smart F&B Chain Platform" : "Chain Platform"}
             </div>
           </div>
         </div>
 
         <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
-          <Menu
-            theme="dark"
-            mode="inline"
-            selectedKeys={[section]}
-            onClick={(e) => {
-              onSection(e.key);
-              setNavOpen(false);
-            }}
-            style={{ border: "none", background: "transparent", padding: "0 12px" }}
-            items={nav.map((n) => ({
-              key: n.key,
-              icon: n.icon,
-              label:
-                n.badge && n.badge > 0 ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    {n.label}
-                    <Badge count={n.badge} overflowCount={99} data-testid={`nav-badge-${n.key}`} style={{ boxShadow: "none" }} />
-                  </span>
-                ) : (
-                  n.label
-                ),
-            }))}
-          />
+          <div style={{ padding: "0 12px" }}>
+            <SidebarNav
+              scope={role}
+              nav={nav}
+              section={section}
+              onSelect={(key) => {
+                onSection(key);
+                setNavOpen(false);
+              }}
+            />
+          </div>
         </div>
 
         {footer && <div style={{ flexShrink: 0 }}>{footer}</div>}
@@ -200,7 +184,12 @@ export default function RoleShell({
             </span>
           )}
 
+          {/* type="search" + name trung tính: Chrome không tự điền email/tên đăng nhập vào ô này. */}
           <Input
+            type="search"
+            name="fnb-quick-search"
+            autoComplete="off"
+            aria-label={searchPlaceholder}
             prefix={<Search size={16} color={palette.textSubtle} />}
             placeholder={searchPlaceholder}
             variant="filled"

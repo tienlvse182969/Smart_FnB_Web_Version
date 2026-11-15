@@ -9,6 +9,8 @@
  *  3. TRUNG TÍNH (`neutral.*`) — chữ, nền, đường kẻ của giao diện; cũng cố định.
  */
 
+import { deriveBrandSurface, hoverSurface } from "./brandColor";
+
 /** Nhận diện nền tảng — dùng cho Admin, trang đăng nhập, landing và doanh nghiệp chưa/không được dùng nhận diện riêng. */
 export const PLATFORM_BRAND = {
   primary: "#0a0a0a",
@@ -19,9 +21,14 @@ export const PLATFORM_BRAND = {
 } as const;
 
 /** Nhận diện nền tảng dưới dạng token. */
+const PLATFORM_SURFACE = deriveBrandSurface(PLATFORM_BRAND.primary);
 export const PLATFORM_BRAND_TOKENS: BrandTokens = {
   primary: PLATFORM_BRAND.primary,
-  primaryContrast: PLATFORM_BRAND.primaryContrast,
+  primaryContrast: PLATFORM_SURFACE.ink,
+  surface: PLATFORM_SURFACE.surface,
+  surfaceHover: hoverSurface(PLATFORM_SURFACE.surface),
+  activeInk: PLATFORM_SURFACE.activeInk,
+  rule: PLATFORM_SURFACE.rule,
   accent: PLATFORM_BRAND.accent,
   displayName: PLATFORM_BRAND.displayName,
   logo: undefined,
@@ -30,15 +37,16 @@ export const PLATFORM_BRAND_TOKENS: BrandTokens = {
 
 /** Trung tính của giao diện — không đổi theo thương hiệu. */
 export const NEUTRAL = {
-  ink: "#0a0a0a",
+  ink: "#1A1D21",
   surface: "#ffffff",
-  paper: "#f4f4f5",
+  paper: "#F6F6F7",
   paperSubtle: "#fafafa",
   line: "#e4e4e7",
   lineSubtle: "#f0f0f1",
   textStrong: "#52525b",
-  textMuted: "#71717a",
-  textSubtle: "#a1a1aa",
+  textMuted: "#6B7280",
+  /** Chữ phụ không nhạt hơn #6B7280 (đạt 4.5:1 trên nền trắng). */
+  textSubtle: "#6B7280",
   /** Nền khối mã/ghi chú tối, chữ trên đó. */
   codeBg: "#0a0a0a",
   codeText: "#e4e4e7",
@@ -87,9 +95,18 @@ export const BE_DEFAULT_BRANDING = {
 
 /** Bộ token thương hiệu đã giải quyết xong — thứ duy nhất màn hình/theme được đọc. */
 export interface BrandTokens {
+  /** Màu chủ đạo gốc do chuỗi chọn. Nền thương hiệu thực tế là surface. */
   primary: string;
-  /** Màu chữ/biểu tượng trên nền `primary`, tự chọn để đạt tương phản WCAG (BR-43). */
+  /** Màu chữ/biểu tượng (ink) trên nền surface, đạt tương phản 4.5:1. */
   primaryContrast: string;
+  /** Nền thương hiệu: màu chủ đạo đã làm sẫm đủ để chữ đọc rõ (thanh bên, nút chính, header). */
+  surface: string;
+  /** Nền nút chính khi rê chuột (sẫm thêm ~6%). */
+  surfaceHover: string;
+  /** Màu chủ đạo sẫm cho chữ trên nền trắng: mục đang chọn, badge, liên kết. */
+  activeInk: string;
+  /** Đường kẻ trên nền surface. */
+  rule: string;
   accent: string;
   displayName: string;
   /** Logo của chuỗi; undefined = logo nền tảng. */
@@ -105,6 +122,10 @@ export interface BrandTokens {
 export const CSS_VAR = {
   brandPrimary: "--brand-primary",
   brandPrimaryContrast: "--brand-primary-contrast",
+  brandHover: "--brand-primary-hover",
+  brandActiveInk: "--brand-active-ink",
+  brandRule: "--brand-rule",
+  brandRaw: "--brand-raw",
   brandAccent: "--brand-accent",
   ink: "--fnb-ink",
   surface: "--fnb-surface",
@@ -134,6 +155,11 @@ const semanticVars = (key: SemanticKey) => ({
 export const palette = {
   brandPrimary: v(CSS_VAR.brandPrimary),
   onBrand: v(CSS_VAR.brandPrimaryContrast),
+  brandHover: v(CSS_VAR.brandHover),
+  activeInk: v(CSS_VAR.brandActiveInk),
+  brandRule: v(CSS_VAR.brandRule),
+  /** Màu chủ đạo gốc (chưa làm sẫm): chỉ cho viền focus và mẫu màu. */
+  brandRaw: v(CSS_VAR.brandRaw),
   brandAccent: v(CSS_VAR.brandAccent),
   ink: v(CSS_VAR.ink),
   surface: v(CSS_VAR.surface),

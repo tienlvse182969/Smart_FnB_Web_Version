@@ -3,12 +3,14 @@ import type { Branding } from "../types";
 import {
   BRAND_COLOR_PRESETS,
   PLATFORM_BRAND_TOKENS,
+  SEMANTIC,
   STATUS,
   WCAG_AA_RATIO,
   buildTheme,
   contrastRatio,
   isDarkEnoughForWhiteText,
   meetsWcagAA,
+  deriveBrandSurface,
   pickReadableTextColor,
   resolveBrand,
 } from "./index";
@@ -74,7 +76,9 @@ describe("resolveBrand — hai họ màu tách biệt", () => {
     expect(brand.primary).toBe(custom.primaryColor);
     expect(brand.displayName).toBe("Quán Mộc");
     expect(brand.logo).toBe(custom.logoUrl);
-    expect(brand.primaryContrast).toBe(pickReadableTextColor(custom.primaryColor));
+    // Nền thương hiệu là surface (đã làm sẫm), chữ là ink; cặp này luôn đạt 4.5:1.
+    expect(brand.primaryContrast).toBe(deriveBrandSurface(custom.primaryColor).ink);
+    expect(meetsWcagAA(brand.surface, brand.primaryContrast)).toBe(true);
   });
 
   it("Admin / trang đăng nhập (platformOnly) luôn nhận diện nền tảng (BR-44, CC-04)", () => {
@@ -124,11 +128,13 @@ describe("buildTheme — màu ngữ nghĩa không phụ thuộc thương hiệu 
       brandingEnabled: true,
     });
     const theme = buildTheme(red);
-    expect(theme.token?.colorPrimary).toBe(BRAND_COLOR_PRESETS[1]);
+    expect(theme.token?.colorPrimary).toBe(red.surface);
     // màu trạng thái là hằng số, không có chỗ nào trong theme lấy từ primary
     expect(STATUS.late).not.toBe(red.primary);
-    expect(theme.token?.colorError).toBeUndefined();
-    expect(theme.token?.colorSuccess).toBeUndefined();
-    expect(theme.token?.colorWarning).toBeUndefined();
+    // token ngữ nghĩa là hằng số của hệ thống, không lấy từ màu chuỗi
+    expect(theme.token?.colorError).toBe(SEMANTIC.error.text);
+    expect(theme.token?.colorSuccess).toBe(SEMANTIC.success.text);
+    expect(theme.token?.colorWarning).toBe(SEMANTIC.warning.text);
+    expect(theme.token?.colorInfo).toBe(SEMANTIC.info.text);
   });
 });

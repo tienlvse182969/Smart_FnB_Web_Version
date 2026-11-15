@@ -14,7 +14,7 @@ import ItemExtrasEditor, { itemExtrasKey, itemExtrasProblem, type ItemExtrasValu
 import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { SectionTitle } from "../../components/bits";
+import { SectionTitle, ToolbarRow } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
@@ -24,7 +24,8 @@ type StatusFilter = "all" | "active" | "off";
  * OW-02, OW-04: Owner quản menu toàn chuỗi qua `menuApi` (real). Một giá toàn chuỗi (BR-13); tắt cấp chuỗi thì mọi chi nhánh
  * không bán được (BR-12). Danh mục quản ở màn "Danh mục món".
  */
-export default function MenuTable() {
+/** `embedded`: nằm trong tab của trang "Món & danh mục" (header thuộc trang), chỉ giữ thanh công cụ. */
+export default function MenuTable({ embedded = false }: { embedded?: boolean } = {}) {
   const { message, modal } = App.useApp();
   const chainId = useAppStore((s) => s.chainId);
   const branches = useAppStore((s) => s.branches);
@@ -101,15 +102,26 @@ export default function MenuTable() {
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Quản lý menu"
-        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt (BR-12)"
-        extra={
-          <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
-            Thêm món
-          </ActionButton>
-        }
-      />
+      {embedded ? (
+        <ToolbarRow
+          sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt."
+          extra={
+            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+              Thêm món
+            </ActionButton>
+          }
+        />
+      ) : (
+        <SectionTitle
+          title="Quản lý menu"
+          sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt"
+          extra={
+            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+              Thêm món
+            </ActionButton>
+          }
+        />
+      )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <Select
@@ -576,7 +588,7 @@ function ItemDrawer({
       <Field label="Tuỳ chọn món">
         <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
       </Field>
-      <Field label="Topping thêm (OW-15)">
+      <Field label="Topping">
         <ItemExtrasEditor
           library={extraLibrary}
           value={extras}
