@@ -18,7 +18,8 @@ export interface LedgerEntry {
   occurredAt: string;
   /** Ngày bán theo giờ Việt Nam `YYYY-MM-DD` (BE `order.businessDate`). */
   businessDate: string | null;
-  /** Mã đơn (BE không còn trả id đơn trong sổ): mở chi tiết qua Tra cứu đơn theo mã. */
+  /** Id đơn (BE trả từ GAP-310): bấm mã đơn mở thẳng chi tiết đơn. */
+  orderId: string | null;
   orderCode: string | null;
   callNumber: number | null;
   /** Người thao tác: thu ngân xử lý thanh toán, hoặc người hoàn tiền. */

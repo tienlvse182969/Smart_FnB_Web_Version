@@ -133,6 +133,8 @@ export const ownerRoutes: RouteDef[] = [
   // Link cũ của bản sổ riêng: sổ của Brand Manager nằm trong báo cáo đa chi nhánh (đặc tả 32.5).
   { path: "cash-ledger", label: "Sổ giao dịch", icon: <ScrollText size={18} />, nav: false, element: <Navigate to="/brand-manager/reports" replace /> },
   { path: "branches", label: "Chi nhánh", icon: <Store size={18} />, code: "OW-01", element: <Branches /> },
+  { path: "orders", label: "Đơn hàng", icon: <ClipboardList size={18} />, code: "GAP-310", element: <OrderSearch scope="chain" /> },
+  { path: "orders/:orderId", label: "Chi tiết đơn", icon: <Receipt size={18} />, code: "GAP-310", nav: false, element: <OrderDetail scope="chain" /> },
   { path: "menu", label: "Món & danh mục", group: "menu", icon: <UtensilsCrossed size={18} />, code: "OW-02 · OW-04", element: <MenuHub /> },
   {
     // Route cũ (Danh mục món) giữ nguyên, chuyển sang tab Danh mục của trang gộp.

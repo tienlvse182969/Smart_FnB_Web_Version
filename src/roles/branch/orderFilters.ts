@@ -17,6 +17,8 @@ export const MAX_CALL_NUMBER = 2147483647;
 export const MAX_ORDER_CODE_LENGTH = 50;
 
 export interface OrderFilters {
+  /** Chi nhánh (chỉ màn Đơn hàng của Brand Manager); rỗng = tất cả. */
+  branch: string;
   /** Ngày dương lịch giờ Việt Nam, `YYYY-MM-DD`. */
   from: string;
   to: string;
@@ -36,6 +38,7 @@ export interface OrderFilters {
 
 export function defaultFilters(today: string = todayInVn()): OrderFilters {
   return {
+    branch: "",
     from: dayjs(today).subtract(DEFAULT_RANGE_DAYS - 1, "day").format("YYYY-MM-DD"),
     to: today,
     callNumber: "",
@@ -75,8 +78,10 @@ export function parseFilters(search: string | URLSearchParams, today: string = t
   const page = pageRaw && /^\d{1,9}$/.test(pageRaw) && Number(pageRaw) >= 1 ? Number(pageRaw) : 1;
   const limitRaw = Number(params.get("limit"));
   const limit = (ORDER_PAGE_SIZES as readonly number[]).includes(limitRaw) ? limitRaw : base.limit;
+  const branchRaw = params.get("branch") ?? "";
   return {
     ...range,
+    branch: /^[0-9a-fA-F-]{8,40}$/.test(branchRaw) ? branchRaw : "",
     callNumber: cleanCallNumber(params.get("callNumber") ?? ""),
     orderCode: cleanOrderCode(params.get("orderCode") ?? ""),
     status: oneOf(params.get("status"), ORDER_STATUS_FILTER),
@@ -92,6 +97,7 @@ export function parseFilters(search: string | URLSearchParams, today: string = t
 export function filtersToSearch(filters: OrderFilters, today: string = todayInVn()): URLSearchParams {
   const base = defaultFilters(today);
   const out = new URLSearchParams();
+  if (filters.branch) out.set("branch", filters.branch);
   if (filters.from !== base.from || filters.to !== base.to) {
     out.set("from", filters.from);
     out.set("to", filters.to);
@@ -109,7 +115,7 @@ export function filtersToSearch(filters: OrderFilters, today: string = todayInVn
 
 /** Có bộ lọc nào ngoài khoảng ngày mặc định (dùng cho nút Xoá bộ lọc và câu "không có đơn"). */
 export function hasExtraFilters(filters: OrderFilters): boolean {
-  return !!(filters.callNumber || filters.orderCode || filters.status || filters.payment || filters.method || filters.refund);
+  return !!(filters.branch || filters.callNumber || filters.orderCode || filters.status || filters.payment || filters.method || filters.refund);
 }
 
 export function isDefaultFilters(filters: OrderFilters, today: string = todayInVn()): boolean {
@@ -120,6 +126,7 @@ export function isDefaultFilters(filters: OrderFilters, today: string = todayInV
 /** Bộ lọc → tham số gửi BE: ngày VN đổi sang ISO có múi giờ (từ đầu ngày `from` đến cuối ngày `to`). */
 export function toOrderQuery(filters: OrderFilters): OrderQuery {
   const query: OrderQuery = { from: vnDayStartIso(filters.from), to: vnDayEndIso(filters.to), page: filters.page, limit: filters.limit };
+  if (filters.branch) query.branchId = filters.branch;
   if (filters.callNumber) query.callNumber = Number(filters.callNumber);
   if (filters.orderCode) query.orderCode = filters.orderCode;
   if (filters.status) query.status = filters.status;

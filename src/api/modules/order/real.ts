@@ -19,6 +19,15 @@ export const orderReal: OrderApi = {
     return mapOrderDetail(await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}`));
   },
 
+  async listChainOrders(chainId, query) {
+    const raw = await request<unknown>(`/restaurant-chains/${encodeURIComponent(chainId)}/orders${buildOrderQueryString(query)}`);
+    return mapOrderPage(raw, { page: query.page, limit: query.limit });
+  },
+
+  async getChainOrder(chainId, orderId) {
+    return mapOrderDetail(await request<unknown>(`/restaurant-chains/${encodeURIComponent(chainId)}/orders/${encodeURIComponent(orderId)}`));
+  },
+
   async confirmPayment(_scope, paymentId, input) {
     // Chỉ đúng 3 ô của `ConfirmPaymentDto` (BE bật `forbidNonWhitelisted`); ô tuỳ chọn trống thì không gửi.
     const body: Record<string, unknown> = { reason: input.reason, receivedAmount: input.receivedAmount };

@@ -33,6 +33,7 @@ export function vnDayEndIso(day: string): string {
 export function buildOrderQueryString(query: OrderQuery): string {
   const search = new URLSearchParams();
   search.set("type", ORDER_TYPE);
+  if (query.branchId) search.set("branchId", query.branchId);
   if (query.from) search.set("from", query.from);
   if (query.to) search.set("to", query.to);
   if (query.callNumber !== undefined) search.set("callNumber", String(query.callNumber));

@@ -176,6 +176,8 @@ export type OrderSummary = {
   attentionAt?: string | null;
   /** Lý do BE ghi (QĐ 123): PAID_ITEM_OUT_OF_STOCK, PAID_OPTION_OUT_OF_STOCK, PAYMENT_RECEIVED_AFTER_EXPIRY… */
   attentionReason?: string | null;
+  /** Chi nhánh của đơn: chỉ có ở `GET /restaurant-chains/:id/orders` (Brand Manager, GAP-310). */
+  branch?: { id: string; code: string; name: string } | null;
 };
 
 export type OrderDetailOption = {
@@ -228,6 +230,8 @@ export type OrderQuery = {
   sortOrder?: "asc" | "desc";
   page: number;
   limit: number;
+  /** Chỉ dùng cho danh sách của chuỗi (Brand Manager): lọc một chi nhánh. */
+  branchId?: string;
 };
 
 export type OrderPage = {
