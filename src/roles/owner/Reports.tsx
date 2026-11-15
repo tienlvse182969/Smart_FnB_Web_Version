@@ -426,6 +426,10 @@ export default function Reports() {
                           maximumFractionDigits: 1,
                         })}
                         %
+                        <div style={{ fontSize: 12 }}>
+                          Đã hoàn {formatVnd(row.refundAmount)} · sau hoàn{" "}
+                          {formatVnd(row.netAmount)} · {formatCount(row.paymentCount)} khoản
+                        </div>
                         <ShareBar label={row.method} max={100} value={percent} />
                       </div>
                     )

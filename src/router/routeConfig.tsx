@@ -7,7 +7,6 @@ import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   BarChart3,
-  BookOpen,
   Building2,
   ClipboardList,
   CreditCard,
@@ -59,7 +58,6 @@ import OrderDetail from "../roles/branch/OrderDetail";
 import AttentionOrders from "../roles/branch/AttentionOrders";
 import RefundApprovals from "../roles/branch/RefundApprovals";
 import TransactionLedger from "../roles/branch/TransactionLedger";
-import CashLedger from "../roles/branch/CashLedger";
 import PlatformBusinesses from "../roles/platform-staff/Businesses";
 import PlatformStaffPlans from "../roles/platform-staff/PlatformStaffPlans";
 import PlatformStaffAccounts from "../roles/admin/PlatformStaffAccounts";
@@ -132,7 +130,8 @@ export const platformStaffRoutes: RouteDef[] = [
 
 export const ownerRoutes: RouteDef[] = [
   { path: "reports", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "OW-08", element: <Reports /> },
-  { path: "cash-ledger", label: "Sổ giao dịch", icon: <BookOpen size={18} />, code: "OW-08 · BM-07", element: <CashLedger scope="chain" /> },
+  // Link cũ của bản sổ riêng: sổ của Brand Manager nằm trong báo cáo đa chi nhánh (đặc tả 32.5).
+  { path: "cash-ledger", label: "Sổ giao dịch", icon: <ScrollText size={18} />, nav: false, element: <Navigate to="/brand-manager/reports" replace /> },
   { path: "branches", label: "Chi nhánh", icon: <Store size={18} />, code: "OW-01", element: <Branches /> },
   { path: "menu", label: "Món & danh mục", group: "menu", icon: <UtensilsCrossed size={18} />, code: "OW-02 · OW-04", element: <MenuHub /> },
   {
@@ -159,7 +158,7 @@ export const ownerRoutes: RouteDef[] = [
 
 export const managerRoutes: RouteDef[] = [
   { path: "dashboard", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "BM-03", element: <ManagerDashboard /> },
-  { path: "cash-ledger", label: "Sổ giao dịch", icon: <BookOpen size={18} />, code: "BM-07", element: <CashLedger scope="branch" /> },
+  { path: "cash-ledger", label: "Sổ giao dịch", icon: <ScrollText size={18} />, nav: false, element: <Navigate to="/store-manager/ledger" replace /> },
   { path: "branch-info", label: "Thông tin chi nhánh", icon: <Building2 size={18} />, element: <BranchInfo /> },
   { path: "menu", label: "Món tại chi nhánh", icon: <UtensilsCrossed size={18} />, code: "BM-02", element: <BranchMenu /> },
   { path: "prices", label: "Bảng giá chi nhánh", icon: <Tags size={18} />, code: "OW-16", element: <BranchPriceList /> },
@@ -190,8 +189,6 @@ export const managerRoutes: RouteDef[] = [
     label: "Sổ giao dịch",
     icon: <ScrollText size={18} />,
     code: "BM-07",
-    // Bản sổ cũ của nhánh này; menu chỉ giữ "Sổ giao dịch" (cash-ledger) của main để không trùng mục.
-    nav: false,
     element: <TransactionLedger />,
   },
   {

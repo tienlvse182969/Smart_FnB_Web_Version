@@ -29,7 +29,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const mount = () => render(<AntApp><PairModal target={{ kind: "CUSTOMER_DISPLAY", station }} onClose={() => undefined} onPaired={async () => undefined} /></AntApp>);
+const mount = () => render(<AntApp><PairModal target={station} onClose={() => undefined} onPaired={async () => undefined} /></AntApp>);
 
 describe("PairModal khoá ghép (BR-45)", () => {
   it("BE trả PAIRING_LOCKED: hiện thời gian còn lại, khoá nhập và nút; hết khoá thì mở lại", async () => {

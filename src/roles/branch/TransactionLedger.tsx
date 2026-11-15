@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Card, DatePicker, Select, Table } from "antd";
+import { Alert, Button, Card, DatePicker, Segmented, Select, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { RefreshCw } from "lucide-react";
@@ -8,7 +8,7 @@ import { accountApi, describeApiError, ledgerApi, managerReportApi } from "../..
 import { LEDGER_PAGE_SIZES } from "../../api/modules/ledger/query";
 import { paymentMethodInfo } from "../../api/modules/order/codes";
 import { SectionTitle } from "../../components/bits";
-import { formatDateTime, formatVnd, todayInVn } from "../../lib/reportFormat";
+import { RANGE_PRESETS, formatDateTime, formatVnd, presetRange, todayInVn, type RangePreset } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import type { Ledger, LedgerDirection, LedgerEntry, LedgerSummary } from "../../types";
@@ -176,6 +176,7 @@ export function LedgerPanel({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
+  const [preset, setPreset] = useState<RangePreset | "custom">(initialRange ? "custom" : "today");
   const seq = useRef(0);
 
   const load = useCallback(async () => {
@@ -217,6 +218,17 @@ export function LedgerPanel({
     <div data-testid="ledger-panel">
       <Card style={{ borderRadius: 14, marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <Segmented
+            data-testid="ledger-preset"
+            value={preset}
+            onChange={(value) => {
+              if (value === "custom") return;
+              setPreset(value as RangePreset);
+              const r = presetRange(value as RangePreset);
+              change({ range: [r.from, r.to] });
+            }}
+            options={[...RANGE_PRESETS.map((p) => ({ label: p.label, value: p.key as RangePreset | "custom" })), { label: "Tuỳ chọn", value: "custom" as const }]}
+          />
           <DatePicker.RangePicker
             data-testid="ledger-range"
             allowClear={false}
@@ -224,7 +236,10 @@ export function LedgerPanel({
             value={[dayjs(filters.range[0], DAY), dayjs(filters.range[1], DAY)]}
             disabledDate={(d) => d.isAfter(dayjs(), "day")}
             onChange={(values) => {
-              if (values?.[0] && values?.[1]) change({ range: [values[0].format(DAY), values[1].format(DAY)] });
+              if (values?.[0] && values?.[1]) {
+                setPreset("custom");
+                change({ range: [values[0].format(DAY), values[1].format(DAY)] });
+              }
             }}
             aria-label="Khoảng ngày"
           />
