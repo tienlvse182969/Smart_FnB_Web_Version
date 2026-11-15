@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Wifi, WifiOff } from "lucide-react";
-import { PLATFORM_LOGO } from "../components/brand/PlatformLogo";
+import BrandMark from "../components/brand/BrandMark";
 import { QRCodeSVG } from "qrcode.react";
 import type { Socket } from "socket.io-client";
 import {
@@ -151,7 +151,7 @@ export default function CustomerDisplayScreen() {
       <header className="display-header">
         <div className="display-brand">
           {/* Chuỗi chưa tải logo → logo gốc của nền tảng (ô nền trắng của .display-brand img). */}
-          <img src={branding.logoUrl ? (resolveDisplayAsset(branding.logoUrl) ?? "") : PLATFORM_LOGO.mark.dark} alt="" />
+          <BrandMark logo={branding.logoUrl ? resolveDisplayAsset(branding.logoUrl) : undefined} />
           <div><strong>{branding.displayName}</strong><span>{branch.name}</span></div>
         </div>
         <div className={`display-status ${online ? "online" : "offline"}`}>

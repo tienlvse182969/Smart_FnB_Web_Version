@@ -59,7 +59,7 @@ export default function SetupPasswordScreen() {
       <div className="hidden lg:flex" style={{ background: palette.brandPrimary, color: palette.onBrand, padding: "56px 60px", flexDirection: "column", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, background: palette.surface, display: "grid", placeItems: "center" }}>
-            <UtensilsCrossed size={22} color={palette.brandPrimary} />
+            <PlatformLogo variant="mark" tone="dark" height={22} />
           </div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Smart F&amp;B</div>
         </div>
