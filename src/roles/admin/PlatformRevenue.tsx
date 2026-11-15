@@ -5,13 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { adminAnalyticsApi } from "../../api/adminAnalytics";
 import { adminApi } from "../../api";
 import { SectionTitle, StatCard } from "../../components/bits";
-import { formatCount, formatVnd, formatVndCompact, presetRange } from "../../lib/reportFormat";
+import { formatCount, formatDate, formatVnd, formatVndCompact, presetRange } from "../../lib/reportFormat";
 import ReportChart from "../../components/ReportChart";
 import { useReportSection } from "../../components/useReportSection";
 import { subscriptionPoints } from "./SubscriptionChart";
 import type { PlatformRevenueGroupBy, ServicePlan } from "../../types";
 
 const DAY = "YYYY-MM-DD";
+const pct = (rate: number) => `${(rate * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`;
 
 export default function PlatformRevenue() {
   const [range, setRange] = useState(presetRange("30d"));
@@ -58,14 +59,33 @@ export default function PlatformRevenue() {
     {!error && data && <div style={{ opacity: loading ? 0.65 : 1 }}>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} xl={6}><StatCard label="Thực thu trong kỳ" value={formatVnd(data.summary.revenue)} hint={`${formatCount(data.summary.invoiceCount)} hoá đơn đã trả`} icon={<Banknote size={18} />} emphasis /></Col>
-        <Col xs={24} sm={12} xl={6}><StatCard label="MRR hiện tại" value={formatVnd(data.summary.mrr)} hint="tổng giá tháng của doanh nghiệp trả phí" icon={<TrendingUp size={18} />} /></Col>
+        <Col xs={24} sm={12} xl={6}><StatCard label={data.summary.mrrAt ? `MRR tại ${formatDate(dayjs(data.summary.mrrAt).tz("Asia/Ho_Chi_Minh").format(DAY))}` : "MRR hiện tại"} value={formatVnd(data.summary.mrr)} hint="giá tháng của gói và phần mua thêm, doanh nghiệp trả phí đang hoạt động" icon={<TrendingUp size={18} />} /></Col>
         <Col xs={24} sm={12} xl={6}><StatCard label="Doanh nghiệp trả phí" value={formatCount(data.summary.paidBusinesses)} hint={`${formatCount(data.summary.trialBusinesses)} đang dùng thử`} icon={<Building2 size={18} />} /></Col>
-        <Col xs={24} sm={12} xl={6}><StatCard label="Chuyển đổi dùng thử" value={`${(data.summary.trialConversionRate * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`} hint="đã trả kỳ đầu / từng dùng thử" icon={<Repeat2 size={18} />} /></Col>
+        <Col xs={24} sm={12} xl={6}><StatCard label="Chuyển đổi dùng thử" value={data.summary.trialStarted === 0 ? "—" : pct(data.summary.trialConversionRate)} hint={data.summary.trialStarted === undefined ? "đã trả kỳ đầu / từng dùng thử" : `${formatCount(data.summary.trialConverted ?? 0)}/${formatCount(data.summary.trialStarted)} bắt đầu dùng thử trong kỳ${data.summary.trialInProgress ? ` · ${formatCount(data.summary.trialInProgress)} còn đang dùng thử` : ""}`} icon={<Repeat2 size={18} />} /></Col>
         <Col xs={24} sm={12} xl={6}><StatCard label="Hoá đơn chưa trả" value={formatCount(data.summary.unpaidInvoices)} hint={formatVnd(data.summary.outstandingAmount)} icon={<Clock3 size={18} />} /></Col>
         <Col xs={24} sm={12} xl={6}><StatCard label="Cần đối chiếu" value={formatCount(data.summary.reviewInvoices)} hint="thanh toán lệch hoặc trạng thái thay đổi" icon={<ReceiptText size={18} />} /></Col>
         <Col xs={24} sm={12} xl={6}><StatCard label="Hết hạn / tạm ngưng" value={formatCount(data.summary.expiredBusinesses + data.summary.suspendedBusinesses)} hint="doanh nghiệp chỉ đọc" icon={<Coins size={18} />} /></Col>
         <Col xs={24} sm={12} xl={6}><StatCard label="Gia hạn thủ công" value={formatCount(data.summary.manualRenewals)} hint="ngoại lệ trong kỳ báo cáo" icon={<RefreshCw size={18} />} /></Col>
       </Row>
+
+      {!!data.trialCohorts?.length && (
+        <Card title="Chuyển đổi dùng thử theo tháng bắt đầu" style={{ borderRadius: 14, marginTop: 16 }} data-testid="trial-cohorts">
+          <Table
+            rowKey="month"
+            size="small"
+            pagination={false}
+            dataSource={data.trialCohorts}
+            columns={[
+              { title: "Tháng bắt đầu", dataIndex: "month", render: (v: string) => dayjs(`${v}-01`).format("MM/YYYY") },
+              { title: "Bắt đầu dùng thử", dataIndex: "started", align: "right" },
+              { title: "Đã trả kỳ đầu", dataIndex: "converted", align: "right" },
+              { title: "Còn đang dùng thử", dataIndex: "inTrial", align: "right" },
+              { title: "Tỷ lệ chuyển đổi", dataIndex: "conversionRate", align: "right", render: (v: number) => pct(v) },
+              { title: "Tỷ lệ trên nhóm đã hết dùng thử", dataIndex: "settledConversionRate", align: "right", render: (v: number | null) => (v === null ? "—" : pct(v)) },
+            ]}
+          />
+        </Card>
+      )}
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} xl={16}>

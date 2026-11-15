@@ -84,4 +84,5 @@ export const reportReal: ReportApi = {
     return { items: items.map(({ name, quantity, additionalRevenue }) => ({ name, quantity, revenue: additionalRevenue })) };
   },
   getPaymentMethods: params => request(`/reports/payment-methods${buildQuery(params)}`),
+  getCancellations: params => request(`/reports/cancellations${buildQuery(params)}`),
 };

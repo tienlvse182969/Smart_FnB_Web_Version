@@ -43,5 +43,9 @@ export function useReportData(
     useCallback(() => reportApi.getPaymentMethods(params), [params]),
     enabled,
   )
-  return { comparison, trend, products, payments }
+  const cancellations = useReportSection(
+    useCallback(() => reportApi.getCancellations({ ...params, limit: 10 }), [params]),
+    enabled,
+  )
+  return { comparison, trend, products, payments, cancellations }
 }

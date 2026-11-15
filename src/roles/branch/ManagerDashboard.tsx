@@ -11,7 +11,7 @@ import { SectionTitle, StatCard } from "../../components/bits";
 import { RANGE_PRESETS, describeRange, formatCount, formatDateTime, formatVnd, formatVndCompact, type RangePreset } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
-import type { ManagerReport, ManagerReportCancelledOrder, ManagerReportCashDrawer, ManagerReportCombo, ManagerReportItem, ManagerReportPayment, ManagerReportTopping } from "../../types";
+import type { ManagerReport, ManagerReportCancelledOrder, ManagerReportCashDay, ManagerReportCashDrawer, ManagerReportCombo, ManagerReportItem, ManagerReportPayment, ManagerReportTopping } from "../../types";
 import {
   GRANULARITY_OPTIONS,
   bucketLabel,
@@ -79,6 +79,13 @@ const cashDrawerColumns: ColumnsType<ManagerReportCashDrawer> = [
   { title: "Còn lại", dataIndex: "netCash", align: "right", render: (v: number) => <b>{formatVnd(v)}</b> },
 ];
 
+const cashDayColumns: ColumnsType<ManagerReportCashDay> = [
+  { title: "Ngày", dataIndex: "day", render: (v: string) => dayjs(v, DAY).format("DD/MM/YYYY") },
+  { title: "Tiền mặt thu", dataIndex: "cashCollected", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Tiền mặt hoàn", dataIndex: "cashRefunded", align: "right", render: (v: number) => formatVnd(v) },
+  { title: "Còn lại", dataIndex: "netCash", align: "right", render: (v: number) => <b>{formatVnd(v)}</b> },
+];
+
 const cancelColumns = (basePath: string): ColumnsType<ManagerReportCancelledOrder> => [
   { title: "Số gọi", dataIndex: "callNumber", width: 90, render: (v: number | null) => v ?? "—" },
   {
@@ -93,6 +100,9 @@ const cancelColumns = (basePath: string): ColumnsType<ManagerReportCancelledOrde
   { title: "Thời điểm huỷ", dataIndex: "cancelledAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "totalAmount", align: "right", width: 120, render: (v: number) => formatVnd(v) },
   { title: "Đã hoàn / phải hoàn", dataIndex: "refundAmount", align: "right", width: 150, render: (v: number) => (v > 0 ? formatVnd(v) : "—") },
+  // BR-50: báo cáo nêu người huỷ và người hoàn.
+  { title: "Người huỷ", dataIndex: "cancelledByName", width: 140, render: (v: string | null | undefined) => v ?? "—" },
+  { title: "Người hoàn", dataIndex: "refundedByNames", width: 140, render: (v: string[] | undefined) => (v?.length ? v.join(", ") : "—") },
   { title: "Lý do", dataIndex: "reason", render: (v: string | null) => v ?? "—" },
 ];
 
@@ -317,6 +327,11 @@ export default function ManagerDashboard() {
                   <Table<ManagerReportCashDrawer> rowKey={(row) => row.employeeId ?? "unknown"} size="small" columns={cashDrawerColumns} dataSource={data.cashDrawer ?? []} pagination={false} scroll={{ x: 600 }} />
                 </ReportCard>
               </Col>
+              <Col xs={24} lg={12}>
+                <ReportCard title="Tiền mặt theo ngày" sub="BR-83 · tổng các ngày bằng bảng theo thu ngân" testId="report-cash-by-day" empty={!data.cashByDay?.length ? "Chưa có giao dịch tiền mặt trong kỳ." : undefined}>
+                  <Table<ManagerReportCashDay> rowKey="day" size="small" columns={cashDayColumns} dataSource={data.cashByDay ?? []} pagination={false} scroll={{ x: 480 }} />
+                </ReportCard>
+              </Col>
               <Col xs={24}>
                 <ReportCard
                   title="Đơn huỷ"
@@ -324,7 +339,7 @@ export default function ManagerDashboard() {
                   testId="report-cancellations"
                   empty={data.cancellations.items.length === 0 ? "Không có đơn huỷ trong kỳ." : undefined}
                 >
-                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns(basePath)} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 640 }} />
+                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns(basePath)} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 920 }} />
                   {data.cancellations.total > data.cancellations.items.length && (
                     <div style={{ marginTop: 10, fontSize: 13 }}>
                       <Link to={`${basePath}/orders?${ordersFilterSearch}`} data-testid="report-cancel-all">

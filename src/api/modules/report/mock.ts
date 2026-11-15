@@ -78,6 +78,8 @@ function eventsOf(branch: ApiBranch, scope: Scope) {
 }
 
 export const reportMock: ReportApi = {
+  // Mock không giữ người huỷ/người hoàn: trả mục rỗng thay vì dựng dữ liệu giả.
+  async getCancellations(params) { return { total: 0, paidCancellationCount: 0, refundAmount: "0", pendingRefundAmount: "0", limit: params.limit ?? 10, items: [] }; },
   async getTopCombos() { return { items: [] }; }, // Mock order lines contain individual menu items only.
   async getTopToppings(params) {
     const scope = await resolveScope(params);

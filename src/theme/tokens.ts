@@ -63,6 +63,21 @@ export const STATUS = {
   late: "#EF4444",
 } as const;
 
+/**
+ * Màu phân loại cho biểu đồ nhiều chuỗi (vd. so sánh chi nhánh trên cùng trục, OW-08). Cố định, không theo màu thương hiệu,
+ * để chi nhánh giữ cùng màu giữa các lần xem; thứ tự xen kẽ sắc độ để hai chuỗi liền nhau dễ phân biệt, kể cả người mù màu đỏ–lục.
+ */
+export const CHART_SERIES = [
+  "#2563EB",
+  "#E8710A",
+  "#0F9D76",
+  "#C2338F",
+  "#7C5CD6",
+  "#0891B2",
+  "#B7791F",
+  "#64748B",
+] as const;
+
 /** Bộ 8 màu chủ đạo dựng sẵn cho Owner chọn nhanh (mục 10.4 R3). */
 export const BRAND_COLOR_PRESETS = [
   "#0a0a0a", // đen (mặc định)

@@ -2,6 +2,7 @@
 import type {
   ReportGranularity,
   ReportRangeParams,
+  ReportCancellations,
   RevenueComparison,
   RevenueTimeseries,
   TopItems,
@@ -18,6 +19,8 @@ export interface ReportApi {
   getRevenueComparison(params?: ReportRangeParams): Promise<RevenueComparison>;
   getRevenueTimeseries(params?: ReportRangeParams & { granularity?: ReportGranularity }): Promise<RevenueTimeseries>;
   getTopItems(params?: ReportRangeParams & { limit?: number }): Promise<TopItems>;
+  /** BR-50: đơn huỷ trong phạm vi báo cáo, kèm người huỷ và người hoàn. */
+  getCancellations(params: ReportRangeParams & { limit?: number }): Promise<ReportCancellations>;
 }
 
 export const reportApi = defineApi<ReportApi>("report", { real: reportReal, mock: reportMock });

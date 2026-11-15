@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Alert,
   Button,
@@ -18,7 +18,12 @@ import { useAppStore } from "../../store"
 import type { ReportGranularity, RevenueComparison } from "../../types"
 import { Link, useSearchParams } from "react-router-dom"
 import { usePlan } from "../../plan/usePlan"
-import ReportChart from "../../components/ReportChart"
+import ReportChart, { seriesColor } from "../../components/ReportChart"
+import { branchPricesApi } from "../../api"
+import { palette } from "../../theme"
+import { bucketLabel } from "../branch/reportFilters"
+import { formatDateTime } from "../../lib/reportFormat"
+import type { ReportCancellations } from "../../types"
 import { paymentMethodInfo } from "../../api/modules/order/codes"
 import {
   RANGE_PRESETS,
@@ -69,6 +74,9 @@ export default function Reports() {
   )
   const [expanded, setExpanded] = useState(false)
   const [metric, setMetric] = useState<"revenue" | "orders">("revenue")
+  /** OW-08: gói có so sánh đa chi nhánh vẽ mỗi chi nhánh một đường trên cùng trục; "Tổng chuỗi" gộp lại thành một đường. */
+  const [trendView, setTrendView] = useState<"branches" | "total">("branches")
+  const customPrices = useCustomPriceCounts(chainId)
   const params = useMemo(
     () => ({
       ...range,
@@ -77,7 +85,7 @@ export default function Reports() {
     }),
     [range, chainId, branchId],
   )
-  const { comparison, trend, products, payments } = useReportData(
+  const { comparison, trend, products, payments, cancellations } = useReportData(
     params,
     granularity,
     product,
@@ -94,6 +102,8 @@ export default function Reports() {
       </Card>
     )
 
+  const compareSeries =
+    branchId === ALL_BRANCHES && trendView === "branches" && (trend.data?.series.length ?? 0) > 1
   const points = (trend.data?.buckets ?? []).map((key, i) => {
     const totals = { revenue: 0, orders: 0, refund: 0 }
     for (const series of trend.data!.series) {
@@ -102,20 +112,35 @@ export default function Reports() {
       totals.orders += point?.orderCount ?? 0
       totals.refund += parseAmount(point?.refundAmount)
     }
+    const label = bucketLabel(key, granularity)
     return {
       key,
-      label: formatDayLabel(key),
+      label,
       value: totals[metric],
-      detail:
-        key +
-        " · " +
-        formatVnd(totals.revenue) +
-        " · " +
-        totals.orders +
-        " đơn · đã hoàn " +
-        formatVnd(totals.refund),
+      detail: compareSeries
+        ? label + " · " + trend.data!.series.map((s) => {
+            const point = s.points[i]
+            return s.branch.name + ": " + (metric === "orders" ? formatCount(point?.orderCount ?? 0) + " đơn" : formatVnd(parseAmount(point?.netRevenue ?? point?.revenue)))
+          }).join(" · ")
+        : label +
+          " · " +
+          formatVnd(totals.revenue) +
+          " · " +
+          totals.orders +
+          " đơn · đã hoàn " +
+          formatVnd(totals.refund),
     }
   })
+  const series = compareSeries
+    ? trend.data!.series.map((s) => ({
+        key: s.branch.id,
+        name: s.branch.name,
+        values: (trend.data?.buckets ?? []).map((_, i) => {
+          const point = s.points[i]
+          return metric === "orders" ? point?.orderCount ?? 0 : parseAmount(point?.netRevenue ?? point?.revenue)
+        }),
+      }))
+    : undefined
   const ranks = [...(comparison.data?.branches ?? [])].sort(
     (a, b) => parseAmount(b.revenue) - parseAmount(a.revenue),
   )
@@ -215,19 +240,33 @@ export default function Reports() {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col span={24}>
           <Card title="Doanh thu theo thời gian">
-            <Segmented
-              value={metric}
-              options={[
-                { label: "Doanh thu thuần", value: "revenue" },
-                { label: "Số đơn", value: "orders" },
-              ]}
-              onChange={setMetric}
-            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Segmented
+                value={metric}
+                options={[
+                  { label: "Doanh thu thuần", value: "revenue" },
+                  { label: "Số đơn", value: "orders" },
+                ]}
+                onChange={setMetric}
+              />
+              {branchId === ALL_BRANCHES && (
+                <Segmented
+                  data-testid="trend-view"
+                  value={trendView}
+                  options={[
+                    { label: "Từng chi nhánh", value: "branches" },
+                    { label: "Tổng chuỗi", value: "total" },
+                  ]}
+                  onChange={setTrendView}
+                />
+              )}
+            </div>
             <SectionState section={trend}>
               <ReportChart
                 title="Xu hướng bán hàng"
                 mode="line"
                 points={points}
+                series={series}
                 format={metric === "orders" ? formatCount : formatVndCompact}
               />
             </SectionState>
@@ -237,30 +276,12 @@ export default function Reports() {
           <Col span={24}>
             <Card title="Doanh thu theo chi nhánh">
               <SectionState section={comparison}>
-                {ranks.map((row) => (
-                  <div key={row.branch.id}>
-                    <Button
-                      type="link"
-                      onClick={() => setBranchId(row.branch.id)}
-                    >
-                      {row.branch.name}
-                    </Button>{" "}
-                    {formatVnd(row.revenue)}
-                    <meter
-                      style={{ width: "100%" }}
-                      aria-label={row.branch.name}
-                      min={Math.min(
-                        0,
-                        ...ranks.map((r) => parseAmount(r.revenue)),
-                      )}
-                      max={Math.max(
-                        1,
-                        ...ranks.map((r) => parseAmount(r.revenue)),
-                      )}
-                      value={parseAmount(row.revenue)}
-                    />
-                  </div>
-                ))}
+                <BranchRanking
+                  ranks={ranks}
+                  customPrices={customPrices}
+                  colorOf={(id) => seriesColor(Math.max(0, (trend.data?.series ?? []).findIndex((s) => s.branch.id === id)))}
+                  onPick={setBranchId}
+                />
               </SectionState>
             </Card>
           </Col>
@@ -354,7 +375,120 @@ export default function Reports() {
             </SectionState>
           </Card>
         </Col>
+        <Col span={24}>
+          <Card title="Đơn huỷ và hoàn tiền">
+            <SectionState section={cancellations}>
+              <CancellationsSection data={cancellations.data} />
+            </SectionState>
+          </Card>
+        </Col>
       </Row>
+    </div>
+  )
+}
+
+/** Mục 29.4 / dòng 956: số giá riêng đang đặt ở từng chi nhánh, để đọc so sánh doanh thu đúng ngữ cảnh. Lỗi tải thì bỏ qua ghi chú. */
+function useCustomPriceCounts(chainId: string | null | undefined) {
+  const [counts, setCounts] = useState<Map<string, number>>()
+  useEffect(() => {
+    if (!chainId) return
+    let alive = true
+    branchPricesApi.getMatrix(chainId).then(
+      (matrix) => {
+        if (!alive) return
+        const next = new Map<string, number>()
+        for (const cell of matrix.cells) if (cell.priceOverride !== null) next.set(cell.branchId, (next.get(cell.branchId) ?? 0) + 1)
+        setCounts(next)
+      },
+      () => {
+        if (alive) setCounts(undefined)
+      },
+    )
+    return () => {
+      alive = false
+    }
+  }, [chainId])
+  return counts
+}
+
+function BranchRanking({
+  ranks,
+  customPrices,
+  colorOf,
+  onPick,
+}: {
+  ranks: RevenueComparison["branches"]
+  customPrices?: Map<string, number>
+  colorOf: (branchId: string) => string
+  onPick: (branchId: string) => void
+}) {
+  const total = ranks.reduce((sum, r) => sum + Math.max(0, parseAmount(r.revenue)), 0)
+  const max = Math.max(1, ...ranks.map((r) => parseAmount(r.revenue)))
+  return (
+    <div data-testid="branch-ranking" style={{ display: "grid", gap: 12 }}>
+      {ranks.map((row) => {
+        const revenue = parseAmount(row.revenue)
+        const share = total > 0 ? (100 * Math.max(0, revenue)) / total : 0
+        const custom = customPrices?.get(row.branch.id) ?? 0
+        return (
+          <div key={row.branch.id} data-testid={`branch-rank-${row.branch.id}`}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8 }}>
+              <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: colorOf(row.branch.id) }} />
+              <Button type="link" style={{ padding: 0, height: "auto" }} onClick={() => onPick(row.branch.id)}>
+                {row.branch.name}
+              </Button>
+              <b>{formatVnd(row.revenue)}</b>
+              <span style={{ color: palette.textMuted, fontSize: 12.5 }}>
+                {share.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% · {formatCount(row.orderCount)} đơn · TB {formatVnd(row.averageOrderValue)}
+                {custom > 0 && <> · <span data-testid="branch-custom-prices">{custom} giá riêng</span></>}
+              </span>
+            </div>
+            <div aria-hidden style={{ height: 8, borderRadius: 4, background: palette.paperSubtle, marginTop: 4 }}>
+              <div style={{ width: `${Math.max(0, (100 * revenue) / max)}%`, height: "100%", borderRadius: 4, background: colorOf(row.branch.id) }} />
+            </div>
+          </div>
+        )
+      })}
+      {customPrices && [...customPrices.values()].some((n) => n > 0) && (
+        <div style={{ fontSize: 12.5, color: palette.textMuted }}>
+          Chi nhánh có giá riêng bán khác giá chuỗi; doanh thu không quy đổi về cùng một giá (GĐ-26).
+        </div>
+      )}
+    </div>
+  )
+}
+
+const personName = (p: { firstName?: string; lastName?: string; employeeCode?: string } | null) =>
+  p ? [p.firstName, p.lastName].filter(Boolean).join(" ").trim() || p.employeeCode || "—" : "—"
+
+/** BR-50: hoàn tiền trừ vào ngày huỷ; mục này cho biết đơn nào bị huỷ, ai huỷ và ai hoàn. */
+function CancellationsSection({ data }: { data?: ReportCancellations }) {
+  if (!data) return null
+  if (data.total === 0 && data.paidCancellationCount === 0) return <p>Không có đơn huỷ trong kỳ.</p>
+  return (
+    <div data-testid="report-cancellations">
+      <p style={{ marginTop: 0 }}>
+        {formatCount(data.total)} đơn huỷ · {formatCount(data.paidCancellationCount)} đơn huỷ sau khi trả · đã hoàn {formatVnd(data.refundAmount)}
+        {parseAmount(data.pendingRefundAmount) > 0 && <> · còn chờ hoàn {formatVnd(data.pendingRefundAmount)}</>}
+        {data.total > data.items.length && <> · hiện {data.items.length} đơn gần nhất</>}
+      </p>
+      <Table
+        size="small"
+        rowKey="id"
+        pagination={false}
+        scroll={{ x: 760 }}
+        dataSource={data.items}
+        columns={[
+          { title: "Chi nhánh", render: (_, row) => row.branch.name },
+          { title: "Mã đơn", dataIndex: "orderCode" },
+          { title: "Thời điểm huỷ", dataIndex: "cancelledAt", render: (v: string | null) => formatDateTime(v) },
+          { title: "Tổng tiền", dataIndex: "totalAmount", align: "right", render: (v: string) => formatVnd(v) },
+          { title: "Đã hoàn", dataIndex: "refundAmount", align: "right", render: (v: string) => (parseAmount(v) > 0 ? formatVnd(v) : "—") },
+          { title: "Người huỷ", render: (_, row) => personName(row.cancelledBy) },
+          { title: "Người hoàn", render: (_, row) => [...new Set(row.refunds.map((r) => personName(r.completedBy)).filter((n) => n !== "—"))].join(", ") || "—" },
+          { title: "Lý do", dataIndex: "reason", render: (v: string | null) => v ?? "—" },
+        ]}
+      />
     </div>
   )
 }
@@ -405,8 +539,7 @@ function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
       label: "Giá trị đơn trung bình",
       value:
         k.averageOrderValue === null ? "—" : formatVnd(k.averageOrderValue),
-      hint:
-        k.averageOrderValue === null ? "Chọn một chi nhánh để xem" : undefined,
+      hint: k.averageOrderValue === null ? undefined : "đơn hoàn tất, không tính đơn huỷ",
       icon: <Wallet size={16} />,
     },
     {

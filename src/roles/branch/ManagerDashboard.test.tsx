@@ -151,6 +151,20 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     expect(screen.getByTestId("probe").textContent).toBe("/manager/dashboard?from=2026-10-01&to=2026-10-10");
   });
 
+  it("BR-50/BR-83: đơn huỷ nêu người huỷ, người hoàn; có bảng tiền mặt theo ngày", async () => {
+    const base = report();
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({
+      cancellations: { ...base.cancellations, items: [{ ...base.cancellations.items[0], refundAmount: 75000, cancelledByName: "Lan Trần", refundedByNames: ["Minh Lê"] }] },
+      cashByDay: [{ day: "2026-10-14", cashCollected: 300000, cashRefunded: 50000, netCash: 250000 }],
+    }));
+    mount();
+    await waitFor(() => expect(screen.getByTestId("report-cash-by-day")).toBeTruthy());
+    expect(txt("report-cancellations")).toContain("Lan Trần");
+    expect(txt("report-cancellations")).toContain("Minh Lê");
+    expect(txt("report-cash-by-day")).toContain("14/10/2026");
+    expect(txt("report-cash-by-day")).toContain("250.000");
+  });
+
   it("đơn huỷ: lý do hiện, bấm mã đơn dẫn tới /manager/orders/:id", async () => {
     vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report());
     mount();

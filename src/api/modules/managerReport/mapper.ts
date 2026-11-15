@@ -14,6 +14,7 @@ import type {
   ManagerReportTopping,
   ManagerReportCombo,
   ManagerReportCashDrawer,
+  ManagerReportCashDay,
 } from "../../../types";
 import { parseAmount } from "../../../lib/reportFormat";
 
@@ -74,6 +75,17 @@ function mapCashDrawer(r: Raw): ManagerReportCashDrawer {
   };
 }
 
+function mapCashDay(r: Raw): ManagerReportCashDay {
+  return { day: str(r.day) ?? "", cashCollected: money(r.cashCollected), cashRefunded: money(r.cashRefunded), netCash: money(r.netCash) };
+}
+
+/** Tên nhân viên từ `{ firstName, lastName }` của BE; null khi thiếu. */
+export function personName(v: unknown): string | null {
+  if (!isObject(v)) return null;
+  const name = [str(v.firstName), str(v.lastName)].filter(Boolean).join(" ").trim();
+  return name || str(v.employeeCode);
+}
+
 function mapHour(r: Raw): ManagerReportHour {
   return { hour: num(r.hour), orderCount: num(r.orderCount) };
 }
@@ -87,6 +99,8 @@ function mapCancelled(r: Raw): ManagerReportCancelledOrder {
     cancelledAt: str(r.cancelledAt),
     reason: str(r.reason),
     refundAmount: money(r.refundAmount),
+    cancelledByName: personName(r.cancelledBy),
+    refundedByNames: [...new Set(list(r.refunds).map((refund) => personName(refund.completedBy)).filter((n): n is string => !!n))],
   };
 }
 
@@ -118,6 +132,7 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
     topToppings: list(body.topToppings).map(mapTopping),
     topCombos: list(body.topCombos).map(mapCombo),
     cashDrawer: list(body.cashDrawer).map(mapCashDrawer),
+    cashByDay: list(body.cashByDay).map(mapCashDay),
     ordersByHour: list(body.ordersByHour).map(mapHour),
     // `averageSeconds` null khi chưa có suất nào xong trong kỳ (BE: AVG của tập rỗng); số 0 là số thật.
     preparation: { averageSeconds: typeof prep.averageSeconds === "number" && Number.isFinite(prep.averageSeconds) ? prep.averageSeconds : null, completedUnits: num(prep.completedUnits) },
