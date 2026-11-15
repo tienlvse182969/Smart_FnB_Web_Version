@@ -85,6 +85,8 @@ export interface AccentTokens {
   accentStrong: string;
   /** Tông nhạt của accent cho series thứ hai và nền nhẹ. */
   accentSoft: string;
+  /** Màu series chính của biểu đồ (đường, chấm, cột, thanh tỷ trọng): accent, hoặc bản sẫm khi accent < 3:1 trên nền trắng. */
+  accentChart: string;
 }
 
 /** Trộn `color` với trắng theo tỉ lệ `amount` (0 = giữ nguyên, 1 = trắng). */
@@ -102,7 +104,8 @@ export function deriveAccent(accent: string): AccentTokens {
   for (let percent = 100; percent > 10 && contrast(strong, "#FFFFFF") < MIN_RATIO; percent -= STEP_PERCENT) {
     strong = scaleColor(base, percent / 100);
   }
-  return { accent: base, accentInk, accentStrong: strong, accentSoft: tint(base, 0.6) };
+  const accentChart = contrast(base, "#FFFFFF") >= 3 ? base : strong;
+  return { accent: base, accentInk, accentStrong: strong, accentSoft: tint(base, 0.6), accentChart };
 }
 
 /** Hover của nút chính: sẫm thêm khoảng 6%. */

@@ -86,7 +86,7 @@ export function resolveBrand({ branding, platformOnly, brandingEnabled }: Resolv
 export function brandTokensFromColors(
   primary: string,
   accent: string,
-): Pick<BrandTokens, "primary" | "primaryContrast" | "surface" | "surfaceHover" | "activeInk" | "rule" | "accent" | "accentInk" | "accentStrong" | "accentSoft"> {
+): Pick<BrandTokens, "primary" | "primaryContrast" | "surface" | "surfaceHover" | "activeInk" | "rule" | "accent" | "accentInk" | "accentStrong" | "accentSoft" | "accentChart"> {
   const d = deriveBrandSurface(primary);
   const a = deriveAccent(accent);
   return {
@@ -100,6 +100,7 @@ export function brandTokensFromColors(
     accentInk: a.accentInk,
     accentStrong: a.accentStrong,
     accentSoft: a.accentSoft,
+    accentChart: a.accentChart,
   };
 }
 
@@ -210,6 +211,7 @@ export function applyThemeVars(brand: BrandTokens, el: HTMLElement = document.do
   set(CSS_VAR.brandAccentInk, brand.accentInk);
   set(CSS_VAR.brandAccentStrong, brand.accentStrong);
   set(CSS_VAR.brandAccentSoft, brand.accentSoft);
+  set(CSS_VAR.brandChart, brand.accentChart);
   set(CSS_VAR.ink, NEUTRAL.ink);
   set(CSS_VAR.surface, NEUTRAL.surface);
   set(CSS_VAR.paper, NEUTRAL.paper);

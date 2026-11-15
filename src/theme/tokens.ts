@@ -34,6 +34,7 @@ export const PLATFORM_BRAND_TOKENS: BrandTokens = {
   accentInk: PLATFORM_ACCENT.accentInk,
   accentStrong: PLATFORM_ACCENT.accentStrong,
   accentSoft: PLATFORM_ACCENT.accentSoft,
+  accentChart: PLATFORM_ACCENT.accentChart,
   displayName: PLATFORM_BRAND.displayName,
   logo: undefined,
   custom: false,
@@ -133,6 +134,8 @@ export interface BrandTokens {
   accentStrong: string;
   /** Tông nhạt của accent (series thứ hai, nền nhẹ). */
   accentSoft: string;
+  /** Màu series chính của biểu đồ: accent, hoặc bản sẫm khi accent quá nhạt trên nền trắng. */
+  accentChart: string;
   displayName: string;
   /** Logo của chuỗi; undefined = logo nền tảng. */
   logo: string | undefined;
@@ -155,6 +158,7 @@ export const CSS_VAR = {
   brandAccentInk: "--brand-accent-ink",
   brandAccentStrong: "--brand-accent-strong",
   brandAccentSoft: "--brand-accent-soft",
+  brandChart: "--brand-chart",
   ink: "--fnb-ink",
   surface: "--fnb-surface",
   paper: "--fnb-paper",
@@ -192,6 +196,8 @@ export const palette = {
   accentInk: v(CSS_VAR.brandAccentInk),
   accentStrong: v(CSS_VAR.brandAccentStrong),
   accentSoft: v(CSS_VAR.brandAccentSoft),
+  /** Series chính của biểu đồ (đường, chấm, cột, thanh tỷ trọng, legend, chấm tooltip). */
+  chartMain: v(CSS_VAR.brandChart),
   ink: v(CSS_VAR.ink),
   surface: v(CSS_VAR.surface),
   paper: v(CSS_VAR.paper),

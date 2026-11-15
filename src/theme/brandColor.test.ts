@@ -87,3 +87,18 @@ describe("deriveAccent (mục 10)", () => {
     expect(contrast(t.accentSoft, "#FFFFFF")).toBeLessThan(contrast(t.accent, "#FFFFFF"));
   });
 });
+
+describe("deriveAccent: accentChart (series chính của biểu đồ)", () => {
+  it("accent đủ đậm (≥ 3:1 trên nền trắng) giữ nguyên bản gốc", () => {
+    expect(deriveAccent("#2563EB").accentChart).toBe("#2563EB");
+    expect(deriveAccent("#6B7280").accentChart).toBe("#6B7280");
+  });
+
+  it.each(["#FFFFFF", "#FAFAA0", "#FACC15"])("%s: accent quá nhạt (< 3:1) thì dùng bản sẫm, đạt ≥ 3:1", (color) => {
+    const t = deriveAccent(color);
+    expect(contrast(color, "#FFFFFF")).toBeLessThan(3);
+    expect(t.accentChart).toBe(t.accentStrong);
+    expect(t.accentChart).not.toBe(color);
+    expect(contrast(t.accentChart, "#FFFFFF")).toBeGreaterThanOrEqual(3);
+  });
+});

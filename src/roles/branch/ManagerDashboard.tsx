@@ -302,7 +302,7 @@ export default function ManagerDashboard() {
                   <Bars
                     testId="report-hours-bars"
                     rows={data.ordersByHour.map((h) => ({ key: String(h.hour), label: `${h.hour}h`, value: h.orderCount }))}
-                    tooltip={(row) => `${row.label} · ${row.value} đơn`}
+                    tooltip={(row) => `${row.label.replace("h", "")}:00 – ${row.label.replace("h", "")}:59 · ${row.value} đơn`}
                     valueLabel={(v) => String(v)}
                   />
                 </ReportCard>

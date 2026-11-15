@@ -226,7 +226,7 @@ export function ShareBar({ value, max, color, label }: { value: number; max: num
   const pct = max > 0 ? Math.max(0, Math.min(100, (100 * value) / max)) : 0;
   return (
     <div role="img" aria-label={label} data-testid="share-bar" style={{ height: 8, borderRadius: 4, background: palette.paperSubtle, marginTop: 4 }}>
-      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 4, background: color ?? palette.brandAccent }} />
+      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 4, background: color ?? palette.chartMain }} />
     </div>
   );
 }
