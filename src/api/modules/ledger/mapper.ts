@@ -27,6 +27,7 @@ export function mapLedgerEntry(raw: unknown): LedgerEntry | null {
     amount: Math.abs(int(raw.amount)),
     occurredAt,
     businessDate: str(raw.businessDate)?.slice(0, 10) ?? null,
+    orderId: str(raw.orderId),
     orderCode: str(raw.orderCode),
     callNumber: typeof raw.callNumber === "number" ? raw.callNumber : null,
     actorName: person(raw.actor),

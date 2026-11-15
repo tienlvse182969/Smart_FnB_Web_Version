@@ -491,6 +491,17 @@ export const orderMock: OrderApi = {
     return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
   },
 
+  // Mock không dựng đơn giả theo chuỗi: danh sách rỗng, chi tiết 404 (cùng tinh thần với module ledger).
+  async listChainOrders(_chainId, query): Promise<OrderPage> {
+    await mockDelay();
+    return { items: [], total: 0, page: query.page, limit: query.limit };
+  },
+
+  async getChainOrder() {
+    await mockDelay();
+    throw new ApiError(404, "Đơn không tồn tại");
+  },
+
   async confirmPayment({ chainId, branchId }, paymentId, input: ConfirmPaymentInput) {
     await mockDelay();
     // BE `payments.service.ts:144-186`: chỉ kiểm quyền chi nhánh (không `assertSubscriptionAllowsWrite`); mock vẫn mô phỏng chỉ đọc

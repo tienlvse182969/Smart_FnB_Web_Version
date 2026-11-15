@@ -17,8 +17,8 @@ vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect()
 const SUMMARY: LedgerSummary = { cashCollected: 100000, qrCollected: 50000, cashRefunded: 15000, netCash: 85000, netTotal: 135000 };
 const LEDGER: Ledger = {
   items: [
-    { id: "1", branchId: "b", direction: "INFLOW", sourceType: "CASH_PAYMENT", method: "CASH", amount: 45000, occurredAt: "2026-11-13T03:00:00.000Z", businessDate: "2026-11-13", orderCode: "A-101", callNumber: 7, actorName: "Lan Lê", note: null },
-    { id: "2", branchId: "b", direction: "OUTFLOW", sourceType: "REFUND", method: "CASH", amount: 15000, occurredAt: "2026-11-13T04:00:00.000Z", businessDate: "2026-11-13", orderCode: "A-102", callNumber: 8, actorName: "Minh", note: "Khách đổi ý" },
+    { id: "1", branchId: "b", direction: "INFLOW", sourceType: "CASH_PAYMENT", method: "CASH", amount: 45000, occurredAt: "2026-11-13T03:00:00.000Z", businessDate: "2026-11-13", orderId: "ord-101", orderCode: "A-101", callNumber: 7, actorName: "Lan Lê", note: null },
+    { id: "2", branchId: "b", direction: "OUTFLOW", sourceType: "REFUND", method: "CASH", amount: 15000, occurredAt: "2026-11-13T04:00:00.000Z", businessDate: "2026-11-13", orderId: null, orderCode: "A-102", callNumber: 8, actorName: "Minh", note: "Khách đổi ý" },
   ],
   pagination: { page: 1, pageSize: 50, total: 2, totalPages: 1 },
   summary: SUMMARY,
@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 
 describe("TransactionLedger", () => {
-  it("dòng có dấu, 5 tổng lấy từ BE, đủ cột, mã đơn mở Tra cứu đơn theo mã", async () => {
+  it("dòng có dấu, 5 tổng lấy từ BE, đủ cột, bấm mã đơn mở thẳng chi tiết bằng orderId (không có orderId thì tìm theo mã)", async () => {
     const spy = vi.spyOn(ledgerApi, "getBranchLedger").mockResolvedValue(LEDGER);
     mount();
     await waitFor(() => expect(screen.getByTestId("ledger-total-netCash").textContent).toContain("85.000"));
@@ -56,7 +56,8 @@ describe("TransactionLedger", () => {
     expect(screen.getByText("−15.000 ₫", { exact: false })).toBeTruthy();
     expect(screen.getByText("Khách đổi ý")).toBeTruthy();
     expect(screen.getByText("Lan Lê")).toBeTruthy();
-    expect(document.querySelector('a[href="/store-manager/orders?orderCode=A-101"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/store-manager/orders/ord-101"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/store-manager/orders?orderCode=A-102"]')).not.toBeNull();
     expect(spy).toHaveBeenCalledWith("b", expect.objectContaining({ page: 1, pageSize: 50 }));
   });
 

@@ -101,7 +101,13 @@ export default function LedgerByBranch({ chainId, range }: { chainId: string | u
         locale={{ emptyText: <span style={{ color: palette.textMuted }}>{error ? "Không tải được sổ giao dịch" : "Không có giao dịch trong khoảng ngày này"}</span> }}
       />
       <Drawer open={open !== null} onClose={() => setOpen(null)} width={960} destroyOnHidden title={open ? `Sổ giao dịch — ${open.name}` : ""}>
-        {open && <LedgerPanel branchId={open.branchId} initialRange={[range.from, range.to]} />}
+        {open && (
+          <LedgerPanel
+            branchId={open.branchId}
+            initialRange={[range.from, range.to]}
+            orderLink={(e) => (e.orderId ? `/brand-manager/orders/${e.orderId}` : null)}
+          />
+        )}
       </Drawer>
     </Card>
   );

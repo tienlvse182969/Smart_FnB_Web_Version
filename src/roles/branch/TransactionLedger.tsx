@@ -41,7 +41,10 @@ export interface LedgerFilters {
 
 const hasFilter = (f: LedgerFilters) => !!(f.direction || f.method || f.cashierId);
 
-const columns = (orderLink?: (orderCode: string) => string): ColumnsType<LedgerEntry> => [
+/** `orderLink` nhận cả dòng sổ để mở thẳng chi tiết đơn bằng `orderId` (BE trả từ GAP-310). */
+type OrderLink = (entry: Pick<LedgerEntry, "orderId" | "orderCode">) => string | null;
+
+const columns = (orderLink?: OrderLink): ColumnsType<LedgerEntry> => [
   { title: "Thời điểm", dataIndex: "occurredAt", width: 150, render: (v: string) => formatDateTime(v) },
   {
     title: "Loại",
@@ -62,9 +65,10 @@ const columns = (orderLink?: (orderCode: string) => string): ColumnsType<LedgerE
     title: "Mã đơn",
     dataIndex: "orderCode",
     width: 150,
-    render: (code: string | null) => {
+    render: (code: string | null, e) => {
       if (!code) return "—";
-      return orderLink ? <Link to={orderLink(code)}>{code}</Link> : <span style={{ fontFamily: "monospace", fontSize: 12.5 }}>{code}</span>;
+      const to = orderLink?.(e);
+      return to ? <Link to={to} data-testid="ledger-order-link">{code}</Link> : <span style={{ fontFamily: "monospace", fontSize: 12.5 }}>{code}</span>;
     },
   },
   { title: "Số gọi", dataIndex: "callNumber", width: 80, render: (v: number | null) => v ?? "—" },
@@ -166,7 +170,7 @@ export function LedgerPanel({
   crossCheck = false,
 }: {
   branchId: string;
-  orderLink?: (orderCode: string) => string;
+  orderLink?: OrderLink;
   initialRange?: [string, string];
   cashiers?: { id: string; name: string }[];
   crossCheck?: boolean;
@@ -356,7 +360,10 @@ export default function TransactionLedger() {
     };
   }, [chainId, branchId]);
 
-  const orderLink = useCallback((code: string) => `${basePath}/orders?orderCode=${encodeURIComponent(code)}`, [basePath]);
+  const orderLink = useCallback<OrderLink>(
+    (e) => (e.orderId ? `${basePath}/orders/${e.orderId}` : e.orderCode ? `${basePath}/orders?orderCode=${encodeURIComponent(e.orderCode)}` : null),
+    [basePath],
+  );
 
   return (
     <div data-testid="ledger-page">
