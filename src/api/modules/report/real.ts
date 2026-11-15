@@ -106,4 +106,5 @@ export const reportReal: ReportApi = {
   getPaymentMethods,
   getTopCombos,
   getTopToppings,
+  getCancellations: params => request(`/reports/cancellations${buildQuery(params)}`),
 };

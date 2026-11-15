@@ -59,6 +59,8 @@ export interface BranchRevenueRow {
 export interface RevenueComparison {
   range: ReportRange;
   totals: {
+    /** Giá trị đơn trung bình toàn phạm vi = giá trị đơn hoàn tất / số đơn hoàn tất (BE tính; web không tự chia). */
+    averageOrderValue?: string;
     revenue: string;
     grossRevenue: string;
     refundAmount: string;
@@ -66,14 +68,30 @@ export interface RevenueComparison {
     netRevenue: string;
     paidCancellationCount: number;
     orderCount: number;
-    /**
-     * Giá trị đơn trung bình toàn phạm vi do BE tính (BE `71e085d` có; BE cũ không trả). Web không tự chia (quyết định 139):
-     * thiếu thì chỉ hiện giá trị của chi nhánh khi phạm vi đúng một chi nhánh.
-     */
-    averageOrderValue?: string;
   };
   /** Đã sắp theo doanh thu giảm dần. */
   branches: BranchRevenueRow[];
+}
+
+/** BR-50 / OW-08: mục đơn huỷ của báo cáo đa chi nhánh (`GET /reports/cancellations`). */
+export interface ReportCancellations {
+  total: number;
+  paidCancellationCount: number;
+  refundAmount: string;
+  pendingRefundAmount: string;
+  limit: number;
+  items: {
+    id: string;
+    orderCode: string;
+    callNumber: number | null;
+    totalAmount: string;
+    cancelledAt: string | null;
+    reason: string | null;
+    branch: { id: string; code?: string; name: string };
+    cancelledBy: { firstName?: string; lastName?: string; employeeCode?: string } | null;
+    refundAmount: string;
+    refunds: { id: string; amount: string; status: string; method?: string; reason?: string | null; completedBy: { firstName?: string; lastName?: string; employeeCode?: string } | null }[];
+  }[];
 }
 
 /** Một điểm trên trục thời gian. `bucket` là `YYYY-MM-DD` của đầu kỳ con. */

@@ -263,12 +263,20 @@ export type PlatformRevenueReport = {
   summary: {
     revenue: number;
     invoiceCount: number;
+    /** 30.4: MRR tại cuối kỳ xem (hoặc hiện tại nếu kỳ tới hôm nay), gồm giá gói và phần mua thêm. */
     mrr: number;
+    /** Thời điểm đọc MRR (ISO). BE cũ không trả. */
+    mrrAt?: string;
     paidBusinesses: number;
     trialBusinesses: number;
     expiredBusinesses: number;
     suspendedBusinesses: number;
+    /** Đã trả kỳ đầu / số doanh nghiệp BẮT ĐẦU dùng thử trong kỳ (theo tháng bắt đầu dùng thử). */
     trialConversionRate: number;
+    trialStarted?: number;
+    trialConverted?: number;
+    /** Còn trong 14 ngày dùng thử, chưa trả — nhóm chưa "chín", nên tỷ lệ còn thay đổi. */
+    trialInProgress?: number;
     unpaidInvoices: number;
     reviewInvoices: number;
     outstandingAmount: number;
@@ -276,6 +284,8 @@ export type PlatformRevenueReport = {
   };
   series: { period: string; revenue: number; invoiceCount: number }[];
   plans: { planId: string; planName: string; revenue: number; invoiceCount: number }[];
+  /** 30.4: chuyển đổi dùng thử theo tháng bắt đầu dùng thử. `settledConversionRate` bỏ các doanh nghiệp còn đang dùng thử. */
+  trialCohorts?: { month: string; started: number; converted: number; inTrial: number; conversionRate: number; settledConversionRate: number | null }[];
 };
 
 export type PlatformInvoiceStatus = "PENDING" | "PAID" | "FAILED" | "NEEDS_REVIEW";

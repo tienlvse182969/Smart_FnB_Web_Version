@@ -198,18 +198,54 @@ export function SectionTitle({
 }
 
 /** Compact KPI tile in the monochrome style. */
+/** Thay đổi so với kỳ trước. `ratio` null = không so được (kỳ trước bằng 0). `higherIsBetter=false` cho số càng thấp càng tốt (vd. tiền hoàn). */
+export interface StatDelta {
+  ratio: number | null;
+  higherIsBetter?: boolean;
+  label?: string;
+}
+
+export function DeltaBadge({ delta, onBrand }: { delta: StatDelta; onBrand?: boolean }) {
+  const label = delta.label ?? "so với kỳ trước";
+  if (delta.ratio === null)
+    return <span data-testid="stat-delta" style={{ color: onBrand ? onBrandAlpha(60) : palette.textSubtle }}>— {label}</span>;
+  const up = delta.ratio > 0;
+  const flat = Math.abs(delta.ratio) < 0.0005;
+  const good = flat ? null : up === (delta.higherIsBetter ?? true);
+  const color = onBrand ? palette.onBrand : good === null ? palette.textMuted : good ? palette.success.text : palette.error.text;
+  const text = `${flat ? "±" : up ? "▲ +" : "▼ −"}${Math.abs(delta.ratio * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`;
+  return (
+    <span data-testid="stat-delta" data-direction={flat ? "flat" : up ? "up" : "down"} style={{ color, fontWeight: 600 }}>
+      {text} <span style={{ fontWeight: 400, color: onBrand ? onBrandAlpha(60) : palette.textSubtle }}>{label}</span>
+    </span>
+  );
+}
+
+/** Thanh ngang theo token theme, thay cho `<progress>`/`<meter>` của trình duyệt (màu và ý nghĩa không theo theme). */
+export function ShareBar({ value, max, color, label }: { value: number; max: number; color?: string; label?: string }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (100 * value) / max)) : 0;
+  return (
+    <div role="img" aria-label={label} data-testid="share-bar" style={{ height: 8, borderRadius: 4, background: palette.paperSubtle, marginTop: 4 }}>
+      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 4, background: color ?? palette.brandPrimary }} />
+    </div>
+  );
+}
+
 export function StatCard({
   label,
   value,
   hint,
   icon,
   emphasis,
+  delta,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
   emphasis?: boolean;
+  /** Tuỳ chọn: so với kỳ trước, hiện dưới con số. */
+  delta?: StatDelta;
 }) {
   return (
     <Card
@@ -238,6 +274,11 @@ export function StatCard({
       <div style={{ fontSize: 27, fontWeight: 700, marginTop: 10, letterSpacing: -0.5 }}>
         {value}
       </div>
+      {delta && (
+        <div style={{ fontSize: 12, marginTop: 4 }}>
+          <DeltaBadge delta={delta} onBrand={emphasis} />
+        </div>
+      )}
       {hint && (
         <div
           style={{

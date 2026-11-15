@@ -7,9 +7,19 @@ export type MenuImportDraftItem = {
   action: "CREATE" | "UPDATE_PRICE" | "SKIP";
   existingItemId: string;
   branchIds: string[];
-  sizes: Array<{ name: string; priceDelta: number }>;
+  optionGroups: MenuImportDraftOptionGroup[];
+  /** Legacy drafts created before named option groups were supported. */
+  sizes?: Array<{ name: string; priceDelta: number }>;
   extras: Array<{ name: string; price: number }>;
   warning: string;
+};
+
+export type MenuImportDraftOptionGroup = {
+  name: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: Array<{ name: string; priceDelta: number }>;
 };
 
 export type MenuImportDraft = {

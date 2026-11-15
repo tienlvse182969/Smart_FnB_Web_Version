@@ -65,7 +65,7 @@ export default function SubscriptionTrend() {
       ) : report.data ? (
         <ReportChart
           title="Tiền thuê bao thực thu"
-          mode="line"
+          mode="bar"
           points={subscriptionPoints(report.data)}
           format={formatVndCompact}
         />

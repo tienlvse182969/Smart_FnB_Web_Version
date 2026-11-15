@@ -3,6 +3,7 @@ import type {
   PaymentMethodsReport,
   ReportGranularity,
   ReportRangeParams,
+  ReportCancellations,
   RevenueComparison,
   RevenueTimeseries,
   TopCombos,
@@ -28,6 +29,8 @@ export interface ReportApi {
   getPaymentMethods(params?: ReportRangeParams & ReportCallOptions): Promise<PaymentMethodsReport>;
   getTopCombos(params?: ReportRangeParams & ReportCallOptions & { limit?: number }): Promise<TopCombos>;
   getTopToppings(params?: ReportRangeParams & ReportCallOptions & { limit?: number }): Promise<TopToppings>;
+  /** BR-50: đơn huỷ trong phạm vi báo cáo, kèm người huỷ và người hoàn. */
+  getCancellations(params: ReportRangeParams & ReportCallOptions & { limit?: number }): Promise<ReportCancellations>;
 }
 
 export const reportApi = defineApi<ReportApi>("report", { real: reportReal, mock: reportMock });
