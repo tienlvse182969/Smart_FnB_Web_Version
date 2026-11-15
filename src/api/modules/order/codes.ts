@@ -199,7 +199,7 @@ export function refundMethodInfo(code: string): StatusInfo {
 export function refundSourceInfo(code: string): StatusInfo {
   switch (code) {
     case "MANAGER_CANCELLATION":
-      return known("Manager huỷ đơn đã trả", "neutral");
+      return known("Store Manager huỷ đơn đã trả", "neutral");
     case "LATE_PAYMENT":
       return known("Tiền về sau khi đơn đã huỷ", "warning");
     default:

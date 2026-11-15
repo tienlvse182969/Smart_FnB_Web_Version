@@ -91,6 +91,6 @@ describe("lỗi và nhãn tiếng Việt", () => {
     expect(refundMethodInfo("CASH").label).toBe("Tiền mặt tại quầy");
     expect(refundMethodInfo("BANK_TRANSFER").label).toBe("Chuyển khoản");
     expect(refundSourceInfo("LATE_PAYMENT").label).toBe("Tiền về sau khi đơn đã huỷ");
-    expect(refundSourceInfo("MANAGER_CANCELLATION").label).toBe("Manager huỷ đơn đã trả");
+    expect(refundSourceInfo("MANAGER_CANCELLATION").label).toBe("Store Manager huỷ đơn đã trả");
   });
 });

@@ -195,7 +195,7 @@ export default function StaffTable() {
           "Đang tải hạn mức…"
         )}
         <div style={{ fontSize: 12, color: palette.textSubtle }}>
-          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Owner, Store Manager, Cashier, Barista); tài khoản đã khoá không tính (đặc tả 13.1).
+          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Brand Manager, Store Manager, Cashier, Barista); tài khoản đã khoá không tính.
         </div>
       </div>
 
@@ -270,7 +270,7 @@ export default function StaffTable() {
                     Gửi lại email
                   </ActionButton>
                 ) : (
-                  <Tag>Owner quản mật khẩu</Tag>
+                  <Tag>Brand Manager quản mật khẩu</Tag>
                 )}
                 {canCancelInvite(s) && (
                   <ActionButton size="small" danger data-testid={`staff-cancel-invite-${s.id}`} onClick={() => setReasonFor({ kind: "cancel-invite", staff: s })}>

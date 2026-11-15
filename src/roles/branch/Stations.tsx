@@ -572,7 +572,7 @@ function AddStationModal({ open, existing, onClose, onSubmit }: { open: boolean;
           />
           {connection === "BLUETOOTH" && (
             <div data-testid="station-bt-note" style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>
-              Theo đặc tả (11.10), Bluetooth được chọn trên tablet POS từ máy đã ghép; BE hiện bắt buộc có địa chỉ nên tạm nhập MAC ở đây (api-contract-plan #34).
+              Bluetooth được chọn trên tablet POS từ máy đã ghép; hiện cần nhập địa chỉ MAC ở đây.
             </div>
           )}
         </>
