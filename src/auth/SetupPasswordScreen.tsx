@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { App, Button, Input } from "antd";
-import { Check, KeyRound, UtensilsCrossed } from "lucide-react";
+import { Check, KeyRound } from "lucide-react";
+import PlatformLogo from "../components/brand/PlatformLogo";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError, authApi, showApiError } from "../api";
 import { SETUP_TOKEN_INVALID, SETUP_TOKEN_MESSAGE } from "../api/modules/auth";

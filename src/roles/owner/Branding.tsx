@@ -4,6 +4,7 @@ import { ImageUp, Lock, RotateCcw, Save, Send, Ticket } from "lucide-react";
 import { showApiError } from "../../api";
 import { validateLogoFile, MAX_DISPLAY_NAME_LENGTH } from "../../api/modules/branding/validate";
 import { SectionTitle } from "../../components/bits";
+import { PLATFORM_LOGO } from "../../components/brand/PlatformLogo";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
@@ -280,7 +281,7 @@ export default function Branding() {
           {/* Header web Manager */}
           <Card size="small" style={{ borderRadius: 12, overflow: "hidden" }} styles={{ body: { padding: 0 } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: primaryColor }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} onPrimary={textOnPrimary} />
+              <LogoDot logoUrl={shownLogo} primary={primaryColor} />
               <span style={{ color: textOnPrimary, fontSize: 13, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
             </div>
             <div style={{ padding: "10px 16px", fontSize: 11.5, color: palette.textMuted }}>Header web Store Manager</div>
@@ -289,7 +290,7 @@ export default function Branding() {
           {/* Màn hình phía khách */}
           <Card size="small" style={{ borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} onPrimary={textOnPrimary} dark />
+              <LogoDot logoUrl={shownLogo} primary={primaryColor} dark />
               <span style={{ fontSize: 13, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
             </div>
             <div style={{ fontSize: 11, color: palette.textSubtle, marginBottom: 8 }}>Màn hình phía khách · Quét mã để thanh toán</div>
@@ -319,7 +320,7 @@ export default function Branding() {
             <div style={{ fontSize: 11, color: palette.textSubtle, marginBottom: 8 }}>Đầu bill in</div>
             <div style={{ border: "1px dashed var(--ant-color-border)", borderRadius: 8, padding: 12, background: palette.surface }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: `2px solid ${primaryColor}`, paddingBottom: 8, marginBottom: 8 }}>
-                <LogoDot logoUrl={shownLogo} primary={primaryColor} onPrimary={textOnPrimary} dark small />
+                <LogoDot logoUrl={shownLogo} primary={primaryColor} dark small />
                 <span style={{ fontSize: 12.5, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
               </div>
               <div style={{ fontSize: 10.5, color: palette.textSubtle, lineHeight: 1.8 }}>
@@ -333,7 +334,7 @@ export default function Branding() {
           {/* Phiếu số — chỉ logo và thanh tiêu đề đổi màu, trạng thái giữ màu ngữ nghĩa */}
           <Card size="small" style={{ borderRadius: 12, overflow: "hidden" }} styles={{ body: { padding: 0 } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: primaryColor }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} onPrimary={textOnPrimary} />
+              <LogoDot logoUrl={shownLogo} primary={primaryColor} />
               <span style={{ color: textOnPrimary, fontSize: 12.5, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
               <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, color: textOnPrimary, fontSize: 11 }}>
                 <Ticket size={13} /> Phiếu số
@@ -357,15 +358,12 @@ export default function Branding() {
 function LogoDot({
   logoUrl,
   primary,
-  onPrimary,
   dark,
   small,
 }: {
   logoUrl?: string;
   /** Màu chủ đạo đang chọn (chưa lưu). */
   primary: string;
-  /** Màu chữ trên nền `primary`. */
-  onPrimary: string;
   dark?: boolean;
   small?: boolean;
 }) {
@@ -386,7 +384,12 @@ function LogoDot({
       {logoUrl ? (
         <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
-        <span style={{ fontSize: small ? 10 : 12, fontWeight: 700, color: dark ? onPrimary : primary }}>F&amp;B</span>
+        // Chưa có logo → logo gốc của nền tảng; trên nền màu chủ đạo dùng bản trắng/đen theo màu chữ đạt tương phản.
+        <img
+          src={PLATFORM_LOGO.mark[dark && isDarkEnoughForWhiteText(primary) ? "light" : "dark"]}
+          alt=""
+          style={{ width: "84%", height: "84%", objectFit: "contain" }}
+        />
       )}
     </div>
   );

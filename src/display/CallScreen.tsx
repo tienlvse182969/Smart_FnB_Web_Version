@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
+import { PLATFORM_LOGO } from "../components/brand/PlatformLogo"
 import {
   CALLING_EVENT_PREFIX,
   createCallingDisplayPairing,
@@ -21,7 +22,7 @@ import {
   type StoredPairing,
 } from "../api/device/session"
 import { useDeviceRealtime } from "../api/realtime/useDeviceRealtime"
-import { pickReadableTextColor } from "../theme"
+import { isDarkEnoughForWhiteText, pickReadableTextColor } from "../theme"
 import {
   addHighlights,
   boardOrders,
@@ -375,7 +376,10 @@ export default function CallScreen() {
               src={resolveDisplayAsset(branding.logoUrl) ?? ""}
               alt=""
             />
-          ) : null}
+          ) : (
+            // Chuỗi chưa tải logo → logo gốc; bản trắng/đen theo màu chữ trên thanh tiêu đề.
+            <img className="h-[8vh] w-[8vh] object-contain" src={PLATFORM_LOGO.mark[!primary || isDarkEnoughForWhiteText(primary) ? "light" : "dark"]} alt="" />
+          )}
           <div className="min-w-0">
             <h1 className="truncate text-[4.4vh] leading-tight font-black">
               {branding.displayName}
