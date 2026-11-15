@@ -40,11 +40,17 @@ export function useReportData(
           revenue: row.revenue,
         }))
       }
-      const result =
-        product === "combos"
-          ? await reportApi.getTopCombos(query)
-          : await reportApi.getTopToppings(query)
-      return result.items
+      if (product === "combos") {
+        const { items } = await reportApi.getTopCombos(query)
+        return items.map((row) => ({ name: row.name, quantity: row.quantity, revenue: row.revenue }))
+      }
+      // Topping: BE trả tiền cộng thêm ở additionalRevenue; tên có thể null khi tuỳ chọn đã bị xoá.
+      const { items } = await reportApi.getTopToppings(query)
+      return items.map((row) => ({
+        name: row.name ?? "Topping đã xoá",
+        quantity: row.quantity,
+        revenue: row.additionalRevenue,
+      }))
     }, [params, product]),
     enabled,
   )

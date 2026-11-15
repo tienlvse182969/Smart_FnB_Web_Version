@@ -9,7 +9,6 @@
  * `scn-qr-conflict` (bấm xác nhận thì BE trả 409 PAYMENT_ALREADY_SETTLED: webhook vừa về).
  */
 import type {
-  CompleteRefundInput,
   ConfirmPaymentInput,
   Order,
   OrderDetail,
@@ -492,18 +491,6 @@ export const orderMock: OrderApi = {
     return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
   },
 
-  async completeRefund({ chainId }, refundId, input: CompleteRefundInput) {
-    await mockDelay();
-    assertMockWritable();
-    const entry = [...cancelsOf(chainId).values()].find((c) => c.refundId === refundId);
-    if (!entry) throw new ApiError(404, "Refund not found");
-    if (entry.status !== "PENDING") throw new ApiError(409, "Only a pending refund can be completed");
-    if (entry.method !== "BANK_TRANSFER") throw new ApiError(409, "Cash refunds are completed when the order is cancelled");
-    entry.status = "COMPLETED";
-    entry.completedAt = new Date().toISOString();
-    entry.note = input.note?.trim() || null;
-  },
-
   async confirmPayment({ chainId, branchId }, paymentId, input: ConfirmPaymentInput) {
     await mockDelay();
     // BE `payments.service.ts:144-186`: chỉ kiểm quyền chi nhánh (không `assertSubscriptionAllowsWrite`); mock vẫn mô phỏng chỉ đọc
@@ -532,6 +519,20 @@ export const orderMock: OrderApi = {
       throw new ApiError(409, "Số tiền thực nhận thấp hơn tổng tiền đơn hàng.", [], "PAYMENT_AMOUNT_INSUFFICIENT");
     }
     confirmations.set(paymentId, { receivedAmount: input.receivedAmount, reason, transactionRef: input.transactionRef?.trim() || null, at: now, manual: true });
+  },
+
+  // PDF phiếu hoàn do BE sinh; mock KHÔNG dựng file giả.
+  async getRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async retryRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async downloadRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
   },
 };
 

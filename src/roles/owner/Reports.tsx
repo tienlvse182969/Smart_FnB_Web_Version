@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Alert,
+  App,
   Button,
   Card,
   Col,
@@ -10,13 +11,15 @@ import {
   Select,
   Skeleton,
   Table,
+  Tag,
 } from "antd"
-import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
+import { Banknote, Coins, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
 import dayjs from "dayjs"
-import { SectionTitle, ShareBar, StatCard } from "../../components/bits"
+import { AccentBadge, PageHeader, SectionTitle, ShareBar, StatCard } from "../../components/bits"
+import NoBranchState from "./NoBranchState"
 import { useAppStore } from "../../store"
 import type { ReportGranularity, RevenueComparison } from "../../types"
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { usePlan } from "../../plan/usePlan"
 import ReportChart, { seriesColor } from "../../components/ReportChart"
 import { branchPricesApi } from "../../api"
@@ -25,6 +28,9 @@ import { bucketLabel } from "../branch/reportFilters"
 import { formatDateTime } from "../../lib/reportFormat"
 import type { ReportCancellations } from "../../types"
 import { paymentMethodInfo } from "../../api/modules/order/codes"
+import { useReportSection } from "../../components/useReportSection"
+import LedgerByBranch from "./LedgerByBranch"
+import { branchesWithOwnPrice } from "./reportScope"
 import {
   RANGE_PRESETS,
   changeRatio,
@@ -35,6 +41,7 @@ import {
   formatVnd,
   formatVndCompact,
   presetRange,
+  todayInVn,
   type DateRange,
   type RangePreset,
 } from "../../lib/reportFormat"
@@ -42,9 +49,12 @@ import { useReportData } from "./useReportData"
 import { summarizeKpi } from "./reportKpi"
 
 const ALL_BRANCHES = "__all__"
+/** Tối đa BE nhận cho một lần xem (reports.service resolveRange). */
+const MAX_RANGE_DAYS = 366
 
 /** Báo cáo doanh thu của Owner — toàn bộ số liệu lấy từ `/reports/*`. */
 export default function Reports() {
+  const { message } = App.useApp()
   const accessibleBranches = useAppStore((s) => s.apiBranches)
   const [preset, setPreset] = useState<RangePreset | "custom">("7d")
   const [range, setRange] = useState<DateRange>(() => presetRange("7d"))
@@ -93,15 +103,24 @@ export default function Reports() {
     product,
     scope === "ready" && !!branchId,
   )
+  // Ghi chú chi nhánh có giá riêng (BR-85) từ ma trận giá của BE; chỉ gọi khi có khối so sánh, lỗi ở đây không làm hỏng khối so sánh.
+  const loadOwnPrice = useCallback(() => branchPricesApi.getMatrix(chainId!), [chainId])
+  const ownPrice = useReportSection(
+    loadOwnPrice,
+    scope === "ready" && !!chainId && branchId === ALL_BRANCHES,
+  )
+  const withOwnPrice = ownPrice.data
+    ? branchesWithOwnPrice(ownPrice.data.cells)
+    : new Map<string, number>()
   if (scope === "error")
     return <Alert type="error" message="Không tải được phạm vi chi nhánh." />
   if (scope !== "ready") return <Skeleton active />
   if (!branchId)
     return (
-      <Card>
-        Chưa có chi nhánh để xem báo cáo.{" "}
-        <Link to="/brand-manager/branches">Quản lý chi nhánh</Link>
-      </Card>
+      <div>
+        <PageHeader title="Tổng quan" sub="Báo cáo doanh thu của chuỗi" />
+        <NoBranchState description="Tạo chi nhánh đầu tiên để bắt đầu bán hàng và xem báo cáo doanh thu." />
+      </div>
     )
 
   const compareSeries =
@@ -164,10 +183,30 @@ export default function Reports() {
 
   return (
     <div>
-      <SectionTitle
-        title="Báo cáo doanh thu"
+      <PageHeader
+        title="Tổng quan"
         sub={`${scopeLabel} · ${describeRange(range)} · giờ Việt Nam`}
       />
+
+      {branches.length > 1 && !canCompare && (
+        <Alert
+          data-testid="report-plan-note"
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`Gói ${plan.tierLabel ?? "hiện tại"} xem báo cáo từng chi nhánh`}
+          description={`Chọn một chi nhánh để xem. So sánh các chi nhánh trên cùng biểu đồ có từ gói ${plan.requiredTierLabel("multiBranchCompare") ?? "Tiêu chuẩn"}.`}
+        />
+      )}
+      {branches.length === 1 && (
+        <Alert
+          data-testid="report-single-note"
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Chuỗi hiện chỉ có một chi nhánh nên chưa có phần so sánh chi nhánh."
+        />
+      )}
 
       <Card
         style={{ borderRadius: 14, marginBottom: 16 }}
@@ -193,8 +232,13 @@ export default function Reports() {
             allowClear={false}
             format="DD/MM/YYYY"
             value={[dayjs(range.from), dayjs(range.to)]}
+            disabledDate={(date) => date.format("YYYY-MM-DD") > todayInVn()}
             onChange={(values) => {
               if (!values?.[0] || !values?.[1]) return
+              if (values[1].diff(values[0], "day") + 1 > MAX_RANGE_DAYS) {
+                message.warning(`Chỉ xem được tối đa ${MAX_RANGE_DAYS} ngày một lần.`)
+                return
+              }
               setPreset("custom")
               setRange({
                 from: values[0].format("YYYY-MM-DD"),
@@ -376,13 +420,17 @@ export default function Reports() {
                     const percent =
                       (100 * parseAmount(row.grossSettledAmount)) / total
                     return (
-                      <div key={row.method}>
+                      <div key={row.method} data-testid="report-payment-row">
                         {paymentMethodInfo(row.method).label} ·{" "}
                         {formatVnd(row.grossSettledAmount)} ·{" "}
                         {percent.toLocaleString("vi-VN", {
                           maximumFractionDigits: 1,
                         })}
                         %
+                        <div style={{ fontSize: 12 }}>
+                          Đã hoàn {formatVnd(row.refundAmount)} · sau hoàn{" "}
+                          {formatVnd(row.netAmount)} · {formatCount(row.paymentCount)} khoản
+                        </div>
                         <ShareBar label={row.method} max={100} value={percent} />
                       </div>
                     )
@@ -395,6 +443,7 @@ export default function Reports() {
           </Card>
         </Col>
         <Col span={24}>
+          <LedgerByBranch chainId={chainId ?? undefined} range={range} />
           <Card title="Đơn huỷ và hoàn tiền">
             <SectionState section={cancellations}>
               <CancellationsSection data={cancellations.data} />
@@ -575,11 +624,19 @@ function KpiRow({ comparison, previous }: { comparison?: RevenueComparison; prev
     },
     {
       key: "cancelled",
-      label: "Đã hoàn",
-      value: formatVnd(k.refundAmount),
-      hint: `${formatCount(k.paidCancellationCount)} đơn hủy sau thanh toán`,
+      label: "Đơn huỷ sau thanh toán",
+      value: formatCount(k.paidCancellationCount),
+      hint: `Số tiền hoàn ${formatVnd(k.refundAmount)} (trừ vào ngày huỷ)`,
       icon: <Undo2 size={16} />,
       delta: delta(k.refundAmount, p?.refundAmount, false),
+    },
+    {
+      key: "cash-refund",
+      label: "Tiền mặt đã hoàn",
+      // BR-81, BR-83: mọi khoản hoàn đều là tiền mặt tại quầy, bất kể đơn gốc trả tiền mặt hay QR, nên đây là TỔNG hoàn BE gom theo
+      // ngày huỷ (totals.refundAmount). BE chưa có số "tiền mặt đã hoàn" riêng.
+      value: formatVnd(k.refundAmount),
+      icon: <Coins size={16} />,
     },
     {
       key: "pending",

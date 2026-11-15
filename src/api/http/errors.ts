@@ -146,7 +146,7 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/branch code already exists/i, "Mã chi nhánh đã tồn tại."],
   [/branch cannot be archived/i, "Chi nhánh còn phiên đang mở nên chưa lưu trữ được."],
   [/no active service plan is configured/i, "Chưa có gói dịch vụ đang bán. Liên hệ quản trị nền tảng."],
-  [/owner role is not configured/i, "Hệ thống chưa cấu hình vai trò Owner. Liên hệ quản trị nền tảng."],
+  [/owner role is not configured/i, "Hệ thống chưa cấu hình vai trò Brand Manager. Liên hệ quản trị nền tảng."],
   [/cannot change (their|your) own account status/i, "Không tự đổi trạng thái tài khoản của chính mình."],
   [/a logo file is required/i, "Chưa chọn tệp logo."],
   [/logo must be a valid/i, "Logo phải là ảnh JPEG, PNG hoặc WebP."],

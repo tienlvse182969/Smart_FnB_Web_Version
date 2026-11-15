@@ -100,6 +100,18 @@ export interface ManagerReportCancelledOrder {
   /** BR-50: người huỷ đơn và người thực hiện hoàn tiền (tên nhân viên), null khi BE không ghi. */
   cancelledByName?: string | null;
   refundedByNames?: string[];
+  /** Từng khoản hoàn kèm người yêu cầu và người hoàn (BE `2491dce`). */
+  refunds?: ManagerReportRefund[];
+}
+
+export interface ManagerReportRefund {
+  amount: number;
+  /** Mã BE RefundStatus: PENDING | COMPLETED. */
+  status: string;
+  reason: string | null;
+  note: string | null;
+  requestedByName: string | null;
+  completedByName: string | null;
 }
 
 export interface ManagerReport {

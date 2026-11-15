@@ -16,7 +16,8 @@ export interface ChartSeries {
   values: number[]
 }
 
-export const seriesColor = (index: number) => CHART_SERIES[index % CHART_SERIES.length]
+/** Series đầu tiên (series chính) dùng màu nhấn của chuỗi; các series sau lấy bảng màu phân biệt cố định. */
+export const seriesColor = (index: number) => (index === 0 ? palette.chartMain : CHART_SERIES[index % CHART_SERIES.length])
 
 const HEIGHT = 184
 const LEFT = 68
@@ -195,7 +196,7 @@ export default function ReportChart({
               : mode === "line" && (
                   <polyline
                     fill="none"
-                    stroke={palette.brandPrimary}
+                    stroke={palette.chartMain}
                     strokeWidth={2.5}
                     strokeLinejoin="round"
                     pointerEvents="none"
@@ -209,7 +210,7 @@ export default function ReportChart({
                     cx={x(i)}
                     cy={y(p.value)}
                     r={i === active ? 5.5 : 3}
-                    fill={palette.brandPrimary}
+                    fill={palette.chartMain}
                     stroke={i === active ? palette.surface : "none"}
                     strokeWidth={2}
                   />
@@ -226,7 +227,7 @@ export default function ReportChart({
                         ? palette.error.text
                         : highlightPeak && p.value === singlePeak && singlePeak > 0
                           ? palette.success.text
-                          : palette.brandPrimary
+                          : palette.chartMain
                     }
                   />
                 )}

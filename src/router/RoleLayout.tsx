@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import RoleShell, { type NavItem } from "../layout/RoleShell";
-import { page } from "../components/bits";
+import { PageCrumbContext, page } from "../components/bits";
 import DirtyWatcher from "../components/DirtyWatcher";
 import RefreshBoundary from "../components/RefreshBoundary";
 import { useAppStore } from "../store";
 import AttentionWatcher from "../roles/branch/AttentionWatcher";
 import { useAttentionCount } from "../roles/branch/attentionStore";
-import { roleBasePath, roleRoutes, type WebRole } from "./routeConfig";
+import { NAV_GROUPS, roleBasePath, roleRoutes, type WebRole } from "./routeConfig";
 import { modeOf } from "../api/flags";
 import { request } from "../api/http/client";
 import { subscribeOperations } from "../api/realtime/operations";
@@ -51,23 +51,42 @@ export default function RoleLayout({ role }: { role: WebRole }) {
   const attentionCount = useAttentionCount();
 
   const defs = roleRoutes[role];
-  const nav: NavItem[] = defs
-    .filter((d) => d.nav !== false)
-    .map((d) => ({
+  const groups = NAV_GROUPS[role] ?? {};
+  const nav: NavItem[] = [];
+  const groupNodes: Record<string, NavItem> = {};
+  for (const d of defs.filter((x) => x.nav !== false)) {
+    const item: NavItem = {
       key: d.path,
       label: d.label,
       icon: d.icon,
+      tag: d.tag,
       badge: d.path === "password-reset-requests" ? resetCount : role === "manager" && d.path === "orders/needs-attention" ? attentionCount : undefined,
-    }));
+    };
+    const def = d.group ? groups[d.group] : undefined;
+    if (!d.group || !def) {
+      nav.push(item);
+      continue;
+    }
+    if (!groupNodes[d.group]) {
+      groupNodes[d.group] = { key: `group:${d.group}`, label: def.label, icon: def.icon, children: [] };
+      nav.push(groupNodes[d.group]);
+    }
+    groupNodes[d.group].children!.push({ ...item, icon: undefined });
+  }
+  // Mục lá phẳng, dùng để suy ra mục đang sáng và breadcrumb.
+  const leaves = nav.flatMap((n) => n.children ?? [n]);
 
   // Mục sidebar trùng dài nhất với URL: /manager/orders/needs-attention sáng
   // "orders/needs-attention", còn /manager/orders/123 sáng "orders".
   const basePath = roleBasePath(role);
   const relative = pathname.startsWith(basePath) ? pathname.slice(basePath.length).replace(/^\//, "") : "";
   const section =
-    nav
+    leaves
       .filter((n) => relative === n.key || relative.startsWith(`${n.key}/`))
       .sort((a, b) => b.key.length - a.key.length)[0]?.key ?? "";
+
+  const crumbs = nav.find((n) => n.children?.some((c) => c.key === section));
+  const crumb = crumbs ? [crumbs.label, crumbs.children!.find((c) => c.key === section)!.label] : null;
 
   const branchName = branches.find((b) => b.id === currentBranchId)?.name ?? "";
 
@@ -89,9 +108,11 @@ export default function RoleLayout({ role }: { role: WebRole }) {
       <div style={page}>
         <DirtyWatcher />
         {role === "manager" && <AttentionWatcher />}
-        <RefreshBoundary>
-          <Outlet />
-        </RefreshBoundary>
+        <PageCrumbContext.Provider value={crumb}>
+          <RefreshBoundary>
+            <Outlet />
+          </RefreshBoundary>
+        </PageCrumbContext.Provider>
       </div>
     </RoleShell>
   );

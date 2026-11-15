@@ -139,3 +139,62 @@ export interface TopItems {
   items: TopItemRow[];
 }
 
+
+/**
+ * `GET /reports/payment-methods` — doanh thu theo hình thức thanh toán (BR-83).
+ * Hình thức giữ nguyên hình thức GỐC của đơn; tiền hoàn tách riêng và trừ vào ngày hoàn (BR-50).
+ */
+export interface PaymentMethodRow {
+  /** Mã BE `PaymentMethod`: CASH, BANK_TRANSFER, … */
+  method: string;
+  /** Số ghi nhận trước hoàn. */
+  grossSettledAmount: string;
+  /** Số thực nhận trước hoàn (tiền mặt: khách đưa, chưa trừ tiền thối). */
+  grossReceivedAmount: string;
+  /** Tiền đã hoàn của hình thức này, theo ngày hoàn. */
+  refundAmount: string;
+  /** Sau hoàn (= gộp − hoàn). */
+  netAmount: string;
+  receivedAmount: string;
+  paymentCount: number;
+  /** Số khoản của đơn đã huỷ sau khi trả. */
+  cancelledAfterPaymentCount: number;
+}
+
+export interface PaymentMethodsReport {
+  range: ReportRange;
+  /** Cộng mọi chi nhánh trong phạm vi. */
+  methods: PaymentMethodRow[];
+  branches: { branch: ReportBranchRef; methods: PaymentMethodRow[] }[];
+}
+
+/** `GET /reports/top-combos` — combo bán chạy; doanh thu chỉ ghi ở dòng cha của combo. */
+export interface TopComboRow {
+  rank: number;
+  comboId: string | null;
+  name: string;
+  quantity: number;
+  revenue: string;
+}
+
+export interface TopCombos {
+  range: ReportRange;
+  items: TopComboRow[];
+}
+
+/** `GET /reports/top-toppings` — topping bán chạy (BE tính từ tuỳ chọn của dòng đơn). */
+export interface TopToppingRow {
+  rank: number;
+  optionId: string | null;
+  name: string | null;
+  groupCode: string | null;
+  groupName: string | null;
+  quantity: number;
+  /** Tiền cộng thêm do topping. */
+  additionalRevenue: string;
+}
+
+export interface TopToppings {
+  range: ReportRange;
+  items: TopToppingRow[];
+}

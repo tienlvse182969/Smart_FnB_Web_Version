@@ -80,7 +80,7 @@ const lib: MenuExtra[] = [
   { id: "b", name: "Pudding", price: 6000, isActive: false },
 ];
 
-function Harness({ initial, spy }: { initial: ItemExtrasValue; spy?: (v: ItemExtrasValue) => void }) {
+function Harness({ initial, spy, serverError }: { initial: ItemExtrasValue; spy?: (v: ItemExtrasValue) => void; serverError?: string | null }) {
   const [value, setValue] = useState(initial);
   return (
     <AntApp>
@@ -91,6 +91,7 @@ function Harness({ initial, spy }: { initial: ItemExtrasValue; spy?: (v: ItemExt
           setValue(v);
           spy?.(v);
         }}
+        serverError={serverError}
       />
     </AntApp>
   );
@@ -101,7 +102,16 @@ const link = (over: Partial<ItemExtraLink> = {}): ItemExtraLink => ({ extraId: "
 describe("topping theo món", () => {
   it("quy tắc: tổng phần 0–100, số phần mỗi ly 1–5, giá số nguyên ≥ 0", () => {
     expect(itemExtrasProblem({ maxExtras: 5, links: [link()] })).toBeNull();
-    expect(itemExtrasProblem({ maxExtras: null, links: [] })).toMatch(/0 đến 100/);
+    expect(itemExtrasProblem({ maxExtras: null, links: [] })).toMatch(/từ 1 trở lên/);
+    expect(itemExtrasProblem({ maxExtras: 0, links: [] })).toMatch(/từ 1 trở lên/);
+    expect(itemExtrasProblem({ maxExtras: 2.5, links: [] })).toMatch(/từ 1 trở lên/);
+    // Tổng số phần không có trần trong đặc tả (BR-80): 100 và 250 đều hợp lệ ở web.
+    expect(itemExtrasProblem({ maxExtras: 100, links: [link()] })).toBeNull();
+    expect(itemExtrasProblem({ maxExtras: 250, links: [link()] })).toBeNull();
+    // Số phần mỗi lần gắn: 0 và 6 bị chặn, 1 và 5 hợp lệ.
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 0 })] })).toMatch(/từ 1 đến 5/);
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 1 })] })).toBeNull();
+    expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 5 })] })).toBeNull();
     expect(itemExtrasProblem({ maxExtras: 5, links: [link({ maxQuantity: 6 })] })).toMatch(/từ 1 đến 5/);
     expect(itemExtrasProblem({ maxExtras: 5, links: [link({ price: -1 })] })).toMatch(/số nguyên đồng/);
   });
@@ -126,8 +136,18 @@ describe("topping theo món", () => {
     expect((spy.mock.calls.at(-1)![0] as ItemExtrasValue).links.map((l) => l.extraId)).toEqual(["b"]);
   });
 
-  it("tổng phần vượt ngưỡng: hiện lỗi", () => {
+  it("lỗi 400 của BE (tổng vượt ngưỡng BE) hiện ngay dưới ô tổng, dữ liệu đang nhập giữ nguyên", () => {
+    render(<Harness initial={{ maxExtras: 150, links: [link()] }} serverError="Tổng số phần topping tối đa không được lớn hơn 100." />);
+    expect(screen.getByTestId("item-extras-server-error").textContent).toMatch(/không được lớn hơn 100/);
+    expect((screen.getByTestId("item-extras-max") as HTMLInputElement).value).toBe("150");
+    expect(screen.getByTestId("item-extra-a")).toBeTruthy();
+  });
+
+  it("tổng phần dưới 1: hiện lỗi; từ 1 trở lên (kể cả trên 100) không lỗi vì đặc tả không đặt trần", () => {
+    const { unmount } = render(<Harness initial={{ maxExtras: 0, links: [] }} />);
+    expect(screen.getByTestId("item-extras-problem").textContent).toMatch(/từ 1 trở lên/);
+    unmount();
     render(<Harness initial={{ maxExtras: 101, links: [] }} />);
-    expect(screen.getByTestId("item-extras-problem").textContent).toMatch(/0 đến 100/);
+    expect(screen.queryByTestId("item-extras-problem")).toBeNull();
   });
 });

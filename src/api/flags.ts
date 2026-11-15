@@ -23,6 +23,7 @@ export const API_MODULES = [
   "admin",
   "payos",
   "posters",
+  "ledger",
 ] as const;
 
 export type ApiModule = (typeof API_MODULES)[number];
@@ -48,13 +49,14 @@ export const DEFAULT_MODES: Record<ApiModule, ApiMode> = {
   admin: "real",
   payos: "real",
   posters: "real",
+  ledger: "real",
 };
 
 /** Ghi chú cho bảng cờ: vì sao module đang ở chế độ đó. */
 export const FLAG_NOTES: Record<ApiModule, string> = {
   auth: "real: login/refresh/logout, POST /auth/setup-password (link lời mời), POST /auth/change-password. BE chưa có cập nhật hồ sơ cá nhân (CM-02)",
   branch: "real",
-  report: "real; BE chưa đếm đơn quầy (lọc COMPLETED) — chờ BE",
+  report: "real (OW-08): 6 endpoint /reports/* (comparison, timeseries, top-items, payment-methods, top-combos, top-toppings), chỉ OWNER; phạm vi ≥ 2 chi nhánh cần gói có so sánh (403 PLAN_FEATURE_NOT_ENABLED). BE chưa trả: người hoàn (BR-50) — chờ BE",
   plan: "real: trạng thái, hạn dùng, hạn mức, cờ nhận diện/so sánh nhiều chi nhánh (BE plan-quota.service.ts). BE không có cờ AI",
   menu: "real (danh mục + món + gán chi nhánh, giai đoạn 4.2); tuỳ chọn món ở module options (real từ 6.3)",
   options: "real (OW-03): CRUD nhóm/tuỳ chọn, mặc định, xem trạng thái theo chi nhánh và gắn nhóm vào món; cần deploy BE và migration mới",
@@ -65,11 +67,12 @@ export const FLAG_NOTES: Record<ApiModule, string> = {
   branding: "real (6.4, OW-07): GET/PUT/DELETE restaurant-chains/{id}/branding + POST …/branding/logo (multipart); BE chưa có isCustom/version (#39) và chưa chặn theo gói (#33) nên web tự suy và tự khoá; mock = VITE_API_BRANDING=mock",
   account: "real (7.4c): Owner quản Manager qua /employees (list, tạo bằng lời mời, khoá, gửi lại email, chuyển chi nhánh); Manager quản Cashier/Barista qua /manager/staff* (#24: list, tạo bằng email, sửa họ tên/điện thoại, khoá/mở kèm lý do, gửi lại email kích hoạt kèm lý do); mock = VITE_API_ACCOUNT=mock",
   stations: "real (5.5): GET/POST /stations; đổi tên, ngừng dùng, sửa máy in chờ BE (#27); ghép/thu hồi thiết bị ở 5.6",
-  order: "real: GET /manager/orders và /manager/orders/:id (BM-04); POST /payments/:id/confirm (BM-05); duyệt/từ chối yêu cầu hoàn của Thu ngân qua /manager/refund-approval-requests (BM-06). BE đã gỡ POST /manager/orders/:id/cancel-paid; POST /refunds/:id/complete chỉ còn cho khoản hoàn chuyển khoản cũ; mock = VITE_API_ORDER=mock",
+  order: "real: GET /manager/orders và /manager/orders/:id (BM-04); POST /payments/:id/confirm (BM-05); duyệt/từ chối yêu cầu hoàn của Thu ngân qua /manager/refund-approval-requests (BM-06). BE đã gỡ POST /manager/orders/:id/cancel-paid; web không gọi GET /refunds và POST /refunds/:id/complete (hoàn tiền chuyển khoản đã cắt, mục 16); mock = VITE_API_ORDER=mock",
   manager_report: "real (7.3, BM-03): GET /manager/reports (từ/đến theo ngày giờ Việt Nam, kỳ ngày/tuần/tháng, top 10), chỉ đọc; tách khỏi `report` của Owner (/reports/*); mock = VITE_API_MANAGER_REPORT=mock",
   admin: "real: hồ sơ đăng ký, gói dịch vụ, doanh nghiệp, tài khoản Platform Staff, hoá đơn thuê bao. Doanh thu nền tảng và hoá đơn thuê bao (PA-06): BE có `GET /admin/platform-revenue`, `/admin/platform-billing/invoices` (chỉ ADMIN) từ BE `28afe57`; web gọi thẳng qua `adminAnalyticsApi` (không có bản mock)",
   payos: "real (6.5, đủ #40 từ 6.10): GET/PUT/DELETE /restaurant-chains/:id/payos-channel; PUT xác minh với PayOS, cần PAYOS_MASTER_KEY và PAYOS_WEBHOOK_BASE_URL trên BE",
   posters: "real (OW-11): GET/POST/PATCH/DELETE restaurant-chains/{id}/display-posters (chỉ OWNER). Web theo đặc tả BR-51/52: tối đa 6 ảnh, ≤ 5 MB, tên ≤ 50, xoay 8 giây cố định; BE cho tới 10 ảnh, tên 120, thời lượng 3–60 giây. BE không có đổi ảnh tại chỗ; mock = VITE_API_POSTERS=mock",
+  ledger: "real (BM-07, mục 32): GET /branches/{id}/cash-ledger (Store Manager, Brand Manager) và /restaurant-chains/{id}/cash-ledger (Brand Manager), query from/to; chỉ đọc. lọc direction/paymentMethod/cashierId, phân trang, 5 tổng và tổng theo chi nhánh do BE tính (BE 2491dce); mock = VITE_API_LEDGER=mock chỉ trả sổ rỗng",
 };
 
 type Env = Record<string, string | undefined>;

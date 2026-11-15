@@ -153,12 +153,6 @@ export type OrderRefundRecord = {
   completedByName?: string | null;
 };
 
-/** Thân `POST /refunds/:refundId/complete` (BE `CompleteRefundDto`). */
-export type CompleteRefundInput = {
-  /** Tối đa 500 ký tự, không bắt buộc. */
-  note?: string;
-};
-
 /** Một dòng của danh sách tra cứu. */
 export type OrderSummary = {
   id: string;

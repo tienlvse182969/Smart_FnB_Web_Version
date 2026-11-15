@@ -12,7 +12,7 @@ import { palette } from "../../theme";
 import StaffReasonModal from "./StaffReasonModal";
 
 /** Cùng nhãn với màn Owner quản Manager (`ManagerAccounts.tsx`): INACTIVE = chưa đặt mật khẩu (BE: `UserStatus.INACTIVE` lúc mời). */
-const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Đang hoạt động", SUSPENDED: "Đã khoá", INACTIVE: "Chưa kích hoạt" };
+const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Hoạt động", SUSPENDED: "Bị khoá", INACTIVE: "Chờ kích hoạt" };
 const statusLabel = (code: string) => STATUS_LABEL[code as AccountStatus] ?? `Khác (${code})`;
 
 /**
@@ -23,9 +23,9 @@ export function invitationLabel(s: Pick<StaffEmployee, "status" | "invitationSta
   if (s.status !== "INACTIVE") return null;
   switch (s.invitationStatus) {
     case "INVITED":
-      return "Chưa kích hoạt (đã mời)";
+      return "Chờ kích hoạt";
     case "INVITATION_EXPIRED":
-      return "Lời mời hết hạn";
+      return "Link hết hạn";
     case "DEACTIVATED":
       return "Đã ngừng";
     case "CANCELLED":
@@ -195,7 +195,7 @@ export default function StaffTable() {
           "Đang tải hạn mức…"
         )}
         <div style={{ fontSize: 12, color: palette.textSubtle }}>
-          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Owner, Store Manager, Cashier, Barista); tài khoản đã khoá không tính (đặc tả 13.1).
+          Đếm mọi tài khoản đang hoạt động của cả doanh nghiệp (Brand Manager, Store Manager, Cashier, Barista); tài khoản đã khoá không tính.
         </div>
       </div>
 
@@ -270,7 +270,7 @@ export default function StaffTable() {
                     Gửi lại email
                   </ActionButton>
                 ) : (
-                  <Tag>Owner quản mật khẩu</Tag>
+                  <Tag>Brand Manager quản mật khẩu</Tag>
                 )}
                 {canCancelInvite(s) && (
                   <ActionButton size="small" danger data-testid={`staff-cancel-invite-${s.id}`} onClick={() => setReasonFor({ kind: "cancel-invite", staff: s })}>

@@ -313,7 +313,7 @@ export default function SignupRequests() {
               </>
             )}
             {detail.status === "APPROVED" && <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
-              <strong>Hỗ trợ kích hoạt (PS-01)</strong>
+              <strong>Hỗ trợ kích hoạt</strong>
               {detail.hasFirstPeriodInvoice
                 ? <span>Hồ sơ đã tạo hóa đơn kỳ đầu. Sau khi kích hoạt, có thể đăng ký đổi gói cho kỳ kế tiếp.</span>
                 : <Select placeholder="Đổi gói đã duyệt" value={supportPlanId} onChange={setSupportPlanId} options={plans.filter((p) => p.isActive && p.id !== detail.approvedPlan?.id).map((p) => ({ value: p.id, label: p.code === "TRIAL" ? p.name : `${p.name} · ${formatVnd(p.monthlyPrice)}/tháng` }))} />}

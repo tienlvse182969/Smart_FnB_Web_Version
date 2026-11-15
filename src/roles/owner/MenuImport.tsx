@@ -31,9 +31,11 @@ import {
 } from "../../api"
 import type { MenuImportDraftOptionGroup } from "../../api/modules/advancedMenu"
 import { API_BASE_URL } from "../../config"
+import MoneyInput from "../../components/MoneyInput"
 import { money } from "../../data"
 import { useAppStore } from "../../store"
 import { palette } from "../../theme"
+import { AccentBadge, PageHeader } from "../../components/bits"
 
 const backendOrigin = API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "")
 const importKey = (chainId: string) => `smartfnb_menu_import_${chainId}`
@@ -164,15 +166,11 @@ export default function MenuImport() {
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <div style={{ marginBottom: 18 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Nhập menu từ ảnh
-        </Typography.Title>
-        <Typography.Text type="secondary">
-          OCR đọc chữ, AI tạo bản nháp; chỉ ghi menu sau khi Brand Manager kiểm
-          tra và xác nhận (OW-12)
-        </Typography.Text>
-      </div>
+      <PageHeader
+        title="Nhập từ ảnh (AI)"
+        extra={<AccentBadge>AI</AccentBadge>}
+        sub="OCR đọc chữ, AI tạo bản nháp; chỉ ghi menu sau khi Brand Manager kiểm tra và xác nhận."
+      />
 
       {!record && (
         <Upload.Dragger
@@ -407,9 +405,7 @@ export default function MenuImport() {
                         title: "Giá",
                         width: 145,
                         render: (_, item, itemIndex) => (
-                          <InputNumber
-                            min={0}
-                            precision={0}
+                          <MoneyInput
                             value={item.price}
                             addonAfter="₫"
                             onChange={(value) =>
@@ -626,9 +622,7 @@ export default function MenuImport() {
                         )
                       }
                     />
-                    <InputNumber
-                      min={0}
-                      precision={0}
+                    <MoneyInput
                       addonBefore="Giá"
                       addonAfter="₫"
                       value={extra.price}
@@ -743,7 +737,7 @@ function DraftOptionGroupsEditor({ groups, onChange }: { groups: MenuImportDraft
             {group.options.map((option, optionIndex) => (
               <div key={optionIndex} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 170px 36px", gap: 8 }}>
                 <Input aria-label={`Lựa chọn ${optionIndex + 1}`} value={option.name} maxLength={100} placeholder="Tên lựa chọn" onChange={(event) => changeGroup(groupIndex, { options: group.options.map((value, i) => i === optionIndex ? { ...value, name: event.target.value } : value) })} />
-                <InputNumber aria-label={`Giá cộng thêm lựa chọn ${optionIndex + 1}`} min={0} precision={0} addonAfter="₫" value={option.priceDelta} onChange={(value) => changeGroup(groupIndex, { options: group.options.map((entry, i) => i === optionIndex ? { ...entry, priceDelta: value ?? 0 } : entry) })} style={{ width: "100%" }} />
+                <MoneyInput aria-label={`Giá cộng thêm lựa chọn ${optionIndex + 1}`} addonAfter="₫" value={option.priceDelta} onChange={(value) => changeGroup(groupIndex, { options: group.options.map((entry, i) => i === optionIndex ? { ...entry, priceDelta: value ?? 0 } : entry) })} style={{ width: "100%" }} />
                 <Button danger type="text" aria-label={`Xoá lựa chọn ${optionIndex + 1}`} icon={<Trash2 size={14} />} onClick={() => changeGroup(groupIndex, { options: group.options.filter((_, i) => i !== optionIndex) })} />
               </div>
             ))}

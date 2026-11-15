@@ -15,7 +15,10 @@ vi.mock("../../api", () => ({
     getPaymentMethods: vi.fn(),
     getCancellations: vi.fn(),
   },
-  branchPricesApi: { getMatrix: vi.fn() },
+  // LedgerByBranch và ghi chú giá riêng gọi API khác; trong test khối sổ theo chi nhánh để ở trạng thái đang tải, không chen vào "Thử lại" của khối kiểm thử.
+  ledgerApi: { getChainLedger: vi.fn(() => new Promise(() => undefined)) },
+  branchPricesApi: { getMatrix: vi.fn().mockResolvedValue({ cells: [] }) },
+  describeApiError: (error: unknown) => (error instanceof Error ? error.message : "Lỗi"),
 }))
 vi.stubGlobal("matchMedia", () => ({
   matches: false,
@@ -65,9 +68,8 @@ it("loads one branch on Basic, renders a refund-only day and retries only the fa
       },
     ],
   } as never)
-  vi.mocked(reportApi.getPaymentMethods).mockResolvedValue({ methods: [] })
+  vi.mocked(reportApi.getPaymentMethods).mockResolvedValue({ methods: [] } as never)
   vi.mocked(reportApi.getCancellations).mockResolvedValue(noCancellations)
-  vi.mocked(branchPricesApi.getMatrix).mockResolvedValue({ cells: [] } as never)
   vi.mocked(reportApi.getTopItems)
     .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValue({ items: [] } as never)
@@ -109,7 +111,7 @@ it("compares branches on one chart, labels months, shows chain AOV, price overri
       { branch: { id: "b", name: "CN b" }, points: [{ netRevenue: "50000", orderCount: 1 }, { netRevenue: "150000", orderCount: 1 }] },
     ],
   } as never)
-  vi.mocked(reportApi.getPaymentMethods).mockResolvedValue({ methods: [] })
+  vi.mocked(reportApi.getPaymentMethods).mockResolvedValue({ methods: [] } as never)
   vi.mocked(reportApi.getTopItems).mockResolvedValue({ items: [] } as never)
   vi.mocked(branchPricesApi.getMatrix).mockResolvedValue({ cells: [{ branchId: "b", priceOverride: 30000 }, { branchId: "b", priceOverride: null }, { branchId: "a", priceOverride: null }] } as never)
   vi.mocked(reportApi.getCancellations).mockResolvedValue({

@@ -61,7 +61,7 @@ describe("mapper báo cáo chi nhánh (đúng dạng BE)", () => {
       refundAmount: 0,
       pendingRefundAmount: 0,
       limit: 10,
-      items: [{ id: "c1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-08T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền", refundAmount: 0, cancelledByName: "Lan Trần", refundedByNames: ["Minh Lê"] }],
+      items: [{ id: "c1", orderCode: "CTR-1-AF0042", callNumber: null, totalAmount: 75000, cancelledAt: "2026-10-08T05:56:59.324Z", reason: "Khách đổi ý trước khi trả tiền", refundAmount: 0, cancelledByName: "Lan Trần", refundedByNames: ["Minh Lê"], refunds: [{ amount: 0, status: "", reason: null, note: null, requestedByName: null, completedByName: "Minh Lê" }, { amount: 0, status: "", reason: null, note: null, requestedByName: null, completedByName: "Minh Lê" }] }],
     });
     // BR-83: cash per day, money strings → numbers, no recomputation.
     expect(r.cashByDay).toEqual([{ day: "2026-10-08", cashCollected: 300000, cashRefunded: 50000, netCash: 250000 }]);

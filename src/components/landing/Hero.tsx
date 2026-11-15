@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, Clock } from "lucide-react";
 import CtaButton from "./CtaButton";
 import Logo from "./Logo";
 import heroBackground from "../../assets/brand/login-background.jpg";
+import { palette } from "../../theme";
 
 const orderLines = [
   { name: "2x Trà sữa trân châu", note: "Size L · 50% đường", status: "done" },
@@ -31,7 +32,7 @@ export default function Hero() {
         className="absolute inset-0 -z-10"
         style={{
           background:
-            "linear-gradient(90deg, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.82) 45%, rgba(9,9,11,0.55) 100%)",
+            `linear-gradient(90deg, color-mix(in srgb, ${palette.ink} 92%, transparent) 0%, color-mix(in srgb, ${palette.ink} 82%, transparent) 45%, color-mix(in srgb, ${palette.ink} 55%, transparent) 100%)`,
         }}
       />
       <div className="mx-auto max-w-6xl px-6">

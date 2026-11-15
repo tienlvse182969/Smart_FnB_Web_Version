@@ -147,7 +147,7 @@ export default function AttentionOrders() {
     <div data-testid="attention-page">
       <SectionTitle
         title="Đơn cần xử lý"
-        sub="Lệch số tiền (không tự xác nhận, BR-28), hết món khi đơn đã trả, tiền về sau khi QR hết hạn. Cũ nhất ở trên."
+        sub="Lệch số tiền (không tự xác nhận), hết món khi đơn đã trả, tiền về sau khi QR hết hạn. Cũ nhất ở trên."
         extra={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {realtimeOn && <RealtimeBadge {...realtime} />}

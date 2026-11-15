@@ -4,6 +4,7 @@
  */
 import type {
   ApiBranch,
+  PaymentMethodsReport,
   ReportBranchRef,
   ReportGranularity,
   ReportRange,
@@ -11,8 +12,10 @@ import type {
   RevenueComparison,
   RevenuePoint,
   RevenueTimeseries,
+  TopCombos,
   TopItemRow,
   TopItems,
+  TopToppings,
 } from "../../../types";
 import { mockDelay } from "../../mock/control";
 import { revenueEvents } from "../../mock/data/orders";
@@ -80,35 +83,6 @@ function eventsOf(branch: ApiBranch, scope: Scope) {
 export const reportMock: ReportApi = {
   // Mock không giữ người huỷ/người hoàn: trả mục rỗng thay vì dựng dữ liệu giả.
   async getCancellations(params) { return { total: 0, paidCancellationCount: 0, refundAmount: "0", pendingRefundAmount: "0", limit: params.limit ?? 10, items: [] }; },
-  async getTopCombos() { return { items: [] }; }, // Mock order lines contain individual menu items only.
-  async getTopToppings(params) {
-    const scope = await resolveScope(params);
-    const toppings = new Map<string, { name: string; quantity: number; amount: number }>();
-    for (const branch of scope.branches) {
-      for (const { order, amount } of eventsOf(branch, scope)) {
-        if (amount <= 0 || order.status === "cancelled") continue;
-        for (const line of order.lines) for (const opt of line.options) {
-          if (!/topping/i.test(opt.groupName)) continue;
-          const row = toppings.get(opt.optionName) ?? { name: opt.optionName, quantity: 0, amount: 0 };
-          row.quantity += line.quantity;
-          row.amount += opt.priceDelta * line.quantity;
-          toppings.set(opt.optionName, row);
-        }
-      }
-    }
-    return { items: [...toppings.values()].sort((a,b) => b.quantity-a.quantity).slice(0, params.limit ?? 10)
-      .map(row => ({ name: row.name, quantity: row.quantity, revenue: money(row.amount) })) };
-  },
-  async getPaymentMethods(params) {
-    const scope = await resolveScope(params);
-    const totals = new Map<string, number>();
-    for (const branch of scope.branches) for (const event of eventsOf(branch, scope)) {
-      if (event.amount <= 0) continue;
-      const method = event.order.paymentMethod === "cash" ? "CASH" : "BANK_TRANSFER";
-      totals.set(method, (totals.get(method) ?? 0) + event.amount);
-    }
-    return { methods: [...totals].map(([method, total]) => ({ method, grossSettledAmount: money(total) })) };
-  },
   async getRevenueComparison(params = {}): Promise<RevenueComparison> {
     await mockDelay();
     const scope = await resolveScope(params);
@@ -232,5 +206,24 @@ export const reportMock: ReportApi = {
         orderLineCount: v.lines,
       }));
     return { range: scope.range, items };
+  },
+
+  // Dữ liệu mock chưa có hình thức thanh toán theo khoản, combo hay topping: trả rỗng đúng shape (không bịa số).
+  async getPaymentMethods(params = {}): Promise<PaymentMethodsReport> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, methods: [], branches: scope.branches.map((b) => ({ branch: refOf(b), methods: [] })) };
+  },
+
+  async getTopCombos(params = {}): Promise<TopCombos> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, items: [] };
+  },
+
+  async getTopToppings(params = {}): Promise<TopToppings> {
+    await mockDelay();
+    const scope = await resolveScope(params);
+    return { range: scope.range, items: [] };
   },
 };

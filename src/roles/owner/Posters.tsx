@@ -11,7 +11,7 @@ import {
   POSTER_ROTATION_SECONDS,
   validatePosterFile,
 } from "../../api/modules/posters/validate";
-import { SectionTitle } from "../../components/bits";
+import { EmptyState, PageHeader } from "../../components/bits";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { useAppStore } from "../../store";
@@ -128,8 +128,8 @@ export default function Posters() {
 
   return (
     <div data-testid="posters-page">
-      <SectionTitle
-        title="Poster màn hình sau"
+      <PageHeader
+        title="Áp phích"
         sub="Ảnh giới thiệu món mới, khuyến mãi… hiện trên màn hình phụ của thu ngân. Đổi ở đây thì mọi chi nhánh trong chuỗi đổi theo."
         extra={
           <ActionButton
@@ -159,10 +159,17 @@ export default function Posters() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, alignItems: "start" }}>
         <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 18 } }} loading={loading && posters.length === 0}>
           {posters.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "36px 12px", color: palette.textSubtle }} data-testid="posters-empty">
-              <Images size={36} />
-              <div style={{ fontWeight: 600, color: palette.textMuted, marginTop: 10 }}>Chưa có poster nào</div>
-              <div style={{ fontSize: 12.5, marginTop: 4 }}>Màn hình sau đang dùng ảnh mặc định. Thêm poster để thay thế.</div>
+            <div data-testid="posters-empty">
+              <EmptyState
+                icon={<Images size={24} />}
+                title="Chưa có poster nào"
+                description="Màn hình sau đang dùng ảnh mặc định. Thêm poster để thay thế."
+                actionNode={
+                  <ActionButton type="primary" icon={<ImagePlus size={15} />} loading={busy === "new"} disabled={full || busy !== null} onClick={() => addInputRef.current?.click()}>
+                    Thêm poster
+                  </ActionButton>
+                }
+              />
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -21,7 +21,7 @@ const fold = (s: string) =>
     .replace(/đ/gi, "d")
     .toLowerCase();
 
-const OWNER_OFF_HINT = "Owner đã tắt, chi nhánh không bật lại được";
+const OWNER_OFF_HINT = "Brand Manager đã tắt, chi nhánh không bật lại được";
 const rowStyle = (ownerDisabled: boolean) => ({
   display: "flex",
   alignItems: "center",
@@ -167,7 +167,7 @@ export default function BranchMenu() {
 
   const ownerTag = (
     <Tag style={{ marginLeft: 8 }} data-testid="owner-disabled-tag">
-      Owner đã tắt
+      Brand Manager đã tắt
     </Tag>
   );
 
@@ -277,7 +277,7 @@ export default function BranchMenu() {
         showIcon
         data-testid="branch-menu-banner"
         style={{ marginBottom: 14 }}
-        message="Bật/tắt chỉ áp dụng cho chi nhánh này trong ngày. Tên, giá, ảnh do Owner quản lý."
+        message="Bật/tắt chỉ áp dụng cho chi nhánh này trong ngày. Tên, giá, ảnh do Brand Manager quản lý."
       />
       <Input.Search
         allowClear

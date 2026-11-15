@@ -44,7 +44,7 @@ export const branchOptionsMock: BranchOptionsApi = {
     const row = rowsOf(chainId, branchId).find((r) => r.optionId === optionId);
     if (!row) throw new ApiError(404, "Option not found in your chain");
     // BR-12: Owner tắt thì chi nhánh không bật lại được. (BE thật vẫn lưu cờ rồi trả hiệu lực false; mock chặn hẳn để thử giao diện.)
-    if (isAvailable && row.ownerDisabled) throw new ApiError(403, "Owner đã tắt tuỳ chọn này, chi nhánh không bật lại được");
+    if (isAvailable && row.ownerDisabled) throw new ApiError(403, "Brand Manager đã tắt tuỳ chọn này, chi nhánh không bật lại được");
     const list = getBranchOptions(chainId, branchId);
     const state = list.find((r) => r.optionId === optionId);
     if (state) state.isAvailable = isAvailable;

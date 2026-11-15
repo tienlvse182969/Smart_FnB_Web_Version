@@ -100,9 +100,18 @@ const cancelColumns = (basePath: string): ColumnsType<ManagerReportCancelledOrde
   { title: "Thời điểm huỷ", dataIndex: "cancelledAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "totalAmount", align: "right", width: 120, render: (v: number) => formatVnd(v) },
   { title: "Đã hoàn / phải hoàn", dataIndex: "refundAmount", align: "right", width: 150, render: (v: number) => (v > 0 ? formatVnd(v) : "—") },
-  // BR-50: báo cáo nêu người huỷ và người hoàn.
-  { title: "Người huỷ", dataIndex: "cancelledByName", width: 140, render: (v: string | null | undefined) => v ?? "—" },
-  { title: "Người hoàn", dataIndex: "refundedByNames", width: 140, render: (v: string[] | undefined) => (v?.length ? v.join(", ") : "—") },
+  { title: "Người huỷ", dataIndex: "cancelledByName", width: 140, render: (v?: string | null) => v ?? "—" },
+  {
+    title: "Người hoàn",
+    key: "refunder",
+    width: 160,
+    render: (_: unknown, row) => {
+      // Hiện người đã hoàn; khoản chưa hoàn xong thì hiện người yêu cầu. BE không trả thì "—".
+      const fromRefunds = [...new Set((row.refunds ?? []).map((r) => r.completedByName ?? r.requestedByName).filter((n): n is string => !!n))];
+      const names = fromRefunds.length ? fromRefunds : (row.refundedByNames ?? []);
+      return names.length ? <span data-testid="report-cancel-refunder">{names.join(", ")}</span> : "—";
+    },
+  },
   { title: "Lý do", dataIndex: "reason", render: (v: string | null) => v ?? "—" },
 ];
 
@@ -346,7 +355,7 @@ export default function ManagerDashboard() {
                   testId="report-cancellations"
                   empty={data.cancellations.items.length === 0 ? "Không có đơn huỷ trong kỳ." : undefined}
                 >
-                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns(basePath)} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 920 }} />
+                  <Table<ManagerReportCancelledOrder> rowKey="id" size="small" columns={cancelColumns(basePath)} dataSource={data.cancellations.items} pagination={false} scroll={{ x: 940 }} />
                   {data.cancellations.total > data.cancellations.items.length && (
                     <div style={{ marginTop: 10, fontSize: 13 }}>
                       <Link to={`${basePath}/orders?${ordersFilterSearch}`} data-testid="report-cancel-all">

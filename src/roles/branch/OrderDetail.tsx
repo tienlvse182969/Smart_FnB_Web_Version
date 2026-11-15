@@ -33,6 +33,7 @@ import type {
   OrderRefundRecord,
 } from "../../types";
 import { Chip } from "../admin/adminUi";
+import RefundSlip, { hasRefundSlip } from "./RefundSlip";
 
 /** Danh sách đặt `state.from` (chuỗi truy vấn đang lọc) khi mở chi tiết, để "Quay lại" về đúng bộ lọc và trang. */
 export interface OrderDetailLocationState {
@@ -368,6 +369,7 @@ export default function OrderDetail() {
               {r.note ? ` · ${r.note}` : ""}
             </div>
           )}
+          {hasRefundSlip(r) && <RefundSlip orderId={order.id} refundId={r.id} />}
         </div>
       ),
     },

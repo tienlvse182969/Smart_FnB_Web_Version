@@ -99,8 +99,21 @@ function mapCancelled(r: Raw): ManagerReportCancelledOrder {
     cancelledAt: str(r.cancelledAt),
     reason: str(r.reason),
     refundAmount: money(r.refundAmount),
-    cancelledByName: personName(r.cancelledBy),
-    refundedByNames: [...new Set(list(r.refunds).map((refund) => personName(refund.completedBy)).filter((n): n is string => !!n))],
+    // Người huỷ và người hoàn chỉ có khi BE trả (từ `2491dce`); BE cũ không trả thì không có trường, không đoán.
+    ...("cancelledBy" in r ? { cancelledByName: personName(r.cancelledBy) } : {}),
+    ...(Array.isArray(r.refunds)
+      ? {
+          refundedByNames: [...new Set(list(r.refunds).map((refund) => personName(refund.completedBy)).filter((n): n is string => !!n))],
+          refunds: list(r.refunds).map((x) => ({
+            amount: money(x.amount),
+            status: str(x.status) ?? "",
+            reason: str(x.reason),
+            note: str(x.note),
+            requestedByName: personName(x.requestedBy),
+            completedByName: personName(x.completedBy),
+          })),
+        }
+      : {}),
   };
 }
 

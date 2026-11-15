@@ -37,6 +37,8 @@ export const FIELD_LABELS: Record<string, string> = {
   accentColor: "Màu nhấn",
   price: "Giá",
   priceDelta: "Giá cộng thêm",
+  maxExtras: "Tổng số phần topping tối đa",
+  maxQuantity: "Số phần tối đa mỗi lần gắn",
   preparationMinutes: "Thời gian pha",
   categoryId: "Danh mục",
   branchId: "Chi nhánh",
