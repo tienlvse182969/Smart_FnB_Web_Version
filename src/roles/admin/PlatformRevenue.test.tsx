@@ -22,7 +22,9 @@ it("dates MRR at the period end and shows trial conversion by start month (30.4)
     plans: [],
     trialCohorts: [{ month: "2026-10", started: 3, converted: 1, inTrial: 1, conversionRate: 1 / 3, settledConversionRate: 0.5 }],
   };
-  vi.spyOn(adminAnalyticsApi, "revenue").mockResolvedValue(report);
+  vi.spyOn(adminAnalyticsApi, "revenue")
+    .mockResolvedValueOnce(report)
+    .mockResolvedValueOnce({ ...report, summary: { ...report.summary, revenue: 399000, expiredBusinesses: 0 } });
   render(<PlatformRevenue />);
   expect(await screen.findByText("MRR tại 31/10/2026")).toBeTruthy();
   expect(screen.getByText("1/3 bắt đầu dùng thử trong kỳ · 1 còn đang dùng thử")).toBeTruthy();
@@ -30,4 +32,13 @@ it("dates MRR at the period end and shows trial conversion by start month (30.4)
   await waitFor(() => expect(cohorts.textContent).toContain("10/2026"));
   expect(cohorts.textContent).toContain("33,3%");
   expect(cohorts.textContent).toContain("50%");
+  // Thực thu so với kỳ trước: 798k vs 399k.
+  await waitFor(() => expect(screen.getAllByTestId("stat-delta")[0].textContent).toContain("+100%"));
+  const [current, before] = vi.mocked(adminAnalyticsApi.revenue).mock.calls.map((c) => c[0]);
+  expect(before.groupBy).toBe(current.groupBy);
+  expect(before.to! < current.from!).toBe(true);
+  // "Hết hạn" và "Tạm ngưng" là hai thẻ riêng.
+  expect(screen.getByText("Hết hạn")).toBeTruthy();
+  expect(screen.getByText("Tạm ngưng")).toBeTruthy();
+  expect(screen.queryByText("Hết hạn / tạm ngưng")).toBeNull();
 });

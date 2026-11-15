@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { reportApi } from "../../api"
 import { useReportSection } from "../../components/useReportSection"
 import type { ReportRangeParams, ReportGranularity } from "../../types"
+import { previousRange } from "../../lib/reportFormat"
 
 export function useReportData(
   params: ReportRangeParams,
@@ -12,6 +13,14 @@ export function useReportData(
   const comparison = useReportSection(
     useCallback(() => reportApi.getRevenueComparison(params), [params]),
     enabled,
+  )
+  // Cùng phạm vi chi nhánh, kỳ liền trước có cùng số ngày: số "so với kỳ trước" trên thẻ.
+  const previous = useReportSection(
+    useCallback(
+      () => reportApi.getRevenueComparison({ ...params, ...previousRange({ from: params.from!, to: params.to! }) }),
+      [params],
+    ),
+    enabled && !!params.from && !!params.to,
   )
   const trend = useReportSection(
     useCallback(
@@ -47,5 +56,5 @@ export function useReportData(
     useCallback(() => reportApi.getCancellations({ ...params, limit: 10 }), [params]),
     enabled,
   )
-  return { comparison, trend, products, payments, cancellations }
+  return { comparison, previous, trend, products, payments, cancellations }
 }

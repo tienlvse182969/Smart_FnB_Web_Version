@@ -151,6 +151,22 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     expect(screen.getByTestId("probe").textContent).toBe("/manager/dashboard?from=2026-10-01&to=2026-10-10");
   });
 
+  it("thẻ số so với kỳ trước (BE trả previousSummary): doanh thu tăng, hoàn tiền tăng là xấu", async () => {
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({
+      summary: { revenue: 1200000, grossRevenue: 1300000, refundAmount: 100000, pendingRefundAmount: 0, netRevenue: 1200000, orderCount: 12, averageOrderValue: 100000 },
+      previousSummary: { from: "2026-10-02", to: "2026-10-08", revenue: 1000000, grossRevenue: 1000000, refundAmount: 50000, orderCount: 12, averageOrderValue: 0 },
+    }));
+    mount();
+    await waitFor(() => expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("+20%"));
+    expect(txt("report-kpi-revenue")).toContain("so với 02/10 – 08/10/2026");
+    expect(txt("report-kpi-orders")).toContain("±0%");
+    // Kỳ trước bằng 0 thì không so được, hiện gạch.
+    expect(txt("report-kpi-avg")).toContain("—");
+    const refund = screen.getByTestId("report-kpi-refund").querySelector("[data-testid=stat-delta]")!;
+    expect(refund.textContent).toContain("+100%");
+    expect(refund.getAttribute("data-direction")).toBe("up");
+  });
+
   it("BR-50/BR-83: đơn huỷ nêu người huỷ, người hoàn; có bảng tiền mặt theo ngày", async () => {
     const base = report();
     vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({

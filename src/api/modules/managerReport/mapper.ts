@@ -113,6 +113,7 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
   const cancel = isObject(body.cancellations) ? body.cancellations : {};
   const granularity = GRANULARITIES.find((g) => g === range.granularity) ?? fallback.granularity;
   const cancelItems = list(cancel.items).map(mapCancelled);
+  const previous = isObject(body.previousSummary) ? body.previousSummary : null;
   return {
     branchName: str(branch.name) ?? "Chi nhánh",
     timezone: str(range.timezone) ?? str(branch.timezone) ?? "Asia/Ho_Chi_Minh",
@@ -126,6 +127,19 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
       orderCount: num(summary.orderCount),
       averageOrderValue: money(summary.averageOrderValue),
     },
+    ...(previous
+      ? {
+          previousSummary: {
+            from: str(previous.from) ?? "",
+            to: str(previous.to) ?? "",
+            revenue: money(previous.revenue),
+            grossRevenue: money(previous.grossRevenue),
+            refundAmount: money(previous.refundAmount),
+            orderCount: num(previous.orderCount),
+            averageOrderValue: money(previous.averageOrderValue),
+          },
+        }
+      : {}),
     revenue: list(body.revenue).map(mapBucket),
     payments: list(body.payments).map(mapPayment),
     topItems: list(body.topItems).map(mapItem),

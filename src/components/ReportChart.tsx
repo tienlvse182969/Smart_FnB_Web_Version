@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { CHART_SERIES, palette } from "../theme"
+import { niceTicks } from "../lib/reportFormat"
 
 export interface ChartPoint {
   key: string
@@ -20,7 +21,7 @@ export const seriesColor = (index: number) => CHART_SERIES[index % CHART_SERIES.
 export default function ReportChart({
   points,
   series,
-  mode = "bar",
+  mode: requestedMode = "bar",
   format,
   title,
   highlightPeak = false,
@@ -48,17 +49,19 @@ export default function ReportChart({
   }, [hasPoints])
   if (!points.length) return <p>Chưa có dữ liệu trong kỳ.</p>
   const multi = !!series?.length
+  // Một mốc thì đường không có hướng: vẽ cột để không gây hiểu nhầm là "xu hướng".
+  const mode = !multi && points.length === 1 ? "bar" : requestedMode
   const values = multi ? series!.flatMap((s) => s.values) : points.map((p) => p.value)
   const peak = Math.max(0, ...values)
-  const low = Math.min(0, ...values)
-  const high = peak || (low < 0 ? 0 : 1)
+  const ticks = niceTicks(Math.min(0, ...values), peak)
+  const low = ticks[0]
+  const high = ticks[ticks.length - 1] || 1
   const width = Math.max(320, availableWidth, points.length * 16)
   const step = (width - 90) / points.length
   const x = (i: number) => 68 + (i + 0.5) * step
   const y = (v: number) => 18 + (134 * (high - v)) / (high - low)
   const current = points.find((p) => p.key === selected)
   const currentIndex = current ? points.indexOf(current) : -1
-  const ticks = peak === 0 && low === 0 ? [0] : [...new Set([high, 0, low])]
   const singlePeak = Math.max(0, ...points.map((p) => p.value))
   return (
     <figure ref={container} style={{ margin: "12px 0 0" }} aria-label={title}>

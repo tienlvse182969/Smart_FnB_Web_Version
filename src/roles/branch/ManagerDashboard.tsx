@@ -8,7 +8,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { describeApiError, managerReportApi } from "../../api";
 import { paymentMethodInfo } from "../../api/modules/order/codes";
 import { SectionTitle, StatCard } from "../../components/bits";
-import { RANGE_PRESETS, describeRange, formatCount, formatDateTime, formatVnd, formatVndCompact, type RangePreset } from "../../lib/reportFormat";
+import { RANGE_PRESETS, changeRatio, describeRange, formatCount, formatDateTime, formatVnd, formatVndCompact, type RangePreset } from "../../lib/reportFormat";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import type { ManagerReport, ManagerReportCancelledOrder, ManagerReportCashDay, ManagerReportCashDrawer, ManagerReportCombo, ManagerReportItem, ManagerReportPayment, ManagerReportTopping } from "../../types";
@@ -224,56 +224,63 @@ export default function ManagerDashboard() {
 
       {!error && data && (
         <div style={{ opacity: loading ? 0.6 : 1 }} data-loading={loading}>
-          <Row gutter={[16, 16]}>
-            <Col xs={12} lg={6}>
-              <div data-testid="report-kpi-revenue" style={{ height: "100%" }}>
-                <StatCard label="Doanh thu (sau hoàn tiền)" value={formatVnd(data.summary.revenue)} icon={<Banknote size={18} />} hint="đơn đã thanh toán, đã trừ khoản hoàn" />
-              </div>
-            </Col>
-            <Col xs={12} lg={6}>
-              <div data-testid="report-kpi-orders" style={{ height: "100%" }}>
-                <StatCard label="Số đơn" value={formatCount(data.summary.orderCount)} icon={<ReceiptText size={18} />} hint="đã thanh toán" />
-              </div>
-            </Col>
-            <Col xs={12} lg={6}>
-              <div data-testid="report-kpi-avg" style={{ height: "100%" }}>
-                <StatCard label="Giá trị đơn trung bình" value={formatVnd(data.summary.averageOrderValue)} icon={<Wallet size={18} />} />
-              </div>
-            </Col>
-            <Col xs={12} lg={6}>
-              <div data-testid="report-kpi-prep" style={{ height: "100%" }}>
-                <StatCard
-                  label="Thời gian pha trung bình"
-                  value={<span style={{ fontSize: 22 }}>{formatPrepTime(data.preparation.averageSeconds)}</span>}
-                  icon={<Clock size={18} />}
-                  hint={data.preparation.averageSeconds === null ? undefined : `${formatCount(data.preparation.completedUnits)} suất đã xong · phút:giây`}
-                />
-              </div>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-            <Col xs={12} lg={8}>
-              <div data-testid="report-kpi-gross" style={{ height: "100%" }}>
-                <StatCard label="Doanh thu gộp" value={formatVnd(data.summary.grossRevenue)} icon={<Banknote size={18} />} hint="theo ngày thanh toán, chưa trừ hoàn tiền" />
-              </div>
-            </Col>
-            <Col xs={12} lg={8}>
-              <div data-testid="report-kpi-refund" style={{ height: "100%" }}>
-                <StatCard
-                  label="Đã trừ hoàn tiền"
-                  value={formatVnd(data.summary.refundAmount)}
-                  icon={<Wallet size={18} />}
-                  hint={`${formatCount(data.cancellations.paidCancellationCount)} đơn huỷ sau khi trả · theo ngày huỷ`}
-                />
-              </div>
-            </Col>
-            <Col xs={12} lg={8}>
-              <div data-testid="report-kpi-refund-pending" style={{ height: "100%" }}>
-                <StatCard label="Còn chờ hoàn" value={formatVnd(data.summary.pendingRefundAmount)} icon={<Clock size={18} />} hint="chuyển khoản chưa đánh dấu đã hoàn" />
-              </div>
-            </Col>
-          </Row>
+          {(() => {
+            const prev = data.previousSummary;
+            const delta = (current: number, before: number | undefined, higherIsBetter = true) =>
+              prev ? { ratio: changeRatio(current, before), higherIsBetter, label: `so với ${describeRange({ from: prev.from, to: prev.to })}` } : undefined;
+            return (
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} xl={6}>
+                  <div data-testid="report-kpi-revenue" style={{ height: "100%" }}>
+                    <StatCard
+                      label="Doanh thu (sau hoàn tiền)"
+                      value={formatVnd(data.summary.revenue)}
+                      icon={<Banknote size={18} />}
+                      emphasis
+                      delta={delta(data.summary.revenue, prev?.revenue)}
+                      hint={<span data-testid="report-kpi-gross">Gộp {formatVnd(data.summary.grossRevenue)} theo ngày thanh toán, trừ hoàn theo ngày huỷ</span>}
+                    />
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} xl={4}>
+                  <div data-testid="report-kpi-orders" style={{ height: "100%" }}>
+                    <StatCard label="Số đơn" value={formatCount(data.summary.orderCount)} icon={<ReceiptText size={18} />} delta={delta(data.summary.orderCount, prev?.orderCount)} hint="đã thanh toán" />
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} xl={5}>
+                  <div data-testid="report-kpi-avg" style={{ height: "100%" }}>
+                    <StatCard label="Giá trị đơn trung bình" value={formatVnd(data.summary.averageOrderValue)} icon={<Wallet size={18} />} delta={delta(data.summary.averageOrderValue, prev?.averageOrderValue)} hint="đơn hoàn tất" />
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} xl={5}>
+                  <div data-testid="report-kpi-refund" style={{ height: "100%" }}>
+                    <StatCard
+                      label="Đã trừ hoàn tiền"
+                      value={formatVnd(data.summary.refundAmount)}
+                      icon={<Wallet size={18} />}
+                      delta={delta(data.summary.refundAmount, prev?.refundAmount, false)}
+                      hint={
+                        <>
+                          {formatCount(data.cancellations.paidCancellationCount)} đơn huỷ sau khi trả ·{" "}
+                          <span data-testid="report-kpi-refund-pending">còn chờ hoàn {formatVnd(data.summary.pendingRefundAmount)}</span>
+                        </>
+                      }
+                    />
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} xl={4}>
+                  <div data-testid="report-kpi-prep" style={{ height: "100%" }}>
+                    <StatCard
+                      label="Thời gian pha TB"
+                      value={<span style={{ fontSize: 22 }}>{formatPrepTime(data.preparation.averageSeconds)}</span>}
+                      icon={<Clock size={18} />}
+                      hint={data.preparation.averageSeconds === null ? undefined : `${formatCount(data.preparation.completedUnits)} suất đã xong · phút:giây`}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            );
+          })()}
 
           {empty ? (
             <Card data-testid="report-empty" style={{ borderRadius: 14, marginTop: 16 }} styles={{ body: { padding: 20 } }}>

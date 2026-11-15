@@ -132,6 +132,12 @@ it("compares branches on one chart, labels months, shows chain AOV, price overri
   const cancelled = await screen.findByTestId("report-cancellations")
   expect(cancelled.textContent).toContain("Minh Lê")
   expect(cancelled.textContent).toContain("Lan")
+  // Previous period gets the same branches and the 7 days before (default preset).
+  const calls = vi.mocked(reportApi.getRevenueComparison).mock.calls.map((c) => c[0]!)
+  expect(calls.length).toBe(2)
+  expect(calls[1].from! < calls[0].from!).toBe(true)
+  // Same numbers both periods → flat delta on the revenue card.
+  expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("±0%")
   // "Tổng chuỗi" collapses the comparison back into one line.
   fireEvent.click(screen.getByText("Tổng chuỗi"))
   await waitFor(() => expect(document.querySelectorAll("[data-series]").length).toBe(0))

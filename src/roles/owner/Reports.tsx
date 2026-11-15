@@ -13,7 +13,7 @@ import {
 } from "antd"
 import { Banknote, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
 import dayjs from "dayjs"
-import { SectionTitle, StatCard } from "../../components/bits"
+import { SectionTitle, ShareBar, StatCard } from "../../components/bits"
 import { useAppStore } from "../../store"
 import type { ReportGranularity, RevenueComparison } from "../../types"
 import { Link, useSearchParams } from "react-router-dom"
@@ -27,6 +27,7 @@ import type { ReportCancellations } from "../../types"
 import { paymentMethodInfo } from "../../api/modules/order/codes"
 import {
   RANGE_PRESETS,
+  changeRatio,
   parseAmount,
   describeRange,
   formatCount,
@@ -73,6 +74,7 @@ export default function Reports() {
     "items",
   )
   const [expanded, setExpanded] = useState(false)
+  const [productSort, setProductSort] = useState<"quantity" | "revenue">("quantity")
   const [metric, setMetric] = useState<"revenue" | "orders">("revenue")
   /** OW-08: gói có so sánh đa chi nhánh vẽ mỗi chi nhánh một đường trên cùng trục; "Tổng chuỗi" gộp lại thành một đường. */
   const [trendView, setTrendView] = useState<"branches" | "total">("branches")
@@ -85,7 +87,7 @@ export default function Reports() {
     }),
     [range, chainId, branchId],
   )
-  const { comparison, trend, products, payments, cancellations } = useReportData(
+  const { comparison, previous, trend, products, payments, cancellations } = useReportData(
     params,
     granularity,
     product,
@@ -235,7 +237,7 @@ export default function Reports() {
       </Card>
 
       <SectionState section={comparison}>
-        <KpiRow comparison={comparison.data} />
+        <KpiRow comparison={comparison.data} previous={previous.error ? undefined : previous.data} />
       </SectionState>
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col span={24}>
@@ -269,6 +271,11 @@ export default function Reports() {
                 series={series}
                 format={metric === "orders" ? formatCount : formatVndCompact}
               />
+              {range.from === range.to && (
+                <div data-testid="single-day-note" style={{ fontSize: 12.5, color: palette.textMuted }}>
+                  Khoảng một ngày chỉ có một mốc nên không thấy xu hướng; chọn 7 hoặc 30 ngày để so sánh các ngày với nhau.
+                </div>
+              )}
             </SectionState>
           </Card>
         </Col>
@@ -288,32 +295,48 @@ export default function Reports() {
         )}
         <Col xs={24} lg={14}>
           <Card title="Sản phẩm bán chạy">
-            <Segmented<typeof product>
-              value={product}
-              options={[
-                { label: "Món", value: "items" },
-                { label: "Combo", value: "combos" },
-                { label: "Topping", value: "toppings" },
-              ]}
-              onChange={(v) => {
-                setProduct(v)
-                setExpanded(false)
-              }}
-            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Segmented<typeof product>
+                value={product}
+                options={[
+                  { label: "Món", value: "items" },
+                  { label: "Combo", value: "combos" },
+                  { label: "Topping", value: "toppings" },
+                ]}
+                onChange={(v) => {
+                  setProduct(v)
+                  setExpanded(false)
+                }}
+              />
+              <Segmented<typeof productSort>
+                data-testid="product-sort"
+                value={productSort}
+                options={[
+                  { label: "Theo số lượng", value: "quantity" },
+                  { label: "Theo doanh thu", value: "revenue" },
+                ]}
+                onChange={setProductSort}
+              />
+            </div>
             <SectionState section={products}>
               {products.data?.length ? (
                 <>
-                  {products.data.slice(0, 5).map((row, i) => (
-                    <div key={i} style={{ marginTop: 12 }}>
-                      {row.name} · {formatCount(row.quantity)}
-                      <progress
-                        aria-label={row.name}
-                        style={{ width: "100%" }}
-                        value={row.quantity}
-                        max={products.data![0].quantity || 1}
+                  {rankProducts(products.data, productSort).slice(0, 5).map((row, i, top) => (
+                    <div key={i} style={{ marginTop: 12 }} data-testid="product-row">
+                      {row.name} · {productSort === "quantity" ? formatCount(row.quantity) : formatVnd(row.revenue)}
+                      <span style={{ color: palette.textMuted, fontSize: 12.5 }}> · {productSort === "quantity" ? formatVnd(row.revenue) : `${formatCount(row.quantity)} suất`}</span>
+                      <ShareBar
+                        label={row.name}
+                        value={productSort === "quantity" ? row.quantity : parseAmount(row.revenue)}
+                        max={productSort === "quantity" ? top[0].quantity : parseAmount(top[0].revenue)}
                       />
                     </div>
                   ))}
+                  {productSort === "revenue" && (
+                    <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 8 }}>
+                      Xếp trong 50 sản phẩm bán nhiều nhất theo số lượng; doanh thu combo không chia về từng món (GĐ-25).
+                    </div>
+                  )}
                   <Button type="link" onClick={() => setExpanded(!expanded)}>
                     {expanded ? "Ẩn chi tiết" : "Xem bảng chi tiết"}
                   </Button>
@@ -359,12 +382,7 @@ export default function Reports() {
                           maximumFractionDigits: 1,
                         })}
                         %
-                        <progress
-                          aria-label={row.method}
-                          style={{ width: "100%" }}
-                          max={100}
-                          value={percent}
-                        />
+                        <ShareBar label={row.method} max={100} value={percent} />
                       </div>
                     )
                   })}
@@ -385,6 +403,12 @@ export default function Reports() {
       </Row>
     </div>
   )
+}
+
+/** Sắp xếp danh sách bán chạy theo số lượng (thứ tự BE) hoặc theo doanh thu; không đổi dữ liệu. */
+export function rankProducts<T extends { quantity: number; revenue: string }>(rows: T[], by: "quantity" | "revenue"): T[] {
+  if (by === "quantity") return rows
+  return [...rows].sort((a, b) => parseAmount(b.revenue) - parseAmount(a.revenue))
 }
 
 /** Mục 29.4 / dòng 956: số giá riêng đang đặt ở từng chi nhánh, để đọc so sánh doanh thu đúng ngữ cảnh. Lỗi tải thì bỏ qua ghi chú. */
@@ -516,8 +540,11 @@ function SectionState({
   return section.loading ? <Skeleton active /> : <>{children}</>
 }
 
-function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
+function KpiRow({ comparison, previous }: { comparison?: RevenueComparison; previous?: RevenueComparison }) {
   const k = summarizeKpi(comparison)
+  const p = previous ? summarizeKpi(previous) : null
+  const delta = (current: number | null, before: number | null | undefined, higherIsBetter = true) =>
+    p ? { ratio: changeRatio(current, before), higherIsBetter } : undefined
 
   const tiles = [
     {
@@ -527,12 +554,14 @@ function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
       hint: `Gộp ${formatVnd(k.grossRevenue)} · đã hoàn ${formatVnd(k.refundAmount)}`,
       icon: <Banknote size={16} />,
       emphasis: true,
+      delta: delta(k.netRevenue, p?.netRevenue),
     },
     {
       key: "orders",
       label: "Số đơn hoàn tất",
       value: formatCount(k.orderCount),
       icon: <ReceiptText size={16} />,
+      delta: delta(k.orderCount, p?.orderCount),
     },
     {
       key: "aov",
@@ -541,6 +570,7 @@ function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
         k.averageOrderValue === null ? "—" : formatVnd(k.averageOrderValue),
       hint: k.averageOrderValue === null ? undefined : "đơn hoàn tất, không tính đơn huỷ",
       icon: <Wallet size={16} />,
+      delta: delta(k.averageOrderValue, p?.averageOrderValue),
     },
     {
       key: "cancelled",
@@ -548,6 +578,7 @@ function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
       value: formatVnd(k.refundAmount),
       hint: `${formatCount(k.paidCancellationCount)} đơn hủy sau thanh toán`,
       icon: <Undo2 size={16} />,
+      delta: delta(k.refundAmount, p?.refundAmount, false),
     },
     {
       key: "pending",
@@ -572,6 +603,7 @@ function KpiRow({ comparison }: { comparison?: RevenueComparison }) {
             hint={tile.hint}
             icon={tile.icon}
             emphasis={tile.emphasis}
+            delta={"delta" in tile ? tile.delta : undefined}
           />
         </Col>
       ))}

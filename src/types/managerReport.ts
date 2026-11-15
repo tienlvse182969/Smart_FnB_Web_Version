@@ -117,6 +117,8 @@ export interface ManagerReport {
     orderCount: number;
     averageOrderValue: number;
   };
+  /** Kỳ liền trước cùng số ngày (BE cùng quy tắc), để hiện "so với kỳ trước". Thiếu khi BE cũ. */
+  previousSummary?: { from: string; to: string; revenue: number; grossRevenue: number; refundAmount: number; orderCount: number; averageOrderValue: number };
   revenue: ManagerReportBucket[];
   payments: ManagerReportPayment[];
   topItems: ManagerReportItem[];

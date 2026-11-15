@@ -109,6 +109,42 @@ export function presetRange(preset: RangePreset): DateRange {
   };
 }
 
+/**
+ * Kỳ liền trước có cùng số ngày, kết thúc ngay trước `range.from`. Dùng để so sánh "so với kỳ trước" trên thẻ số.
+ * 7 ngày 10/11–16/11 → 03/11–09/11; một ngày → ngày hôm trước.
+ */
+export function previousRange(range: DateRange): DateRange {
+  const from = dayjs(range.from, "YYYY-MM-DD");
+  const days = dayjs(range.to, "YYYY-MM-DD").diff(from, "day") + 1;
+  return {
+    from: from.subtract(days, "day").format("YYYY-MM-DD"),
+    to: from.subtract(1, "day").format("YYYY-MM-DD"),
+  };
+}
+
+/** Tỷ lệ thay đổi so với kỳ trước; null khi kỳ trước bằng 0 hoặc thiếu (không chia cho 0, không bịa "+100%"). */
+export function changeRatio(current: number | null | undefined, previous: number | null | undefined): number | null {
+  if (current === null || current === undefined || previous === null || previous === undefined) return null;
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) return null;
+  return (current - previous) / Math.abs(previous);
+}
+
+/**
+ * Mốc trục Y "tròn" (1-2-5 × 10^n) phủ [min, max], luôn gồm 0. Khoảng 4–6 mốc để ước lượng được giá trị giữa các mốc.
+ */
+export function niceTicks(min: number, max: number, target = 4): number[] {
+  const lo = Math.min(0, min);
+  const hi = Math.max(0, max);
+  if (lo === hi) return [0];
+  const raw = (hi - lo) / target;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? 10 * magnitude;
+  const ticks: number[] = [];
+  for (let t = Math.floor(lo / step) * step; t <= hi + step * 1e-9; t += step) ticks.push(Math.round(t / step) * step);
+  if (ticks[ticks.length - 1] < hi) ticks.push(ticks[ticks.length - 1] + step);
+  return ticks;
+}
+
 /** Mô tả khoảng ngày cho người đọc: `22/09/2026` hoặc `16/09 – 22/09/2026`. */
 export function describeRange(range: DateRange): string {
   if (range.from === range.to) return formatDate(range.to);
