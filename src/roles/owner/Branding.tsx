@@ -9,7 +9,7 @@ import { useDirtyGuard } from "../../lib/dirtyGuard";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
 import { useAppStore } from "../../store";
-import { BRAND_COLOR_PRESETS, PLATFORM_BRAND, accentTooPale, deriveBrandSurface, palette } from "../../theme";
+import { BRAND_COLOR_PRESETS, PLATFORM_BRAND, accentTooPale, deriveAccent, deriveBrandSurface, palette } from "../../theme";
 
 const sameColor = (a: string | undefined, b: string | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 
@@ -157,6 +157,7 @@ export default function Branding() {
   const surfaceColor = derived.surface;
   const textOnPrimary = derived.ink;
   const accentPale = useMemo(() => accentTooPale(accentColor), [accentColor]);
+  const accentTokens = useMemo(() => deriveAccent(accentColor), [accentColor]);
 
   return (
     <div>
@@ -301,6 +302,26 @@ export default function Branding() {
               </div>
             </div>
             <div style={{ padding: "8px 16px", fontSize: 11.5, color: palette.textMuted }}>Thanh bên và nút chính của web</div>
+          </Card>
+
+          {/* Biểu đồ & badge: màu nhấn (nền lớn giữ màu gốc, chữ/đường kẻ dùng bản đủ đậm) */}
+          <Card size="small" style={{ borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
+            <div data-testid="branding-preview-accent">
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 64, borderBottom: `2px solid ${accentTokens.accentStrong}`, paddingBottom: 2 }}>
+                {[40, 62, 48, 78, 56, 90].map((h, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 2, height: "100%" }}>
+                    <div style={{ flex: 1, height: `${h}%`, background: accentTokens.accent, borderRadius: "3px 3px 0 0" }} />
+                    <div style={{ flex: 1, height: `${Math.round(h * 0.6)}%`, background: accentTokens.accentSoft, borderRadius: "3px 3px 0 0" }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <span style={{ padding: "0 10px", borderRadius: 999, background: accentTokens.accent, color: accentTokens.accentInk, fontSize: 12, fontWeight: 700, lineHeight: "20px" }}>12</span>
+                <span style={{ padding: "0 10px", borderRadius: 999, background: accentTokens.accent, color: accentTokens.accentInk, fontSize: 12, fontWeight: 700, lineHeight: "20px" }}>Có giá riêng</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: accentTokens.accentStrong }}>Liên kết, tab đang chọn</span>
+              </div>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11.5, color: palette.textMuted }}>Biểu đồ và badge dùng màu nhấn</div>
           </Card>
 
           {/* Màn hình phía khách */}

@@ -74,7 +74,7 @@ export default function ReportChart({
           {mode === "line" && (
             <polyline
               fill="none"
-              stroke={palette.brandPrimary}
+              stroke={palette.brandAccent}
               strokeWidth={2.5}
               points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")}
             />
@@ -111,7 +111,7 @@ export default function ReportChart({
                   cx={x(i)}
                   cy={y(p.value)}
                   r={selected === p.key ? 5 : 3}
-                  fill={palette.brandPrimary}
+                  fill={palette.brandAccent}
                 />
               ) : (
                 <rect
@@ -124,7 +124,7 @@ export default function ReportChart({
                       ? palette.error.text
                       : highlightPeak && p.value === peak && peak > 0
                         ? palette.success.text
-                        : palette.brandPrimary
+                        : palette.brandAccent
                   }
                 />
               )}

@@ -5,6 +5,30 @@ import { palette, onBrandAlpha } from "../theme";
 
 export const page: React.CSSProperties = { padding: 24 };
 
+/** Badge/nhãn nhỏ ngoài thanh bên: nền accent, chữ tự chọn trắng/đậm theo tương phản. */
+export function AccentBadge({ children, testId }: { children: ReactNode; testId?: string }) {
+  return (
+    <span
+      data-testid={testId}
+      style={{
+        display: "inline-block",
+        minWidth: 20,
+        padding: "0 8px",
+        borderRadius: 999,
+        background: palette.brandAccent,
+        color: palette.accentInk,
+        fontSize: 12,
+        fontWeight: 700,
+        lineHeight: "20px",
+        textAlign: "center",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 /** Số tiền/số lượng căn phải, chữ số đều nhau để cột dễ so sánh. */
 export const numericCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums" };
 

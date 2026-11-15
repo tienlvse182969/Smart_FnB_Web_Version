@@ -32,7 +32,7 @@ import MoneyInput from "../../components/MoneyInput"
 import { money } from "../../data"
 import { useAppStore } from "../../store"
 import { palette } from "../../theme"
-import { PageHeader } from "../../components/bits"
+import { AccentBadge, PageHeader } from "../../components/bits"
 
 const backendOrigin = API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "")
 const importKey = (chainId: string) => `smartfnb_menu_import_${chainId}`
@@ -163,6 +163,7 @@ export default function MenuImport() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <PageHeader
         title="Nhập từ ảnh (AI)"
+        extra={<AccentBadge>AI</AccentBadge>}
         sub="OCR đọc chữ, AI tạo bản nháp; chỉ ghi menu sau khi Brand Manager kiểm tra và xác nhận."
       />
 

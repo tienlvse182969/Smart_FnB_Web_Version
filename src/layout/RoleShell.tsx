@@ -210,7 +210,7 @@ export default function RoleShell({
               {!narrow && <CalendarDays size={16} color={palette.textSubtle} />}
               {!narrow && today}
             </div>
-            <Badge dot color={palette.brandPrimary}>
+            <Badge dot color={palette.brandAccent}>
               <Bell size={19} color={palette.textStrong} />
             </Badge>
             <Dropdown

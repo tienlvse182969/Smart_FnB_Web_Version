@@ -15,7 +15,7 @@ import {
 } from "antd"
 import { Banknote, Coins, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
 import dayjs from "dayjs"
-import { PageHeader, StatCard } from "../../components/bits"
+import { AccentBadge, PageHeader, StatCard } from "../../components/bits"
 import NoBranchState from "./NoBranchState"
 import { useAppStore } from "../../store"
 import type { ReportGranularity, RevenueComparison } from "../../types"
@@ -291,9 +291,9 @@ export default function Reports() {
                       {row.branch.name}
                     </Button>
                     {withOwnPrice.get(row.branch.id) ? (
-                      <Tag color="blue" data-testid="report-own-price-tag">
+                      <AccentBadge testId="report-own-price-tag">
                         Có giá riêng ({withOwnPrice.get(row.branch.id)})
-                      </Tag>
+                      </AccentBadge>
                     ) : null}{" "}
                     {formatVnd(row.revenue)}
                     <meter

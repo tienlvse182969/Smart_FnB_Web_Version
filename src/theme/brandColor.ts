@@ -76,5 +76,34 @@ export const needsDarkInk = (primary: string): boolean => deriveBrandSurface(pri
 /** Màu nhấn dùng làm chữ/viền trên nền trắng cần tối thiểu 3:1 (thành phần giao diện) để còn thấy rõ. */
 export const accentTooPale = (accent: string): boolean => contrast(accent, "#FFFFFF") < 3;
 
+export interface AccentTokens {
+  /** Màu nhấn gốc: dùng cho NỀN lớn (cột biểu đồ, thanh tiến độ, badge). */
+  accent: string;
+  /** Chữ/biểu tượng trên nền accent (trắng hoặc đậm), đạt 4.5:1. */
+  accentInk: string;
+  /** Bản dùng cho đường kẻ và chữ trên nền trắng: chính accent nếu đã đủ đậm, ngược lại bản sẫm đạt 4.5:1. */
+  accentStrong: string;
+  /** Tông nhạt của accent cho series thứ hai và nền nhẹ. */
+  accentSoft: string;
+}
+
+/** Trộn `color` với trắng theo tỉ lệ `amount` (0 = giữ nguyên, 1 = trắng). */
+const tint = (hex: string, amount: number): string =>
+  rgbToHex(hexToRgb(hex).map((c) => c + (255 - c) * amount) as Rgb);
+
+/**
+ * Token màu nhấn (đặc tả mục 10: badge, biểu đồ, điểm nhấn phụ). Accent quá nhạt trên nền trắng
+ * (< 3:1) thì đường kẻ và chữ dùng bản sẫm (`accentStrong`), nền lớn giữ bản gốc.
+ */
+export function deriveAccent(accent: string): AccentTokens {
+  const base = rgbToHex(hexToRgb(accent));
+  const accentInk = contrast(base, LIGHT_INK) >= MIN_RATIO ? LIGHT_INK : DARK_INK;
+  let strong = base;
+  for (let percent = 100; percent > 10 && contrast(strong, "#FFFFFF") < MIN_RATIO; percent -= STEP_PERCENT) {
+    strong = scaleColor(base, percent / 100);
+  }
+  return { accent: base, accentInk, accentStrong: strong, accentSoft: tint(base, 0.6) };
+}
+
 /** Hover của nút chính: sẫm thêm khoảng 6%. */
 export const hoverSurface = (surface: string): string => scaleColor(surface, 0.94);

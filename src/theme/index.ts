@@ -1,6 +1,6 @@
 import type { ThemeConfig } from "antd";
 import type { Branding } from "../types";
-import { contrast, hexToRgb, hoverSurface, deriveBrandSurface, rgbToHex } from "./brandColor";
+import { contrast, deriveAccent, hexToRgb, hoverSurface, deriveBrandSurface, rgbToHex } from "./brandColor";
 import {
   CSS_VAR,
   PLATFORM_BRAND_TOKENS,
@@ -86,9 +86,21 @@ export function resolveBrand({ branding, platformOnly, brandingEnabled }: Resolv
 export function brandTokensFromColors(
   primary: string,
   accent: string,
-): Pick<BrandTokens, "primary" | "primaryContrast" | "surface" | "surfaceHover" | "activeInk" | "rule" | "accent"> {
+): Pick<BrandTokens, "primary" | "primaryContrast" | "surface" | "surfaceHover" | "activeInk" | "rule" | "accent" | "accentInk" | "accentStrong" | "accentSoft"> {
   const d = deriveBrandSurface(primary);
-  return { primary, primaryContrast: d.ink, surface: d.surface, surfaceHover: hoverSurface(d.surface), activeInk: d.activeInk, rule: d.rule, accent };
+  const a = deriveAccent(accent);
+  return {
+    primary,
+    primaryContrast: d.ink,
+    surface: d.surface,
+    surfaceHover: hoverSurface(d.surface),
+    activeInk: d.activeInk,
+    rule: d.rule,
+    accent,
+    accentInk: a.accentInk,
+    accentStrong: a.accentStrong,
+    accentSoft: a.accentSoft,
+  };
 }
 
 /**
@@ -104,8 +116,10 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
       colorPrimary: brand.surface,
       colorPrimaryHover: brand.surfaceHover,
       colorPrimaryActive: brand.surfaceHover,
-      controlOutline: `${rgbToHex(hexToRgb(brand.primary))}40`,
-      colorLink: brand.activeInk,
+      // Điểm nhấn phụ theo màu nhấn: viền focus, link (bản đủ đậm trên nền trắng).
+      controlOutline: `${rgbToHex(hexToRgb(brand.accent))}59`,
+      colorLink: brand.accentStrong,
+      colorLinkHover: brand.accentStrong,
       colorInfo: SEMANTIC.info.text,
       colorInfoBg: SEMANTIC.info.bg,
       colorInfoBorder: SEMANTIC.info.border,
@@ -162,6 +176,15 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
         itemSelectedColor: brand.primaryContrast,
         trackBg: NEUTRAL.paper,
       },
+      Tabs: {
+        inkBarColor: brand.accentStrong,
+        itemSelectedColor: brand.accentStrong,
+        itemHoverColor: brand.accentStrong,
+        itemActiveColor: brand.accentStrong,
+      },
+      Progress: {
+        defaultColor: brand.accent,
+      },
       Tag: {
         defaultBg: NEUTRAL.paperSubtle,
         defaultColor: NEUTRAL.ink,
@@ -184,6 +207,9 @@ export function applyThemeVars(brand: BrandTokens, el: HTMLElement = document.do
   set(CSS_VAR.brandRule, brand.rule);
   set(CSS_VAR.brandRaw, brand.primary);
   set(CSS_VAR.brandAccent, brand.accent);
+  set(CSS_VAR.brandAccentInk, brand.accentInk);
+  set(CSS_VAR.brandAccentStrong, brand.accentStrong);
+  set(CSS_VAR.brandAccentSoft, brand.accentSoft);
   set(CSS_VAR.ink, NEUTRAL.ink);
   set(CSS_VAR.surface, NEUTRAL.surface);
   set(CSS_VAR.paper, NEUTRAL.paper);

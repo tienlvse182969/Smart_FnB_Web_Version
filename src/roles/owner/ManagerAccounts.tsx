@@ -6,7 +6,7 @@ import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { EmptyState, PageHeader } from "../../components/bits";
+import { AccentBadge, EmptyState, PageHeader } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import StaffReasonModal from "../branch/StaffReasonModal";
@@ -150,7 +150,7 @@ export default function ManagerAccounts() {
         items={[
           {
             key: "managers",
-            label: `Store Manager (${data.pagination.total})`,
+            label: <span>Store Manager <AccentBadge>{data.pagination.total}</AccentBadge></span>,
             children: (
               <>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
@@ -261,7 +261,7 @@ export default function ManagerAccounts() {
           },
           {
             key: "staff",
-            label: `Thu ngân & Pha chế (${staff.length})`,
+            label: <span>Thu ngân &amp; Pha chế <AccentBadge>{staff.length}</AccentBadge></span>,
             children: (
               <>
                 <Table<StaffAccount>

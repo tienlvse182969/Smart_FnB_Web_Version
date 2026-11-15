@@ -72,7 +72,7 @@ describe("BR-05: Brand Manager chỉ xem Thu ngân và Pha chế", () => {
       { id: "s2", name: "Minh", email: "minh@example.com", role: "BARISTA", branchId: "branch", branchName: "Branch", status: "SUSPENDED", invitationState: null },
     ] as never);
     render(<AntApp><ManagerAccounts /></AntApp>);
-    fireEvent.click(await screen.findByText(/Thu ngân & Pha chế \(2\)/));
+    fireEvent.click(await screen.findByText(/Thu ngân & Pha chế/));
     await screen.findByText("lan@example.com");
     expect(screen.getAllByText("Thu ngân").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Pha chế").length).toBeGreaterThan(0);

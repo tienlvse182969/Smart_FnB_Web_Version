@@ -9,19 +9,20 @@
  *  3. TRUNG TÍNH (`neutral.*`) — chữ, nền, đường kẻ của giao diện; cũng cố định.
  */
 
-import { deriveBrandSurface, hoverSurface } from "./brandColor";
+import { deriveAccent, deriveBrandSurface, hoverSurface } from "./brandColor";
 
 /** Nhận diện nền tảng — dùng cho Admin, trang đăng nhập, landing và doanh nghiệp chưa/không được dùng nhận diện riêng. */
 export const PLATFORM_BRAND = {
   primary: "#0a0a0a",
   primaryContrast: "#ffffff",
-  /** Mục 10.2: màu nhấn mặc định là "xám trung tính". */
-  accent: "#71717a",
+  /** Mục 10.2: màu nhấn mặc định là xám trung tính. */
+  accent: "#6B7280",
   displayName: "Smart F&B",
 } as const;
 
 /** Nhận diện nền tảng dưới dạng token. */
 const PLATFORM_SURFACE = deriveBrandSurface(PLATFORM_BRAND.primary);
+const PLATFORM_ACCENT = deriveAccent(PLATFORM_BRAND.accent);
 export const PLATFORM_BRAND_TOKENS: BrandTokens = {
   primary: PLATFORM_BRAND.primary,
   primaryContrast: PLATFORM_SURFACE.ink,
@@ -30,6 +31,9 @@ export const PLATFORM_BRAND_TOKENS: BrandTokens = {
   activeInk: PLATFORM_SURFACE.activeInk,
   rule: PLATFORM_SURFACE.rule,
   accent: PLATFORM_BRAND.accent,
+  accentInk: PLATFORM_ACCENT.accentInk,
+  accentStrong: PLATFORM_ACCENT.accentStrong,
+  accentSoft: PLATFORM_ACCENT.accentSoft,
   displayName: PLATFORM_BRAND.displayName,
   logo: undefined,
   custom: false,
@@ -108,6 +112,12 @@ export interface BrandTokens {
   /** Đường kẻ trên nền surface. */
   rule: string;
   accent: string;
+  /** Chữ trên nền accent, đạt 4.5:1. */
+  accentInk: string;
+  /** Accent dùng cho đường kẻ và chữ trên nền trắng (sẫm hơn khi accent quá nhạt). */
+  accentStrong: string;
+  /** Tông nhạt của accent (series thứ hai, nền nhẹ). */
+  accentSoft: string;
   displayName: string;
   /** Logo của chuỗi; undefined = logo nền tảng. */
   logo: string | undefined;
@@ -127,6 +137,9 @@ export const CSS_VAR = {
   brandRule: "--brand-rule",
   brandRaw: "--brand-raw",
   brandAccent: "--brand-accent",
+  brandAccentInk: "--brand-accent-ink",
+  brandAccentStrong: "--brand-accent-strong",
+  brandAccentSoft: "--brand-accent-soft",
   ink: "--fnb-ink",
   surface: "--fnb-surface",
   paper: "--fnb-paper",
@@ -161,6 +174,9 @@ export const palette = {
   /** Màu chủ đạo gốc (chưa làm sẫm): chỉ cho viền focus và mẫu màu. */
   brandRaw: v(CSS_VAR.brandRaw),
   brandAccent: v(CSS_VAR.brandAccent),
+  accentInk: v(CSS_VAR.brandAccentInk),
+  accentStrong: v(CSS_VAR.brandAccentStrong),
+  accentSoft: v(CSS_VAR.brandAccentSoft),
   ink: v(CSS_VAR.ink),
   surface: v(CSS_VAR.surface),
   paper: v(CSS_VAR.paper),

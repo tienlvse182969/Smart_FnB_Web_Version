@@ -95,3 +95,9 @@ body {
 .sb-selected .sb-badge { background: var(--brand-active-ink); color: var(--fnb-surface); }
 .sb-tag { flex-shrink: 0; padding: 0 6px; border-radius: 6px; border: 1px solid var(--brand-rule); font-size: 11px; font-weight: 700; line-height: 18px; }
 @media (prefers-reduced-motion: reduce) { .sb-chevron { transition: none; } }
+/* Màu nhấn (mục 10): thanh tỷ trọng/so sánh trong báo cáo dùng <progress>/<meter> gốc. */
+progress { accent-color: var(--brand-accent); height: 10px; }
+meter { -webkit-appearance: none; appearance: none; height: 10px; border-radius: 6px; background: var(--fnb-line); }
+meter::-webkit-meter-bar { background: var(--fnb-line); border: 0; border-radius: 6px; height: 10px; }
+meter::-webkit-meter-optimum-value, meter::-webkit-meter-suboptimum-value, meter::-webkit-meter-even-less-good-value { background: var(--brand-accent); border-radius: 6px; }
+meter::-moz-meter-bar { background: var(--brand-accent); border-radius: 6px; }

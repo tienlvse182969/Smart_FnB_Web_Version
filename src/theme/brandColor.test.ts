@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DARK_INK, LIGHT_INK, accentTooPale, contrast, deriveBrandSurface, hexToRgb, isHexColor, needsDarkInk } from "./brandColor";
+import { DARK_INK, LIGHT_INK, accentTooPale, contrast, deriveAccent, deriveBrandSurface, hexToRgb, isHexColor, needsDarkInk } from "./brandColor";
 
 /** Năm màu kiểm của lượt UX/UI 1: cam, xanh dương, xanh lá, vàng (chữ đậm), đen. */
 const SAMPLES = ["#D97706", "#2563EB", "#16A34A", "#FACC15", "#111827"] as const;
@@ -61,5 +61,29 @@ describe("accentTooPale / isHexColor", () => {
     expect(isHexColor("#fff")).toBe(true);
     expect(isHexColor("#FACC15")).toBe(true);
     expect(isHexColor("FACC15")).toBe(false);
+  });
+});
+
+describe("deriveAccent (mục 10)", () => {
+  const ACCENTS = ["#6B7280", "#22C55E", "#FFFFFF", "#FAFAA0", "#FACC15", "#2563EB", "#111827"] as const;
+
+  it.each(ACCENTS)("%s: chữ trên nền accent đạt 4.5:1", (color) => {
+    const t = deriveAccent(color);
+    expect(contrast(t.accent, t.accentInk)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(ACCENTS)("%s: bản dùng cho chữ/đường kẻ trên nền trắng đạt 4.5:1 (không nhạt hơn 3:1)", (color) => {
+    expect(contrast(deriveAccent(color).accentStrong, "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("accent đã đủ đậm thì giữ nguyên bản gốc, accent quá nhạt thì bản sẫm khác bản gốc", () => {
+    expect(deriveAccent("#2563EB").accentStrong).toBe("#2563EB");
+    expect(deriveAccent("#FAFAA0").accentStrong).not.toBe("#FAFAA0");
+    expect(deriveAccent("#FAFAA0").accent).toBe("#FAFAA0");
+  });
+
+  it("tông nhạt sáng hơn màu gốc", () => {
+    const t = deriveAccent("#2563EB");
+    expect(contrast(t.accentSoft, "#FFFFFF")).toBeLessThan(contrast(t.accent, "#FFFFFF"));
   });
 });
