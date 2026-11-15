@@ -7,6 +7,9 @@ import { palette } from "../theme";
 import PlatformLogo from "../components/brand/PlatformLogo";
 import loginBackground from "../assets/brand/login-background.jpg";
 
+/** Kiểm email nhanh ở phía web trước khi gửi yêu cầu Quên mật khẩu (BE vẫn kiểm lại). */
+const FORGOT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Đăng nhập bằng email hoặc tên tài khoản + mật khẩu qua backend thật. Không còn bước chọn vai
  * trò — vai trò do backend quyết định và web tự đưa về đúng không gian làm việc.
@@ -14,8 +17,6 @@ import loginBackground from "../assets/brand/login-background.jpg";
  * Bố cục giống màn đăng nhập của app thu ngân/pha chế: ảnh nền phủ kín, một thẻ kính mờ ở giữa
  * gồm logo, tiêu đề, ô nhập có nhãn + biểu tượng và nút đăng nhập.
  */
-const FORGOT_EMAIL_PATTERN = /^[^s@]+@[^s@]+.[^s@]+$/;
-
 export default function LoginScreen({ onLogin }: { onLogin: (email: string, password: string) => void }) {
   const { message } = App.useApp();
   const isLoading = useAppStore((s) => s.isLoading);
