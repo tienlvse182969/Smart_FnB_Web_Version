@@ -446,7 +446,7 @@ export default function MenuImport() {
                             mode="multiple"
                             maxTagCount="responsive"
                             value={item.branchIds}
-                            placeholder="Mọi chi nhánh"
+                            placeholder={item.action === "CREATE" ? "Mọi chi nhánh" : "Giữ chi nhánh hiện tại"}
                             style={{ width: "100%" }}
                             onChange={(branchIds) =>
                               setDraft(

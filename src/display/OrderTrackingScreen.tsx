@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Bell, CheckCircle2, Clock3, Volume2, XCircle } from "lucide-react"
+import { PLATFORM_LOGO } from "../components/brand/PlatformLogo"
 import { useParams } from "react-router-dom"
 import {
   getPublicOrderStatus,
@@ -89,13 +90,15 @@ export default function OrderTrackingScreen() {
       }`}
     >
       <section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl">
-        {order?.branding.logoUrl ? (
-          <img
-            className="mx-auto mb-3 h-16 w-16 object-contain"
-            src={resolveDisplayAsset(order.branding.logoUrl) ?? ""}
-            alt=""
-          />
-        ) : null}
+        <img
+          className="mx-auto mb-3 h-16 w-16 object-contain"
+          src={
+            order?.branding.logoUrl
+              ? (resolveDisplayAsset(order.branding.logoUrl) ?? "")
+              : PLATFORM_LOGO.mark.dark
+          }
+          alt=""
+        />
         <h1 className="text-2xl font-black">
           {order?.branding.displayName ?? "Theo dõi đơn"}
         </h1>

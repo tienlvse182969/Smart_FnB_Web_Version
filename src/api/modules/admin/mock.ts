@@ -283,6 +283,7 @@ const reg = (
   requestedPlan: plans[n % 3],
   approvedPlan: null,
   activationExpiresAt: null,
+  hasFirstPeriodInvoice: false,
   supportActions: [],
 
   approved: null,
@@ -728,8 +729,9 @@ export const adminMock: AdminApi = {
     return view(b);
   },
 
-  async resetOwnerPassword(ownerId) {
+  async resetOwnerPassword(ownerId, note) {
     await mockDelay();
+    if (!note || note.trim().length < 3) throw new ApiError(400, "Nhập ghi chú yêu cầu ít nhất 3 ký tự");
 
     if (!businesses.some((b) => b.owners.some((o) => o.id === ownerId)))
       throw new ApiError(404, "Owner account not found");

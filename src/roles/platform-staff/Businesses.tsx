@@ -1,4 +1,4 @@
-import { App, Button, Card, Drawer, Input, Table, Typography } from "antd";
+import { App, Button, Card, Drawer, Input, Select, Table, Typography } from "antd";
 import { palette } from "../../theme";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { platformStaffApi } from "../../api/platformStaff";
@@ -10,7 +10,7 @@ import { SectionTitle } from "../../components/bits";
 import NextPeriodPanel, { supportAdapter } from "../owner/NextPeriodPanel";
 
 export default function PlatformBusinesses() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [data, setData] = useState<Paginated<Business>>();
@@ -20,6 +20,9 @@ export default function PlatformBusinesses() {
   const [billing, setBilling] = useState<Awaited<ReturnType<typeof platformStaffApi.getBusinessBilling>>>();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetOwnerId, setResetOwnerId] = useState<string>();
+  const [resetNote, setResetNote] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,7 +34,7 @@ export default function PlatformBusinesses() {
   useEffect(() => { void platformStaffApi.listPlans().then(setPlans).catch(() => undefined); }, []);
 
   const openBusiness = async (row: Business) => {
-    setSelected(row); setBilling(undefined); setNote("");
+    setSelected(row); setBilling(undefined); setNote(""); setResetNote(""); setResetOwnerId(row.owners[0]?.id);
     try { const [detail, bills] = await Promise.all([platformStaffApi.getBusiness(row.id), platformStaffApi.getBusinessBilling(row.id)]); setSelected(detail); setBilling(bills); }
     catch (err) { showApiError(message.error, err, "Không tải được thông tin hỗ trợ"); }
   };
@@ -54,6 +57,34 @@ export default function PlatformBusinesses() {
       setSelected(detail); setBilling(bills); setNote(""); await load(); message.success("Đã ghi nhận thao tác hỗ trợ");
     } catch (err) { showApiError(message.error, err, "Không thực hiện được thao tác hỗ trợ"); }
     finally { setBusy(false); }
+  };
+
+  const resetOwner = selected?.owners.find((o) => o.id === resetOwnerId) ?? selected?.owners[0];
+  /** PS-01/BR-56: chỉ sau khi đã gọi xác minh Brand Manager ngoài hệ thống. */
+  const resetBrandManager = () => {
+    if (!resetOwner) return;
+    if (resetNote.trim().length < 3) { message.warning("Nhập ghi chú yêu cầu ít nhất 3 ký tự"); return; }
+    modal.confirm({
+      title: "Đặt lại mật khẩu Brand Manager?",
+      content: `Mật khẩu hiện tại và mọi phiên đăng nhập của ${resetOwner.name} bị vô hiệu ngay. Link đặt mật khẩu mới (24 giờ) chỉ gửi tới ${resetOwner.email}.`,
+      okText: "Đặt lại",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setResetBusy(true);
+        try {
+          const result = await platformStaffApi.resetOwnerPassword(resetOwner.id, resetNote);
+          setResetNote("");
+          if (result.emailStatus === "SENT") {
+            message.success(`Đã gửi link đặt mật khẩu tới ${result.recipient}, hiệu lực tới ${formatDateTime(result.expiresAt)}`);
+          } else if (result.emailStatus === "FAILED") {
+            message.error(`Chưa gửi được email tới ${result.recipient}. Tài khoản đã bị vô hiệu hóa; hãy kiểm tra cấu hình email và gửi lại link.`);
+          } else {
+            message.warning(`Email tới ${result.recipient} đang chờ gửi. Tài khoản đã bị vô hiệu hóa; hãy kiểm tra trạng thái gửi trước khi báo cho Brand Manager.`);
+          }
+        } catch (err) { showApiError(message.error, err, "Không đặt lại được mật khẩu"); }
+        finally { setResetBusy(false); }
+      },
+    });
   };
 
   const canResend = billing?.checkouts.some((checkout) => checkout.status === "PENDING" && !!checkout.checkoutUrl && Date.now() - new Date(checkout.createdAt).getTime() < 15 * 60_000) ?? false;
@@ -93,6 +124,14 @@ export default function PlatformBusinesses() {
           <Typography.Title level={5}>Hỗ trợ thuê bao</Typography.Title>
           <Input.TextArea placeholder="Ghi chú hỗ trợ bắt buộc" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} />
           <Button loading={busy} disabled={!canResend || note.trim().length < 3} onClick={() => void support("resend")}>Gửi lại hóa đơn PayOS đang chờ</Button>
+        </div>
+        <div data-testid="bm-reset" style={{ marginTop: 22, display: "grid", gap: 10 }}>
+          <Typography.Title level={5}>Đặt lại mật khẩu Brand Manager</Typography.Title>
+          <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>Dùng khi Brand Manager báo quên mật khẩu, sau khi đã gọi xác minh. Hệ thống không hiện mật khẩu; Brand Manager tự đặt mật khẩu mới từ link trong email.</Typography.Text>
+          {selected.owners.length > 1 && <Select value={resetOwner?.id} onChange={setResetOwnerId} options={selected.owners.map((o) => ({ value: o.id, label: `${o.name} · ${o.email}` }))} />}
+          {resetOwner ? <div style={{ fontSize: 13 }}>Brand Manager: <b>{resetOwner.name}</b> · {resetOwner.email}</div> : <Typography.Text type="secondary">Doanh nghiệp chưa có tài khoản Brand Manager.</Typography.Text>}
+          <Input.TextArea data-testid="bm-reset-note" placeholder="Ghi chú yêu cầu bắt buộc (VD: đã gọi số đăng ký, BM xác nhận quên mật khẩu)" value={resetNote} onChange={(e) => setResetNote(e.target.value)} rows={2} maxLength={1000} />
+          <Button danger data-testid="bm-reset-submit" loading={resetBusy} disabled={!resetOwner || resetNote.trim().length < 3} onClick={resetBrandManager}>Đặt lại mật khẩu Brand Manager</Button>
         </div>
         {selected.subscription && selected.subscription.plan.code !== "TRIAL" && nextAdapter && (
           <>

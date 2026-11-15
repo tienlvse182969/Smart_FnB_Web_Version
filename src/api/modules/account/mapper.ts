@@ -11,7 +11,7 @@ export interface RawEmployee {
   lastName: string;
   branch?: { id: string; name: string };
   branchId?: string;
-  user: { email: string; status: string; lastLoginAt: string | null; lastPasswordChangedAt?: string | null; lastPasswordChangeMethod?: string | null; role: { code: string }; staffInvitationState?: string | null; passwordSetupTokens?: { expiresAt: string }[] };
+  user: { email: string; status: string; lastLoginAt: string | null; lastPasswordChangedAt?: string | null; lastPasswordChangeMethod?: string | null; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; emailSentAt?: string | null; role: { code: string }; staffInvitationState?: string | null; passwordSetupTokens?: { expiresAt: string }[] };
 }
 
 export interface RawEmployeePage {
@@ -34,6 +34,8 @@ export function mapManager(raw: RawEmployee): ManagerAccount {
     lastLoginAt: raw.user.lastLoginAt ?? null,
     lastPasswordChangedAt: raw.user.lastPasswordChangedAt ?? null,
     lastPasswordChangeMethod: raw.user.lastPasswordChangeMethod ?? null,
+    emailSendStatus: raw.user.emailSendStatus ?? null,
+    emailSentAt: raw.user.emailSentAt ?? null,
     branchId: raw.branch?.id ?? raw.branchId ?? "",
     branchName: raw.branch?.name ?? "",
     invitationState: raw.user.staffInvitationState === "PENDING" || raw.user.staffInvitationState === "ACCEPTED" || raw.user.staffInvitationState === "CANCELLED" ? raw.user.staffInvitationState : null,
@@ -59,7 +61,7 @@ export interface RawStaff {
   employeeCode: string;
   firstName: string;
   lastName: string;
-  user: { email: string; phone: string | null; status: string; lastLoginAt?: string | null; lastPasswordChangedAt?: string | null; lastPasswordChangeMethod?: string | null; role: { code: string } };
+  user: { email: string; phone: string | null; status: string; lastLoginAt?: string | null; lastPasswordChangedAt?: string | null; lastPasswordChangeMethod?: string | null; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; emailSentAt?: string | null; role: { code: string } };
   /** BE `fb7cae9` (#64). */
   invitationStatus?: string;
   invitationExpiresAt?: string | null;
@@ -89,6 +91,8 @@ export function mapStaffEmployee(raw: RawStaff): StaffEmployee | null {
     lastLoginAt: typeof raw.user.lastLoginAt === "string" ? raw.user.lastLoginAt : null,
     lastPasswordChangedAt: raw.user.lastPasswordChangedAt ?? null,
     lastPasswordChangeMethod: raw.user.lastPasswordChangeMethod ?? null,
+    emailSendStatus: raw.user.emailSendStatus ?? null,
+    emailSentAt: raw.user.emailSentAt ?? null,
     branchId: raw.branchId,
     invitationStatus: toInvitationStatus(raw.invitationStatus),
     invitationExpiresAt: typeof raw.invitationExpiresAt === "string" ? raw.invitationExpiresAt : null,

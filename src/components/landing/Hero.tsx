@@ -1,6 +1,8 @@
 import { CheckCircle2, Circle, Clock } from "lucide-react";
 import CtaButton from "./CtaButton";
 import Logo from "./Logo";
+import heroBackground from "../../assets/brand/login-background.jpg";
+import { palette } from "../../theme";
 
 const orderLines = [
   { name: "2x Trà sữa trân châu", note: "Size L · 50% đường", status: "done" },
@@ -16,7 +18,23 @@ const statusIcon = {
 
 export default function Hero() {
   return (
-    <section className="overflow-hidden py-20 md:py-28" style={{ backgroundColor: "var(--brand-primary)" }}>
+    <section
+      className="relative isolate overflow-hidden py-20 md:py-28"
+      style={{ backgroundColor: "var(--brand-primary)" }}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: `url(${heroBackground})` }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10"
+        style={{
+          background:
+            `linear-gradient(90deg, color-mix(in srgb, ${palette.ink} 92%, transparent) 0%, color-mix(in srgb, ${palette.ink} 82%, transparent) 45%, color-mix(in srgb, ${palette.ink} 55%, transparent) 100%)`,
+        }}
+      />
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-[1.05fr_0.95fr]">
           <div>

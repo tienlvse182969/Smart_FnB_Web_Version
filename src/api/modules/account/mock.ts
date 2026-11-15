@@ -182,6 +182,11 @@ export const accountMock: AccountApi = {
     return { account: { ...await toManager(chainId, created), invitationState: "PENDING" as const }, ...setupNotice(), emailStatus: "SENT" as const };
   },
 
+  async attachLegacyEmail() {
+    await mockDelay();
+    assertMockWritable();
+    return { ...setupNotice(), emailStatus: "SENT" as const };
+  },
   async listManagers(chainId, query = {}) {
     await mockDelay();
     await seedChain(track(chainId));

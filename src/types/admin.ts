@@ -116,6 +116,7 @@ export type RegistrationApplication = {
 /** Chi tiết hồ sơ; sau khi duyệt có thêm thông tin doanh nghiệp đã sinh. */
 
 export type RegistrationDetail = RegistrationApplication & {
+  hasFirstPeriodInvoice: boolean;
   activationExpiresAt: string | null;
   supportActions: { id: string; action: string; note: string; createdAt: string; actor: { email: string } }[];
   approved: {
@@ -243,7 +244,7 @@ export type ChangePlanInput = {
   note?: string;
 };
 
-export type OwnerPasswordResetResult = { ownerId: string; expiresAt: string };
+export type OwnerPasswordResetResult = { ownerId: string; expiresAt: string; emailStatus?: "PENDING" | "FAILED" | "SENT" };
 
 export type AdminOverviewMetrics = {
   registrations: Record<RegistrationStatus, number>;

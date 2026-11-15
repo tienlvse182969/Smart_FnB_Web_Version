@@ -21,7 +21,7 @@ const raw: RawEmployee = {
 describe("mapper Manager — whitelist", () => {
   it("chỉ giữ đúng các trường của ManagerAccount", () => {
     const m = mapManager(raw);
-    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "employeeCode", "id", "invitationExpiresAt", "invitationState", "lastLoginAt", "lastPasswordChangeMethod", "lastPasswordChangedAt", "name", "status"]);
+    expect(Object.keys(m).sort()).toEqual(["branchId", "branchName", "email", "emailSendStatus", "emailSentAt", "employeeCode", "id", "invitationExpiresAt", "invitationState", "lastLoginAt", "lastPasswordChangeMethod", "lastPasswordChangedAt", "name", "status"]);
     expect(m).toMatchObject({ id: "e1", name: "An Nguyen", email: "an@x.vn", status: "ACTIVE", branchId: "b1", branchName: "CN Thảo Điền" });
   });
 
@@ -119,6 +119,13 @@ describe("accountReal — gọi đúng endpoint /employees của BE", () => {
     expect(emailStatus).toBe("SENT");
     expect(call(fetchMock)).toMatchObject({ method: "POST", body: { branchId: "b1", name: "Nguyễn Văn An", email: "an@x.vn", role: "CASHIER" } });
     expect(call(fetchMock).url).toMatch(/\/employees\/invitations$/);
+    const resetFetch = respond({ message: "ok" });
+    vi.stubGlobal("fetch", resetFetch);
+    await accountReal.attachLegacyEmail("e1", " An@X.vn ", "Chuyển sang đăng nhập email");
+    expect(call(resetFetch)).toMatchObject({ method: "POST", body: { email: "an@x.vn", reason: "Chuyển sang đăng nhập email" } });
+    expect(call(resetFetch).url).toMatch(/\/employees\/e1\/legacy-email$/);
+    expect(JSON.stringify(call(resetFetch).body)).not.toMatch(/password/);
+    expect("setDirectPassword" in accountReal).toBe(false);
   });
 });
 

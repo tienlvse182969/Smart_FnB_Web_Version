@@ -544,14 +544,15 @@ describe("mock admin — cùng shape và quy tắc với BE, không ví", () => 
   it("đặt lại mật khẩu Owner: trả hạn hiệu lực, không có mật khẩu", async () => {
     const biz = (await adminMock.listBusinesses({ limit: 100 })).items[0];
 
-    const result = await adminMock.resetOwnerPassword(biz.owners[0].id);
+    await expect(adminMock.resetOwnerPassword(biz.owners[0].id, " ")).rejects.toMatchObject({ status: 400 });
+    const result = await adminMock.resetOwnerPassword(biz.owners[0].id, "Đã gọi xác minh");
 
     expect(Object.keys(result).sort()).toEqual(["expiresAt", "ownerId"]);
 
     expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
 
     await expect(
-      adminMock.resetOwnerPassword("không-có"),
+      adminMock.resetOwnerPassword("không-có", "Đã gọi xác minh"),
     ).rejects.toMatchObject({ status: 404 });
   });
 });

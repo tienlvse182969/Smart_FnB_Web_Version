@@ -11,14 +11,14 @@ import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import StaffReasonModal from "../branch/StaffReasonModal";
 
-/** Nhãn tiếng Việt của vai trò nhân viên (Brand Manager chỉ xem, BR-05). */
-const STAFF_ROLE_VI: Record<string, string> = { CASHIER: "Thu ngân", BARISTA: "Pha chế" };
 const PAGE_SIZE = 20;
 
+/** Nhãn tiếng Việt của vai trò nhân viên (Brand Manager chỉ xem, BR-05). */
+const STAFF_ROLE_VI: Record<string, string> = { CASHIER: "Thu ngân", BARISTA: "Pha chế" };
 const STATUS_LABEL: Record<AccountStatus, string> = { ACTIVE: "Hoạt động", SUSPENDED: "Bị khoá", INACTIVE: "Chờ kích hoạt" };
 
 /**
- * Brand Manager mời Store Manager qua email (BR-05); Thu ngân và Pha chế do Store Manager mời, khoá, sửa — Brand Manager chỉ xem.
+ * Brand Manager mời Store Manager qua email, chỉ xem Cashier và Barista.
  * Danh sách, khoá/mở khoá và chuyển chi nhánh Manager dùng BE `/employees`.
  */
 export default function ManagerAccounts() {
@@ -35,6 +35,7 @@ export default function ManagerAccounts() {
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [adding, setAdding] = useState(false);
+  const [legacyTarget, setLegacyTarget] = useState<{ id: string; name: string; login: string } | null>(null);
 
   const [reasonFor, setReasonFor] = useState<{ kind: "lock" | "unlock" | "reset"; account: ManagerAccount | StaffAccount } | null>(null);
   const [reasonBusy, setReasonBusy] = useState(false);
@@ -84,6 +85,7 @@ export default function ManagerAccounts() {
 
   const confirmLock = (m: ManagerAccount | StaffAccount) => setReasonFor({ kind: m.status === "ACTIVE" ? "lock" : "unlock", account: m });
   const confirmReset = (m: ManagerAccount | StaffAccount) => {
+    if (!m.email.includes("@")) { setLegacyTarget({ id: m.id, name: m.name, login: m.email }); return; }
     setReasonFor({ kind: "reset", account: m });
   };
   const submitReason = async (reason: string) => {
@@ -103,12 +105,11 @@ export default function ManagerAccounts() {
     } catch (err) { showApiError(message.error, err, "Không thực hiện được thao tác"); }
     finally { reasonInFlight.current = false; setReasonBusy(false); }
   };
-  /** Đặt lại mật khẩu chỉ cho cấp ngay dưới (BR-56): Brand Manager → Store Manager. Thu ngân và Pha chế do Store Manager đặt lại. */
-  const actions = (r: ManagerAccount | StaffAccount, canReset: boolean) => (
+  const actions = (r: ManagerAccount | StaffAccount) => (
     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-      {canReset && <ActionButton size="small" icon={<KeyRound size={14} />} disabled={r.invitationState === "CANCELLED" || r.status === "SUSPENDED"} onClick={() => confirmReset(r)}>
-        {r.invitationState === "PENDING" ? "Gửi lại link" : "Đặt lại mật khẩu"}
-      </ActionButton>}
+      <ActionButton size="small" icon={<KeyRound size={14} />} disabled={r.invitationState === "CANCELLED" || r.status === "SUSPENDED"} onClick={() => confirmReset(r)}>
+        {r.invitationState === "PENDING" ? "Gửi lại lời mời" : "Reset mật khẩu"}
+      </ActionButton>
       <ActionButton size="small" icon={r.status === "SUSPENDED" ? <Unlock size={14} /> : <Lock size={14} />} disabled={r.invitationState === "CANCELLED" || r.invitationState === "PENDING" || r.status === "INACTIVE"} onClick={() => confirmLock(r)}>
         {r.status === "SUSPENDED" ? "Mở khoá" : "Khoá"}
       </ActionButton>
@@ -137,8 +138,8 @@ export default function ManagerAccounts() {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
-        title="Tài khoản quản lý"
-        sub="Mời Store Manager qua email; Thu ngân và Pha chế do Store Manager của chi nhánh quản lý (BR-05)"
+        title="Tài khoản nhân viên"
+        sub="Mời Store Manager qua email; xem danh sách Thu ngân và Pha chế của các chi nhánh"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
             Mời Store Manager
@@ -197,6 +198,7 @@ export default function ManagerAccounts() {
                           <div style={{ fontSize: 12, color: palette.textSubtle }}>
                             {r.email} · {r.employeeCode}
                           </div>
+                          {(r.emailSendStatus === "FAILED" || r.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}
                         </div>
                       ),
                     },
@@ -238,7 +240,7 @@ export default function ManagerAccounts() {
                       title: "",
                       key: "act",
                       align: "right",
-                      render: (_, r) => actions(r, true),
+                      render: (_, r) => actions(r),
                     },
                   ]}
                 />
@@ -263,6 +265,7 @@ export default function ManagerAccounts() {
                         <div>
                           <div style={{ fontWeight: 600 }}>{v}</div>
                           <div style={{ fontSize: 12, color: palette.textSubtle }}>{r.email}</div>
+                          {(r.emailSendStatus === "FAILED" || r.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}
                         </div>
                       ),
                     },
@@ -291,7 +294,7 @@ export default function ManagerAccounts() {
             const { account: acc, expiresAt, emailStatus } = await accountApi.inviteAccount(tenantId, input);
             setAdding(false);
             modal.success({
-              title: "Đã tạo tài khoản nhân viên",
+              title: "Đã tạo tài khoản Store Manager",
               content: (
                 <div data-testid="password-setup-notice" style={{ fontSize: 13.5, lineHeight: 1.8 }}>
                   Tài khoản <b>{acc.email}</b> đang chờ đặt mật khẩu. {emailNotice(emailStatus)} Link hết hạn lúc {formatDateTime(expiresAt)}.
@@ -309,6 +312,23 @@ export default function ManagerAccounts() {
         }}
       />
       <StaffReasonModal open={!!reasonFor} busy={reasonBusy} kind={reasonFor?.kind ?? "reset"} staffName={reasonFor?.account.name ?? ""} email={reasonFor?.account.email ?? ""} roleLabel="Nhân viên" branchName={reasonFor?.account.branchName ?? ""} pending={reasonFor?.account.invitationState === "PENDING"} onCancel={() => { if (!reasonBusy) setReasonFor(null); }} onSubmit={(reason) => void submitReason(reason)} />
+      <LegacyEmailDrawer
+        target={legacyTarget}
+        onClose={() => setLegacyTarget(null)}
+        onSave={async (email, reason) => {
+          if (!legacyTarget) return false;
+          try {
+            const { expiresAt, emailStatus } = await accountApi.attachLegacyEmail(legacyTarget.id, email, reason);
+            setLegacyTarget(null);
+            modal.success({ title: "Đã chuyển sang đăng nhập bằng email", content: <div style={{ fontSize: 13.5, lineHeight: 1.8 }}>Mật khẩu cũ và các phiên đã bị thu hồi. Link đặt mật khẩu gửi tới <b>{email.trim().toLowerCase()}</b>. {emailNotice(emailStatus)} Hết hạn lúc {formatDateTime(expiresAt)}.</div> });
+            await loadManagers();
+            return true;
+          } catch (err) {
+            showApiError(message.error, err, "Không gắn được email cho tài khoản");
+            return false;
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -349,6 +369,35 @@ function AddAccountDrawer({ open, branches, onClose, onSave }: {
         <p style={{ color: palette.textMuted }}>Tài khoản chưa đăng nhập được cho tới khi nhân viên đặt mật khẩu. Lời mời đang chờ vẫn tính vào hạn mức gói.</p>
         <ActionButton htmlType="submit" type="primary" block loading={saving} disabled={!valid || saving} data-testid="owner-invite-submit">Gửi lời mời</ActionButton>
       </form>
+    </Drawer>
+  );
+}
+
+/**
+ * BR-54/BR-56: Brand Manager never sets or sees a Store Manager password. A legacy username-only
+ * account is moved to email login: the person receives a one-time link and sets their own password.
+ */
+function LegacyEmailDrawer({ target, onClose, onSave }: { target: { id: string; name: string; login: string } | null; onClose: () => void; onSave: (email: string, reason: string) => Promise<boolean> }) {
+  const { message } = App.useApp();
+  const [email, setEmail] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const reset = () => { setEmail(""); setReason(""); };
+  return (
+    <Drawer title={`Chuyển sang đăng nhập email: ${target?.name ?? ""}`} open={!!target} onClose={() => { reset(); onClose(); }} styles={{ wrapper: { width: 420 }, body: { padding: 24 } }}>
+      <p style={{ color: palette.textMuted, marginTop: 0 }}>Tài khoản <b>{target?.login}</b> được tạo trước khi có đăng nhập bằng email nên không nhận được link đặt mật khẩu. Nhập email thật của Store Manager: mật khẩu cũ và mọi phiên bị thu hồi, hệ thống gửi link đặt mật khẩu dùng một lần (24 giờ) tới email này.</p>
+      <Field label="Email của Store Manager">
+        <Input data-testid="legacy-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />
+      </Field>
+      <Field label="Lý do (bắt buộc)">
+        <Input.TextArea data-testid="legacy-reason" rows={2} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
+      </Field>
+      <ActionButton type="primary" block loading={saving} onClick={() => {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { message.error("Nhập email hợp lệ"); return; }
+        if (reason.trim().length < 3) { message.error("Nhập lý do ít nhất 3 ký tự"); return; }
+        setSaving(true);
+        void onSave(email, reason.trim()).then((ok) => { if (ok) reset(); }).finally(() => setSaving(false));
+      }}>Gửi link đặt mật khẩu</ActionButton>
     </Drawer>
   );
 }

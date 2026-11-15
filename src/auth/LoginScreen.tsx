@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { App, Button, Input, Modal } from "antd";
-import { LogIn, UtensilsCrossed } from "lucide-react";
+import { Lock, LogIn, User } from "lucide-react";
 import { ApiError, authApi, showApiError } from "../api";
 import { useAppStore } from "../store";
-import { palette, onBrandAlpha } from "../theme";
+import { palette } from "../theme";
+import PlatformLogo from "../components/brand/PlatformLogo";
+import loginBackground from "../assets/brand/login-background.jpg";
 
 /**
  * Đăng nhập bằng email hoặc tên tài khoản + mật khẩu qua backend thật. Không còn bước chọn vai
  * trò — vai trò do backend quyết định và web tự đưa về đúng không gian làm việc.
+ *
+ * Bố cục giống màn đăng nhập của app thu ngân/pha chế: ảnh nền phủ kín, một thẻ kính mờ ở giữa
+ * gồm logo, tiêu đề, ô nhập có nhãn + biểu tượng và nút đăng nhập.
  */
 const FORGOT_EMAIL_PATTERN = /^[^s@]+@[^s@]+.[^s@]+$/;
 
@@ -33,7 +38,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
       await authApi.requestPasswordReset(value);
       setForgotSent(true);
     } catch (error) {
-      // 22.8: vượt 5 lần mỗi giờ theo địa chỉ IP trả 429 với câu chung, không cho biết email có tồn tại hay không.
+      // 22.8: vượt 5 lần mỗi giờ theo IP trả 429 với câu chung, không cho biết email có tồn tại hay không.
       if (error instanceof ApiError && error.status === 429) message.error("Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.");
       else showApiError(message.error, error, "Không gửi được yêu cầu. Vui lòng thử lại.");
     } finally {
@@ -53,100 +58,72 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
     onLogin(email, password);
   };
 
+  const label = (text: string) => (
+    <div style={{ fontSize: 13, fontWeight: 600, color: palette.ink, marginBottom: 6 }}>{text}</div>
+  );
+
   return (
     <div
       style={{
-        height: "100vh",
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 0.9fr)",
-        background: palette.surface,
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        backgroundColor: palette.ink,
+        backgroundImage: `url(${loginBackground})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
-      {/* Left — brand panel */}
       <div
         style={{
-          background: palette.brandPrimary,
-          color: palette.onBrand,
-          padding: "56px 60px",
+          width: "100%",
+          maxWidth: 440,
+          padding: 24,
+          borderRadius: 16,
+          border: `1.5px solid color-mix(in srgb, ${palette.surface} 55%, transparent)`,
+          background: `color-mix(in srgb, ${palette.surface} 45%, transparent)`,
+          backdropFilter: "blur(24px) saturate(150%)",
+          WebkitBackdropFilter: "blur(24px) saturate(150%)",
+          boxShadow: `0 24px 60px color-mix(in srgb, ${palette.ink} 25%, transparent)`,
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
+          gap: 16,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 11,
-              background: palette.surface,
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            <UtensilsCrossed size={22} color={palette.brandPrimary} />
+        <PlatformLogo variant="wordmark" tone="dark" height={78} style={{ alignSelf: "center" }} />
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: palette.ink }}>Đăng nhập</div>
+          <div style={{ color: palette.textStrong, fontSize: 14, marginTop: 2 }}>
+            Dành cho Brand Manager, Store Manager và Admin
           </div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Smart F&amp;B</div>
         </div>
 
         <div>
-          <div style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.6 }}>
-            Phần mềm vận hành
-            <br />
-            chuỗi nhà hàng.
-          </div>
-          <p
-            style={{
-              color: onBrandAlpha(60),
-              fontSize: 15,
-              lineHeight: 1.6,
-              maxWidth: 420,
-              marginTop: 18,
-            }}
-          >
-            Quản trị nền tảng, điều hành chuỗi và quản lý chi nhánh trên một
-            không gian làm việc duy nhất.
-          </p>
-        </div>
-
-        <div style={{ fontSize: 12.5, color: onBrandAlpha(40) }}>
-          Thu ngân &amp; pha chế dùng ứng dụng tablet
-        </div>
-      </div>
-
-      {/* Right — login identifier + password */}
-      <div
-        style={{
-          padding: "56px 56px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          maxWidth: 520,
-        }}
-      >
-        <div style={{ fontSize: 22, fontWeight: 700 }}>Đăng nhập</div>
-        <div style={{ color: palette.textMuted, fontSize: 14, marginTop: 4, marginBottom: 24 }}>
-          Dùng email hoặc tên đăng nhập cùng mật khẩu được cấp.
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+          {label("Email hoặc tên đăng nhập")}
           <Input
             size="large"
-            placeholder="Email hoặc tên đăng nhập"
+            placeholder="ten@congty.vn"
             autoComplete="username"
+            prefix={<User size={17} color={palette.textMuted} />}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onPressEnter={handleLogin}
-            variant="filled"
           />
+        </div>
+        <div>
+          {label("Mật khẩu")}
           <Input.Password
             size="large"
-            placeholder="Mật khẩu"
+            placeholder="Nhập mật khẩu"
             autoComplete="current-password"
+            prefix={<Lock size={17} color={palette.textMuted} />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onPressEnter={handleLogin}
-            variant="filled"
           />
         </div>
 
@@ -163,6 +140,10 @@ export default function LoginScreen({ onLogin }: { onLogin: (email: string, pass
         <Button type="link" style={{ alignSelf: "flex-end", marginTop: 12 }} onClick={() => { setForgotEmail(email.includes("@") ? email : ""); setForgotSent(false); setForgotOpen(true); }}>
           Quên mật khẩu?
         </Button>
+
+        <div style={{ textAlign: "center", fontSize: 12.5, color: palette.textStrong }}>
+          Thu ngân &amp; pha chế đăng nhập trên ứng dụng tablet
+        </div>
       </div>
       <Modal title="Quên mật khẩu" open={forgotOpen} onCancel={() => setForgotOpen(false)} onOk={forgotSent ? () => setForgotOpen(false) : sendReset} okText={forgotSent ? "Đóng" : "Gửi yêu cầu"} okButtonProps={{ disabled: !forgotSent && !forgotEmail.trim(), loading: forgotBusy }}>
         {forgotSent ? <p>Nếu email đúng, hướng dẫn đặt lại đã được gửi đi.</p> : <>

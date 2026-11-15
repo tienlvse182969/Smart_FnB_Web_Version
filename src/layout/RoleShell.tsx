@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Avatar, Badge, Button, Dropdown, Grid, Input, Layout, Menu } from "antd";
-import { Bell, CalendarDays, LogOut, Menu as MenuIcon, Search, Store, User, UtensilsCrossed } from "lucide-react";
+import { Bell, CalendarDays, LogOut, Menu as MenuIcon, Search, Store, User } from "lucide-react";
+import { PLATFORM_LOGO } from "../components/brand/PlatformLogo";
 import { roleMeta } from "../data";
 import type { RoleKey } from "../types";
 import ChangePasswordModal from "../auth/ChangePasswordModal";
@@ -51,7 +52,9 @@ export default function RoleShell({
   // có/không được dùng nhận diện riêng nhận nhận diện nền tảng (BR-41, BR-44).
   const showTenantBrand = brand.custom;
   const brandName = brand.displayName;
+  // Brand Manager chưa đổi logo (hoặc logo tải lỗi) → dùng logo gốc của nền tảng, như app thu ngân/pha chế.
   const brandLogo = brand.logo;
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
 
   // Chữ trên thanh bên đã được chọn trắng/đen theo tương phản với màu thương hiệu (BR-43).
   const siderFg = palette.onBrand;
@@ -106,10 +109,15 @@ export default function RoleShell({
               overflow: "hidden",
             }}
           >
-            {brandLogo ? (
-              <img src={brandLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            {brandLogo && failedLogo !== brandLogo ? (
+              <img
+                src={brandLogo}
+                alt=""
+                onError={() => setFailedLogo(brandLogo)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             ) : (
-              <UtensilsCrossed size={19} color={palette.brandPrimary} />
+              <img src={PLATFORM_LOGO.mark.dark} alt="Smart F&B" style={{ width: "86%", height: "86%", objectFit: "contain" }} />
             )}
           </div>
           <div style={{ lineHeight: 1.15, minWidth: 0 }}>

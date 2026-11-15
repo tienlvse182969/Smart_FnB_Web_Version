@@ -18,6 +18,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - uses: pnpm/action-setup@v4
         with:
           version: 10.34.3

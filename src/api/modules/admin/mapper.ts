@@ -57,6 +57,7 @@ export interface RawSubscription {
 }
 
 export interface RawRegistration {
+  activationCheckouts?: { id: string }[];
   id: string;
   applicationCode: string;
   businessName: string;
@@ -188,6 +189,7 @@ export function mapRegistrationDetail(raw: RawRegistration): RegistrationDetail 
   const chain = raw.approvedChain;
   return {
     ...mapRegistration(raw),
+    hasFirstPeriodInvoice: Boolean(raw.activationCheckouts?.length),
     activationExpiresAt: raw.activationExpiresAt ?? null,
     supportActions: raw.supportActions ?? [],
     approved: chain

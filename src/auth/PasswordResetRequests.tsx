@@ -1,21 +1,22 @@
+import { useLocation } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, App, Button, Card, Input, Modal, Space, Table, Typography } from "antd";
-import { request } from "../api/http/client";
+import { Alert, App, Button, Card, Input, Modal, Space, Table, Tag, Typography } from "antd";
 import { ApiError } from "../api/http/errors";
+import { request } from "../api/http/client";
 import { modeOf } from "../api/flags";
 import { describeApiError, showApiError } from "../api";
-import { subscribeOperations } from "../api/realtime/operations";
 import { formatDateTime } from "../lib/reportFormat";
 import { palette, type StatusColorKey } from "../theme";
 import { Chip } from "../roles/admin/adminUi";
+import { subscribeOperations } from "../api/realtime/operations";
 
 export type ResetRequest = {
   id: string;
   status: "PENDING" | "RESET" | "REJECTED" | "EXPIRED";
   createdAt: string;
   expiresAt: string;
-  user: { email: string; status: string; role: { code: string }; employee?: { firstName: string; lastName: string } | null; owner?: { firstName: string; lastName: string } | null };
-  handledBy?: { email: string } | null;
+  user: { email: string; status: string; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; role: { code: string }; employee?: { firstName: string; lastName: string } | null; owner?: { firstName: string; lastName: string } | null };
+  handledByName?: string | null;
 };
 
 /** Tên vai trò theo đặc tả (mục 2), không hiện mã BE. */
@@ -32,36 +33,35 @@ const STATUS_LABEL: Record<ResetRequest["status"], { text: string; tone: StatusC
   EXPIRED: { text: "Hết hạn", tone: "neutral" },
 };
 
-/** BE trả 409 "Đã được <người> xử lý" khi người khác chốt trước (22.8): hiện nguyên câu đó. */
+/** BE trả 409 "Đã được <tên người xử lý> xử lý" khi người khác chốt trước (22.8): hiện nguyên câu đó. */
 export const alreadyHandledMessage = (error: unknown): string | null =>
   error instanceof ApiError && error.status === 409 && /^Đã được .+ xử lý$/.test(error.message.trim()) ? error.message.trim() : null;
 
-/**
- * 22.8: danh sách yêu cầu đặt lại mật khẩu cho Brand Manager (của Store Manager), Platform Staff (của Brand Manager) và Platform
- * Admin (của Platform Staff và Brand Manager). Realtime qua `password-reset.*`, badge đếm ở menu, Đặt lại / Từ chối (ghi chú bắt buộc),
- * tài khoản bị khoá chỉ còn Từ chối, người đến sau thấy tên người đã xử lý. Hiện email người xử lý tới khi BE trả họ tên (L3).
- */
+type ResolveResult = { status: "RESET" | "REJECTED"; emailStatus?: "PENDING" | "SENT" | "FAILED" | null };
+const emailResult = (status?: "PENDING" | "SENT" | "FAILED" | null) => status === "SENT" ? "Đã gửi link đặt mật khẩu" : "Chưa gửi được email. Hãy kiểm tra cấu hình và gửi lại.";
+
 export default function PasswordResetRequests() {
+  const pendingOnly = new URLSearchParams(useLocation().search).get("status") === "PENDING";
   const { message } = App.useApp();
   const [rows, setRows] = useState<ResetRequest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [active, setActive] = useState<ResetRequest | null>(null);
   const [decision, setDecision] = useState<"approve" | "reject">("approve");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const isMock = modeOf("auth") === "mock";
 
   const load = useCallback(async () => {
     if (isMock) { setRows([]); return; }
     setLoading(true);
     try {
-      setRows(await request<ResetRequest[]>("/password-reset-requests"));
+      setRows(await request<ResetRequest[]>(pendingOnly ? "/password-reset-requests?status=PENDING" : "/password-reset-requests"));
       setLoadError(null);
     } catch (error) {
       setLoadError(describeApiError(error));
     } finally { setLoading(false); }
-  }, [isMock]);
+  }, [isMock, pendingOnly]);
 
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [load]);
   useEffect(() => {
@@ -73,8 +73,9 @@ export default function PasswordResetRequests() {
     if (busy) return;
     setBusy(true);
     try {
-      await request(`/password-reset-requests/${item.id}/${action}`, { method: "POST", ...(action === "reject" ? { body: { note: rejectionNote?.trim() } } : {}) });
-      message.success(action === "approve" ? "Đã gửi link đặt mật khẩu cho nhân viên" : "Đã từ chối yêu cầu");
+      const result = await request<ResolveResult>(`/password-reset-requests/${item.id}/${action}`, { method: "POST", ...(action === "reject" ? { body: { note: rejectionNote?.trim() } } : {}) });
+      if (action === "approve" && result.emailStatus !== "SENT") message.warning(emailResult(result.emailStatus));
+      else message.success(action === "approve" ? emailResult(result.emailStatus) : "Đã từ chối yêu cầu");
       setActive(null); setNote(""); await load();
     } catch (error) {
       const handled = alreadyHandledMessage(error);
@@ -87,7 +88,7 @@ export default function PasswordResetRequests() {
   const resend = async (item: ResetRequest) => {
     if (busy) return;
     setBusy(true);
-    try { await request(`/password-reset-requests/${item.id}/resend`, { method: "POST" }); message.success("Đã gửi lại link đặt mật khẩu"); await load(); }
+    try { const result = await request<{ emailStatus?: "PENDING" | "SENT" | "FAILED" }>(`/password-reset-requests/${item.id}/resend`, { method: "POST" }); if (result.emailStatus === "SENT") message.success("Đã gửi lại link đặt mật khẩu"); else message.warning(emailResult(result.emailStatus)); await load(); }
     catch (error) { showApiError(message.error, error, "Không gửi lại được email"); }
     finally { setBusy(false); }
   };
@@ -96,8 +97,8 @@ export default function PasswordResetRequests() {
     [item.user.owner?.firstName ?? item.user.employee?.firstName, item.user.owner?.lastName ?? item.user.employee?.lastName].filter(Boolean).join(" ") || item.user.email;
 
   const actions = (item: ResetRequest) => {
-    if (item.status === "RESET" && item.user.status === "INACTIVE") return <Button disabled={busy} onClick={() => void resend(item)}>Gửi lại email</Button>;
-    if (item.status !== "PENDING") return <span data-testid="reset-handled-by">{item.handledBy?.email ?? "—"}</span>;
+    if (item.status === "RESET" && item.user.status === "INACTIVE") return <><Button disabled={busy} onClick={() => void resend(item)}>Gửi lại email</Button><div data-testid="reset-handled-by">{item.handledByName ?? "—"}</div></>;
+    if (item.status !== "PENDING") return <span data-testid="reset-handled-by">{item.handledByName ?? "—"}</span>;
     const locked = item.user.status !== "ACTIVE";
     return (
       <Space direction="vertical" size={4}>
@@ -110,7 +111,7 @@ export default function PasswordResetRequests() {
     );
   };
 
-  return <Card title="Yêu cầu đặt lại mật khẩu" extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
+  return <Card title={pendingOnly ? "Yêu cầu đặt lại mật khẩu đang chờ" : "Yêu cầu đặt lại mật khẩu"} extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
     <Typography.Paragraph type="secondary">Xác minh người yêu cầu qua điện thoại hoặc trực tiếp trước khi đặt lại. Link chỉ được gửi tới email của tài khoản.</Typography.Paragraph>
     {loadError && (
       <Alert
@@ -126,7 +127,7 @@ export default function PasswordResetRequests() {
     <Table rowKey="id" dataSource={rows} loading={loading && rows.length === 0} pagination={{ pageSize: 10, hideOnSinglePage: true }}
       locale={{ emptyText: <span style={{ color: palette.textMuted }}>{loadError ? "Không tải được danh sách" : "Chưa có yêu cầu đặt lại mật khẩu nào"}</span> }}
       columns={[
-        { title: "Tài khoản", render: (_, item) => <><strong>{nameOf(item)}</strong><div>{item.user.email}</div></> },
+        { title: "Tài khoản", render: (_, item) => <><strong>{nameOf(item)}</strong><div>{item.user.email}</div>{(item.user.emailSendStatus === "FAILED" || item.user.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}</> },
         { title: "Vai trò", render: (_, item) => RESET_ROLE_LABEL[item.user.role.code] ?? item.user.role.code },
         { title: "Gửi lúc", render: (_, item) => formatDateTime(item.createdAt) },
         { title: "Hạn xử lý", render: (_, item) => item.status === "PENDING" ? formatDateTime(item.expiresAt) : "—" },

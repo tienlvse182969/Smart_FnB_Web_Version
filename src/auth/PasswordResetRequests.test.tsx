@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App as AntApp } from "antd";
+import { MemoryRouter } from "react-router-dom";
 import { ApiError } from "../api/http/errors";
 import * as client from "../api/http/client";
 import PasswordResetRequests, { alreadyHandledMessage, type ResetRequest } from "./PasswordResetRequests";
@@ -19,10 +20,10 @@ const row = (over: Partial<ResetRequest> & { userStatus?: string } = {}): ResetR
   createdAt: "2026-11-13T03:00:00.000Z",
   expiresAt: "2026-11-14T03:00:00.000Z",
   user: { email: "sm@x.vn", status: over.userStatus ?? "ACTIVE", role: { code: "MANAGER" }, employee: { firstName: "An", lastName: "Lê" } },
-  handledBy: over.handledBy ?? null,
+  handledByName: over.handledByName ?? null,
 });
 
-const mount = () => render(<AntApp><PasswordResetRequests /></AntApp>);
+const mount = () => render(<MemoryRouter><AntApp><PasswordResetRequests /></AntApp></MemoryRouter>);
 let requestSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   vi.restoreAllMocks();
