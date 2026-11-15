@@ -1,12 +1,12 @@
 import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
-import { KeyRound, Lock, Plus, Unlock } from "lucide-react";
+import { KeyRound, Lock, Plus, Unlock, UserCog } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AccountStatus, StaffInvitationInput, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { SectionTitle } from "../../components/bits";
+import { EmptyState, PageHeader } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import StaffReasonModal from "../branch/StaffReasonModal";
@@ -137,8 +137,8 @@ export default function ManagerAccounts() {
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Tài khoản nhân viên"
+      <PageHeader
+        title="Tài khoản quản lý"
         sub="Mời Store Manager qua email; xem danh sách Thu ngân và Pha chế của các chi nhánh"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" data-testid="create-manager" onClick={() => setAdding(true)}>
@@ -179,7 +179,19 @@ export default function ManagerAccounts() {
                   loading={loading}
                   size="middle"
                   scroll={{ x: 860 }}
-                  locale={{ emptyText: "Chưa có Store Manager nào khớp" }}
+                  locale={{
+                    emptyText:
+                      search || status ? (
+                        "Chưa có Store Manager nào khớp"
+                      ) : (
+                        <EmptyState
+                          icon={<UserCog size={24} />}
+                          title="Chưa có Store Manager nào"
+                          description="Mời Store Manager qua email để họ quản lý từng chi nhánh."
+                          actionNode={<ActionButton type="primary" icon={<Plus size={15} />} consumes="accounts" onClick={() => setAdding(true)}>Mời Store Manager</ActionButton>}
+                        />
+                      ),
+                  }}
                   pagination={{
                     current: data.pagination.page,
                     pageSize: PAGE_SIZE,

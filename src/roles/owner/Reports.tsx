@@ -15,10 +15,11 @@ import {
 } from "antd"
 import { Banknote, Coins, Hourglass, ReceiptText, Undo2, Wallet } from "lucide-react"
 import dayjs from "dayjs"
-import { SectionTitle, StatCard } from "../../components/bits"
+import { PageHeader, StatCard } from "../../components/bits"
+import NoBranchState from "./NoBranchState"
 import { useAppStore } from "../../store"
 import type { ReportGranularity, RevenueComparison } from "../../types"
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { usePlan } from "../../plan/usePlan"
 import ReportChart from "../../components/ReportChart"
 import { paymentMethodInfo } from "../../api/modules/order/codes"
@@ -107,10 +108,10 @@ export default function Reports() {
   if (scope !== "ready") return <Skeleton active />
   if (!branchId)
     return (
-      <Card>
-        Chưa có chi nhánh để xem báo cáo.{" "}
-        <Link to="/brand-manager/branches">Quản lý chi nhánh</Link>
-      </Card>
+      <div>
+        <PageHeader title="Tổng quan" sub="Báo cáo doanh thu của chuỗi" />
+        <NoBranchState description="Tạo chi nhánh đầu tiên để bắt đầu bán hàng và xem báo cáo doanh thu." />
+      </div>
     )
 
   const points = (trend.data?.buckets ?? []).map((key, i) => {
@@ -156,8 +157,8 @@ export default function Reports() {
 
   return (
     <div>
-      <SectionTitle
-        title="Báo cáo doanh thu"
+      <PageHeader
+        title="Tổng quan"
         sub={`${scopeLabel} · ${describeRange(range)} · giờ Việt Nam`}
       />
 

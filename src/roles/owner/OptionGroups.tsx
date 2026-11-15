@@ -1,5 +1,5 @@
 import { App, Card, Checkbox, Input, InputNumber, Modal, Select, Switch, Table, Tag } from "antd";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Sliders, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BranchOptionState, OptionGroup, OptionItem } from "../../types";
 import { optionsApi, showApiError, suggestSku } from "../../api";
@@ -8,7 +8,7 @@ import { modeOf } from "../../api/flags";
 import { syncSelectionRule, validateGroupFields, validateOptionFields, type SelectionRuleField } from "../../api/modules/options/rules";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { SectionTitle } from "../../components/bits";
+import { EmptyState, PageHeader } from "../../components/bits";
 import MoneyInput from "../../components/MoneyInput";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import { formatVnd } from "../../lib/reportFormat";
@@ -92,7 +92,7 @@ export default function OptionGroups() {
       content: (
         <div data-testid="delete-usage">
           {used === 0 ? "Nhóm chưa gắn cho món nào." : <>Nhóm đang gắn cho {used} món và sẽ bị gỡ khỏi các món đó.</>}{" "}
-          Đơn cũ vẫn giữ nguyên tuỳ chọn đã bán (BR-15).
+          Đơn cũ vẫn giữ nguyên tuỳ chọn đã bán.
         </div>
       ),
       okText: "Xoá nhóm",
@@ -109,9 +109,9 @@ export default function OptionGroups() {
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Tuỳ chọn món"
-        sub="Nhóm dùng chung cho nhiều món: sửa một lần là đổi cho mọi món đã gắn (đặc tả 12.2)"
+      <PageHeader
+        title="Tuỳ chọn"
+        sub="Nhóm dùng chung cho nhiều món: sửa một lần là đổi cho mọi món đã gắn"
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
             Thêm nhóm
@@ -133,7 +133,16 @@ export default function OptionGroups() {
         pagination={false}
         size="middle"
         scroll={{ x: 760 }}
-        locale={{ emptyText: "Chưa có nhóm tuỳ chọn nào" }}
+        locale={{
+          emptyText: (
+            <EmptyState
+              icon={<Sliders size={24} />}
+              title="Chưa có nhóm tuỳ chọn nào"
+              description="Nhóm tuỳ chọn (đường, đá, size…) dùng chung cho nhiều món."
+              actionNode={<ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>Thêm nhóm</ActionButton>}
+            />
+          ),
+        }}
         expandable={{
           expandedRowKeys: expanded,
           onExpandedRowsChange: (keys) => setExpanded(keys.map(String)),
@@ -302,7 +311,7 @@ function GroupDetail({
       title: `Xoá tuỳ chọn "${o.name}"?`,
       content: (
         <div data-testid="delete-option-confirm">
-          Tuỳ chọn bị xoá khỏi nhóm {group.name}. Đơn cũ vẫn giữ nguyên tuỳ chọn đã bán (BR-15).
+          Tuỳ chọn bị xoá khỏi nhóm {group.name}. Đơn cũ vẫn giữ nguyên tuỳ chọn đã bán.
           {lastOne && usageCount > 0 && (
             <div data-testid="delete-option-usage" style={{ marginTop: 6, color: palette.error.text }}>
               Đây là tuỳ chọn cuối cùng của nhóm: {usageCount} món đang dùng nhóm này sẽ không còn tuỳ chọn để chọn.

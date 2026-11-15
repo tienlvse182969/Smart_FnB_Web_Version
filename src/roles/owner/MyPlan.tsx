@@ -10,7 +10,7 @@ import { platformBillingApi } from "../../api/platformBilling";
 import { subscriptionScheduleApi, type NextInvoicePreview, type SubscriptionInvoice } from "../../api/subscriptionSchedule";
 import NextPeriodPanel, { type NextPeriodAdapter } from "./NextPeriodPanel";
 
-import { SectionTitle } from "../../components/bits";
+import { PageHeader } from "../../components/bits";
 
 import { formatDateVN } from "../../lib/reportFormat";
 
@@ -245,7 +245,7 @@ export default function MyPlan() {
   if (!plan) {
     return (
       <div>
-        <SectionTitle title="Gói của tôi" />
+        <PageHeader title="Gói dịch vụ" />
         {loading ? <Skeleton active paragraph={{ rows: 4 }} /> : null}
       </div>
     );
@@ -254,7 +254,7 @@ export default function MyPlan() {
   if (plan.noActivePlan) {
     return (
       <div>
-        <SectionTitle title="Gói của tôi" />
+        <PageHeader title="Gói dịch vụ" />
         <Card
           data-testid="myplan-none"
           style={{ borderRadius: 14, maxWidth: 560 }}
@@ -278,8 +278,8 @@ export default function MyPlan() {
 
   return (
     <div>
-      <SectionTitle
-        title="Gói của tôi"
+      <PageHeader
+        title="Gói dịch vụ"
         sub="Theo dõi thời hạn dùng thử, hạn mức và nâng cấp gói dịch vụ"
       />
       <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>

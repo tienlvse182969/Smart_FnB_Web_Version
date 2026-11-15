@@ -1,6 +1,8 @@
 import { useLocation } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, App, Button, Card, Input, Modal, Space, Table, Tag, Typography } from "antd";
+import { KeyRound } from "lucide-react";
+import { EmptyState, PageHeader } from "../components/bits";
 import { ApiError } from "../api/http/errors";
 import { request } from "../api/http/client";
 import { modeOf } from "../api/flags";
@@ -111,8 +113,13 @@ export default function PasswordResetRequests() {
     );
   };
 
-  return <Card title={pendingOnly ? "Yêu cầu đặt lại mật khẩu đang chờ" : "Yêu cầu đặt lại mật khẩu"} extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}>
-    <Typography.Paragraph type="secondary">Xác minh người yêu cầu qua điện thoại hoặc trực tiếp trước khi đặt lại. Link chỉ được gửi tới email của tài khoản.</Typography.Paragraph>
+  return <>
+  <PageHeader
+    title={pendingOnly ? "Yêu cầu đặt lại mật khẩu đang chờ" : "Yêu cầu đặt lại mật khẩu"}
+    sub="Xác minh người yêu cầu qua điện thoại hoặc trực tiếp trước khi đặt lại. Link chỉ được gửi tới email của tài khoản."
+    extra={<Button onClick={() => void load()} loading={loading}>Làm mới</Button>}
+  />
+  <Card>
     {loadError && (
       <Alert
         data-testid="reset-load-error"
@@ -125,7 +132,7 @@ export default function PasswordResetRequests() {
       />
     )}
     <Table rowKey="id" dataSource={rows} loading={loading && rows.length === 0} pagination={{ pageSize: 10, hideOnSinglePage: true }}
-      locale={{ emptyText: <span style={{ color: palette.textMuted }}>{loadError ? "Không tải được danh sách" : "Chưa có yêu cầu đặt lại mật khẩu nào"}</span> }}
+      locale={{ emptyText: loadError ? <span style={{ color: palette.textMuted }}>Không tải được danh sách</span> : <EmptyState icon={<KeyRound size={24} />} title="Chưa có yêu cầu đặt lại mật khẩu nào" description="Khi có người quên mật khẩu, yêu cầu sẽ hiện ở đây để bạn xử lý." /> }}
       columns={[
         { title: "Tài khoản", render: (_, item) => <><strong>{nameOf(item)}</strong><div>{item.user.email}</div>{(item.user.emailSendStatus === "FAILED" || item.user.emailSendStatus === "PENDING") && <Tag color="warning">Chưa gửi được email</Tag>}</> },
         { title: "Vai trò", render: (_, item) => RESET_ROLE_LABEL[item.user.role.code] ?? item.user.role.code },
@@ -144,5 +151,6 @@ export default function PasswordResetRequests() {
         <Button danger disabled={!note.trim()} loading={busy} style={{ marginTop: 12 }} onClick={() => active && void resolve(active, "reject", note)}>Từ chối yêu cầu</Button>
       </>}
     </Modal>
-  </Card>;
+  </Card>
+  </>;
 }

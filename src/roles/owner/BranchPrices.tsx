@@ -7,7 +7,8 @@ import type { PriceCell, PriceMatrix, PriceProductType, PriceUpdate } from "../.
 import { branchPricesApi, combosApi, describeApiError, menuApi, showApiError } from "../../api";
 import { MAX_CELLS_PER_REQUEST, WARNING_TEXT, cellKey, chunkUpdates, priceWarning, validateBranchPrice } from "../../api/modules/branchPrices/rules";
 import MoneyInput from "../../components/MoneyInput";
-import { SectionTitle } from "../../components/bits";
+import { PageHeader } from "../../components/bits";
+import NoBranchState from "./NoBranchState";
 import { money } from "../../data";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import ActionButton from "../../plan/ActionButton";
@@ -324,9 +325,12 @@ export default function BranchPrices() {
 
   return (
     <div data-testid="branch-prices">
-      <SectionTitle title="Giá theo chi nhánh" sub="Giá chuỗi là mặc định. Đặt giá riêng cho từng chi nhánh; đổi giá chuỗi không ghi đè giá chi nhánh đã đặt." />
+      <PageHeader title="Giá theo chi nhánh" sub="Giá chuỗi là mặc định. Đặt giá riêng cho từng chi nhánh; đổi giá chuỗi không ghi đè giá chi nhánh đã đặt." />
       {readOnly && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={writeGuard.reason ?? "Doanh nghiệp đang ở chế độ chỉ đọc"} />}
       {error && <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Không tải được bảng giá" description={error} action={<ActionButton onClick={() => void load()}>Thử lại</ActionButton>} />}
+      {matrix && branches.length === 0 ? (
+        <NoBranchState description="Giá theo chi nhánh cần ít nhất một chi nhánh. Tạo chi nhánh đầu tiên rồi quay lại đặt giá riêng." />
+      ) : (
       <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
           <Input.Search allowClear placeholder="Tìm món hoặc combo" style={{ maxWidth: 260 }} onChange={(e) => setSearch(e.target.value)} />
@@ -385,6 +389,7 @@ export default function BranchPrices() {
           (đóng cửa, tạm ngưng) vẫn có thể đặt giá. Ô "—" là sản phẩm chưa gán cho chi nhánh.
         </div>
       </Card>
+      )}
     </div>
   );
 }

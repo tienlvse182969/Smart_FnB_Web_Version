@@ -1,22 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { App, Card, ColorPicker, Input } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, App, Card, ColorPicker, Input } from "antd";
 import { ImageUp, Lock, RotateCcw, Save, Send, Ticket } from "lucide-react";
 import { showApiError } from "../../api";
 import { validateLogoFile, MAX_DISPLAY_NAME_LENGTH } from "../../api/modules/branding/validate";
-import { SectionTitle } from "../../components/bits";
+import { PageHeader } from "../../components/bits";
 import BrandMark from "../../components/brand/BrandMark";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
 import { useAppStore } from "../../store";
-import {
-  BRAND_COLOR_PRESETS,
-  PLATFORM_BRAND,
-  contrastRatio,
-  isDarkEnoughForWhiteText,
-  palette,
-  pickReadableTextColor,
-} from "../../theme";
+import { BRAND_COLOR_PRESETS, PLATFORM_BRAND, accentTooPale, deriveBrandSurface, palette } from "../../theme";
 
 const sameColor = (a: string | undefined, b: string | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 
@@ -116,18 +109,10 @@ export default function Branding() {
     }
     setSaving(true);
     try {
-      // BR-43: cảnh báo Owner nếu hệ thống phải tự đổi màu chữ do tương phản thấp.
-      const willUseBlackText = !isDarkEnoughForWhiteText(primaryColor);
+      // Màu quá sáng/nhạt được nhắc bằng dòng gợi ý ngay dưới ô màu, không dùng toast.
       await updateBranding(input);
       clearLocalLogo();
-      if (willUseBlackText) {
-        message.warning(
-          `Màu chủ đạo có độ tương phản thấp với chữ trắng (tỷ lệ ${contrastRatio(primaryColor, PLATFORM_BRAND.primaryContrast).toFixed(1)}:1) — đã tự chuyển chữ trên nút chính sang màu đen để dễ đọc (BR-43).`,
-          6,
-        );
-      } else {
-        message.success("Đã lưu nhận diện — áp dụng ngay cho mọi tài khoản trong chuỗi");
-      }
+      message.success("Đã lưu nhận diện — áp dụng ngay cho mọi tài khoản trong chuỗi");
     } catch (err) {
       showApiError(message.error, err, "Không lưu được");
       // Lỗi giữa chừng (ví dụ logo đã tải mà PUT lỗi): nạp lại từ BE để màn phản ánh đúng những gì đã lưu.
@@ -167,21 +152,27 @@ export default function Branding() {
     });
   };
 
-  const textOnPrimary = pickReadableTextColor(primaryColor);
+  // Token cho khung xem trước: cùng quy tắc với thanh bên và nút chính thật. Chỉ tính lại khi màu chủ đạo đổi.
+  const derived = useMemo(() => deriveBrandSurface(primaryColor), [primaryColor]);
+  const surfaceColor = derived.surface;
+  const textOnPrimary = derived.ink;
+  const accentPale = useMemo(() => accentTooPale(accentColor), [accentColor]);
 
   return (
     <div>
-      <SectionTitle
+      <PageHeader
         title="Nhận diện thương hiệu"
-        sub="Áp dụng cho web Brand Manager và Store Manager, màn hình phía khách, màn hình gọi số, bill và phiếu số của chuỗi (BR-41)"
+        sub="Áp dụng cho web Brand Manager và Store Manager, màn hình phía khách, màn hình gọi số, bill và phiếu số của chuỗi"
       />
       {locked && (
-        <div
+        <Alert
           data-testid="branding-plan-lock"
-          style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: palette.warning.text, background: palette.paperSubtle, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}
-        >
-          <Lock size={15} /> Cần gói {requiredTierLabel("branding") ?? "Tiêu chuẩn"} trở lên để tuỳ biến nhận diện. Bạn vẫn xem được cấu hình hiện tại; nâng gói để chỉnh sửa.
-        </div>
+          type="warning"
+          showIcon
+          icon={<Lock size={15} />}
+          style={{ marginBottom: 14 }}
+          message={`Cần gói ${requiredTierLabel("branding") ?? "Tiêu chuẩn"} trở lên để tuỳ biến nhận diện. Bạn vẫn xem được cấu hình hiện tại; nâng gói để chỉnh sửa.`}
+        />
       )}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
         {/* Form */}
@@ -258,10 +249,20 @@ export default function Branding() {
               ))}
             </div>
             <ColorPicker value={primaryColor} disabled={locked} onChangeComplete={(c) => setPrimaryColor(c.toHexString())} showText />
+            {derived.darkInk && (
+              <div data-testid="branding-hint-primary" style={{ fontSize: 12.5, color: palette.warning.text, marginTop: 8 }}>
+                Màu này khá sáng nên chữ trên nút sẽ chuyển sang màu đậm cho dễ đọc.
+              </div>
+            )}
           </Field>
 
           <Field label="Màu nhấn">
             <ColorPicker value={accentColor} disabled={locked} onChangeComplete={(c) => setAccentColor(c.toHexString())} showText />
+            {accentPale && (
+              <div data-testid="branding-hint-accent" style={{ fontSize: 12.5, color: palette.warning.text, marginTop: 8 }}>
+                Màu nhấn này rất nhạt trên nền trắng nên có thể khó nhìn thấy. Nên chọn màu đậm hơn.
+              </div>
+            )}
           </Field>
 
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -280,20 +281,35 @@ export default function Branding() {
 
           {/* Header web Manager */}
           <Card size="small" style={{ borderRadius: 12, overflow: "hidden" }} styles={{ body: { padding: 0 } }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: primaryColor }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: surfaceColor }}>
+              <LogoDot logoUrl={shownLogo} />
               <span style={{ color: textOnPrimary, fontSize: 13, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
             </div>
             <div style={{ padding: "10px 16px", fontSize: 11.5, color: palette.textMuted }}>Header web Store Manager</div>
           </Card>
 
+          {/* Thanh bên + nút chính: cùng quy tắc surface/ink với web thật */}
+          <Card size="small" style={{ borderRadius: 12, overflow: "hidden" }} styles={{ body: { padding: 0 } }}>
+            <div style={{ display: "flex" }}>
+              <div data-testid="branding-preview-sidebar" style={{ width: 150, padding: 10, background: surfaceColor, color: textOnPrimary, display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                <div style={{ padding: "6px 8px", borderRadius: 8, fontWeight: 500 }}>Chi nhánh</div>
+                <div style={{ padding: "6px 8px", borderRadius: 8, background: palette.surface, color: derived.activeInk, fontWeight: 700 }}>Thực đơn</div>
+                <div style={{ padding: "6px 8px", borderRadius: 8, fontWeight: 500 }}>Nhân sự</div>
+              </div>
+              <div style={{ flex: 1, padding: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ padding: "7px 16px", borderRadius: 8, background: surfaceColor, color: textOnPrimary, fontSize: 12.5, fontWeight: 600 }}>Nút chính</span>
+              </div>
+            </div>
+            <div style={{ padding: "8px 16px", fontSize: 11.5, color: palette.textMuted }}>Thanh bên và nút chính của web</div>
+          </Card>
+
           {/* Màn hình phía khách */}
           <Card size="small" style={{ borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} dark />
+              <LogoDot logoUrl={shownLogo} />
               <span style={{ fontSize: 13, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
             </div>
-            <div style={{ fontSize: 11, color: palette.textSubtle, marginBottom: 8 }}>Màn hình phía khách · Quét mã để thanh toán</div>
+            <div style={{ fontSize: 12, color: palette.textMuted, marginBottom: 8 }}>Màn hình phía khách · Quét mã để thanh toán</div>
             <button
               disabled
               style={{
@@ -301,7 +317,7 @@ export default function Branding() {
                 padding: "8px 0",
                 borderRadius: 8,
                 border: "none",
-                background: primaryColor,
+                background: surfaceColor,
                 color: textOnPrimary,
                 fontSize: 12.5,
                 fontWeight: 600,
@@ -317,13 +333,13 @@ export default function Branding() {
 
           {/* Bill in */}
           <Card size="small" style={{ borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
-            <div style={{ fontSize: 11, color: palette.textSubtle, marginBottom: 8 }}>Đầu bill in</div>
+            <div style={{ fontSize: 12, color: palette.textMuted, marginBottom: 8 }}>Đầu bill in</div>
             <div style={{ border: "1px dashed var(--ant-color-border)", borderRadius: 8, padding: 12, background: palette.surface }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: `2px solid ${primaryColor}`, paddingBottom: 8, marginBottom: 8 }}>
-                <LogoDot logoUrl={shownLogo} primary={primaryColor} dark small />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, borderBottom: `2px solid ${surfaceColor}`, paddingBottom: 8, marginBottom: 8 }}>
+                <LogoDot logoUrl={shownLogo} small />
                 <span style={{ fontSize: 12.5, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
               </div>
-              <div style={{ fontSize: 10.5, color: palette.textSubtle, lineHeight: 1.8 }}>
+              <div style={{ fontSize: 11.5, color: palette.textMuted, lineHeight: 1.8 }}>
                 Bill HD-000123
                 <br />
                 Chi nhánh mẫu · 12:30
@@ -333,8 +349,8 @@ export default function Branding() {
 
           {/* Phiếu số — chỉ logo và thanh tiêu đề đổi màu, trạng thái giữ màu ngữ nghĩa */}
           <Card size="small" style={{ borderRadius: 12, overflow: "hidden" }} styles={{ body: { padding: 0 } }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: primaryColor }}>
-              <LogoDot logoUrl={shownLogo} primary={primaryColor} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: surfaceColor }}>
+              <LogoDot logoUrl={shownLogo} />
               <span style={{ color: textOnPrimary, fontSize: 12.5, fontWeight: 700 }}>{displayName || "Tên chuỗi"}</span>
               <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, color: textOnPrimary, fontSize: 11 }}>
                 <Ticket size={13} /> Phiếu số
@@ -345,8 +361,8 @@ export default function Branding() {
               <span style={{ fontSize: 10.5, fontWeight: 600, padding: "3px 8px", borderRadius: 999, background: palette.info.bg, color: palette.info.text }}>Đang pha</span>
               <span style={{ fontSize: 10.5, fontWeight: 600, padding: "3px 8px", borderRadius: 999, background: palette.success.bg, color: palette.success.text }}>Sẵn sàng</span>
             </div>
-            <div style={{ padding: "0 16px 10px", fontSize: 10.5, color: palette.textSubtle }}>
-              Chỉ logo và thanh tiêu đề đổi màu — màu trạng thái giữ cố định (BR-42)
+            <div style={{ padding: "0 16px 10px", fontSize: 11.5, color: palette.textMuted }}>
+              Chỉ logo và thanh tiêu đề đổi màu — màu trạng thái giữ cố định
             </div>
           </Card>
         </div>
@@ -355,18 +371,7 @@ export default function Branding() {
   );
 }
 
-function LogoDot({
-  logoUrl,
-  primary,
-  dark,
-  small,
-}: {
-  logoUrl?: string;
-  /** Màu chủ đạo đang chọn (chưa lưu). */
-  primary: string;
-  dark?: boolean;
-  small?: boolean;
-}) {
+function LogoDot({ logoUrl, small }: { logoUrl?: string; small?: boolean }) {
   const size = small ? 22 : 28;
   return (
     <div
@@ -374,14 +379,14 @@ function LogoDot({
         width: size,
         height: size,
         borderRadius: 7,
-        background: dark ? primary : palette.surface,
+        background: palette.surface,
         display: "grid",
         placeItems: "center",
         overflow: "hidden",
         flexShrink: 0,
       }}
     >
-      <BrandMark logo={logoUrl} tone={dark && isDarkEnoughForWhiteText(primary) ? "light" : "dark"}
+      <BrandMark logo={logoUrl} tone="dark"
         style={{ width: "84%", height: "84%", objectFit: "contain" }} />
     </div>
   );
