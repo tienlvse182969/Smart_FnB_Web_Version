@@ -157,6 +157,9 @@ export const palette = {
   purple: semanticVars("purple"),
 } as const;
 
+/** Màu mực (ink) pha trong suốt `pct`% — vd. lớp phủ tối trên ảnh nền hero của landing. */
+export const inkAlpha = (pct: number) => `color-mix(in srgb, ${v(CSS_VAR.ink)} ${pct}%, transparent)`;
+
 /** Chữ/biểu tượng trên nền thương hiệu, pha trong suốt `pct`% (vd. phụ đề trên thanh điều hướng). */
 export const onBrandAlpha = (pct: number) =>
   `color-mix(in srgb, ${v(CSS_VAR.brandPrimaryContrast)} ${pct}%, transparent)`;

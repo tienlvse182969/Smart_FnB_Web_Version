@@ -11,7 +11,7 @@ function limitLines(plan: PublicPlan): string[] {
   return [
     `Tối đa ${plan.maxBranches} chi nhánh`,
     `Tối đa ${plan.maxAccounts} tài khoản`,
-    "POS, pha chế, màn hình gọi số, báo cáo chi nhánh",
+    "POS thu ngân, màn hình pha chế, báo cáo chi nhánh",
     ...(plan.features.branding ? ["Nhận diện thương hiệu riêng"] : []),
     ...(plan.features.multiBranchCompare ? ["So sánh doanh thu đa chi nhánh"] : []),
   ];
