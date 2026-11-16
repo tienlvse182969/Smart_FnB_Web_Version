@@ -1,4 +1,4 @@
-import { App, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table, Tag } from "antd";
+import { App, Card, Checkbox, Drawer, Modal, Input, InputNumber, Select, Switch, Table, Tag } from "antd";
 import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
@@ -6,6 +6,7 @@ import type { MenuCategory, MenuExtra, MenuItem, MenuItemInput, MenuItemPatch, O
 import { describeApiError, extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
 import { ApiError } from "../../api/http/errors";
 import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
+import { MenuImportForm } from "./MenuImport";
 import MoneyInput from "../../components/MoneyInput";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import { modeOf } from "../../api/flags";
@@ -38,6 +39,7 @@ export default function MenuTable({ embedded = false }: { embedded?: boolean } =
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [editing, setEditing] = useState<MenuItem | "new" | null>(null);
+  const [excelOpen, setExcelOpen] = useState(false);
   const [assigning, setAssigning] = useState<MenuItem | null>(null);
 
   const loadCategories = useCallback(async () => {
@@ -100,26 +102,27 @@ export default function MenuTable({ embedded = false }: { embedded?: boolean } =
     });
   };
 
+  const actions = (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <ActionButton onClick={() => setExcelOpen(true)} icon={<Upload size={15} />}>Nhập Excel</ActionButton>
+      <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+        Thêm món
+      </ActionButton>
+    </div>
+  );
+
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       {embedded ? (
         <ToolbarRow
           sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt."
-          extra={
-            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
-              Thêm món
-            </ActionButton>
-          }
+          extra={actions}
         />
       ) : (
         <SectionTitle
           title="Quản lý menu"
           sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt"
-          extra={
-            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
-              Thêm món
-            </ActionButton>
-          }
+          extra={actions}
         />
       )}
 
@@ -203,6 +206,12 @@ export default function MenuTable({ embedded = false }: { embedded?: boolean } =
         ]}
       />
 
+      <Modal title="Nhập menu từ Excel" open={excelOpen} onCancel={() => setExcelOpen(false)}
+        footer={null} width="min(1100px, 95vw)" styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}>
+        <MenuImportForm key={chainId} excel onImported={() => {
+          void Promise.all([loadItems(), loadCategories()]);
+        }} />
+      </Modal>
       <ItemDrawer
         item={editing}
         categories={categories}

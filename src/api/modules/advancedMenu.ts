@@ -10,11 +10,12 @@ export type MenuImportDraftItem = {
   optionGroups: MenuImportDraftOptionGroup[];
   /** Legacy drafts created before named option groups were supported. */
   sizes?: Array<{ name: string; priceDelta: number }>;
-  extras: Array<{ name: string; price: number }>;
+  extras: Array<{ extraId?: string; maxQuantity?: number; name: string; price: number }>;
   warning: string;
 };
 
 export type MenuImportDraftOptionGroup = {
+  groupId?: string;
   name: string;
   isRequired: boolean;
   minSelections: number;
@@ -49,6 +50,9 @@ export const advancedMenuApi = {
       method: "POST",
       body: form,
     });
+  },
+  createExcelImport(chainId: string, rows: Array<{ category: string; name: string; price: number; description: string }>) {
+    return request<MenuImport>(`${chainBase(chainId)}/menu-imports/excel`, { method: "POST", body: { rows } });
   },
   getMenuImport(chainId: string, id: string) {
     return request<MenuImport>(`${chainBase(chainId)}/menu-imports/${encodeURIComponent(id)}`);

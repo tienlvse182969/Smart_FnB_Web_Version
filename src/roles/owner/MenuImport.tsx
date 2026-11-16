@@ -13,23 +13,23 @@ import {
   Select,
   Space,
   Spin,
-  Switch,
   Table,
-  Tag,
   Typography,
   Upload,
   type UploadFile,
 } from "antd"
-import { FileImage, Plus, ScanLine, Trash2, UploadCloud } from "lucide-react"
+import { FileImage, ScanLine, Trash2, UploadCloud } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  extrasApi,
+  optionsApi,
   advancedMenuApi,
   showApiError,
   type MenuImport as MenuImportRecord,
   type MenuImportDraft,
   type MenuImportDraftItem,
 } from "../../api"
-import type { MenuImportDraftOptionGroup } from "../../api/modules/advancedMenu"
+import { useSearchParams } from "react-router-dom"
 import { API_BASE_URL } from "../../config"
 import MoneyInput from "../../components/MoneyInput"
 import { money } from "../../data"
@@ -38,9 +38,15 @@ import { palette } from "../../theme"
 import { AccentBadge, PageHeader } from "../../components/bits"
 
 const backendOrigin = API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "")
-const importKey = (chainId: string) => `smartfnb_menu_import_${chainId}`
+const importKey = (chainId: string, excel: boolean) => `smartfnb_menu_import_${chainId}${excel ? "_excel" : ""}`
 
 export default function MenuImport() {
+  const [params] = useSearchParams()
+  const excel = params.get("source") === "excel"
+  return <MenuImportForm key={excel ? "excel" : "image"} excel={excel} />
+}
+
+export function MenuImportForm({ excel, onImported }: { excel: boolean; onImported?: () => void }) {
   const { message, modal } = App.useApp()
   const chainId = useAppStore((state) => state.chainId)
   const branches = useAppStore((state) => state.branches)
@@ -53,12 +59,44 @@ export default function MenuImport() {
   } | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const [library, setLibrary] = useState<{ groups: Awaited<ReturnType<typeof optionsApi.listGroups>>; extras: Awaited<ReturnType<typeof extrasApi.listExtras>> } | null>(null)
+  const [libraryError, setLibraryError] = useState(false)
+  useEffect(() => {
+    let current = true
+    setLibrary(null)
+    setLibraryError(false)
+    if (detailEditor && chainId) {
+      Promise.all([optionsApi.listGroups(chainId), extrasApi.listExtras(chainId)])
+        .then(([groups, extras]) => {
+          if (current) setLibrary({ groups: groups.filter(g => g.isActive), extras: extras.filter(e => e.isActive) })
+        })
+        .catch(() => { if (current) setLibraryError(true) })
+    }
+    return () => { current = false }
+  }, [detailEditor, chainId])
+
   const detailItem =
     detailEditor && draft
       ? draft.categories[detailEditor.categoryIndex]?.items[
           detailEditor.itemIndex
         ]
       : undefined
+
+  const patchDetails = (patch: Partial<MenuImportDraftItem>) => {
+    if (detailEditor && draft) setDraft(updateItem(draft, detailEditor.categoryIndex, detailEditor.itemIndex, patch))
+  }
+  const chooseGroup = (id: string) => {
+    const group = library?.groups.find(g => g.id === id)
+    if (!group || !detailItem || detailItem.optionGroups.some(g => g.groupId === id)) return
+    const link = { groupId: id, name: group.name, options: group.options.filter(o => o.isActive).map(o => ({ name: o.name, priceDelta: o.priceDelta })), isRequired: group.isRequired, minSelections: group.minSelections, maxSelections: group.maxSelections }
+    patchDetails({ optionGroups: [...detailItem.optionGroups.filter(entry => entry.groupId || !sameName(entry.name, group.name)), link] })
+  }
+  const chooseExtra = (id: string) => {
+    const extra = library?.extras.find(e => e.id === id)
+    if (!extra || !detailItem || detailItem.extras.some(e => e.extraId === id)) return
+    const link = { extraId: id, name: extra.name, price: extra.price, maxQuantity: 1 }
+    patchDetails({ extras: [...detailItem.extras.filter(entry => entry.extraId || !sameName(entry.name, extra.name)), link] })
+  }
 
   const refresh = useCallback(
     async (id: string) => {
@@ -68,20 +106,20 @@ export default function MenuImport() {
         setRecord(next)
         if (next.draft) setDraft(normalizeDraft(next.draft))
         if (["IMPORTED", "FAILED", "CANCELLED"].includes(next.status)) {
-          localStorage.removeItem(importKey(chainId))
+          localStorage.removeItem(importKey(chainId, excel))
         }
       } catch (error) {
         showApiError(message.error, error, "Không tải được lượt nhập menu")
       }
     },
-    [chainId, message],
+    [chainId, message, excel],
   )
 
   useEffect(() => {
     if (!chainId) return
-    const id = localStorage.getItem(importKey(chainId))
+    const id = localStorage.getItem(importKey(chainId, excel))
     if (id) void refresh(id)
-  }, [chainId, refresh])
+  }, [chainId, refresh, excel])
 
   useEffect(() => {
     if (!record || record.status !== "PROCESSING") return
@@ -94,13 +132,15 @@ export default function MenuImport() {
     const selected = files
       .map((file) => file.originFileObj)
       .filter((file): file is NonNullable<typeof file> => Boolean(file))
-    if (!selected.length) return message.warning("Chọn từ 1 đến 5 ảnh menu")
+    if (!selected.length) return message.warning("Vui lòng chọn tệp menu")
     try {
       setBusy(true)
-      const next = await advancedMenuApi.createMenuImport(chainId, selected)
-      localStorage.setItem(importKey(chainId), next.id)
+      const next = excel
+        ? await advancedMenuApi.createExcelImport(chainId, await (await import("./readMenuExcel")).default(selected[0]))
+        : await advancedMenuApi.createMenuImport(chainId, selected)
+      localStorage.setItem(importKey(chainId, excel), next.id)
       setRecord(next)
-      setDraft(null)
+      setDraft(next.draft ? normalizeDraft(next.draft) : null)
     } catch (error) {
       showApiError(message.error, error, "Không bắt đầu được nhận dạng menu")
     } finally {
@@ -110,7 +150,6 @@ export default function MenuImport() {
 
   const saveDraft = async () => {
     if (!chainId || !record || !draft) return
-    if (invalidOptionGroups(draft)) return message.error("Kiểm tra tên nhóm, lựa chọn và số lượng được chọn")
     try {
       setBusy(true)
       const next = await advancedMenuApi.updateMenuImportDraft(
@@ -129,7 +168,6 @@ export default function MenuImport() {
 
   const commit = () => {
     if (!chainId || !record || !draft) return
-    if (invalidOptionGroups(draft)) return message.error("Kiểm tra tên nhóm, lựa chọn và số lượng được chọn")
     modal.confirm({
       title: "Nhập bản nháp vào menu toàn chuỗi?",
       content:
@@ -139,14 +177,25 @@ export default function MenuImport() {
       onOk: async () => {
         try {
           setBusy(true)
-          await advancedMenuApi.updateMenuImportDraft(chainId, record.id, draft)
+          await advancedMenuApi.updateMenuImportDraft(chainId, record.id, {
+            ...draft,
+            categories: draft.categories.map(category => ({
+              ...category,
+              items: category.items.map(item => ({
+                ...item,
+                optionGroups: item.optionGroups.filter(group => group.groupId),
+                extras: item.extras.filter(extra => extra.extraId),
+              })),
+            })),
+          })
           const next = await advancedMenuApi.commitMenuImport(
             chainId,
             record.id,
           )
           setRecord(next)
-          localStorage.removeItem(importKey(chainId))
+          localStorage.removeItem(importKey(chainId, excel))
           message.success("Đã nhập menu thành công")
+          onImported?.()
         } catch (error) {
           showApiError(message.error, error, "Không nhập được menu")
           throw error
@@ -161,25 +210,33 @@ export default function MenuImport() {
     setRecord(null)
     setDraft(null)
     setFiles([])
-    if (chainId) localStorage.removeItem(importKey(chainId))
+    if (chainId) localStorage.removeItem(importKey(chainId, excel))
   }
 
   return (
-    <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <PageHeader
+    <Card variant={onImported ? "borderless" : "outlined"} style={{ borderRadius: 14, boxShadow: onImported ? "none" : undefined }} styles={{ body: { padding: onImported ? 0 : 20 } }}>
+      {excel ? <div style={{ marginBottom: 18 }}>
+        {!onImported && <Typography.Title level={4} style={{ margin: 0 }}>
+          Nhập menu từ Excel
+        </Typography.Title>}
+        <Typography.Text type="secondary">
+          Trang tính đầu tiên cần có các cột Danh mục, Tên món và Giá. Có thể thêm cột Mô tả.
+           <a href="/menu-mau.xlsx" download>Tải file mẫu</a>
+        </Typography.Text>
+      </div> : (<PageHeader
         title="Nhập từ ảnh (AI)"
         extra={<AccentBadge>AI</AccentBadge>}
         sub="OCR đọc chữ, AI tạo bản nháp; chỉ ghi menu sau khi Brand Manager kiểm tra và xác nhận."
-      />
+      />)}
 
       {!record && (
         <Upload.Dragger
-          multiple
-          accept="image/jpeg,image/png,image/webp"
+          multiple={!excel}
+          accept={excel ? ".xlsx" : "image/jpeg,image/png,image/webp"}
           fileList={files}
-          maxCount={5}
+          maxCount={excel ? 1 : 5}
           beforeUpload={() => false}
-          onChange={({ fileList }) => setFiles(fileList.slice(0, 5))}
+          onChange={({ fileList }) => setFiles(excel ? fileList.slice(-1) : fileList.slice(0, 5))}
           onRemove={(file) => {
             setFiles((current) =>
               current.filter((item) => item.uid !== file.uid),
@@ -191,9 +248,9 @@ export default function MenuImport() {
             <UploadCloud size={42} />
           </p>
           <p>
-            <strong>Chọn hoặc kéo 1–5 ảnh menu vào đây</strong>
+            <strong>{excel ? "Chọn hoặc kéo file Excel vào đây" : "Chọn hoặc kéo 1–5 ảnh menu vào đây"}</strong>
           </p>
-          <p>JPG, PNG hoặc WebP; tối đa 10 MB mỗi ảnh</p>
+          <p>{excel ? "XLSX · tối đa 2 MB và 500 món" : "JPG, PNG hoặc WebP; tối đa 10 MB mỗi ảnh"}</p>
         </Upload.Dragger>
       )}
 
@@ -208,7 +265,7 @@ export default function MenuImport() {
           onClick={() => void start()}
           style={{ marginTop: 16 }}
         >
-          Bắt đầu nhận dạng
+          {excel ? "Xem bản nháp" : "Bắt đầu nhận dạng"}
         </Button>
       )}
 
@@ -253,7 +310,7 @@ export default function MenuImport() {
               ? `Tạo mới ${record.result.created}, cập nhật ${record.result.updated}, bỏ qua ${record.result.skipped} món.`
               : undefined
           }
-          action={<Button onClick={reset}>Nhập thêm ảnh</Button>}
+          action={<Button onClick={reset}>{excel ? "Nhập file khác" : "Nhập thêm ảnh"}</Button>}
         />
       )}
 
@@ -261,13 +318,13 @@ export default function MenuImport() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(260px, 0.8fr) minmax(560px, 1.7fr)",
+            gridTemplateColumns: excel ? "minmax(0, 1fr)" : "minmax(260px, 0.8fr) minmax(560px, 1.7fr)",
             gap: 18,
             alignItems: "start",
             overflowX: "auto",
           }}
         >
-          <div>
+          {!excel && <div>
             <Card size="small" title="Ảnh gốc" style={{ marginBottom: 14 }}>
               <Image.PreviewGroup>
                 <div
@@ -312,7 +369,7 @@ export default function MenuImport() {
                 },
               ]}
             />
-          </div>
+          </div>}
           <div>
             <Space
               style={{
@@ -470,15 +527,15 @@ export default function MenuImport() {
                         render: (_, item, itemIndex) => (
                           <Space direction="vertical" size={2}>
                             <span>
-                              {item.optionGroups.length
-                                ? item.optionGroups
+                              {item.optionGroups.some(entry => entry.groupId)
+                                ? item.optionGroups.filter(entry => entry.groupId)
                                     .map((group) => `${group.name}: ${group.options.map((option) => `${option.name} +${money(option.priceDelta)}`).join(", ")}`)
                                     .join(" · ")
                                 : "Chưa có tuỳ chọn món"}
                             </span>
                             <span>
-                              {item.extras.length
-                                ? item.extras
+                              {item.extras.some(entry => entry.extraId)
+                                ? item.extras.filter(entry => entry.extraId)
                                     .map(
                                       (extra) =>
                                         `${extra.name} +${money(extra.price)}`,
@@ -551,133 +608,54 @@ export default function MenuImport() {
         width={680}
         destroyOnHidden
       >
-        {detailItem && detailEditor && draft && (
-          <Space direction="vertical" size="large" style={{ width: "100%" }}>
-            <DraftOptionGroupsEditor
-              groups={detailItem.optionGroups}
-              onChange={(optionGroups) =>
-                setDraft(updateItem(draft, detailEditor.categoryIndex, detailEditor.itemIndex, { optionGroups }))
-              }
-            />
-
-            <div>
-              <Space
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <strong>Topping thêm</strong>
-                <Button
-                  size="small"
-                  icon={<Plus size={14} />}
-                  onClick={() =>
-                    setDraft(
-                      updateItem(
-                        draft,
-                        detailEditor.categoryIndex,
-                        detailEditor.itemIndex,
-                        {
-                          extras: [
-                            ...detailItem.extras,
-                            { name: "", price: 0 },
-                          ],
-                        },
-                      ),
-                    )
-                  }
-                >
-                  Thêm topping thêm
-                </Button>
-              </Space>
-              <Space direction="vertical" style={{ width: "100%" }}>
-                {detailItem.extras.map((extra, index) => (
-                  <div
-                    key={`extra-${index}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 190px 40px",
-                      gap: 8,
-                    }}
-                  >
-                    <Input
-                      value={extra.name}
-                      placeholder="Tên topping"
-                      onChange={(event) =>
-                        setDraft(
-                          updateItem(
-                            draft,
-                            detailEditor.categoryIndex,
-                            detailEditor.itemIndex,
-                            {
-                              extras: detailItem.extras.map(
-                                (candidate, rowIndex) =>
-                                  rowIndex === index
-                                    ? { ...candidate, name: event.target.value }
-                                    : candidate,
-                              ),
-                            },
-                          ),
-                        )
-                      }
-                    />
-                    <MoneyInput
-                      addonBefore="Giá"
-                      addonAfter="₫"
-                      value={extra.price}
-                      onChange={(price) =>
-                        setDraft(
-                          updateItem(
-                            draft,
-                            detailEditor.categoryIndex,
-                            detailEditor.itemIndex,
-                            {
-                              extras: detailItem.extras.map(
-                                (candidate, rowIndex) =>
-                                  rowIndex === index
-                                    ? { ...candidate, price: price ?? 0 }
-                                    : candidate,
-                              ),
-                            },
-                          ),
-                        )
-                      }
-                      style={{ width: "100%" }}
-                    />
-                    <Button
-                      danger
-                      type="text"
-                      icon={<Trash2 size={14} />}
-                      onClick={() =>
-                        setDraft(
-                          updateItem(
-                            draft,
-                            detailEditor.categoryIndex,
-                            detailEditor.itemIndex,
-                            {
-                              extras: detailItem.extras.filter(
-                                (_, rowIndex) => rowIndex !== index,
-                              ),
-                            },
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {!detailItem.extras.length && (
-                  <Typography.Text type="secondary">
-                    Chưa có topping thêm
-                  </Typography.Text>
-                )}
-              </Space>
-            </div>
+        {detailItem && (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            {libraryError && <Alert type="error" showIcon title="Không tải được thư viện. Đóng và mở lại để thử lại." />}
+            <section>
+              <strong>Tùy chọn món</strong>
+              <Select mode="multiple" aria-label="Chọn nhóm tùy chọn" placeholder="Chọn nhóm từ thư viện"
+                style={{ width: "100%" }} loading={!library && !libraryError} disabled={!library}
+                optionFilterProp="label" notFoundContent="Không tìm thấy nhóm tùy chọn"
+                value={detailItem.optionGroups.flatMap(g => g.groupId ? [g.groupId] : [])}
+                options={library?.groups.map(g => ({ value: g.id, label: g.name }))}
+                onSelect={chooseGroup} onDeselect={id => patchDetails({ optionGroups: detailItem.optionGroups.filter(g => g.groupId !== id) })} />
+              {detailItem.optionGroups.filter(g => g.groupId).map(g =>
+                <div key={g.groupId}>{g.name} · {g.options.map(o => o.priceDelta ? `${o.name} +${money(o.priceDelta)}` : o.name).join(" · ")}</div>
+              )}
+            </section>
+            <section>
+              <strong>Topping thêm</strong>
+              <Select mode="multiple" aria-label="Chọn topping" placeholder="Chọn topping từ thư viện"
+                style={{ width: "100%" }} loading={!library && !libraryError} disabled={!library}
+                optionFilterProp="label" notFoundContent="Không tìm thấy topping"
+                value={detailItem.extras.flatMap(e => e.extraId ? [e.extraId] : [])}
+                options={library?.extras.map(e => ({ value: e.id, label: `${e.name} · ${money(e.price)}` }))}
+                onSelect={chooseExtra} onDeselect={id => patchDetails({ extras: detailItem.extras.filter(e => e.extraId !== id) })} />
+              {detailItem.extras.filter(e => e.extraId).map(extra =>
+                <details key={extra.extraId}>
+                  <summary>{extra.name} · {money(extra.price)} · tối đa {extra.maxQuantity ?? 3} phần</summary>
+                  <Space wrap>
+                    <label>Giá cộng thêm <MoneyInput value={extra.price}
+                      onChange={price => patchDetails({ extras: detailItem.extras.map(e => e === extra ? { ...e, price: price ?? 0 } : e) })} /></label>
+                    <label>Số phần tối đa <InputNumber min={1} max={5} precision={0} value={extra.maxQuantity ?? 3}
+                      onChange={v => patchDetails({ extras: detailItem.extras.map(e => e === extra ? { ...e, maxQuantity: v ?? 1 } : e) })} /></label>
+                  </Space>
+                </details>
+              )}
+            </section>
+            {library && [...detailItem.optionGroups.filter(g => !g.groupId).map(g => ({ name: g.name, found: library.groups.some(v => sameName(v.name, g.name)) })),
+              ...detailItem.extras.filter(e => !e.extraId).map(e => ({ name: e.name, found: library.extras.some(v => sameName(v.name, e.name)) }))].map((entry, index) =>
+                <Typography.Text key={index} type="secondary">{entry.name} · {entry.found ? "OCR nhận diện, chưa chọn" : "Chưa có trong thư viện"}</Typography.Text>
+              )}
           </Space>
         )}
       </Modal>
     </Card>
   )
+}
+
+function sameName(left: string, right: string) {
+  return left.trim().localeCompare(right.trim(), "vi", { sensitivity: "accent" }) === 0
 }
 
 function normalizeDraft(draft: MenuImportDraft): MenuImportDraft {
@@ -695,58 +673,6 @@ function normalizeDraft(draft: MenuImportDraft): MenuImportDraft {
       })),
     })),
   }
-}
-
-function invalidOptionGroups(draft: MenuImportDraft): boolean {
-  return draft.categories.some((category) => category.items.some((item) => item.optionGroups.some((group) =>
-    !group.name.trim() || !group.options.length || group.options.some((option) => !option.name.trim() || !Number.isInteger(option.priceDelta) || option.priceDelta < 0) ||
-    !Number.isInteger(group.minSelections) || !Number.isInteger(group.maxSelections) ||
-    group.isRequired !== (group.minSelections > 0) || group.maxSelections < Math.max(1, group.minSelections) || group.maxSelections > group.options.length ||
-    new Set(group.options.map((option) => option.name.trim().toLocaleLowerCase("vi"))).size !== group.options.length,
-  )))
-}
-
-function DraftOptionGroupsEditor({ groups, onChange }: { groups: MenuImportDraftOptionGroup[]; onChange: (groups: MenuImportDraftOptionGroup[]) => void }) {
-  const changeGroup = (index: number, patch: Partial<MenuImportDraftOptionGroup>) =>
-    onChange(groups.map((group, i) => i === index ? { ...group, ...patch } : group))
-
-  return (
-    <div>
-      <Space style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <strong>Tuỳ chọn món</strong>
-        <Button size="small" icon={<Plus size={14} />} onClick={() => onChange([...groups, {
-          name: "", isRequired: false, minSelections: 0, maxSelections: 1, options: [],
-        }])}>Thêm nhóm tuỳ chọn</Button>
-      </Space>
-      <Typography.Text type="secondary">Tạo nhóm như “Kích cỡ”, “Mức đường” hoặc “Đá”; mỗi nhóm có các lựa chọn và giá cộng thêm.</Typography.Text>
-      {!groups.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có nhóm tuỳ chọn món" />}
-      {groups.map((group, groupIndex) => (
-        <Card key={groupIndex} size="small" style={{ marginTop: 12 }}
-          title={<Input aria-label={`Tên nhóm tuỳ chọn ${groupIndex + 1}`} value={group.name} maxLength={100} placeholder="Tên nhóm, VD: Mức đường" onChange={(event) => changeGroup(groupIndex, { name: event.target.value })} />}
-          extra={<Button type="text" danger aria-label={`Xoá nhóm tuỳ chọn ${groupIndex + 1}`} icon={<Trash2 size={14} />} onClick={() => onChange(groups.filter((_, i) => i !== groupIndex))} />}
-        >
-          <Space wrap style={{ marginBottom: 12 }}>
-            <span>Bắt buộc chọn</span>
-            <Switch checked={group.isRequired} onChange={(checked) => changeGroup(groupIndex, { isRequired: checked, minSelections: checked ? Math.max(1, group.minSelections) : 0 })} />
-            <span>Tối thiểu</span>
-            <InputNumber aria-label="Số lựa chọn tối thiểu" min={0} max={Math.max(group.options.length, 1)} precision={0} value={group.minSelections} onChange={(value) => changeGroup(groupIndex, { minSelections: value ?? 0, isRequired: (value ?? 0) > 0 })} style={{ width: 70 }} />
-            <span>Tối đa</span>
-            <InputNumber aria-label="Số lựa chọn tối đa" min={1} max={Math.max(group.options.length, 1)} precision={0} value={group.maxSelections} onChange={(value) => changeGroup(groupIndex, { maxSelections: value ?? 1 })} style={{ width: 70 }} />
-          </Space>
-          <Space direction="vertical" style={{ width: "100%" }}>
-            {group.options.map((option, optionIndex) => (
-              <div key={optionIndex} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 170px 36px", gap: 8 }}>
-                <Input aria-label={`Lựa chọn ${optionIndex + 1}`} value={option.name} maxLength={100} placeholder="Tên lựa chọn" onChange={(event) => changeGroup(groupIndex, { options: group.options.map((value, i) => i === optionIndex ? { ...value, name: event.target.value } : value) })} />
-                <MoneyInput aria-label={`Giá cộng thêm lựa chọn ${optionIndex + 1}`} addonAfter="₫" value={option.priceDelta} onChange={(value) => changeGroup(groupIndex, { options: group.options.map((entry, i) => i === optionIndex ? { ...entry, priceDelta: value ?? 0 } : entry) })} style={{ width: "100%" }} />
-                <Button danger type="text" aria-label={`Xoá lựa chọn ${optionIndex + 1}`} icon={<Trash2 size={14} />} onClick={() => changeGroup(groupIndex, { options: group.options.filter((_, i) => i !== optionIndex) })} />
-              </div>
-            ))}
-            <Button size="small" icon={<Plus size={14} />} onClick={() => changeGroup(groupIndex, { options: [...group.options, { name: "", priceDelta: 0 }] })}>Thêm lựa chọn</Button>
-          </Space>
-        </Card>
-      ))}
-    </div>
-  )
 }
 
 function updateCategory(
