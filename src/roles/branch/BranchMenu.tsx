@@ -204,9 +204,12 @@ export default function BranchMenu() {
           <div style={{ fontWeight: 700, margin: "8px 0", color: palette.textMuted }}>{category}</div>
           {items.map((item) => (
             <div key={item.menuItemId} data-testid="branch-menu-row" data-owner-disabled={item.ownerDisabled} style={rowStyle(item.ownerDisabled)}>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: 600 }}>{item.name}</span>
-                {item.ownerDisabled && ownerTag}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                {item.imageUrl && <img src={item.imageUrl} alt="" loading="lazy" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />}
+                <span>
+                  <span style={{ fontWeight: 600 }}>{item.name}</span>
+                  {item.ownerDisabled && ownerTag}
+                </span>
               </div>
               <span style={{ color: palette.textSubtle }}>{money(item.price)}</span>
               <SwitchCell>
@@ -251,7 +254,10 @@ export default function BranchMenu() {
 
   const extrasTab = extras.filter((extra) => !needle || fold(extra.name).includes(needle)).map((extra) => (
     <div key={extra.id} data-testid="branch-extra-row" style={rowStyle(!extra.chainAvailable)}>
-      <div style={{ flex: 1 }}><b>{extra.name}</b>{!extra.chainAvailable && ownerTag}</div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+        {extra.imageUrl && <img src={extra.imageUrl} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />}
+        <span><b>{extra.name}</b>{!extra.chainAvailable && ownerTag}</span>
+      </div>
       <span style={{ color: palette.textSubtle }}>{money(Number(extra.price))}</span>
       <SwitchCell>{extra.chainAvailable ? (
         <ActionSwitch size="small" checked={extra.branchAvailable} onChange={(on) => toggleExtra(extra, on)} />

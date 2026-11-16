@@ -1,9 +1,11 @@
 import { modeOf } from "../flags";
 import { request } from "../http/client";
+import { absoluteLogoUrl } from "./branding/mapper";
 
 export type BranchExtra = {
   id: string;
   name: string;
+  imageUrl?: string | null;
   price: string;
   chainAvailable: boolean;
   branchAvailable: boolean;
@@ -20,7 +22,8 @@ export type BranchCombo = {
 
 export async function listBranchExtras(): Promise<BranchExtra[]> {
   if (modeOf("branch_options") === "mock") return [];
-  return request<BranchExtra[]>("/menu-extras/branch");
+  const extras = await request<BranchExtra[]>("/menu-extras/branch");
+  return extras.map((extra) => ({ ...extra, imageUrl: absoluteLogoUrl(extra.imageUrl) ?? null }));
 }
 
 export async function setBranchExtraAvailability(id: string, isAvailable: boolean): Promise<void> {

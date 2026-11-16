@@ -1,12 +1,14 @@
 /** Ánh xạ response của BE `menu-extras.controller.ts` theo whitelist. Tiền qua `parseAmount` (BE trả chuỗi thập phân). */
 import { parseAmount } from "../../../lib/reportFormat";
 import type { ItemExtras, MenuExtra } from "../../../types";
+import { absoluteLogoUrl } from "../branding/mapper";
 
 export interface RawExtra {
   id: string;
   name: string;
   price: string | number;
   isActive: boolean;
+  imageUrl?: string | null;
 }
 
 export interface RawItemExtras {
@@ -15,7 +17,7 @@ export interface RawItemExtras {
   extras: { extraId: string; price: string | number; maxQuantity: number; displayOrder: number; extra: RawExtra }[];
 }
 
-export const mapExtra = (raw: RawExtra): MenuExtra => ({ id: raw.id, name: raw.name, price: parseAmount(raw.price), isActive: raw.isActive });
+export const mapExtra = (raw: RawExtra): MenuExtra => ({ id: raw.id, name: raw.name, price: parseAmount(raw.price), isActive: raw.isActive, imageUrl: absoluteLogoUrl(raw.imageUrl) ?? null });
 
 export function mapItemExtras(raw: RawItemExtras): ItemExtras {
   return {

@@ -88,6 +88,7 @@ export default function ItemExtrasEditor({
               <ActionButton size="small" aria-label="Lên" icon={<ArrowUp size={13} />} disabled={i === 0} onClick={() => move(i, -1)} />
               <ActionButton size="small" aria-label="Xuống" icon={<ArrowDown size={13} />} disabled={i === links.length - 1} onClick={() => move(i, 1)} />
               <span style={{ flex: 1, fontWeight: 600 }}>
+                {library.find((extra) => extra.id === link.extraId)?.imageUrl && <img src={library.find((extra) => extra.id === link.extraId)?.imageUrl || undefined} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", verticalAlign: "middle", marginRight: 8 }} />}
                 {link.name}
                 {!link.libraryActive && (
                   <Tag color="warning" style={{ marginLeft: 8 }}>

@@ -7,6 +7,7 @@
 export type MenuExtra = {
   id: string;
   name: string;
+  imageUrl?: string | null;
   /** Giá mặc định (đồng), dùng khi gắn vào món mà không đặt giá riêng. */
   price: number;
   /** Cờ kinh doanh cấp chuỗi. Tắt = mọi món không bán được topping này. */

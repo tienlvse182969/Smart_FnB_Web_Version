@@ -14,6 +14,7 @@ export interface ExtrasApi {
   listExtras(chainId: string): Promise<MenuExtra[]>;
   /** 409 nếu trùng tên trong chuỗi. */
   createExtra(chainId: string, input: ExtraInput): Promise<MenuExtra>;
+  uploadExtraImage(chainId: string, id: string, file: File): Promise<MenuExtra>;
   /** `PUT`: gửi đủ tên, giá, cờ. 404 nếu không thuộc chuỗi; 409 nếu trùng tên. */
   updateExtra(chainId: string, id: string, input: Required<ExtraInput>): Promise<MenuExtra>;
   /** Tắt cấp chuỗi (BE không xoá thật). */
