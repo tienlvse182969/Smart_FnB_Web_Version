@@ -18,15 +18,18 @@ describe("quy tắc nhập topping (cùng ngưỡng BE)", () => {
     expect(validateExtra({ name: "A", price: 1500.5 })).toMatch(/số nguyên đồng/);
   });
 
-  it("món: số phần mỗi ly 1–5, topping không trùng, tổng phần 0–100", () => {
+  it("món: số phần mỗi lần gắn 1–5, topping không trùng, tổng phần là số nguyên ≥ 1 (không trần)", () => {
     const ok = { maxExtras: 5, extras: [{ extraId: "a", price: 5000, maxQuantity: 5 }] };
     expect(validateItemExtras(ok)).toBeNull();
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: 5000, maxQuantity: 0 }] })).toMatch(/từ 1 đến 5/);
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: 5000, maxQuantity: 6 }] })).toMatch(/từ 1 đến 5/);
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: -5, maxQuantity: 1 }] })).toMatch(/số nguyên đồng/);
     expect(validateItemExtras({ ...ok, extras: [ok.extras[0], ok.extras[0]] })).toMatch(/một lần/);
-    expect(validateItemExtras({ ...ok, maxExtras: 101 })).toMatch(/0 đến 100/);
-    expect(validateItemExtras({ ...ok, maxExtras: 2.5 })).toMatch(/0 đến 100/);
+    expect(validateItemExtras({ ...ok, maxExtras: 2.5 })).toMatch(/từ 1 trở lên/);
+    expect(validateItemExtras({ ...ok, maxExtras: 0 })).toMatch(/từ 1 trở lên/);
+    expect(validateItemExtras({ ...ok, maxExtras: -3 })).toMatch(/từ 1 trở lên/);
+    // Đặc tả 27.2 / BR-80 không đặt trần cho tổng số phần: 1, 100 và 500 đều hợp lệ ở web.
+    for (const total of [1, 5, 100, 101, 500]) expect(validateItemExtras({ ...ok, maxExtras: total }), String(total)).toBeNull();
   });
 });
 

@@ -1,10 +1,12 @@
-import { App, Card, Checkbox, Drawer, Input, InputNumber, Select, Switch, Table, Tag } from "antd";
+import { App, Card, Checkbox, Drawer, Modal, Input, InputNumber, Select, Switch, Table, Tag } from "antd";
 import { ArrowDown, ArrowUp, ImageOff, Pencil, Plus, Store, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { money } from "../../data";
 import type { MenuCategory, MenuExtra, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
-import { extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import { describeApiError, extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
+import { ApiError } from "../../api/http/errors";
 import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
+import { MenuImportForm } from "./MenuImport";
 import MoneyInput from "../../components/MoneyInput";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import { modeOf } from "../../api/flags";
@@ -13,7 +15,7 @@ import ItemExtrasEditor, { itemExtrasKey, itemExtrasProblem, type ItemExtrasValu
 import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { SectionTitle } from "../../components/bits";
+import { SectionTitle, ToolbarRow } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
@@ -23,7 +25,8 @@ type StatusFilter = "all" | "active" | "off";
  * OW-02, OW-04: Owner quản menu toàn chuỗi qua `menuApi` (real). Một giá toàn chuỗi (BR-13); tắt cấp chuỗi thì mọi chi nhánh
  * không bán được (BR-12). Danh mục quản ở màn "Danh mục món".
  */
-export default function MenuTable() {
+/** `embedded`: nằm trong tab của trang "Món & danh mục" (header thuộc trang), chỉ giữ thanh công cụ. */
+export default function MenuTable({ embedded = false }: { embedded?: boolean } = {}) {
   const { message, modal } = App.useApp();
   const chainId = useAppStore((s) => s.chainId);
   const branches = useAppStore((s) => s.branches);
@@ -36,6 +39,7 @@ export default function MenuTable() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [editing, setEditing] = useState<MenuItem | "new" | null>(null);
+  const [excelOpen, setExcelOpen] = useState(false);
   const [assigning, setAssigning] = useState<MenuItem | null>(null);
 
   const loadCategories = useCallback(async () => {
@@ -98,17 +102,29 @@ export default function MenuTable() {
     });
   };
 
+  const actions = (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <ActionButton onClick={() => setExcelOpen(true)} icon={<Upload size={15} />}>Nhập Excel</ActionButton>
+      <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+        Thêm món
+      </ActionButton>
+    </div>
+  );
+
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Quản lý menu"
-        sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt (BR-12)"
-        extra={
-          <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
-            Thêm món
-          </ActionButton>
-        }
-      />
+      {embedded ? (
+        <ToolbarRow
+          sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt."
+          extra={actions}
+        />
+      ) : (
+        <SectionTitle
+          title="Quản lý menu"
+          sub="Bật/tắt kinh doanh ở cấp chuỗi — chi nhánh không bật lại được món đã tắt"
+          extra={actions}
+        />
+      )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <Select
@@ -190,6 +206,12 @@ export default function MenuTable() {
         ]}
       />
 
+      <Modal title="Nhập menu từ Excel" open={excelOpen} onCancel={() => setExcelOpen(false)}
+        footer={null} width="min(1100px, 95vw)" styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}>
+        <MenuImportForm key={chainId} excel onImported={() => {
+          void Promise.all([loadItems(), loadCategories()]);
+        }} />
+      </Modal>
       <ItemDrawer
         item={editing}
         categories={categories}
@@ -328,6 +350,7 @@ function ItemDrawer({
   // Topping thêm của món (OW-15): thư viện của chuỗi + cấu hình gắn vào món, chỉ gửi khi đổi.
   const [extraLibrary, setExtraLibrary] = useState<MenuExtra[]>([]);
   const [extras, setExtras] = useState<ItemExtrasValue>({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] });
+  const [extrasServerError, setExtrasServerError] = useState<string | null>(null);
   const [savedExtrasKey, setSavedExtrasKey] = useState(itemExtrasKey({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] }));
 
   useEffect(() => {
@@ -434,10 +457,17 @@ function ItemDrawer({
   /** Gắn topping cho món bằng MỘT lệnh `setItemExtras`, chỉ khi cấu hình đổi (món mới: chỉ khi có topping hoặc đổi tổng số phần). */
   const saveItemExtras = async (itemId: string) => {
     if (!chainId || itemExtrasKey(extras) === savedExtrasKey) return;
-    await extrasApi.setItemExtras(chainId, itemId, {
-      maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
-      extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
-    });
+    try {
+      await extrasApi.setItemExtras(chainId, itemId, {
+        maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
+        extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
+      });
+    } catch (err) {
+      // 400 của BE (vd. tổng phần vượt ngưỡng BE): hiện ngay tại ô topping; dữ liệu đang nhập giữ nguyên để sửa và lưu lại.
+      if (err instanceof ApiError && err.status === 400) setExtrasServerError(describeApiError(err));
+      throw err;
+    }
+    setExtrasServerError(null);
     setSavedExtrasKey(itemExtrasKey(extras));
   };
 
@@ -567,8 +597,16 @@ function ItemDrawer({
       <Field label="Tuỳ chọn món">
         <ItemOptions allGroups={allGroups} groupIds={groupIds} onGroups={setGroupIds} noBatch={noBatch} onNoBatch={setNoBatch} />
       </Field>
-      <Field label="Topping thêm (OW-15)">
-        <ItemExtrasEditor library={extraLibrary} value={extras} onChange={setExtras} />
+      <Field label="Topping">
+        <ItemExtrasEditor
+          library={extraLibrary}
+          value={extras}
+          onChange={(next) => {
+            setExtras(next);
+            setExtrasServerError(null);
+          }}
+          serverError={extrasServerError}
+        />
       </Field>
       <Field label="Xem trước tại POS">
         <OptionPreview itemName={name.trim()} itemPrice={price ?? 0} groups={groupIds.flatMap((id) => allGroups.find((g) => g.id === id) ?? [])} />

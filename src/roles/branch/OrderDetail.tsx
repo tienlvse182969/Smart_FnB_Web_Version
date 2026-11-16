@@ -33,6 +33,7 @@ import type {
   OrderRefundRecord,
 } from "../../types";
 import { Chip } from "../admin/adminUi";
+import RefundSlip, { hasRefundSlip } from "./RefundSlip";
 
 /** Danh sách đặt `state.from` (chuỗi truy vấn đang lọc) khi mở chi tiết, để "Quay lại" về đúng bộ lọc và trang. */
 export interface OrderDetailLocationState {
@@ -174,13 +175,15 @@ function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord |
  * (#48), hạn QR (#50), quầy khi có (#52, chỉ khoản QR), tên người ở khoản hoàn (#73). Xác nhận tay và huỷ đơn đã trả KHÔNG khoá khi
  * gói hết hạn (QĐ 122).
  */
-export default function OrderDetail() {
+export default function OrderDetail({ scope = "branch" }: { scope?: "branch" | "chain" } = {}) {
+  /** "chain" = Brand Manager (GAP-310): đơn của chuỗi, chỉ xem — không xác nhận thủ công, không socket. */
+  const isChain = scope === "chain";
   const { orderId = "" } = useParams();
   const chainId = useAppStore((s) => s.chainId);
   const branchId = useAppStore((s) => s.currentBranchId);
   const navigate = useNavigate();
   const location = useLocation();
-  const listPath = location.pathname.startsWith("/manager/") ? "/manager/orders" : "/store-manager/orders";
+  const listPath = isChain ? "/brand-manager/orders" : location.pathname.startsWith("/manager/") ? "/manager/orders" : "/store-manager/orders";
   const from = (location.state as OrderDetailLocationState | null)?.from ?? "";
   const { message } = App.useApp();
 
@@ -197,14 +200,14 @@ export default function OrderDetail() {
 
   const load = useCallback(
     async (silent: boolean) => {
-      if (!chainId || !branchId || !orderId) return;
+      if (!chainId || (!isChain && !branchId) || !orderId) return;
       const mine = ++seq.current;
       if (!silent) {
         setLoading(true);
         setError(null);
       }
       try {
-        const data = await orderApi.getOrder({ chainId, branchId }, orderId);
+        const data = isChain ? await orderApi.getChainOrder(chainId, orderId) : await orderApi.getOrder({ chainId, branchId: branchId! }, orderId);
         if (mine !== seq.current) return;
         setOrder(data);
         setError(null);
@@ -220,7 +223,7 @@ export default function OrderDetail() {
         if (mine === seq.current && !silent) setLoading(false);
       }
     },
-    [chainId, branchId, orderId],
+    [chainId, branchId, isChain, orderId],
   );
 
   useEffect(() => {
@@ -231,7 +234,7 @@ export default function OrderDetail() {
   }, [load, nonce]);
 
   // Tự làm tươi qua socket (quyết định 74): chỉ khi sự kiện thuộc đơn này (hoặc payload không nêu đơn nào); tải lại bằng GET.
-  const realtimeOn = modeOf("order") === "real" && !!branchId && !!orderId;
+  const realtimeOn = !isChain && modeOf("order") === "real" && !!branchId && !!orderId;
   const realtime = useOrderRealtime(() => void load(true), { orderId, enabled: realtimeOn });
 
   // Quyết định 102: hộp xác nhận tay đang mở mà dữ liệu mới (socket/Thử lại) cho thấy đơn hết điều kiện xác nhận (webhook về, đã huỷ…)
@@ -279,7 +282,7 @@ export default function OrderDetail() {
     </span>
   );
 
-  if (!branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;
+  if (!isChain && !branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;
 
   if (error?.kind === "notfound") {
     return (
@@ -290,10 +293,10 @@ export default function OrderDetail() {
           type="warning"
           showIcon
           message="Không tìm thấy đơn"
-          description="Đơn này không có trong chi nhánh của bạn hoặc đã bị xoá."
+          description={isChain ? "Đơn này không thuộc chuỗi của bạn hoặc đã bị xoá." : "Đơn này không có trong chi nhánh của bạn hoặc đã bị xoá."}
           action={
             <Button size="small" onClick={back} data-testid="order-detail-tolist">
-              Về Tra cứu đơn
+              {isChain ? "Về Đơn hàng" : "Về Tra cứu đơn"}
             </Button>
           }
         />
@@ -331,7 +334,8 @@ export default function OrderDetail() {
   const status = orderStatusInfo(order.status);
   const payment = orderPaymentInfo(order);
   const cancelled = order.status === "CANCELLED";
-  const confirmable = confirmableTransfer(order);
+  // Brand Manager chỉ xem: không có xác nhận chuyển khoản thủ công.
+  const confirmable = isChain ? null : confirmableTransfer(order);
   const mismatch = order.payments.find((p) => p.status === "AMOUNT_MISMATCH");
   const attentionReason = attentionReasonInfo(order);
   const pendingTotal = pendingRefundTotal(order.refunds);
@@ -368,6 +372,7 @@ export default function OrderDetail() {
               {r.note ? ` · ${r.note}` : ""}
             </div>
           )}
+          {hasRefundSlip(r) && <RefundSlip orderId={order.id} refundId={r.id} />}
         </div>
       ),
     },
@@ -386,6 +391,11 @@ export default function OrderDetail() {
               {order.orderCode}
             </span>
           </Descriptions.Item>
+          {order.branch && (
+            <Descriptions.Item label="Chi nhánh">
+              <span data-testid="order-detail-branch">{order.branch.name}</span>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Thu ngân tạo đơn">
             <span data-testid="order-detail-cashier">{order.cashierName ?? "—"}</span>
           </Descriptions.Item>

@@ -14,6 +14,7 @@ import type {
   ManagerReportTopping,
   ManagerReportCombo,
   ManagerReportCashDrawer,
+  ManagerReportCashDay,
 } from "../../../types";
 import { parseAmount } from "../../../lib/reportFormat";
 
@@ -74,6 +75,17 @@ function mapCashDrawer(r: Raw): ManagerReportCashDrawer {
   };
 }
 
+function mapCashDay(r: Raw): ManagerReportCashDay {
+  return { day: str(r.day) ?? "", cashCollected: money(r.cashCollected), cashRefunded: money(r.cashRefunded), netCash: money(r.netCash) };
+}
+
+/** Tên nhân viên từ `{ firstName, lastName }` của BE; null khi thiếu. */
+export function personName(v: unknown): string | null {
+  if (!isObject(v)) return null;
+  const name = [str(v.firstName), str(v.lastName)].filter(Boolean).join(" ").trim();
+  return name || str(v.employeeCode);
+}
+
 function mapHour(r: Raw): ManagerReportHour {
   return { hour: num(r.hour), orderCount: num(r.orderCount) };
 }
@@ -87,6 +99,21 @@ function mapCancelled(r: Raw): ManagerReportCancelledOrder {
     cancelledAt: str(r.cancelledAt),
     reason: str(r.reason),
     refundAmount: money(r.refundAmount),
+    // Người huỷ và người hoàn chỉ có khi BE trả (từ `2491dce`); BE cũ không trả thì không có trường, không đoán.
+    ...("cancelledBy" in r ? { cancelledByName: personName(r.cancelledBy) } : {}),
+    ...(Array.isArray(r.refunds)
+      ? {
+          refundedByNames: [...new Set(list(r.refunds).map((refund) => personName(refund.completedBy)).filter((n): n is string => !!n))],
+          refunds: list(r.refunds).map((x) => ({
+            amount: money(x.amount),
+            status: str(x.status) ?? "",
+            reason: str(x.reason),
+            note: str(x.note),
+            requestedByName: personName(x.requestedBy),
+            completedByName: personName(x.completedBy),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -99,6 +126,7 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
   const cancel = isObject(body.cancellations) ? body.cancellations : {};
   const granularity = GRANULARITIES.find((g) => g === range.granularity) ?? fallback.granularity;
   const cancelItems = list(cancel.items).map(mapCancelled);
+  const previous = isObject(body.previousSummary) ? body.previousSummary : null;
   return {
     branchName: str(branch.name) ?? "Chi nhánh",
     timezone: str(range.timezone) ?? str(branch.timezone) ?? "Asia/Ho_Chi_Minh",
@@ -112,12 +140,26 @@ export function mapManagerReport(raw: unknown, fallback: { from: string; to: str
       orderCount: num(summary.orderCount),
       averageOrderValue: money(summary.averageOrderValue),
     },
+    ...(previous
+      ? {
+          previousSummary: {
+            from: str(previous.from) ?? "",
+            to: str(previous.to) ?? "",
+            revenue: money(previous.revenue),
+            grossRevenue: money(previous.grossRevenue),
+            refundAmount: money(previous.refundAmount),
+            orderCount: num(previous.orderCount),
+            averageOrderValue: money(previous.averageOrderValue),
+          },
+        }
+      : {}),
     revenue: list(body.revenue).map(mapBucket),
     payments: list(body.payments).map(mapPayment),
     topItems: list(body.topItems).map(mapItem),
     topToppings: list(body.topToppings).map(mapTopping),
     topCombos: list(body.topCombos).map(mapCombo),
     cashDrawer: list(body.cashDrawer).map(mapCashDrawer),
+    cashByDay: list(body.cashByDay).map(mapCashDay),
     ordersByHour: list(body.ordersByHour).map(mapHour),
     // `averageSeconds` null khi chưa có suất nào xong trong kỳ (BE: AVG của tập rỗng); số 0 là số thật.
     preparation: { averageSeconds: typeof prep.averageSeconds === "number" && Number.isFinite(prep.averageSeconds) ? prep.averageSeconds : null, completedUnits: num(prep.completedUnits) },

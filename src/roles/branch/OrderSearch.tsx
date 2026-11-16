@@ -20,6 +20,7 @@ import { cleanCallNumber, cleanOrderCode, filtersToSearch, hasExtraFilters, isDe
 
 const { RangePicker } = DatePicker;
 const DAY = "YYYY-MM-DD";
+const ALL_BRANCHES = "__all__";
 const EMPTY_RANGE_TEXT = "Không có đơn trong khoảng thời gian này";
 const EMPTY_FILTER_TEXT = "Không có đơn nào khớp bộ lọc";
 
@@ -28,8 +29,11 @@ function methodsOf(order: OrderSummary): string {
   return labels.length ? labels.join(", ") : "—";
 }
 
-/** `search` = chuỗi truy vấn đang lọc (có dấu `?` hoặc rỗng), truyền sang chi tiết để "Quay lại" giữ đúng bộ lọc và trang. */
-const buildColumns = (search: string): ColumnsType<OrderSummary> => [
+/**
+ * `search` = chuỗi truy vấn đang lọc (có dấu `?` hoặc rỗng), truyền sang chi tiết để "Quay lại" giữ đúng bộ lọc và trang.
+ * `withBranch` (Brand Manager, xem cả chuỗi) thêm cột Chi nhánh.
+ */
+const buildColumns = (search: string, withBranch: boolean): ColumnsType<OrderSummary> => [
   {
     title: "Số gọi",
     dataIndex: "callNumber",
@@ -41,6 +45,7 @@ const buildColumns = (search: string): ColumnsType<OrderSummary> => [
     ),
   },
   { title: "Mã đơn", dataIndex: "orderCode", render: (v: string) => <span style={{ fontFamily: "monospace", fontSize: 12.5 }}>{v}</span> },
+  ...(withBranch ? [{ title: "Chi nhánh", key: "branch", width: 190, render: (_: unknown, o: OrderSummary) => <span data-testid="order-branch">{o.branch?.name ?? "—"}</span> }] : []),
   { title: "Thời gian đặt", dataIndex: "placedAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "total", align: "right", width: 120, render: (v: number) => formatVnd(v) },
   {
@@ -70,9 +75,13 @@ const buildColumns = (search: string): ColumnsType<OrderSummary> => [
  * Bộ lọc và trang nằm trên URL (F5 giữ nguyên, quyết định 68): đổi bộ lọc về trang 1; ô Số gọi và Mã đơn áp dụng khi bấm Tìm
  * hoặc Enter (không gọi API mỗi phím gõ). Lỗi đọc hiện thành khối lỗi trong trang kèm Thử lại (`INLINE_ERROR_ROUTES`).
  */
-export default function OrderSearch() {
+export default function OrderSearch({ scope = "branch" }: { scope?: "branch" | "chain" } = {}) {
+  /** "chain" = Brand Manager (GAP-310): đơn của mọi chi nhánh trong chuỗi, có bộ chọn chi nhánh, chỉ xem, không socket. */
+  const isChain = scope === "chain";
   const chainId = useAppStore((s) => s.chainId);
   const branchId = useAppStore((s) => s.currentBranchId);
+  const apiBranches = useAppStore((s) => s.apiBranches);
+  const chainBranches = useMemo(() => apiBranches.filter((b) => b.chainId === chainId), [apiBranches, chainId]);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => parseFilters(params), [params]);
@@ -80,7 +89,7 @@ export default function OrderSearch() {
     const text = filtersToSearch(filters).toString();
     return text ? `?${text}` : "";
   }, [filters]);
-  const columns = useMemo(() => buildColumns(search), [search]);
+  const columns = useMemo(() => buildColumns(search, isChain), [search, isChain]);
 
   const [callInput, setCallInput] = useState(filters.callNumber);
   const [codeInput, setCodeInput] = useState(filters.orderCode);
@@ -111,14 +120,14 @@ export default function OrderSearch() {
   /** `silent` = làm tươi do socket: không bật vòng quay, không xoá dữ liệu cũ, lỗi thì giữ nguyên bảng đang hiện. */
   const load = useCallback(
     async (silent: boolean) => {
-      if (!chainId || !branchId) return;
+      if (!chainId || (!isChain && !branchId)) return;
       const mine = ++seq.current;
       if (!silent) {
         setLoading(true);
         setError(null);
       }
       try {
-        const page = await orderApi.listOrders({ chainId, branchId }, query);
+        const page = isChain ? await orderApi.listChainOrders(chainId, query) : await orderApi.listOrders({ chainId, branchId: branchId! }, query);
         if (mine !== seq.current) return;
         // Trang vượt quá số trang hiện có (URL cũ, dữ liệu vừa đổi): về trang cuối.
         if (page.items.length === 0 && page.total > 0 && query.page > 1) {
@@ -134,7 +143,7 @@ export default function OrderSearch() {
         if (!silent) setError(describeApiError(err));
       }
     },
-    [chainId, branchId, query, setParams],
+    [chainId, branchId, isChain, query, setParams],
   );
   useEffect(() => {
     void load(false);
@@ -144,7 +153,7 @@ export default function OrderSearch() {
   }, [load, nonce]);
 
   // Tự làm tươi qua socket (quyết định 74): tải lại đúng trang đang xem, giữ bộ lọc; bảng không nhảy trang.
-  const realtimeOn = modeOf("order") === "real" && !!branchId;
+  const realtimeOn = !isChain && modeOf("order") === "real" && !!branchId;
   const realtime = useOrderRealtime(() => void load(true), { enabled: realtimeOn });
 
   const submitText = () => apply({ callNumber: cleanCallNumber(callInput), orderCode: cleanOrderCode(codeInput) });
@@ -152,15 +161,25 @@ export default function OrderSearch() {
     setParams(new URLSearchParams(), { replace: false });
   };
 
-  if (!branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;
+  if (!isChain && !branchId) return <Alert type="warning" showIcon message="Tài khoản chưa được gán chi nhánh nào" />;
 
   const emptyText = hasExtraFilters(filters) ? EMPTY_FILTER_TEXT : EMPTY_RANGE_TEXT;
 
   return (
     <>
-      <SectionTitle title="Tra cứu đơn" sub="Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán (BM-04)" extra={realtimeOn ? <RealtimeBadge {...realtime} /> : undefined} />
+      <SectionTitle title={isChain ? "Đơn hàng" : "Tra cứu đơn"} sub={isChain ? "Đơn quầy của mọi chi nhánh trong chuỗi theo chi nhánh, mã đơn, thời gian, trạng thái và hình thức thanh toán. Chỉ xem." : "Đơn quầy của chi nhánh theo số gọi, mã đơn, thời gian, trạng thái và hình thức thanh toán"} extra={realtimeOn ? <RealtimeBadge {...realtime} /> : undefined} />
       <Card style={{ borderRadius: 14, marginBottom: 16 }} styles={{ body: { padding: 16 } }} data-testid="order-filters">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          {isChain && (
+            <Select
+              data-testid="order-branch-filter"
+              aria-label="Chi nhánh"
+              style={{ width: 230 }}
+              value={filters.branch || ALL_BRANCHES}
+              options={[{ value: ALL_BRANCHES, label: "Tất cả chi nhánh" }, ...chainBranches.map((b) => ({ value: b.id, label: b.name }))]}
+              onChange={(v) => apply({ branch: v === ALL_BRANCHES ? "" : v })}
+            />
+          )}
           <RangePicker
             data-testid="order-range"
             allowClear={false}
@@ -259,7 +278,7 @@ export default function OrderSearch() {
             columns={columns}
             dataSource={data?.items ?? []}
             loading={loading}
-            scroll={{ x: 1000 }}
+            scroll={{ x: isChain ? 1190 : 1000 }}
             locale={{ emptyText }}
             onRow={(order) => ({
               onClick: () => navigate(`./${order.id}`, { state: { from: search } satisfies OrderDetailLocationState }),

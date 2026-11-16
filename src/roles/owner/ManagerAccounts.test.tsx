@@ -56,3 +56,29 @@ describe("Legacy username-only Store Manager (BR-54, BR-56)", () => {
     expect("setDirectPassword" in accountApi).toBe(false);
   });
 });
+
+describe("BR-05: Brand Manager chỉ xem Thu ngân và Pha chế", () => {
+  it("form mời chỉ mời Store Manager, không có ô chọn vai trò", async () => {
+    render(<AntApp><ManagerAccounts /></AntApp>);
+    fireEvent.click(screen.getByTestId("create-manager"));
+    await screen.findByTestId("owner-invite-email");
+    expect(screen.queryByLabelText("Vai trò")).toBeNull();
+    expect(screen.getByText("Mời Store Manager qua email")).toBeTruthy();
+  });
+
+  it("tab Thu ngân & Pha chế hiện nhãn tiếng Việt và không có nút Khoá, Mở khoá, Đặt lại", async () => {
+    vi.spyOn(accountApi, "listStaffAccounts").mockResolvedValue([
+      { id: "s1", name: "Lan", email: "lan@example.com", role: "CASHIER", branchId: "branch", branchName: "Branch", status: "ACTIVE", invitationState: null },
+      { id: "s2", name: "Minh", email: "minh@example.com", role: "BARISTA", branchId: "branch", branchName: "Branch", status: "SUSPENDED", invitationState: null },
+    ] as never);
+    render(<AntApp><ManagerAccounts /></AntApp>);
+    fireEvent.click(await screen.findByText(/Thu ngân & Pha chế/));
+    await screen.findByText("lan@example.com");
+    expect(screen.getAllByText("Thu ngân").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Pha chế").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Khoá")).toBeNull();
+    expect(screen.queryByText("Mở khoá")).toBeNull();
+    expect(screen.queryByText("Đặt lại mật khẩu")).toBeNull();
+    expect(screen.queryByText("Gửi lại link")).toBeNull();
+  });
+});

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, App, Button, Card, Input, Skeleton, Tag } from "antd";
 import { Link2Off, Save } from "lucide-react";
 import { describeApiError, payosApi, showApiError, type PayosChannel, type PayosKeysInput, type PayosLinkStatus } from "../../api";
-import { SectionTitle } from "../../components/bits";
+import { PageHeader } from "../../components/bits";
 import { useDirtyGuard } from "../../lib/dirtyGuard";
 import { formatDateTime } from "../../lib/reportFormat";
 import ActionButton from "../../plan/ActionButton";
@@ -124,7 +124,7 @@ export default function PayosLink() {
 
   return (
     <div>
-      <SectionTitle title="Liên kết PayOS" sub="Tài khoản PayOS của doanh nghiệp nhận tiền cho mọi chi nhánh (BR-25). Khoá được mã hoá và không bao giờ hiện lại sau khi lưu." />
+      <PageHeader title="Liên kết PayOS" sub="Tài khoản PayOS của doanh nghiệp nhận tiền cho mọi chi nhánh. Khoá được mã hoá và không bao giờ hiện lại sau khi lưu." />
       {loadError && (
         <Alert
           data-testid="payos-load-error"

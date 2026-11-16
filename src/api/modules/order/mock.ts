@@ -9,7 +9,6 @@
  * `scn-qr-conflict` (bấm xác nhận thì BE trả 409 PAYMENT_ALREADY_SETTLED: webhook vừa về).
  */
 import type {
-  CompleteRefundInput,
   ConfirmPaymentInput,
   Order,
   OrderDetail,
@@ -492,16 +491,15 @@ export const orderMock: OrderApi = {
     return toDetail(found, overlayOf(chainId), cancelsOf(chainId).get(orderId));
   },
 
-  async completeRefund({ chainId }, refundId, input: CompleteRefundInput) {
+  // Mock không dựng đơn giả theo chuỗi: danh sách rỗng, chi tiết 404 (cùng tinh thần với module ledger).
+  async listChainOrders(_chainId, query): Promise<OrderPage> {
     await mockDelay();
-    assertMockWritable();
-    const entry = [...cancelsOf(chainId).values()].find((c) => c.refundId === refundId);
-    if (!entry) throw new ApiError(404, "Refund not found");
-    if (entry.status !== "PENDING") throw new ApiError(409, "Only a pending refund can be completed");
-    if (entry.method !== "BANK_TRANSFER") throw new ApiError(409, "Cash refunds are completed when the order is cancelled");
-    entry.status = "COMPLETED";
-    entry.completedAt = new Date().toISOString();
-    entry.note = input.note?.trim() || null;
+    return { items: [], total: 0, page: query.page, limit: query.limit };
+  },
+
+  async getChainOrder() {
+    await mockDelay();
+    throw new ApiError(404, "Đơn không tồn tại");
   },
 
   async confirmPayment({ chainId, branchId }, paymentId, input: ConfirmPaymentInput) {
@@ -532,6 +530,20 @@ export const orderMock: OrderApi = {
       throw new ApiError(409, "Số tiền thực nhận thấp hơn tổng tiền đơn hàng.", [], "PAYMENT_AMOUNT_INSUFFICIENT");
     }
     confirmations.set(paymentId, { receivedAmount: input.receivedAmount, reason, transactionRef: input.transactionRef?.trim() || null, at: now, manual: true });
+  },
+
+  // PDF phiếu hoàn do BE sinh; mock KHÔNG dựng file giả.
+  async getRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async retryRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
+  },
+  async downloadRefundDocument() {
+    await mockDelay();
+    throw new ApiError(404, "Refund PDF is not available in mock mode");
   },
 };
 

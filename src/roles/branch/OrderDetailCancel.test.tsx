@@ -38,12 +38,10 @@ const mount = (suffix: string) => render(
 
 describe("Store Manager xem hoàn tiền, Thu ngân xác nhận chi trả", () => {
   it("không cho Store Manager huỷ đơn đã trả trực tiếp hoặc đánh dấu đã hoàn", async () => {
-    const complete = vi.spyOn(orderApi, "completeRefund");
     mount("scn-paid");
     await waitFor(() => expect(screen.getByTestId("order-detail")).toBeTruthy());
     expect(screen.queryByTestId("order-cancel-open")).toBeNull();
     expect(screen.queryByTestId("refund-complete-open")).toBeNull();
-    expect(complete).not.toHaveBeenCalled();
   });
 
   it("vẫn cho xem khoản hoàn cũ ở đơn đã huỷ", async () => {

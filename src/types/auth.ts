@@ -34,7 +34,6 @@ export type DemoAccount = {
 
 /** Người dùng đã đăng nhập — gắn tenant/branch context. */
 export type AuthUser = {
-  mustChangePassword?: boolean;
   id: string;
   name: string;
   email: string;

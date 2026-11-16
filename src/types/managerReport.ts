@@ -74,6 +74,14 @@ export interface ManagerReportCashDrawer {
   netCash: number;
 }
 
+/** BR-83: tiền mặt của két theo ngày (giờ chi nhánh); ngày không có giao dịch tiền mặt thì không có dòng. */
+export interface ManagerReportCashDay {
+  day: string;
+  cashCollected: number;
+  cashRefunded: number;
+  netCash: number;
+}
+
 export interface ManagerReportHour {
   /** 0–23 theo giờ chi nhánh. */
   hour: number;
@@ -89,6 +97,21 @@ export interface ManagerReportCancelledOrder {
   reason: string | null;
   /** Tổng khoản hoàn của đơn (0 với đơn huỷ khi chưa trả). */
   refundAmount: number;
+  /** BR-50: người huỷ đơn và người thực hiện hoàn tiền (tên nhân viên), null khi BE không ghi. */
+  cancelledByName?: string | null;
+  refundedByNames?: string[];
+  /** Từng khoản hoàn kèm người yêu cầu và người hoàn (BE `2491dce`). */
+  refunds?: ManagerReportRefund[];
+}
+
+export interface ManagerReportRefund {
+  amount: number;
+  /** Mã BE RefundStatus: PENDING | COMPLETED. */
+  status: string;
+  reason: string | null;
+  note: string | null;
+  requestedByName: string | null;
+  completedByName: string | null;
 }
 
 export interface ManagerReport {
@@ -106,12 +129,15 @@ export interface ManagerReport {
     orderCount: number;
     averageOrderValue: number;
   };
+  /** Kỳ liền trước cùng số ngày (BE cùng quy tắc), để hiện "so với kỳ trước". Thiếu khi BE cũ. */
+  previousSummary?: { from: string; to: string; revenue: number; grossRevenue: number; refundAmount: number; orderCount: number; averageOrderValue: number };
   revenue: ManagerReportBucket[];
   payments: ManagerReportPayment[];
   topItems: ManagerReportItem[];
   topToppings: ManagerReportTopping[];
   topCombos?: ManagerReportCombo[];
   cashDrawer?: ManagerReportCashDrawer[];
+  cashByDay?: ManagerReportCashDay[];
   ordersByHour: ManagerReportHour[];
   /** Thời gian pha trung bình từ lúc bắt đầu tới lúc xong của từng suất, tính bằng giây; null = chưa có suất nào xong trong kỳ. */
   preparation: { averageSeconds: number | null; completedUnits: number };

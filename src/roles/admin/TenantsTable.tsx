@@ -55,7 +55,7 @@ export default function TenantsTable() {
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
       <SectionTitle
         title="Doanh nghiệp thuê bao"
-        sub="Chỉ số liệu tổng hợp phục vụ tính phí — không xem menu, món, doanh thu, nhân viên, khoá PayOS (BR-07)"
+        sub="Chỉ số liệu tổng hợp phục vụ tính phí — không xem menu, món, doanh thu, nhân viên, khoá PayOS"
       />
       <Input.Search
         allowClear
@@ -163,7 +163,7 @@ function Detail({ business, onDialog }: { business: Business; onDialog: (d: Dial
           <Field label="Hết hạn">{dateLabel(sub.expiresAt)}</Field>
           {sub.state !== "active" && (
             <div style={{ background: palette.paperSubtle, borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: palette.textStrong, margin: "10px 0" }}>
-              Doanh nghiệp đang ở chế độ chỉ đọc — không khoá cứng, không xoá dữ liệu (BR-09).
+              Doanh nghiệp đang ở chế độ chỉ đọc — không khoá cứng, không xoá dữ liệu.
             </div>
           )}
           <div style={{ marginTop: 10 }}>

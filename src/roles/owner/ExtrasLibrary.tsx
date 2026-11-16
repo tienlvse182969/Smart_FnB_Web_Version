@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, App, Card, Input, Modal, Table } from "antd";
-import { Pencil, Plus } from "lucide-react";
+import { CirclePlus, Pencil, Plus } from "lucide-react";
 import type { MenuExtra } from "../../types";
 import { describeApiError, extrasApi, showApiError } from "../../api";
 import { MAX_EXTRA_NAME, validateExtra } from "../../api/modules/extras/rules";
 import MoneyInput from "../../components/MoneyInput";
-import { SectionTitle } from "../../components/bits";
+import { EmptyState, PageHeader } from "../../components/bits";
 import { money } from "../../data";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import ActionButton, { ActionSwitch } from "../../plan/ActionButton";
@@ -84,8 +84,8 @@ export default function ExtrasLibrary() {
 
   return (
     <div data-testid="extras-library">
-      <SectionTitle
-        title="Topping thêm"
+      <PageHeader
+        title="Topping"
         sub="Thư viện topping của chuỗi. Gắn vào từng món ở khung Sửa món để đặt giá cộng thêm và số phần tối đa."
         extra={
           <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")} data-testid="extra-add">
@@ -109,7 +109,16 @@ export default function ExtrasLibrary() {
           loading={loading}
           dataSource={rows}
           pagination={false}
-          locale={{ emptyText: error ? "—" : "Chưa có topping nào. Bấm Thêm topping để tạo." }}
+          locale={{
+            emptyText: error ? "—" : (
+              <EmptyState
+                icon={<CirclePlus size={24} />}
+                title="Chưa có topping nào"
+                description="Tạo topping rồi gắn vào món để khách chọn thêm."
+                actionNode={<ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>Thêm topping</ActionButton>}
+              />
+            ),
+          }}
           columns={[
             {
               title: "Topping",

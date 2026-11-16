@@ -9,20 +9,32 @@
  *  3. TRUNG TÍNH (`neutral.*`) — chữ, nền, đường kẻ của giao diện; cũng cố định.
  */
 
+import { deriveAccent, deriveBrandSurface, hoverSurface } from "./brandColor";
+
 /** Nhận diện nền tảng — dùng cho Admin, trang đăng nhập, landing và doanh nghiệp chưa/không được dùng nhận diện riêng. */
 export const PLATFORM_BRAND = {
   primary: "#0a0a0a",
   primaryContrast: "#ffffff",
-  /** Mục 10.2: màu nhấn mặc định là "xám trung tính". */
-  accent: "#71717a",
+  /** Mục 10.2: màu nhấn mặc định là xám trung tính. */
+  accent: "#6B7280",
   displayName: "Smart F&B",
 } as const;
 
 /** Nhận diện nền tảng dưới dạng token. */
+const PLATFORM_SURFACE = deriveBrandSurface(PLATFORM_BRAND.primary);
+const PLATFORM_ACCENT = deriveAccent(PLATFORM_BRAND.accent);
 export const PLATFORM_BRAND_TOKENS: BrandTokens = {
   primary: PLATFORM_BRAND.primary,
-  primaryContrast: PLATFORM_BRAND.primaryContrast,
+  primaryContrast: PLATFORM_SURFACE.ink,
+  surface: PLATFORM_SURFACE.surface,
+  surfaceHover: hoverSurface(PLATFORM_SURFACE.surface),
+  activeInk: PLATFORM_SURFACE.activeInk,
+  rule: PLATFORM_SURFACE.rule,
   accent: PLATFORM_BRAND.accent,
+  accentInk: PLATFORM_ACCENT.accentInk,
+  accentStrong: PLATFORM_ACCENT.accentStrong,
+  accentSoft: PLATFORM_ACCENT.accentSoft,
+  accentChart: PLATFORM_ACCENT.accentChart,
   displayName: PLATFORM_BRAND.displayName,
   logo: undefined,
   custom: false,
@@ -30,15 +42,16 @@ export const PLATFORM_BRAND_TOKENS: BrandTokens = {
 
 /** Trung tính của giao diện — không đổi theo thương hiệu. */
 export const NEUTRAL = {
-  ink: "#0a0a0a",
+  ink: "#1A1D21",
   surface: "#ffffff",
-  paper: "#f4f4f5",
+  paper: "#F6F6F7",
   paperSubtle: "#fafafa",
   line: "#e4e4e7",
   lineSubtle: "#f0f0f1",
   textStrong: "#52525b",
-  textMuted: "#71717a",
-  textSubtle: "#a1a1aa",
+  textMuted: "#6B7280",
+  /** Chữ phụ không nhạt hơn #6B7280 (đạt 4.5:1 trên nền trắng). */
+  textSubtle: "#6B7280",
   /** Nền khối mã/ghi chú tối, chữ trên đó. */
   codeBg: "#0a0a0a",
   codeText: "#e4e4e7",
@@ -62,6 +75,21 @@ export const STATUS = {
   done: "#10B981",
   late: "#EF4444",
 } as const;
+
+/**
+ * Màu phân loại cho biểu đồ nhiều chuỗi (vd. so sánh chi nhánh trên cùng trục, OW-08). Cố định, không theo màu thương hiệu,
+ * để chi nhánh giữ cùng màu giữa các lần xem; thứ tự xen kẽ sắc độ để hai chuỗi liền nhau dễ phân biệt, kể cả người mù màu đỏ–lục.
+ */
+export const CHART_SERIES = [
+  "#2563EB",
+  "#E8710A",
+  "#0F9D76",
+  "#C2338F",
+  "#7C5CD6",
+  "#0891B2",
+  "#B7791F",
+  "#64748B",
+] as const;
 
 /** Bộ 8 màu chủ đạo dựng sẵn cho Owner chọn nhanh (mục 10.4 R3). */
 export const BRAND_COLOR_PRESETS = [
@@ -87,10 +115,27 @@ export const BE_DEFAULT_BRANDING = {
 
 /** Bộ token thương hiệu đã giải quyết xong — thứ duy nhất màn hình/theme được đọc. */
 export interface BrandTokens {
+  /** Màu chủ đạo gốc do chuỗi chọn. Nền thương hiệu thực tế là surface. */
   primary: string;
-  /** Màu chữ/biểu tượng trên nền `primary`, tự chọn để đạt tương phản WCAG (BR-43). */
+  /** Màu chữ/biểu tượng (ink) trên nền surface, đạt tương phản 4.5:1. */
   primaryContrast: string;
+  /** Nền thương hiệu: màu chủ đạo đã làm sẫm đủ để chữ đọc rõ (thanh bên, nút chính, header). */
+  surface: string;
+  /** Nền nút chính khi rê chuột (sẫm thêm ~6%). */
+  surfaceHover: string;
+  /** Màu chủ đạo sẫm cho chữ trên nền trắng: mục đang chọn, badge, liên kết. */
+  activeInk: string;
+  /** Đường kẻ trên nền surface. */
+  rule: string;
   accent: string;
+  /** Chữ trên nền accent, đạt 4.5:1. */
+  accentInk: string;
+  /** Accent dùng cho đường kẻ và chữ trên nền trắng (sẫm hơn khi accent quá nhạt). */
+  accentStrong: string;
+  /** Tông nhạt của accent (series thứ hai, nền nhẹ). */
+  accentSoft: string;
+  /** Màu series chính của biểu đồ: accent, hoặc bản sẫm khi accent quá nhạt trên nền trắng. */
+  accentChart: string;
   displayName: string;
   /** Logo của chuỗi; undefined = logo nền tảng. */
   logo: string | undefined;
@@ -105,7 +150,15 @@ export interface BrandTokens {
 export const CSS_VAR = {
   brandPrimary: "--brand-primary",
   brandPrimaryContrast: "--brand-primary-contrast",
+  brandHover: "--brand-primary-hover",
+  brandActiveInk: "--brand-active-ink",
+  brandRule: "--brand-rule",
+  brandRaw: "--brand-raw",
   brandAccent: "--brand-accent",
+  brandAccentInk: "--brand-accent-ink",
+  brandAccentStrong: "--brand-accent-strong",
+  brandAccentSoft: "--brand-accent-soft",
+  brandChart: "--brand-chart",
   ink: "--fnb-ink",
   surface: "--fnb-surface",
   paper: "--fnb-paper",
@@ -134,7 +187,17 @@ const semanticVars = (key: SemanticKey) => ({
 export const palette = {
   brandPrimary: v(CSS_VAR.brandPrimary),
   onBrand: v(CSS_VAR.brandPrimaryContrast),
+  brandHover: v(CSS_VAR.brandHover),
+  activeInk: v(CSS_VAR.brandActiveInk),
+  brandRule: v(CSS_VAR.brandRule),
+  /** Màu chủ đạo gốc (chưa làm sẫm): chỉ cho viền focus và mẫu màu. */
+  brandRaw: v(CSS_VAR.brandRaw),
   brandAccent: v(CSS_VAR.brandAccent),
+  accentInk: v(CSS_VAR.brandAccentInk),
+  accentStrong: v(CSS_VAR.brandAccentStrong),
+  accentSoft: v(CSS_VAR.brandAccentSoft),
+  /** Series chính của biểu đồ (đường, chấm, cột, thanh tỷ trọng, legend, chấm tooltip). */
+  chartMain: v(CSS_VAR.brandChart),
   ink: v(CSS_VAR.ink),
   surface: v(CSS_VAR.surface),
   paper: v(CSS_VAR.paper),

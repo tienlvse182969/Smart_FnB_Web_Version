@@ -146,7 +146,7 @@ const BACKEND_TEXT: [RegExp, string][] = [
   [/branch code already exists/i, "Mã chi nhánh đã tồn tại."],
   [/branch cannot be archived/i, "Chi nhánh còn phiên đang mở nên chưa lưu trữ được."],
   [/no active service plan is configured/i, "Chưa có gói dịch vụ đang bán. Liên hệ quản trị nền tảng."],
-  [/owner role is not configured/i, "Hệ thống chưa cấu hình vai trò Owner. Liên hệ quản trị nền tảng."],
+  [/owner role is not configured/i, "Hệ thống chưa cấu hình vai trò Brand Manager. Liên hệ quản trị nền tảng."],
   [/cannot change (their|your) own account status/i, "Không tự đổi trạng thái tài khoản của chính mình."],
   [/a logo file is required/i, "Chưa chọn tệp logo."],
   [/logo must be a valid/i, "Logo phải là ảnh JPEG, PNG hoặc WebP."],
@@ -297,7 +297,7 @@ export function resetErrorDedupe(): void {
  * Màn tự hiện khối lỗi trong trang (kèm nút Thử lại) nên không cần thông báo nổi trùng cho 403 và mất mạng.
  * Khớp theo đường dẫn hiện tại và chỉ cho lỗi ĐỌC (GET); các loại lỗi khác (hạn mức, 401) và mọi lỗi ghi vẫn báo toàn cục.
  */
-export const INLINE_ERROR_ROUTES = ["/owner/reports", "/store-manager/branch-info", "/owner/payos", "/store-manager/orders", "/store-manager/orders/*", "/store-manager/dashboard", "/manager/orders", "/manager/orders/*"];
+export const INLINE_ERROR_ROUTES = ["/owner/reports", "/store-manager/branch-info", "/owner/payos", "/store-manager/orders", "/store-manager/orders/*", "/store-manager/dashboard", "/manager/orders", "/manager/orders/*", "/brand-manager/orders", "/brand-manager/orders/*"];
 
 /** Khớp đường dẫn hiện tại với bảng trên; mục kết thúc bằng `/*` khớp mọi đường dẫn con (trang chi tiết đơn `/manager/orders/:id`). */
 export function isInlineErrorRoute(path: string): boolean {

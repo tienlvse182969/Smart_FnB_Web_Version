@@ -151,6 +151,36 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     expect(screen.getByTestId("probe").textContent).toBe("/manager/dashboard?from=2026-10-01&to=2026-10-10");
   });
 
+  it("thẻ số so với kỳ trước (BE trả previousSummary): doanh thu tăng, hoàn tiền tăng là xấu", async () => {
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({
+      summary: { revenue: 1200000, grossRevenue: 1300000, refundAmount: 100000, pendingRefundAmount: 0, netRevenue: 1200000, orderCount: 12, averageOrderValue: 100000 },
+      previousSummary: { from: "2026-10-02", to: "2026-10-08", revenue: 1000000, grossRevenue: 1000000, refundAmount: 50000, orderCount: 12, averageOrderValue: 0 },
+    }));
+    mount();
+    await waitFor(() => expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("+20%"));
+    expect(txt("report-kpi-revenue")).toContain("so với 02/10 – 08/10/2026");
+    expect(txt("report-kpi-orders")).toContain("±0%");
+    // Kỳ trước bằng 0 thì không so được, hiện gạch.
+    expect(txt("report-kpi-avg")).toContain("—");
+    const refund = screen.getByTestId("report-kpi-refund").querySelector("[data-testid=stat-delta]")!;
+    expect(refund.textContent).toContain("+100%");
+    expect(refund.getAttribute("data-direction")).toBe("up");
+  });
+
+  it("BR-50/BR-83: đơn huỷ nêu người huỷ, người hoàn; có bảng tiền mặt theo ngày", async () => {
+    const base = report();
+    vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report({
+      cancellations: { ...base.cancellations, items: [{ ...base.cancellations.items[0], refundAmount: 75000, cancelledByName: "Lan Trần", refundedByNames: ["Minh Lê"] }] },
+      cashByDay: [{ day: "2026-10-14", cashCollected: 300000, cashRefunded: 50000, netCash: 250000 }],
+    }));
+    mount();
+    await waitFor(() => expect(screen.getByTestId("report-cash-by-day")).toBeTruthy());
+    expect(txt("report-cancellations")).toContain("Lan Trần");
+    expect(txt("report-cancellations")).toContain("Minh Lê");
+    expect(txt("report-cash-by-day")).toContain("14/10/2026");
+    expect(txt("report-cash-by-day")).toContain("250.000");
+  });
+
   it("đơn huỷ: lý do hiện, bấm mã đơn dẫn tới /manager/orders/:id", async () => {
     vi.spyOn(managerReportApi, "getReport").mockResolvedValue(report());
     mount();
@@ -178,7 +208,14 @@ describe("màn Báo cáo chi nhánh (BM-03)", () => {
     await waitFor(() => expect(screen.getByTestId("report-revenue-bars")).toBeTruthy());
     const neg = document.querySelector('[data-testid="report-revenue-bars"] [data-negative="true"]');
     expect(neg).toBeTruthy();
-    expect(screen.getByTestId("report-revenue-bars").textContent).toMatch(/−/);
+    // Biểu đồ theo giờ: hộp số liệu ghi rõ khung giờ.
+    const hours = screen.getByTestId("report-hours-bars").querySelector("[data-testid=report-chart]")!;
+    fireEvent.keyDown(hours, { key: "ArrowRight" });
+    expect(screen.getByTestId("report-hours-bars").querySelector("[data-testid=chart-tooltip]")!.textContent).toContain("0:00 – 0:59");
+    // Phím End đi tới mốc cuối (ngày chỉ có hoàn tiền): hộp số liệu hiện ngay với dấu "−".
+    const chart = screen.getByTestId("report-revenue-bars").querySelector("[data-testid=report-chart]")!;
+    fireEvent.keyDown(chart, { key: "End" });
+    expect(screen.getByTestId("report-revenue-bars").querySelector("[data-testid=chart-tooltip]")!.textContent).toMatch(/−/);
     expect(screen.getByTestId("report-kpi-revenue").textContent).toContain("950.000");
     expect(screen.getByTestId("report-kpi-gross").textContent).toContain("1.090.000");
     expect(screen.getByTestId("report-kpi-refund").textContent).toContain("140.000");

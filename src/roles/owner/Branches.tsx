@@ -1,6 +1,7 @@
 import { Alert, App, Button, Card, Drawer, Input, Select, Spin } from "antd";
-import { Hash, MapPin, Plus, Users } from "lucide-react";
+import { Hash, MapPin, Plus, Store, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ApiBranch, Branch } from "../../types";
 import { useAppStore } from "../../store";
 import { showApiError } from "../../api";
@@ -9,6 +10,7 @@ import { usePlan } from "../../plan/usePlan";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
 import type { BranchFormData } from "../../store";
 import { palette } from "../../theme";
+import { EmptyState, PageHeader } from "../../components/bits";
 import BranchOperations from "./BranchOperations";
 
 function BranchCard({
@@ -53,6 +55,11 @@ function BranchCard({
         </span>
       </div>
 
+      {b.status === "suspended" && (
+        <div data-testid="branch-suspended-note" style={{ marginTop: 12, fontSize: 12.5, color: palette.warning.text, background: palette.warning.bg, borderRadius: 8, padding: "6px 10px" }}>
+          Chi nhánh đang tạm ngưng nên không bán được; dữ liệu vẫn giữ nguyên. Mở lại ở "Sửa chi nhánh" khi gói còn hạn mức.
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
         <ActionButton size="small" onClick={onEdit}>
           Sửa chi nhánh
@@ -79,6 +86,14 @@ export default function Branches() {
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
   const [managing, setManaging] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Từ Tổng quan/Giá theo chi nhánh: /branches?new=1 mở thẳng form tạo chi nhánh (một lần, rồi bỏ tham số).
+  const [params, setParams] = useSearchParams();
+  const wantsNew = params.get("new") === "1";
+  useEffect(() => {
+    if (!wantsNew || scopeStatus !== "ready") return;
+    setEditing("new");
+    setParams({}, { replace: true });
+  }, [wantsNew, scopeStatus, setParams]);
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
   const branchQuota = limitOf("branches");
@@ -105,6 +120,16 @@ export default function Branches() {
             : null
         }
       />
+      {branches.length === 0 && (
+        <Card style={{ borderRadius: 14 }}>
+          <EmptyState
+            icon={<Store size={24} />}
+            title="Chuỗi chưa có chi nhánh"
+            description="Tạo chi nhánh đầu tiên để bắt đầu bán hàng."
+            action={{ label: "Tạo chi nhánh đầu tiên", onClick: () => setEditing("new") }}
+          />
+        </Card>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 16 }}>
         {branches.map((b) => (
           <BranchCard
@@ -153,17 +178,15 @@ function SectionHeader({
   quotaLabel: string | null;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>Chi nhánh</div>
-        <div style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 2 }}>
-          {quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
-        </div>
-      </div>
-      <ActionButton type="primary" icon={<Plus size={15} />} consumes="branches" onClick={onAdd}>
-        Thêm chi nhánh
-      </ActionButton>
-    </div>
+    <PageHeader
+      title="Chi nhánh"
+      sub={quotaLabel ?? "Mỗi chi nhánh có menu, quầy và nhân viên riêng"}
+      extra={
+        <ActionButton type="primary" icon={<Plus size={15} />} consumes="branches" onClick={onAdd}>
+          Thêm chi nhánh
+        </ActionButton>
+      }
+    />
   );
 }
 

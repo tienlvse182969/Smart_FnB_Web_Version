@@ -38,3 +38,25 @@ export function describePairingError(err: unknown, kind: DisplayKind): string | 
   if (err.status === 404 && /station/i.test(err.message)) return "Quầy không còn ở trạng thái đang dùng trong chi nhánh này.";
   return null;
 }
+
+/** BR-45: một quầy nhập sai quá 5 lần liên tiếp thì bị khoá ghép 5 phút. */
+export const PAIRING_LOCK_MS = 5 * 60_000;
+export const PAIRING_LOCKED_CODE = "PAIRING_LOCKED";
+
+/**
+ * Lỗi khoá ghép của BE (`429 { code: "PAIRING_LOCKED", lockedUntil }`, stations.service.ts:361-367, :405-412): trả thời điểm hết khoá (ms).
+ * BE luôn gửi `lockedUntil`; nếu thiếu hoặc sai thì lấy 5 phút kể từ bây giờ (đúng BR-45). `null` nếu không phải lỗi khoá ghép.
+ */
+export function pairingLockedUntil(err: unknown, now: number = Date.now()): number | null {
+  if (!(err instanceof ApiError) || err.status !== 429) return null;
+  const body = err.body as { code?: unknown; lockedUntil?: unknown } | null;
+  if (err.code !== PAIRING_LOCKED_CODE && body?.code !== PAIRING_LOCKED_CODE) return null;
+  const until = typeof body?.lockedUntil === "string" ? Date.parse(body.lockedUntil) : NaN;
+  return Number.isFinite(until) && until > now ? until : now + PAIRING_LOCK_MS;
+}
+
+/** `272_000` → `4:32`. */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}

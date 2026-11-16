@@ -92,6 +92,12 @@ function mapRefund(raw: Raw): OrderRefundRecord {
   };
 }
 
+function mapBranchRef(v: unknown): { id: string; code: string; name: string } | null {
+  if (!isObject(v)) return null;
+  const id = str(v.id);
+  return id ? { id, code: strOr(v.code, ""), name: strOr(v.name, "") } : null;
+}
+
 export function mapOrderSummary(raw: Raw): OrderSummary {
   return {
     id: strOr(raw.id, ""),
@@ -109,6 +115,7 @@ export function mapOrderSummary(raw: Raw): OrderSummary {
     refunds: list(raw.refunds).map(mapRefund),
     attentionAt: str(raw.attentionAt),
     attentionReason: str(raw.attentionReason),
+    branch: mapBranchRef(raw.branch),
   };
 }
 

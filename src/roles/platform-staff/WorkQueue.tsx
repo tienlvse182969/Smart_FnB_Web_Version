@@ -5,6 +5,7 @@ import { useReportSection } from "../../components/useReportSection"
 import { platformStaffApi } from "../../api/platformStaff"
 import { request } from "../../api/http/client"
 import { modeOf } from "../../api/flags"
+import { palette } from "../../theme"
 
 export default function WorkQueue({
   select,
@@ -51,7 +52,7 @@ export default function WorkQueue({
         <Col key={title} xs={24} md={8}>
           <div
             style={{
-              border: "1px solid #d9dee0",
+              border: `1px solid ${palette.line}`,
               borderRadius: 10,
               padding: 12,
             }}

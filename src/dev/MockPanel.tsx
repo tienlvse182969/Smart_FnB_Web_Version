@@ -32,7 +32,13 @@ const FAILURES: { value: MockFailureKind | "none"; label: string }[] = [
   { value: "unauthorized", label: "401" },
 ];
 
+/** Chỉ có khi chạy dev; bản build production không dựng panel này (GAP-206), kể cả khi bị gọi nhầm. */
 export default function MockPanel() {
+  if (!import.meta.env.DEV) return null;
+  return <MockPanelBody />;
+}
+
+function MockPanelBody() {
   const scenario = useSyncExternalStore(subscribeScenario, getScenario);
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<MockFailureKind | "none">(mockControl.failure?.kind ?? "none");

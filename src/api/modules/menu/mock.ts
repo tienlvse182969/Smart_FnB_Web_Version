@@ -252,7 +252,7 @@ export const menuMock: MenuApi = {
     const item = s.menuItems.find((m) => m.id === itemId);
     const cat = s.categories.find((c) => c.id === item?.categoryId);
     // BR-12: Owner tắt thì chi nhánh không bật lại được.
-    if (isAvailable && !(item?.isActive && cat?.isActive)) throw new ApiError(403, "Owner đã tắt món này, chi nhánh không bật lại được");
+    if (isAvailable && !(item?.isActive && cat?.isActive)) throw new ApiError(403, "Brand Manager đã tắt món này, chi nhánh không bật lại được");
     row.isAvailable = isAvailable;
   },
 };

@@ -545,7 +545,7 @@ export const adminMock: AdminApi = {
     // Giả lập xếp email đặt mật khẩu — BE chỉ xếp vào emailOutbox.
 
     console.info(
-      `[mock] Xếp email đặt mật khẩu Owner tới ${app.representativeEmail}`,
+      `[mock] Xếp email đặt mật khẩu Brand Manager tới ${app.representativeEmail}`,
     );
 
     return { ...app };

@@ -1,5 +1,6 @@
 import type { ThemeConfig } from "antd";
 import type { Branding } from "../types";
+import { contrast, deriveAccent, hexToRgb, hoverSurface, deriveBrandSurface, rgbToHex } from "./brandColor";
 import {
   CSS_VAR,
   PLATFORM_BRAND_TOKENS,
@@ -12,35 +13,15 @@ import {
 } from "./tokens";
 
 export * from "./tokens";
+export * from "./brandColor";
 export * from "./semantic";
 export * from "./BrandContext";
 
 /** Ngưỡng WCAG AA cho chữ thường. */
 export const WCAG_AA_RATIO = 4.5;
 
-function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace("#", "");
-  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
-  const num = parseInt(full, 16);
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-}
-
-function relativeLuminance([r, g, b]: [number, number, number]): number {
-  const [rl, gl, bl] = [r, g, b].map((c) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
-}
-
 /** Tỷ lệ tương phản WCAG 2.0 giữa hai màu hex. */
-export function contrastRatio(hexA: string, hexB: string): number {
-  const lA = relativeLuminance(hexToRgb(hexA));
-  const lB = relativeLuminance(hexToRgb(hexB));
-  const lighter = Math.max(lA, lB);
-  const darker = Math.min(lA, lB);
-  return (lighter + 0.05) / (darker + 0.05);
-}
+export const contrastRatio = contrast;
 
 /** true nếu hai màu đạt tối thiểu 4.5:1 (WCAG AA, chữ thường). */
 export function meetsWcagAA(hexA: string, hexB: string): boolean {
@@ -94,12 +75,32 @@ export function resolveBrand({ branding, platformOnly, brandingEnabled }: Resolv
   // Chỉ đổi tên hiển thị (quyết định 28): áp tên, màu/logo vẫn là của nền tảng.
   if (branding.lookCustom === false) return { ...PLATFORM_BRAND_TOKENS, displayName: branding.displayName.trim() || PLATFORM_BRAND.displayName };
   return {
-    primary: branding.primaryColor,
-    primaryContrast: pickReadableTextColor(branding.primaryColor),
-    accent: branding.accentColor,
+    ...brandTokensFromColors(branding.primaryColor, branding.accentColor),
     displayName: branding.displayName || PLATFORM_BRAND.displayName,
     logo: branding.logoUrl,
     custom: true,
+  };
+}
+
+/** Bộ token thương hiệu từ màu chủ đạo + màu nhấn (dùng cả cho khung xem trước ở màn Nhận diện). */
+export function brandTokensFromColors(
+  primary: string,
+  accent: string,
+): Pick<BrandTokens, "primary" | "primaryContrast" | "surface" | "surfaceHover" | "activeInk" | "rule" | "accent" | "accentInk" | "accentStrong" | "accentSoft" | "accentChart"> {
+  const d = deriveBrandSurface(primary);
+  const a = deriveAccent(accent);
+  return {
+    primary,
+    primaryContrast: d.ink,
+    surface: d.surface,
+    surfaceHover: hoverSurface(d.surface),
+    activeInk: d.activeInk,
+    rule: d.rule,
+    accent,
+    accentInk: a.accentInk,
+    accentStrong: a.accentStrong,
+    accentSoft: a.accentSoft,
+    accentChart: a.accentChart,
   };
 }
 
@@ -108,18 +109,35 @@ export function resolveBrand({ branding, platformOnly, brandingEnabled }: Resolv
  * radius, font, bố cục giữ nguyên (đặc tả 10.2 — "đổi được nhận diện, không đổi bố cục").
  */
 export function buildTheme(brand: BrandTokens): ThemeConfig {
-  const lightText = brand.primaryContrast === "#ffffff";
-  const overlay = lightText ? "255,255,255" : "0,0,0";
-
+  // Màu ngữ nghĩa (thông tin/thành công/cảnh báo/lỗi) cố định, KHÔNG theo màu chuỗi (BR-42):
+  // khối thông báo luôn nền nhạt, chữ đậm, đạt 4.5:1 dù chuỗi chọn màu nào.
   return {
     cssVar: { key: "fnb" },
     token: {
-      colorPrimary: brand.primary,
-      colorInfo: brand.primary,
-      colorLink: brand.primary,
+      colorPrimary: brand.surface,
+      colorPrimaryHover: brand.surfaceHover,
+      colorPrimaryActive: brand.surfaceHover,
+      // Điểm nhấn phụ theo màu nhấn: viền focus, link (bản đủ đậm trên nền trắng).
+      controlOutline: `${rgbToHex(hexToRgb(brand.accent))}59`,
+      colorLink: brand.accentStrong,
+      colorLinkHover: brand.accentStrong,
+      colorInfo: SEMANTIC.info.text,
+      colorInfoBg: SEMANTIC.info.bg,
+      colorInfoBorder: SEMANTIC.info.border,
+      colorSuccess: SEMANTIC.success.text,
+      colorSuccessBg: SEMANTIC.success.bg,
+      colorSuccessBorder: SEMANTIC.success.border,
+      colorWarning: SEMANTIC.warning.text,
+      colorWarningBg: SEMANTIC.warning.bg,
+      colorWarningBorder: SEMANTIC.warning.border,
+      colorError: SEMANTIC.error.text,
+      colorErrorBg: SEMANTIC.error.bg,
+      colorErrorBorder: SEMANTIC.error.border,
+      colorTextSecondary: NEUTRAL.textMuted,
+      colorTextTertiary: NEUTRAL.textMuted,
+      colorTextDescription: NEUTRAL.textMuted,
       colorTextBase: NEUTRAL.ink,
       colorBgBase: NEUTRAL.surface,
-      colorTextLightSolid: brand.primaryContrast,
       borderRadius: 8,
       fontFamily: "'HarmonyOS Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
       fontSize: 14,
@@ -132,22 +150,15 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
       Layout: {
         headerBg: NEUTRAL.surface,
         bodyBg: NEUTRAL.paper,
-        siderBg: brand.primary,
-      },
-      Menu: {
-        darkItemBg: brand.primary,
-        darkItemSelectedBg: `rgba(${overlay},0.18)`,
-        darkItemHoverBg: `rgba(${overlay},0.09)`,
-        darkItemColor: lightText ? "rgba(255,255,255,0.68)" : "rgba(0,0,0,0.6)",
-        darkItemSelectedColor: brand.primaryContrast,
-        itemHeight: 44,
-        iconSize: 18,
+        siderBg: brand.surface,
       },
       Card: {
         borderRadiusLG: 14,
         colorBorderSecondary: NEUTRAL.line,
       },
       Button: {
+        // Chữ trên nút chính theo ink của nền thương hiệu; nút nguy hiểm vẫn chữ trắng trên đỏ.
+        primaryColor: brand.primaryContrast,
         primaryShadow: "none",
         defaultShadow: "none",
         fontWeight: 500,
@@ -162,9 +173,18 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
         titleFontSize: 13,
       },
       Segmented: {
-        itemSelectedBg: brand.primary,
+        itemSelectedBg: brand.surface,
         itemSelectedColor: brand.primaryContrast,
         trackBg: NEUTRAL.paper,
+      },
+      Tabs: {
+        inkBarColor: brand.accentStrong,
+        itemSelectedColor: brand.accentStrong,
+        itemHoverColor: brand.accentStrong,
+        itemActiveColor: brand.accentStrong,
+      },
+      Progress: {
+        defaultColor: brand.accent,
       },
       Tag: {
         defaultBg: NEUTRAL.paperSubtle,
@@ -180,9 +200,18 @@ export function buildTheme(brand: BrandTokens): ThemeConfig {
  */
 export function applyThemeVars(brand: BrandTokens, el: HTMLElement = document.documentElement): void {
   const set = (name: string, value: string) => el.style.setProperty(name, value);
-  set(CSS_VAR.brandPrimary, brand.primary);
+  // --brand-primary là NỀN thương hiệu (surface đã làm sẫm), --brand-primary-contrast là chữ (ink) trên nền đó.
+  set(CSS_VAR.brandPrimary, brand.surface);
   set(CSS_VAR.brandPrimaryContrast, brand.primaryContrast);
+  set(CSS_VAR.brandHover, brand.surfaceHover);
+  set(CSS_VAR.brandActiveInk, brand.activeInk);
+  set(CSS_VAR.brandRule, brand.rule);
+  set(CSS_VAR.brandRaw, brand.primary);
   set(CSS_VAR.brandAccent, brand.accent);
+  set(CSS_VAR.brandAccentInk, brand.accentInk);
+  set(CSS_VAR.brandAccentStrong, brand.accentStrong);
+  set(CSS_VAR.brandAccentSoft, brand.accentSoft);
+  set(CSS_VAR.brandChart, brand.accentChart);
   set(CSS_VAR.ink, NEUTRAL.ink);
   set(CSS_VAR.surface, NEUTRAL.surface);
   set(CSS_VAR.paper, NEUTRAL.paper);

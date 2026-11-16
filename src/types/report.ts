@@ -58,8 +58,9 @@ export interface BranchRevenueRow {
 
 export interface RevenueComparison {
   range: ReportRange;
-  /** BE không trả giá trị đơn trung bình ở tổng toàn phạm vi: web không tự chia (quyết định 139). */
   totals: {
+    /** Giá trị đơn trung bình toàn phạm vi = giá trị đơn hoàn tất / số đơn hoàn tất (BE tính; web không tự chia). */
+    averageOrderValue?: string;
     revenue: string;
     grossRevenue: string;
     refundAmount: string;
@@ -70,6 +71,27 @@ export interface RevenueComparison {
   };
   /** Đã sắp theo doanh thu giảm dần. */
   branches: BranchRevenueRow[];
+}
+
+/** BR-50 / OW-08: mục đơn huỷ của báo cáo đa chi nhánh (`GET /reports/cancellations`). */
+export interface ReportCancellations {
+  total: number;
+  paidCancellationCount: number;
+  refundAmount: string;
+  pendingRefundAmount: string;
+  limit: number;
+  items: {
+    id: string;
+    orderCode: string;
+    callNumber: number | null;
+    totalAmount: string;
+    cancelledAt: string | null;
+    reason: string | null;
+    branch: { id: string; code?: string; name: string };
+    cancelledBy: { firstName?: string; lastName?: string; employeeCode?: string } | null;
+    refundAmount: string;
+    refunds: { id: string; amount: string; status: string; method?: string; reason?: string | null; completedBy: { firstName?: string; lastName?: string; employeeCode?: string } | null }[];
+  }[];
 }
 
 /** Một điểm trên trục thời gian. `bucket` là `YYYY-MM-DD` của đầu kỳ con. */
@@ -117,3 +139,62 @@ export interface TopItems {
   items: TopItemRow[];
 }
 
+
+/**
+ * `GET /reports/payment-methods` — doanh thu theo hình thức thanh toán (BR-83).
+ * Hình thức giữ nguyên hình thức GỐC của đơn; tiền hoàn tách riêng và trừ vào ngày hoàn (BR-50).
+ */
+export interface PaymentMethodRow {
+  /** Mã BE `PaymentMethod`: CASH, BANK_TRANSFER, … */
+  method: string;
+  /** Số ghi nhận trước hoàn. */
+  grossSettledAmount: string;
+  /** Số thực nhận trước hoàn (tiền mặt: khách đưa, chưa trừ tiền thối). */
+  grossReceivedAmount: string;
+  /** Tiền đã hoàn của hình thức này, theo ngày hoàn. */
+  refundAmount: string;
+  /** Sau hoàn (= gộp − hoàn). */
+  netAmount: string;
+  receivedAmount: string;
+  paymentCount: number;
+  /** Số khoản của đơn đã huỷ sau khi trả. */
+  cancelledAfterPaymentCount: number;
+}
+
+export interface PaymentMethodsReport {
+  range: ReportRange;
+  /** Cộng mọi chi nhánh trong phạm vi. */
+  methods: PaymentMethodRow[];
+  branches: { branch: ReportBranchRef; methods: PaymentMethodRow[] }[];
+}
+
+/** `GET /reports/top-combos` — combo bán chạy; doanh thu chỉ ghi ở dòng cha của combo. */
+export interface TopComboRow {
+  rank: number;
+  comboId: string | null;
+  name: string;
+  quantity: number;
+  revenue: string;
+}
+
+export interface TopCombos {
+  range: ReportRange;
+  items: TopComboRow[];
+}
+
+/** `GET /reports/top-toppings` — topping bán chạy (BE tính từ tuỳ chọn của dòng đơn). */
+export interface TopToppingRow {
+  rank: number;
+  optionId: string | null;
+  name: string | null;
+  groupCode: string | null;
+  groupName: string | null;
+  quantity: number;
+  /** Tiền cộng thêm do topping. */
+  additionalRevenue: string;
+}
+
+export interface TopToppings {
+  range: ReportRange;
+  items: TopToppingRow[];
+}

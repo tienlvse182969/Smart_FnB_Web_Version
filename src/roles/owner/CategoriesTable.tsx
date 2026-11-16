@@ -5,12 +5,13 @@ import type { MenuCategory } from "../../types";
 import { menuApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { useWriteGuard } from "../../plan/useReadOnly";
-import { SectionTitle } from "../../components/bits";
+import { SectionTitle, ToolbarRow } from "../../components/bits";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 
 /** OW-02: danh mục món của chuỗi — thêm, sửa tên/mô tả, ẩn/hiện, đổi thứ tự hiển thị (displayOrder), xoá danh mục rỗng. */
-export default function CategoriesTable() {
+/** `embedded`: nằm trong tab của trang "Món & danh mục" (header thuộc trang), chỉ giữ thanh công cụ. */
+export default function CategoriesTable({ embedded = false }: { embedded?: boolean } = {}) {
   const { message, modal } = App.useApp();
   const chainId = useAppStore((s) => s.chainId);
   const writeGuard = useWriteGuard();
@@ -87,15 +88,26 @@ export default function CategoriesTable() {
 
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
-      <SectionTitle
-        title="Danh mục món"
-        sub="Nhóm món trên menu toàn chuỗi; thứ tự ở đây là thứ tự hiển thị tại POS"
-        extra={
-          <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
-            Thêm danh mục
-          </ActionButton>
-        }
-      />
+      {embedded ? (
+        <ToolbarRow
+          sub="Nhóm món trên menu toàn chuỗi; thứ tự ở đây là thứ tự hiển thị tại POS."
+          extra={
+            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+              Thêm danh mục
+            </ActionButton>
+          }
+        />
+      ) : (
+        <SectionTitle
+          title="Danh mục món"
+          sub="Nhóm món trên menu toàn chuỗi; thứ tự ở đây là thứ tự hiển thị tại POS"
+          extra={
+            <ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>
+              Thêm danh mục
+            </ActionButton>
+          }
+        />
+      )}
       <Table<MenuCategory>
         dataSource={categories}
         rowKey="id"

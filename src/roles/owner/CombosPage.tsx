@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, App, Card, Checkbox, Drawer, Select, Table } from "antd";
-import { ImageOff, Pencil, Plus, Store, Trash2 } from "lucide-react";
+import { ImageOff, Layers, Pencil, Plus, Store, Trash2 } from "lucide-react";
 import type { Combo, MenuCategory, MenuItem } from "../../types";
 import { combosApi, describeApiError, menuApi, showApiError } from "../../api";
 import { branchGapReasons } from "../../api/modules/combos/rules";
-import { SectionTitle } from "../../components/bits";
+import { EmptyState, PageHeader } from "../../components/bits";
 import { money } from "../../data";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import ActionButton, { ActionSwitch } from "../../plan/ActionButton";
@@ -97,7 +97,7 @@ export default function CombosPage() {
 
   return (
     <div data-testid="combos-page">
-      <SectionTitle
+      <PageHeader
         title="Combo"
         sub="Bộ món bán theo giá riêng. Mỗi thành phần là món cố định hoặc nhóm biến thể để khách chọn đúng một món."
         extra={
@@ -129,7 +129,16 @@ export default function CombosPage() {
           dataSource={shown}
           pagination={false}
           scroll={{ x: 820 }}
-          locale={{ emptyText: error ? "—" : combos.length ? "Không có combo khớp bộ lọc" : "Chưa có combo nào. Bấm Thêm combo để tạo." }}
+          locale={{
+            emptyText: error ? "—" : combos.length ? "Không có combo khớp bộ lọc" : (
+              <EmptyState
+                icon={<Layers size={24} />}
+                title="Chưa có combo nào"
+                description="Combo là bộ món bán theo giá riêng."
+                actionNode={<ActionButton type="primary" icon={<Plus size={15} />} onClick={() => setEditing("new")}>Thêm combo</ActionButton>}
+              />
+            ),
+          }}
           columns={[
             {
               title: "Combo",

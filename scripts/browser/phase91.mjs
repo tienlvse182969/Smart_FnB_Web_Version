@@ -39,7 +39,7 @@ const login = async () => {
   await tab.clearStorage();
   await tab.goto("/login");
   await tab.login("owner");
-  await tab.waitFor(`location.pathname.startsWith("/owner")`, 20000, "vào /owner");
+  await tab.waitFor(`location.pathname.startsWith("/brand-manager")`, 20000, "vào /brand-manager");
   await tab.waitFor(`document.querySelector(".ant-layout-sider, .ant-layout-header")`, 15000, "shell");
   await sleep(900);
 };
@@ -52,7 +52,7 @@ const withPlan = async (code, flag) => {
   };
 };
 const goReports = async () => {
-  await tab.goto("/owner/reports");
+  await tab.goto("/brand-manager/reports");
   await tab.waitFor(tid("report-kpi-revenue"), 20000, "thẻ số báo cáo");
   await sleep(1500);
 };
@@ -104,7 +104,7 @@ try {
   // 5. Lỗi 500 (setFault): báo gọn tiếng Việt, có Thử lại.
   tab.readOverride = null;
   tab.setFault({ kind: "500", match: COMPARISON });
-  await tab.goto("/owner/reports");
+  await tab.goto("/brand-manager/reports");
   await sleep(2500);
   const body = await q(`document.body.innerText`);
   tab.setFault(null);

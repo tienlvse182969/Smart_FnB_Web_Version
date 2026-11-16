@@ -4,7 +4,7 @@
  * `refundApprovals.ts`; route `manager/orders/:id/cancel-paid` đã bị BE gỡ nên không còn lời gọi nào.
  * Mock vẫn là nguồn đơn của trợ lý AI mock và báo cáo mock (qua `getBranchOrders`, không qua module này).
  */
-import type { CompleteRefundInput, ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery } from "../../../types";
+import type { ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery, RefundDocument } from "../../../types";
 import { defineApi } from "../../define";
 import { orderMock } from "./mock";
 import { orderReal } from "./real";
@@ -23,16 +23,27 @@ export interface OrderApi {
   /** Chi tiết một đơn trong chi nhánh; id không thuộc chi nhánh → 404. */
   getOrder(scope: OrderScope, orderId: string): Promise<OrderDetail>;
   /**
+   * GAP-310 (mục 15, 28.6): Brand Manager xem đơn của chuỗi được gán, `GET /restaurant-chains/:chainId/orders`. Cùng bộ lọc và phân trang với
+   * `listOrders`, thêm `branchId` tuỳ chọn; mỗi đơn kèm `branch`. Chỉ đọc. Lỗi: 404 chuỗi không được gán hoặc chi nhánh ngoài chuỗi, 403 không phải Brand Manager.
+   */
+  listChainOrders(chainId: string, query: OrderQuery): Promise<OrderPage>;
+  /** Chi tiết một đơn của chuỗi (`GET /restaurant-chains/:chainId/orders/:orderId`); đơn ngoài chuỗi → 404. */
+  getChainOrder(chainId: string, orderId: string): Promise<OrderDetail>;
+  /**
    * BM-05: Manager xác nhận thủ công một khoản chuyển khoản đang chờ hoặc "Lệch số tiền" (`POST /payments/:paymentId/confirm`).
    * KHÔNG trả dữ liệu để vẽ lại (quyết định 84): màn GET lại chi tiết đơn. Lỗi: 400 thiếu/sai ô, 403 không phải Manager, chế độ chỉ đọc,
    * 404, 409 `PAYMENT_ALREADY_SETTLED` / `PAYMENT_AMOUNT_INSUFFICIENT` / tiền mặt / đơn không còn chờ thanh toán.
    */
   confirmPayment(scope: OrderScope, paymentId: string, input: ConfirmPaymentInput): Promise<void>;
   /**
-   * BM-06: đánh dấu khoản hoàn chuyển khoản đã chi trả ngoài hệ thống (`POST /refunds/:refundId/complete`, Owner hoặc Manager).
-   * Lỗi: 403, 404, 409 khoản không còn chờ hoặc là tiền mặt.
+   * 28.6: trạng thái PDF phiếu hoàn của một khoản hoàn tiền mặt đã xác nhận (`GET cashier/orders/:o/refunds/:r/document`; Store Manager và
+   * Brand Manager dùng chung route). Khoản hoàn cũ chưa có PDF thì BE sinh ở lần xem đầu. Lỗi: 403 ngoài phạm vi, 404 không có khoản hoàn.
    */
-  completeRefund(scope: OrderScope, refundId: string, input: CompleteRefundInput): Promise<void>;
+  getRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<RefundDocument>;
+  /** Sinh lại PDF phiếu hoàn khi Lỗi hoặc kẹt (`POST …/document/retry`); không tạo thêm PDF hay khoản hoàn. */
+  retryRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<RefundDocument>;
+  /** Tải PDF khi BE lưu local (link tương đối, cần Bearer): `GET …/document/download`. */
+  downloadRefundDocument(scope: OrderScope, orderId: string, refundId: string): Promise<Blob>;
 }
 
 export const orderApi = defineApi<OrderApi>("order", { real: orderReal, mock: orderMock });

@@ -5,6 +5,7 @@
  */
 import { request } from "../../http/client";
 import { mapOrderDetail, mapOrderPage } from "./mapper";
+import { mapRefundDocument, refundDocumentPath } from "./refundDocument";
 import { buildOrderQueryString } from "./query";
 import type { OrderApi } from "./index";
 
@@ -18,6 +19,15 @@ export const orderReal: OrderApi = {
     return mapOrderDetail(await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}`));
   },
 
+  async listChainOrders(chainId, query) {
+    const raw = await request<unknown>(`/restaurant-chains/${encodeURIComponent(chainId)}/orders${buildOrderQueryString(query)}`);
+    return mapOrderPage(raw, { page: query.page, limit: query.limit });
+  },
+
+  async getChainOrder(chainId, orderId) {
+    return mapOrderDetail(await request<unknown>(`/restaurant-chains/${encodeURIComponent(chainId)}/orders/${encodeURIComponent(orderId)}`));
+  },
+
   async confirmPayment(_scope, paymentId, input) {
     // Chỉ đúng 3 ô của `ConfirmPaymentDto` (BE bật `forbidNonWhitelisted`); ô tuỳ chọn trống thì không gửi.
     const body: Record<string, unknown> = { reason: input.reason, receivedAmount: input.receivedAmount };
@@ -26,9 +36,15 @@ export const orderReal: OrderApi = {
     await request<unknown>(`/payments/${encodeURIComponent(paymentId)}/confirm`, { method: "POST", body });
   },
 
-  async completeRefund(_scope, refundId, input) {
-    const body: Record<string, unknown> = {};
-    if (input.note?.trim()) body.note = input.note.trim();
-    await request<unknown>(`/refunds/${encodeURIComponent(refundId)}/complete`, { method: "POST", body });
+  async getRefundDocument(_scope, orderId, refundId) {
+    return mapRefundDocument(await request<unknown>(refundDocumentPath(orderId, refundId)), { orderId, refundId });
+  },
+
+  async retryRefundDocument(_scope, orderId, refundId) {
+    return mapRefundDocument(await request<unknown>(`${refundDocumentPath(orderId, refundId)}/retry`, { method: "POST" }), { orderId, refundId });
+  },
+
+  async downloadRefundDocument(_scope, orderId, refundId) {
+    return request<Blob>(`${refundDocumentPath(orderId, refundId)}/download`, { asBlob: true });
   },
 };
