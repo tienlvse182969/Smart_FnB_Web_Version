@@ -72,10 +72,11 @@ export default function RoleShell({
         collapsedWidth={0}
         collapsed={narrow && !navOpen}
         trigger={null}
+        // antd bọc nội dung trong div .ant-layout-sider-children: flex cột phải đặt ở div đó
+        // thì vùng menu (flex:1, overflow:auto) mới bị giới hạn chiều cao và cuộn được.
+        styles={{ body: { display: "flex", flexDirection: "column", minHeight: 0 } }}
         style={{
           height: "100vh",
-          display: "flex",
-          flexDirection: "column",
           ...(narrow
             ? { position: "fixed" as const, left: 0, top: 0, zIndex: 1000, visibility: navOpen ? ("visible" as const) : ("hidden" as const) }
             : { flex: "0 0 244px" }),
