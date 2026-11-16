@@ -14,8 +14,8 @@ const steps = [
     description: "Pha chế cập nhật từng ly; xong ly nào báo ly đó, không chờ các đơn khác trong cùng mẻ.",
   },
   {
-    title: "Gọi số, khách nhận ly, in bill và phiếu số",
-    description: "Đủ ly thì màn hình gọi số mời khách nhận; mọi đơn đã thanh toán đều có bill và phiếu số.",
+    title: "Đủ ly, khách nhận tại quầy theo phiếu số",
+    description: "Mọi đơn đã thanh toán đều có bill và phiếu số; quán dùng máy báo rung thì pha chế gọi máy khi đơn sẵn sàng.",
   },
 ];
 

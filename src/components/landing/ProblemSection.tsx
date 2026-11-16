@@ -1,5 +1,6 @@
 import { FileWarning, HelpCircle, Coins, BarChart3 } from "lucide-react";
 import SectionHeading from "./SectionHeading";
+import { palette } from "../../theme";
 
 const problems = [
   {
@@ -36,9 +37,10 @@ export default function ProblemSection() {
               className="group rounded-[14px] border border-zinc-200 bg-white p-6 transition-colors hover:border-zinc-300"
             >
               <div
-                className="flex h-11 w-11 items-center justify-center rounded-[11px] bg-zinc-100 transition-colors group-hover:bg-zinc-200"
+                className="flex h-11 w-11 items-center justify-center rounded-[11px] border"
+                style={{ backgroundColor: palette.error.bg, borderColor: palette.error.border }}
               >
-                <item.icon className="h-5 w-5" style={{ color: "var(--brand-primary)" }} strokeWidth={1.75} aria-hidden="true" />
+                <item.icon className="h-5 w-5" style={{ color: palette.error.text }} strokeWidth={1.75} aria-hidden="true" />
               </div>
               <h3 className="mt-4 text-base font-semibold" style={{ color: "var(--fnb-ink)" }}>
                 {item.title}

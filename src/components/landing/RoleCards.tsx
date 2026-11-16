@@ -16,7 +16,7 @@ const roles = [
     title: "Quản lý chi nhánh",
     icon: Store,
     bullets: [
-      "Tạo quầy, máy in và ghép màn hình phía khách, màn hình gọi số",
+      "Tạo quầy, máy in và ghép màn hình phía khách",
       "Tra cứu đơn, xác nhận chuyển khoản lệch số tiền, huỷ đơn đã thanh toán kèm lý do",
       "Tạo tài khoản thu ngân và pha chế, bật tắt món theo chi nhánh",
     ],
