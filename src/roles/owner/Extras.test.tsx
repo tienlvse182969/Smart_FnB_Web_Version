@@ -58,6 +58,25 @@ describe("thư viện topping", () => {
     expect((await extrasApi.listExtras("c1")).find((x) => x.name === "Trân châu")?.price).toBe(5000);
   });
 
+  it("tải ảnh lỗi sau khi tạo: giữ topping đã lưu và thử lại không tạo trùng", async () => {
+    const create = vi.spyOn(extrasApi, "createExtra");
+    const upload = vi.spyOn(extrasApi, "uploadExtraImage").mockRejectedValueOnce(new Error("Không có mạng")).mockResolvedValueOnce({ id: "e1", name: "Trân châu", price: 5000, isActive: true, imageUrl: "/uploads/menu/extra.png" });
+    mountLibrary();
+    fireEvent.click(screen.getByTestId("extra-add"));
+    fireEvent.change(await screen.findByTestId("extra-name"), { target: { value: "Trân châu" } });
+    fireEvent.change(screen.getByTestId("extra-price"), { target: { value: "5000" } });
+    fireEvent.change(screen.getByLabelText("Ảnh topping"), { target: { files: [new File(["image"], "extra.png", { type: "image/png" })] } });
+    await act(async () => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Thêm topping" })));
+    expect(await screen.findByTestId("extra-upload-error")).toBeTruthy();
+    expect((await extrasApi.listExtras("c1")).filter((x) => x.name === "Trân châu")).toHaveLength(1);
+    const retry = await within(screen.getByRole("dialog")).findByRole("button", { name: /Thử lưu ảnh lại/ });
+    await waitFor(() => expect((retry as HTMLButtonElement).disabled).toBe(false));
+    await act(async () => fireEvent.click(retry));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
+
   it("tắt topping phải xác nhận; huỷ xác nhận thì không gọi API", async () => {
     await extrasApi.createExtra("c1", { name: "Trân châu", price: 5000 });
     const disable = vi.spyOn(extrasApi, "disableExtra");

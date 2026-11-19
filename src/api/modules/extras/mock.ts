@@ -35,6 +35,18 @@ const nameTaken = (library: MenuExtra[], name: string, exceptId?: string) =>
   library.some((x) => x.id !== exceptId && x.name.trim().toLowerCase() === name.trim().toLowerCase());
 
 export const extrasMock: ExtrasApi = {
+  async uploadExtraImage(chainId, id, file) {
+    assertMockWritable();
+    const extra = stateOf(chainId).library.find((x) => x.id === id);
+    if (!extra) throw new ApiError(404, "Extra not found in this chain");
+    extra.imageUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Không đọc được ảnh"));
+      reader.readAsDataURL(file);
+    });
+    return { ...extra };
+  },
   async listExtras(chainId) {
     await mockDelay();
     return [...stateOf(chainId).library].sort((a, b) => a.name.localeCompare(b.name)).map((x) => ({ ...x }));
@@ -59,7 +71,7 @@ export const extrasMock: ExtrasApi = {
     const index = state.library.findIndex((x) => x.id === id);
     if (index < 0) throw new ApiError(404, "Extra not found in this chain");
     if (nameTaken(state.library, input.name, id)) throw new ApiError(409, "An extra with this name already exists");
-    state.library[index] = { id, name: input.name.trim(), price: input.price, isActive: input.isActive };
+    state.library[index] = { ...state.library[index], id, name: input.name.trim(), price: input.price, isActive: input.isActive };
     return { ...state.library[index] };
   },
 

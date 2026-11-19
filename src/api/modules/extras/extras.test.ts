@@ -35,7 +35,7 @@ describe("quy tắc nhập topping (cùng ngưỡng BE)", () => {
 
 describe("ánh xạ", () => {
   it("giá chuỗi thập phân của BE → số nguyên; topping của món sắp theo displayOrder", () => {
-    expect(mapExtra({ id: "e1", name: "Trân châu", price: "5000.00", isActive: true })).toEqual({ id: "e1", name: "Trân châu", price: 5000, isActive: true });
+    expect(mapExtra({ id: "e1", name: "Trân châu", price: "5000.00", isActive: true })).toEqual({ id: "e1", name: "Trân châu", price: 5000, isActive: true, imageUrl: null });
     const out = mapItemExtras({
       id: "m1",
       maxExtras: 5,
@@ -72,6 +72,17 @@ describe("real — fetch giả, không gọi BE", () => {
     const out = await extrasReal.createExtra("c1", { name: " Trân châu ", price: 5000 });
     expect(calls(fn)[0]).toEqual({ path: "/restaurant-chains/c1/menu/extras", method: "POST", body: { name: "Trân châu", price: 5000 } });
     expect(out.price).toBe(5000);
+  });
+
+  it("tải ảnh topping bằng multipart và hiển thị đường dẫn ảnh từ máy chủ", async () => {
+    const fn = stub(json({ id: "e1", name: "Trân châu", price: "5000", isActive: true, imageUrl: "/uploads/menu/extra.png" }));
+    const file = new File(["image"], "extra.png", { type: "image/png" });
+    const result = await extrasReal.uploadExtraImage("c1", "e1", file);
+    const sent = calls(fn)[0];
+    expect(sent.path).toBe("/restaurant-chains/c1/menu/extras/e1/image");
+    expect(sent.method).toBe("POST");
+    expect((sent.body as FormData).get("file")).toBe(file);
+    expect(result.imageUrl).toMatch(/\/uploads\/menu\/extra\.png$/);
   });
 
   it("sửa: PUT đủ name, price, isActive; tắt: DELETE", async () => {

@@ -12,6 +12,11 @@ function assertValid(message: string | null): void {
 }
 
 export const extrasReal: ExtrasApi = {
+  async uploadExtraImage(chainId, id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return mapExtra(await request<RawExtra>(`${base(chainId)}/extras/${id}/image`, { method: "POST", body: form }));
+  },
   async listExtras(chainId) {
     return (await request<RawExtra[]>(`${base(chainId)}/extras`)).map(mapExtra);
   },
