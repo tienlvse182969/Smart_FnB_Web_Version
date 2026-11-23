@@ -11,6 +11,7 @@ import { showApiError } from "../api"
 import { ROUTE_FLAGS, type RouteFlags } from "../api/flags"
 import LandingPage from "../components/landing/LandingPage"
 import PrivacyPolicyPage from "../components/legal/PrivacyPolicyPage"
+import DownloadAppPage from "../components/landing/DownloadAppPage"
 import LoginScreen from "../auth/LoginScreen"
 import SetupPasswordScreen from "../auth/SetupPasswordScreen"
 import ActivationScreen from "../auth/ActivationScreen"
@@ -111,6 +112,8 @@ export function buildRoutes(flags: RouteFlags): RouteObject[] {
   // Công khai: link chính sách quyền riêng tư khai báo trên Google Play cho app Staff và Backscreen.
   { path: "/privacy", element: <PrivacyPolicyPage /> },
   { path: "/privacy-policy", element: <Navigate to="/privacy" replace /> },
+  // Công khai: giới thiệu app Android và link đăng ký kênh thử nghiệm khép kín trên Google Play.
+  { path: "/download", element: <DownloadAppPage /> },
   ...(flags.orderTracking ? [{ path: "/t/:token", element: <OrderTrackingScreen /> }] : []),
   roleArea("admin"),
   roleArea("platform-staff"),
