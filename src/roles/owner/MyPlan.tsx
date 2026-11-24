@@ -274,7 +274,16 @@ export default function MyPlan() {
     );
   }
 
+
   const fromBackend = plan.source.features === "real";
+  const isTrial = plan.planCode === "TRIAL";
+  const canManageNext = !isTrial && !!plan.planId && plan.status !== "suspended";
+  const hasMain = canManageNext || (isTrial && plan.status !== "suspended");
+  const daysLeft = plan.expiresAt ? Math.ceil((new Date(plan.expiresAt).getTime() - Date.now()) / 86_400_000) : null;
+  const payWindowClosed = !!nextPreview && new Date(nextPreview.currentPeriodEndsAt).getTime() - Date.now() > 7 * 86_400_000;
+
+  const tile = { border: `1px solid ${palette.line}`, borderRadius: 12, padding: "14px 16px", background: palette.surface, minWidth: 0 } as const;
+  const tileLabel = { fontSize: 12.5, color: palette.textMuted, marginBottom: 6 } as const;
 
   return (
     <div>
@@ -282,7 +291,7 @@ export default function MyPlan() {
         title="Gói dịch vụ"
         sub="Theo dõi thời hạn dùng thử, hạn mức và nâng cấp gói dịch vụ"
       />
-      <div style={{ display: "grid", gap: 16, maxWidth: 640 }}>
+      <div style={{ display: "grid", gap: 16, maxWidth: 1320 }}>
         {checkoutStatus && (
           <Alert
             showIcon
@@ -296,7 +305,7 @@ export default function MyPlan() {
             }
             message={
               checkoutStatus === "PAID"
-                ? plan.planCode === "TRIAL"
+                ? isTrial
                   ? "Thanh toán đã được PayOS xác nhận; gói trả phí đã kích hoạt."
                   : "Thanh toán đã được PayOS xác nhận. Gói và hạn mức kỳ tới áp dụng từ ngày bắt đầu kỳ mới."
                 : checkoutStatus === "NEEDS_REVIEW"
@@ -307,231 +316,273 @@ export default function MyPlan() {
             }
           />
         )}
-        <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 22 } }}>
-          <div
-            style={{
-              fontSize: 12.5,
-              color: palette.textMuted,
-              marginBottom: 4,
-            }}
-          >
-            Gói đang dùng
-          </div>
-          <div
-            data-testid="myplan-name"
-            style={{ fontWeight: 700, fontSize: 20, marginBottom: 14 }}
-          >
-            {plan.planName}
-          </div>
+
+        {/* Tổng quan: gói đang dùng, thời hạn và hạn mức trên cùng một hàng. */}
+        <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "120px 1fr",
-              rowGap: 8,
-              fontSize: 13.5,
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
             }}
           >
-            <span style={{ color: palette.textMuted }}>Trạng thái</span>
-            <span data-testid="myplan-status">
-              {plan.status ? (
-                <Tag color={STATUS_COLOR[plan.status]} style={{ margin: 0 }}>
-                  {STATUS_LABEL[plan.status]}
-                </Tag>
-              ) : (
-                "—"
-              )}
-            </span>
-            <span style={{ color: palette.textMuted }}>Hết hạn</span>
-            <span data-testid="myplan-expiry">
-              {formatDateVN(plan.expiresAt)}
-            </span>
-          </div>
-        </Card>
-
-        {plan.planCode !== "TRIAL" && plan.planId && plan.status !== "suspended" && <>
-          <Card title="Gói và mua thêm cho kỳ tới" style={{ borderRadius: 14 }}>
-            {nextAdapter && <NextPeriodPanel adapter={nextAdapter} catalog={paidPlans} onSaved={afterNextSaved} />}
-          </Card>
-          <Card title="Hóa đơn thuê bao" style={{ borderRadius: 14 }}>
-            {invoices.length === 0 ? <p>Chưa có hóa đơn. Hóa đơn kỳ tới được lập khi còn 7 ngày tới hạn.</p> : invoices.map((invoice) => <div key={invoice.id} style={{ borderBottom: `1px solid ${palette.line}`, padding: "10px 0" }}>
-              <strong>{invoice.planName}</strong> · {invoice.status === "PAID" ? "Đã thanh toán" : invoice.status === "CANCELLED" ? "Đã huỷ" : "Chưa thanh toán"}<br />
-              Kỳ {formatDateVN(invoice.periodStartsAt)} – {formatDateVN(invoice.periodEndsAt)}
-              {invoice.lines.map((line) => <div key={line.id ?? line.kind}>{line.description} × {line.quantity} · {formatVnd(line.unitPrice)} = {formatVnd(line.amount)}</div>)}
-              <strong>Tổng: {formatVnd(invoice.total)}</strong>
-            </div>)}
-            {nextPreview && !nextPreview.paidUpcoming && <Button type="primary" loading={checkoutPlanId !== null} disabled={new Date(nextPreview.currentPeriodEndsAt).getTime() - Date.now() > 7 * 86_400_000} onClick={() => void startCheckout(nextPreview.plan.id)} style={{ marginTop: 12 }}>Thanh toán kỳ tiếp theo qua PayOS · {formatVnd(nextPreview.total)}</Button>}
-          </Card>
-        </>}
-
-        {plan.planCode === "TRIAL" && plan.status !== "suspended" && (
-          <Card
-            title="Nâng cấp bất cứ lúc nào"
-            style={{ borderRadius: 14 }}
-            styles={{ body: { padding: 22 } }}
-          >
-            <p style={{ color: palette.textMuted, marginTop: 0 }}>
-              Bạn không cần chờ hết 14 ngày. Sau khi PayOS xác nhận thanh toán,
-              gói trả phí bắt đầu ngay và phần ngày dùng thử còn lại sẽ không
-              được cộng dồn.
-            </p>
-            {loadingPlans ? (
-              <Skeleton active paragraph={{ rows: 2 }} />
-            ) : paidPlans.length === 0 ? (
-              <p>Hiện chưa có gói trả phí để chọn.</p>
-            ) : (
+            <div style={{ ...tile, background: palette.paperSubtle }}>
+              <div style={tileLabel}>Gói đang dùng</div>
               <div
-                style={{
-                  display: "grid",
-                  gap: 12,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                }}
+                data-testid="myplan-name"
+                style={{ fontWeight: 700, fontSize: 20, lineHeight: "26px", marginBottom: 8, overflowWrap: "anywhere" }}
               >
-                {paidPlans.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      border: `1px solid ${palette.neutral.border}`,
-                      borderRadius: 12,
-                      padding: 16,
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>
-                      {item.name}
-                    </div>
-                    <div style={{ marginTop: 8, fontWeight: 700 }}>
-                      {formatVnd(item.monthlyPrice)} / tháng
-                    </div>
-                    <div
-                      style={{ margin: "8px 0 16px", color: palette.textMuted }}
-                    >
-                      {item.maxBranches} chi nhánh · {item.maxAccounts} tài
-                      khoản
-                    </div>
-                    <Button
-                      type="primary"
-                      block
-                      loading={checkoutPlanId === item.id}
-                      disabled={
-                        checkoutPlanId !== null && checkoutPlanId !== item.id
-                      }
-                      onClick={() => void startCheckout(item.id)}
-                    >
-                      Thanh toán nâng cấp
-                    </Button>
-                  </div>
-                ))}
+                {plan.planName}
               </div>
-            )}
-          </Card>
-        )}
+              <span data-testid="myplan-status">
+                {plan.status ? (
+                  <Tag color={STATUS_COLOR[plan.status]} style={{ margin: 0 }}>
+                    {STATUS_LABEL[plan.status]}
+                  </Tag>
+                ) : (
+                  "—"
+                )}
+              </span>
+            </div>
 
-        <Card
-          title="Hạn mức"
-          style={{ borderRadius: 14 }}
-          styles={{ body: { padding: 22 } }}
-        >
+            <div style={tile}>
+              <div style={tileLabel}>Hết hạn</div>
+              <div data-testid="myplan-expiry" style={{ fontWeight: 700, fontSize: 20, lineHeight: "26px", marginBottom: 8 }}>
+                {formatDateVN(plan.expiresAt)}
+              </div>
+              {daysLeft !== null && (
+                <div style={{ fontSize: 13, color: daysLeft <= 7 ? palette.warning.text : palette.textMuted }}>
+                  {daysLeft > 0 ? `Còn ${daysLeft} ngày` : "Đã đến hạn"}
+                  {isTrial ? " dùng thử" : ""}
+                </div>
+              )}
+            </div>
+
+            {plan.limits.length === 0 ? (
+              <div style={tile}>
+                <div style={tileLabel}>Hạn mức</div>
+                <div style={{ fontSize: 13.5, color: palette.textMuted }}>Chưa có dữ liệu hạn mức.</div>
+              </div>
+            ) : (
+              plan.limits.map((l) => {
+                const full = l.limit > 0 && l.used >= l.limit;
+                const percent = l.limit > 0 ? Math.min(100, Math.round((l.used / l.limit) * 100)) : 0;
+                return (
+                  <div key={l.resource} data-testid={`myplan-limit-${l.resource}`} style={tile}>
+                    <div style={{ ...tileLabel, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span>{RESOURCE_LABEL[l.resource]}</span>
+                      {full && (
+                        <Tag
+                          data-testid={`myplan-limit-warn-${l.resource}`}
+                          color="warning"
+                          style={{ margin: 0 }}
+                        >
+                          {l.used > l.limit ? "Vượt hạn mức" : "Đã hết hạn mức"}
+                        </Tag>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: palette.textMuted }}>
+                      Đã dùng{" "}
+                      <span style={{ fontSize: 20, lineHeight: "26px", fontWeight: 700, color: palette.ink }}>
+                        {l.used} / {l.limit}
+                      </span>
+                    </div>
+                    <Progress percent={percent} showInfo={false} size="small" status={full ? "exception" : "normal"} style={{ margin: "6px 0 0" }} />
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           {plan.activeAddons && (
-            <div data-testid="myplan-active-addons" style={{ fontSize: 13, color: palette.textMuted, marginBottom: 12 }}>
+            <div
+              data-testid="myplan-active-addons"
+              style={{ fontSize: 13, color: palette.textMuted, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${palette.line}` }}
+            >
               Mua thêm đang có hiệu lực: {plan.activeAddons.extraBranches} chi nhánh, {plan.activeAddons.accountPacks} gói 5 tài khoản.
               {plan.accountUsage && ` Tài khoản đã dùng gồm ${plan.accountUsage.owners} Brand Manager, ${plan.accountUsage.employees} nhân viên (có ${plan.accountUsage.pendingInvitations} lời mời đang chờ).`}
               {plan.paidUpcomingStartsAt && ` Kỳ tới đã thanh toán; hạn mức mới chỉ áp dụng từ ${formatDateVN(plan.paidUpcomingStartsAt)}.`}
             </div>
           )}
-          {plan.limits.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: palette.textMuted }}>
-              Chưa có dữ liệu hạn mức.
-            </div>
-          ) : (
-            plan.limits.map((l) => {
-              const full = l.limit > 0 && l.used >= l.limit;
+        </Card>
 
-              const percent =
-                l.limit > 0
-                  ? Math.min(100, Math.round((l.used / l.limit) * 100))
-                  : 0;
+        <div className={hasMain ? "myplan-grid" : "myplan-grid myplan-grid--single"}>
+          {/* Cột chính: việc cần làm (đăng ký kỳ tới hoặc nâng cấp từ dùng thử). */}
+          {hasMain && <div style={{ minWidth: 0 }}>
+            {canManageNext && (
+              <Card title="Gói và mua thêm cho kỳ tới" style={{ borderRadius: 14 }}>
+                {nextAdapter && <NextPeriodPanel adapter={nextAdapter} catalog={paidPlans} onSaved={afterNextSaved} />}
+              </Card>
+            )}
 
-              return (
-                <div
-                  key={l.resource}
-                  data-testid={`myplan-limit-${l.resource}`}
-                  style={{ marginBottom: 14 }}
-                >
+            {isTrial && plan.status !== "suspended" && (
+              <Card
+                title="Nâng cấp bất cứ lúc nào"
+                style={{ borderRadius: 14 }}
+                styles={{ body: { padding: 22 } }}
+              >
+                <p style={{ color: palette.textMuted, marginTop: 0 }}>
+                  Bạn không cần chờ hết 14 ngày. Sau khi PayOS xác nhận thanh toán,
+                  gói trả phí bắt đầu ngay và phần ngày dùng thử còn lại sẽ không
+                  được cộng dồn.
+                </p>
+                {loadingPlans ? (
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                ) : paidPlans.length === 0 ? (
+                  <p>Hiện chưa có gói trả phí để chọn.</p>
+                ) : (
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 13.5,
-                      marginBottom: 4,
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                     }}
                   >
-                    <span style={{ fontWeight: 600 }}>
-                      {RESOURCE_LABEL[l.resource]}
-                    </span>
-                    <span>
-                      Đã dùng {l.used} / {l.limit}
-                      {full && (
-                        <Tag
-                          data-testid={`myplan-limit-warn-${l.resource}`}
-                          color="warning"
-                          style={{ marginLeft: 8, marginRight: 0 }}
+                    {paidPlans.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          border: `1px solid ${palette.neutral.border}`,
+                          borderRadius: 12,
+                          padding: 16,
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{item.name}</div>
+                        <div style={{ marginTop: 8, fontWeight: 700, fontSize: 18 }}>
+                          {formatVnd(item.monthlyPrice)}
+                          <span style={{ fontSize: 13, fontWeight: 500, color: palette.textMuted }}> / tháng</span>
+                        </div>
+                        <div style={{ margin: "8px 0 16px", color: palette.textMuted, flex: 1 }}>
+                          {item.maxBranches} chi nhánh · {item.maxAccounts} tài khoản
+                        </div>
+                        <Button
+                          type="primary"
+                          block
+                          loading={checkoutPlanId === item.id}
+                          disabled={checkoutPlanId !== null && checkoutPlanId !== item.id}
+                          onClick={() => void startCheckout(item.id)}
                         >
-                          {l.used > l.limit ? "Vượt hạn mức" : "Đã hết hạn mức"}
-                        </Tag>
-                      )}
-                    </span>
+                          Thanh toán nâng cấp
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                  <Progress
-                    percent={percent}
-                    showInfo={false}
-                    status={full ? "exception" : "normal"}
-                  />
-                </div>
-              );
-            })
-          )}
-        </Card>
-
-        <Card
-          title="Tính năng"
-          style={{ borderRadius: 14 }}
-          styles={{ body: { padding: 22 } }}
-        >
-          {(Object.keys(FEATURE_LABEL) as FeatureKey[]).map((key) => {
-            const pending = fromBackend && !BACKEND_FLAGS.includes(key);
-
-            const enabled = plan.features[key].enabled;
-
-            return (
-              <div
-                key={key}
-                data-testid={`myplan-feature-${key}`}
-                data-enabled={pending ? "unknown" : String(enabled)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  fontSize: 13.5,
-                  marginBottom: 10,
-                }}
-              >
-                {pending ? null : enabled ? (
-                  <Check size={16} color={palette.success.text} />
-                ) : (
-                  <X size={16} color={palette.textSubtle} />
                 )}
-                <span style={{ fontWeight: 600 }}>{FEATURE_LABEL[key]}</span>
-                <span style={{ color: palette.textMuted }}>
-                  {pending
-                    ? "Chưa có dữ liệu từ máy chủ (chờ BE #30)"
-                    : enabled
-                      ? "Có"
-                      : "Chưa có"}
-                </span>
-              </div>
-            );
-          })}
-        </Card>
+              </Card>
+            )}
+          </div>}
 
+          {/* Cột phụ: hoá đơn và tính năng của gói. */}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "grid", gap: 16 }}>
+              {canManageNext && (
+                <Card title="Hóa đơn thuê bao" style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
+                  {invoices.length === 0 ? (
+                    <div style={{ fontSize: 13.5, color: palette.textMuted }}>
+                      Chưa có hóa đơn. Hóa đơn kỳ tới được lập khi còn 7 ngày tới hạn.
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {invoices.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          style={{ border: `1px solid ${palette.line}`, borderRadius: 10, padding: "12px 14px" }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <strong style={{ overflowWrap: "anywhere" }}>{invoice.planName}</strong>
+                            <Tag
+                              color={invoice.status === "PAID" ? "success" : invoice.status === "CANCELLED" ? "default" : "warning"}
+                              style={{ margin: 0 }}
+                            >
+                              {invoice.status === "PAID" ? "Đã thanh toán" : invoice.status === "CANCELLED" ? "Đã huỷ" : "Chưa thanh toán"}
+                            </Tag>
+                          </div>
+                          <div style={{ fontSize: 12.5, color: palette.textMuted, margin: "4px 0 8px" }}>
+                            Kỳ {formatDateVN(invoice.periodStartsAt)} – {formatDateVN(invoice.periodEndsAt)}
+                          </div>
+                          {invoice.lines.map((line) => (
+                            <div
+                              key={line.id ?? line.kind}
+                              style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "2px 0" }}
+                            >
+                              <span style={{ color: palette.textMuted }}>
+                                {line.description} × {line.quantity} · {formatVnd(line.unitPrice)}
+                              </span>
+                              <span style={{ whiteSpace: "nowrap" }}>{formatVnd(line.amount)}</span>
+                            </div>
+                          ))}
+                          <div
+                            style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${palette.line}` }}
+                          >
+                            <span>Tổng</span>
+                            <span>{formatVnd(invoice.total)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {nextPreview && !nextPreview.paidUpcoming && (
+                    <>
+                      <Button
+                        type="primary"
+                        block
+                        loading={checkoutPlanId !== null}
+                        disabled={payWindowClosed}
+                        onClick={() => void startCheckout(nextPreview.plan.id)}
+                        style={{ marginTop: 14 }}
+                      >
+                        Thanh toán kỳ tiếp theo · {formatVnd(nextPreview.total)}
+                      </Button>
+                      {payWindowClosed && (
+                        <div style={{ fontSize: 12, color: palette.textMuted, marginTop: 6, textAlign: "center" }}>
+                          Mở thanh toán qua PayOS khi còn 7 ngày tới hạn.
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Card>
+              )}
+
+              <Card title="Tính năng" style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
+                {(Object.keys(FEATURE_LABEL) as FeatureKey[]).map((key, index) => {
+                  const pending = fromBackend && !BACKEND_FLAGS.includes(key);
+                  const enabled = plan.features[key].enabled;
+                  return (
+                    <div
+                      key={key}
+                      data-testid={`myplan-feature-${key}`}
+                      data-enabled={pending ? "unknown" : String(enabled)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        fontSize: 13.5,
+                        padding: "10px 0",
+                        borderTop: index ? `1px solid ${palette.line}` : undefined,
+                      }}
+                    >
+                      {pending ? null : enabled ? (
+                        <Check size={16} color={palette.success.text} />
+                      ) : (
+                        <X size={16} color={palette.textSubtle} />
+                      )}
+                      <span style={{ fontWeight: 600, flex: 1 }}>{FEATURE_LABEL[key]}</span>
+                      <span style={{ color: palette.textMuted }}>
+                        {pending
+                          ? "Chưa có dữ liệu từ máy chủ (chờ BE #30)"
+                          : enabled
+                            ? "Có"
+                            : "Chưa có"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -101,3 +101,6 @@ meter { -webkit-appearance: none; appearance: none; height: 10px; border-radius:
 meter::-webkit-meter-bar { background: var(--fnb-line); border: 0; border-radius: 6px; height: 10px; }
 meter::-webkit-meter-optimum-value, meter::-webkit-meter-suboptimum-value, meter::-webkit-meter-even-less-good-value { background: var(--brand-chart); border-radius: 6px; }
 meter::-moz-meter-bar { background: var(--brand-chart); border-radius: 6px; }
+.myplan-grid { display: grid; gap: 16px; align-items: start; grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); }
+.myplan-grid--single { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1180px) { .myplan-grid { grid-template-columns: minmax(0, 1fr); } }
