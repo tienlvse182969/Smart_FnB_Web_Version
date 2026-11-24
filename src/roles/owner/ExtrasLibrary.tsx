@@ -4,6 +4,7 @@ import { CirclePlus, Image as ImageIcon, Pencil, Plus } from "lucide-react";
 import type { MenuExtra } from "../../types";
 import { describeApiError, extrasApi, showApiError } from "../../api";
 import { MAX_EXTRA_NAME, validateExtra } from "../../api/modules/extras/rules";
+import ImageUploadField from "../../components/ImageUploadField";
 import MoneyInput from "../../components/MoneyInput";
 import { EmptyState, PageHeader } from "../../components/bits";
 import { money } from "../../data";
@@ -191,7 +192,6 @@ function ExtraModal({
   const [price, setPrice] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [savedDetails, setSavedDetails] = useState<{ id: string; name: string; price: number } | null>(null);
   const [uploadError, setUploadError] = useState(false);
 
@@ -203,13 +203,6 @@ function ExtraModal({
     setSavedDetails(null);
     setUploadError(false);
   }, [target, existing]);
-
-  useEffect(() => {
-    if (!imageFile) { setPreview(null); return; }
-    const url = URL.createObjectURL(imageFile);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [imageFile]);
 
   const dirty = !!target && (name !== (savedDetails?.name ?? existing?.name ?? "") || price !== (savedDetails?.price ?? existing?.price ?? null) || !!imageFile);
   useUnsavedGuard(dirty);
@@ -285,18 +278,14 @@ function ExtraModal({
         <MoneyInput value={price} onChange={setPrice} data-testid="extra-price" />
       </div>
       <div>
-        <label htmlFor="extra-image" style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>Ảnh topping</label>
-        {(preview || existing?.imageUrl) && <img src={preview || existing?.imageUrl || undefined} alt="Ảnh xem trước topping" style={{ display: "block", width: 72, height: 72, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
-        <input id="extra-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (!file) return;
-          if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { message.error("Chỉ chọn ảnh JPEG, PNG hoặc WebP"); return; }
-          if (file.size > 5 * 1024 * 1024) { message.error("Ảnh không được vượt quá 5 MB"); return; }
-          setImageFile(file);
-        }} />
-        {imageFile && <ActionButton size="small" onClick={() => setImageFile(null)}>Bỏ chọn</ActionButton>}
-        <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 6 }}>JPEG, PNG hoặc WebP · tối đa 5 MB. Ảnh được tải lên khi lưu topping.</div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: palette.textMuted, marginBottom: 6 }}>Ảnh topping</div>
+        <ImageUploadField
+          label="Ảnh topping"
+          file={imageFile}
+          onFileChange={setImageFile}
+          currentUrl={existing?.imageUrl ?? null}
+          hint="JPEG, PNG hoặc WebP · tối đa 5 MB. Ảnh được tải lên khi lưu topping."
+        />
       </div>
     </Modal>
   );

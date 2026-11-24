@@ -1,7 +1,7 @@
 /**
  * Module combos — combo và combo biến thể (OW-14), gán combo cho chi nhánh (OW-04). Mục 26, BR-77, BR-78, BR-12.
  * Real: BE `combos.controller.ts` (`/restaurant-chains/:chainId/combos`), chỉ OWNER. Giá riêng theo chi nhánh (OW-16) ở module `branchPrices`.
- * BE chưa có API tải ảnh combo (chỉ món và logo có): web không đặt ảnh combo, không gửi `imageUrl`, giữ nguyên ảnh đã có.
+ * Ảnh combo: tải từ máy qua `uploadComboImage` (`POST …/combos/:id/image`, JPEG/PNG/WebP ≤ 5 MB) hoặc dán URL qua `imageUrl`.
  */
 import type { Combo, ComboInput, ComboPatch } from "../../../types";
 import { defineApi } from "../../define";
@@ -19,6 +19,8 @@ export interface CombosApi {
   deleteCombo(chainId: string, id: string): Promise<void>;
   /** Thay tập chi nhánh bán combo; chi nhánh bỏ ra bị tắt, giá riêng của chi nhánh được giữ. */
   setComboBranches(chainId: string, id: string, branchIds: string[]): Promise<void>;
+  /** Tải ảnh combo (multipart `file`); BE thay ảnh cũ đã tải lên. 400 sai định dạng hoặc quá 5 MB. */
+  uploadComboImage(chainId: string, id: string, file: File): Promise<Combo>;
 }
 
 export const combosApi = defineApi<CombosApi>("combos", { real: combosReal, mock: combosMock });

@@ -83,12 +83,58 @@ describe("trình soạn combo", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const sent = create.mock.calls[0][1];
     expect(sent).toMatchObject({ name: "Combo Sáng", categoryId: "cat", price: 39000 });
-    expect(sent).not.toHaveProperty("imageUrl"); // BE chưa có API tải ảnh combo: web không đặt ảnh
-    expect(screen.queryByText(/Ảnh combo/)).toBeNull();
+    expect(sent).not.toHaveProperty("imageUrl"); // không chọn ảnh, không dán URL: không gửi imageUrl
+    expect(screen.getByText("Tải ảnh từ máy")).toBeTruthy();
     expect(sent.components.map((c) => [c.type, c.name, c.choices[0].menuItemId])).toEqual([
       ["FIXED", "Bánh mì thịt", "a"],
       ["FIXED", "Cà phê sữa", "b"],
     ]);
+  });
+
+  it("ảnh combo từ máy: tải lên sau khi tạo; tải lỗi thì lần Lưu sau sửa combo đã tạo, không tạo thêm", async () => {
+    const create = vi.spyOn(combosApi, "createCombo");
+    const update = vi.spyOn(combosApi, "updateCombo");
+    const upload = vi.spyOn(combosApi, "uploadComboImage").mockRejectedValueOnce(new Error("Không có mạng"));
+    const onSaved = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AntApp>
+        <ComboEditor target="new" categories={categories} items={items} onClose={() => undefined} onSaved={onSaved} />
+      </AntApp>,
+    );
+    fireEvent.change(screen.getByTestId("combo-name"), { target: { value: "Combo Ảnh" } });
+    fireEvent.change(screen.getByTestId("combo-price"), { target: { value: "39000" } });
+    await pick(screen.getByLabelText("Món 1 của thành phần 1"), "Bánh mì thịt · 25.000 ₫");
+    await pick(screen.getByLabelText("Món 1 của thành phần 2"), "Cà phê sữa · 30.000 ₫");
+    const file = new File(["image"], "combo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Ảnh combo"), { target: { files: [file] } });
+    expect(screen.getByText("Đổi ảnh")).toBeTruthy();
+
+    await waitFor(() => expect((screen.getByTestId("combo-save") as HTMLButtonElement).disabled).toBe(false));
+    await act(async () => fireEvent.click(screen.getByTestId("combo-save")));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][1]).not.toHaveProperty("imageUrl");
+    const createdId = (await create.mock.results[0].value).id;
+    expect(upload.mock.calls[0][1]).toBe(createdId);
+
+    await act(async () => fireEvent.click(screen.getByTestId("combo-save")));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][1]).toBe(createdId);
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect((await combosApi.listCombos("c1"))[0].imageUrl).toMatch(/^data:image\/png/);
+  });
+
+  it("từ chối tệp không phải JPEG/PNG/WebP", async () => {
+    render(
+      <AntApp>
+        <ComboEditor target="new" categories={categories} items={items} onClose={() => undefined} onSaved={vi.fn()} />
+      </AntApp>,
+    );
+    fireEvent.change(screen.getByLabelText("Ảnh combo"), { target: { files: [new File(["x"], "a.gif", { type: "image/gif" })] } });
+    expect(await screen.findByText("Chỉ chọn ảnh JPEG, PNG hoặc WebP")).toBeTruthy();
+    expect(screen.queryByText("Đổi ảnh")).toBeNull();
   });
 
   it("nhóm biến thể: món mặc định luôn đúng một; gỡ món mặc định thì món đầu còn lại thành mặc định; tối thiểu 2 món", async () => {

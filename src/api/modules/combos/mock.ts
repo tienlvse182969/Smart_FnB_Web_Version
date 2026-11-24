@@ -81,6 +81,19 @@ export const combosMock: CombosApi = {
     list.splice(index, 1);
   },
 
+  async uploadComboImage(chainId, id, file) {
+    assertMockWritable();
+    const combo = listOf(chainId).find((c) => c.id === id);
+    if (!combo) throw new ApiError(404, "Combo not found");
+    combo.imageUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Không đọc được ảnh"));
+      reader.readAsDataURL(file);
+    });
+    return copy(combo);
+  },
+
   async setComboBranches(chainId, id, branchIds) {
     await mockDelay();
     assertMockWritable();

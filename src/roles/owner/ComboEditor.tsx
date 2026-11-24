@@ -18,6 +18,7 @@ import {
   disabledChoiceItems,
   retailTotal,
 } from "../../api/modules/combos/rules";
+import ImageUploadField from "../../components/ImageUploadField";
 import MoneyInput from "../../components/MoneyInput";
 import BranchPriceNote from "./BranchPriceNote";
 import { money } from "../../data";
@@ -64,7 +65,7 @@ interface Props {
 /**
  * OW-14 (mục 26, BR-77): soạn combo — thông tin chung, 2–6 thành phần (món cố định hoặc nhóm biến thể 2–10 món, mỗi món một phụ thu và đúng
  * một món mặc định), size cố định chỉ trong size của món, không chọn combo làm thành phần. Hiện so sánh giá combo với mua lẻ (theo giá chuỗi)
- * và cảnh báo món thành phần đang tắt cấp chuỗi. Không có trường ảnh: BE chưa có API tải ảnh combo (xem Record of Changes); ảnh đã có của combo được giữ nguyên.
+ * và cảnh báo món thành phần đang tắt cấp chuỗi. Ảnh combo giống ảnh món: tải từ máy (lên sau khi lưu combo) hoặc dán URL.
  */
 export default function ComboEditor({ target, categories, items, onClose, onSaved }: Props) {
   const { message, modal } = App.useApp();
@@ -78,14 +79,18 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
   const [price, setPrice] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  /** Combo mới đã tạo nhưng ảnh chưa tải lên được: lần Lưu sau sửa combo này, không tạo thêm. */
+  const [createdCombo, setCreatedCombo] = useState<Combo | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialKey, setInitialKey] = useState("");
   /** Size của từng món (nhóm SIZE đang bật), nạp khi món được chọn. */
   const [sizes, setSizes] = useState<Map<string, { code: string; name: string }[]>>(new Map());
   const requested = useRef(new Set<string>());
 
-  const snapshot = (parts: { categoryId?: string; name: string; description: string; price: number | null; isActive: boolean; drafts: Draft[] }) =>
-    JSON.stringify([parts.categoryId, parts.name, parts.description, parts.price, parts.isActive, parts.drafts.map(({ key: _k, ...c }) => c)]);
+  const snapshot = (parts: { categoryId?: string; name: string; description: string; price: number | null; isActive: boolean; imageUrl: string; drafts: Draft[] }) =>
+    JSON.stringify([parts.categoryId, parts.name, parts.description, parts.price, parts.isActive, parts.imageUrl.trim(), parts.drafts.map(({ key: _k, ...c }) => c)]);
 
   useEffect(() => {
     if (!target) return;
@@ -95,6 +100,7 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       description: existing?.description ?? "",
       price: existing?.price ?? null,
       isActive: existing?.isActive ?? true,
+      imageUrl: existing?.imageUrl ?? "",
       drafts: toDrafts(existing),
     };
     setCategoryId(start.categoryId);
@@ -102,6 +108,9 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
     setDescription(start.description);
     setPrice(start.price);
     setIsActive(start.isActive);
+    setImageUrl(start.imageUrl);
+    setImageFile(null);
+    setCreatedCombo(null);
     setDrafts(start.drafts);
     setInitialKey(snapshot(start));
     // Chỉ khởi tạo lại khi mở một combo khác.
@@ -137,7 +146,7 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
 
   const components = useMemo(() => toComponents(drafts, items), [drafts, items]);
   const problems = comboProblems({ name, categoryId: categoryId ?? "", price: price ?? Number.NaN, components, description });
-  const dirty = !!target && snapshot({ categoryId, name, description, price, isActive, drafts }) !== initialKey;
+  const dirty = !!target && (snapshot({ categoryId, name, description, price, isActive, imageUrl, drafts }) !== initialKey || !!imageFile);
   useUnsavedGuard(dirty);
 
   const itemPrice = (id: string) => items.find((x) => x.id === id)?.price;
@@ -165,13 +174,24 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
   const save = async () => {
     if (!chainId || saving || problems.length || price === null || !categoryId) return;
     setSaving(true);
+    let wasCreated = !!createdCombo;
     try {
       const common = { categoryId, name: name.trim(), description: description.trim() || null, price, isActive, components };
-      if (existing) await combosApi.updateCombo(chainId, existing.id, common);
-      else await combosApi.createCombo(chainId, common);
+      const current = existing ?? createdCombo;
+      // URL ảnh chỉ gửi khi đổi và không chọn tệp; ảnh từ máy tải lên sau khi combo đã có id.
+      const nextUrl = imageUrl.trim();
+      const urlPatch = !imageFile && nextUrl !== (current?.imageUrl ?? "") ? { imageUrl: nextUrl || null } : {};
+      let saved: Combo;
+      if (current) saved = await combosApi.updateCombo(chainId, current.id, { ...common, ...urlPatch });
+      else {
+        saved = await combosApi.createCombo(chainId, { ...common, ...urlPatch });
+        setCreatedCombo(saved);
+        wasCreated = true;
+      }
+      if (imageFile) await combosApi.uploadComboImage(chainId, saved.id, imageFile);
       await onSaved(existing ? "Đã cập nhật combo" : "Đã tạo combo — mặc định bán ở mọi chi nhánh đang hoạt động");
     } catch (err) {
-      showApiError(message.error, err, "Không lưu được combo");
+      showApiError(message.error, err, wasCreated ? "Combo đã tạo nhưng chưa tải được ảnh; bấm Lưu combo để thử lại" : "Không lưu được combo");
     } finally {
       setSaving(false);
     }
@@ -211,6 +231,16 @@ export default function ComboEditor({ target, categories, items, onClose, onSave
       </Field>
       <Field label="Mô tả">
         <Input.TextArea value={description} maxLength={MAX_COMBO_DESCRIPTION} rows={2} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <Field label="Ảnh combo">
+        <ImageUploadField
+          label="Ảnh combo"
+          file={imageFile}
+          onFileChange={setImageFile}
+          url={imageUrl}
+          onUrlChange={setImageUrl}
+          hint="JPEG, PNG hoặc WebP · tối đa 5 MB. Ảnh được tải lên khi bấm Lưu combo."
+        />
       </Field>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <Switch size="small" checked={isActive} onChange={setIsActive} aria-label="Kinh doanh combo" />

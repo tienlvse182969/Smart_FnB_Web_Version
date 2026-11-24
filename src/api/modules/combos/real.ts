@@ -33,7 +33,7 @@ function body(input: Partial<ComboInput>): Record<string, unknown> {
   if (input.categoryId !== undefined) out.categoryId = input.categoryId;
   if (input.name !== undefined) out.name = input.name.trim();
   if (input.description !== undefined) out.description = input.description?.trim() ? input.description.trim() : null;
-  // Web không đặt ảnh combo (BE chưa có API tải ảnh): chỉ gửi imageUrl nếu nơi gọi truyền.
+  // Chỉ gửi imageUrl khi nơi gọi đổi URL ảnh; ảnh từ máy đi qua `uploadComboImage`.
   if (input.imageUrl !== undefined) out.imageUrl = input.imageUrl?.trim() ? input.imageUrl.trim() : null;
   if (input.price !== undefined) out.price = input.price;
   if (input.isActive !== undefined) out.isActive = input.isActive;
@@ -42,6 +42,12 @@ function body(input: Partial<ComboInput>): Record<string, unknown> {
 }
 
 export const combosReal: CombosApi = {
+  async uploadComboImage(chainId, id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return mapCombo(await request<RawCombo>(`${base(chainId)}/${id}/image`, { method: "POST", body: form }));
+  },
+
   async listCombos(chainId) {
     return (await request<RawCombo[]>(base(chainId))).map(mapCombo);
   },
