@@ -93,8 +93,28 @@ body {
 .sb-selected:focus-visible { outline-color: var(--brand-active-ink); }
 .sb-badge { flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--fnb-surface); color: var(--brand-active-ink); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
 .sb-selected .sb-badge { background: var(--brand-active-ink); color: var(--fnb-surface); }
-.sb-tag { flex-shrink: 0; padding: 0 6px; border-radius: 6px; border: 1px solid var(--brand-rule); font-size: 11px; font-weight: 700; line-height: 18px; }
+.sb-tag { flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--brand-rule); font-size: 11px; font-weight: 700; line-height: 18px; }
+.sb-tag-icon { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { .sb-chevron { transition: none; } }
+/* Hiệu ứng AI đang xử lý (SparkleGlow): vầng sáng cầu vồng xoay + nhịp thở quanh icon Sparkles. */
+.sparkle-glow { position: relative; margin: 0 auto 18px; }
+.sparkle-glow__aura {
+  position: absolute; inset: -16%; border-radius: 40%; pointer-events: none;
+  background: conic-gradient(from 0deg, #f472b6, #fbbf24, #4ade80, #38bdf8, #a78bfa, #f472b6);
+  filter: blur(10px);
+  animation: sparkle-glow-spin 6s linear infinite, sparkle-glow-pulse 2.4s ease-in-out infinite;
+}
+.sparkle-glow__tile {
+  position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+}
+.sparkle-glow__icon { color: #fff; animation: sparkle-glow-icon-spin 3.2s linear infinite; }
+@keyframes sparkle-glow-spin { to { rotate: 360deg; } }
+@keyframes sparkle-glow-pulse { 0%, 100% { opacity: .5; scale: 1; } 50% { opacity: .9; scale: 1.08; } }
+@keyframes sparkle-glow-icon-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .sparkle-glow__aura { animation: none; opacity: .7; }
+  .sparkle-glow__icon { animation: none; }
+}
 /* Màu nhấn (mục 10): thanh tỷ trọng/so sánh trong báo cáo dùng <progress>/<meter> gốc. */
 progress { accent-color: var(--brand-chart); height: 10px; }
 meter { -webkit-appearance: none; appearance: none; height: 10px; border-radius: 6px; background: var(--fnb-line); }
