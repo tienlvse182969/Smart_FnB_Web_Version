@@ -16,10 +16,10 @@ it("dates MRR at the period end and shows trial conversion by start month (30.4)
     summary: {
       revenue: 798000, invoiceCount: 2, mrr: 549000, mrrAt: "2026-10-31T16:59:59.999Z", paidBusinesses: 2, trialBusinesses: 1,
       expiredBusinesses: 0, suspendedBusinesses: 0, trialConversionRate: 1 / 3, trialStarted: 3, trialConverted: 1, trialInProgress: 1,
-      unpaidInvoices: 0, reviewInvoices: 0, outstandingAmount: 0, manualRenewals: 0,
+      unpaidInvoices: 0, reviewInvoices: 0, outstandingAmount: 0, manualRenewals: 2,
     },
     series: [{ period: "2026-10", revenue: 798000, invoiceCount: 2 }],
-    plans: [],
+    plans: [{ planId: "basic", planName: "Cơ bản", revenue: 299000, invoiceCount: 1 }, { planId: "std", planName: "Tiêu chuẩn", revenue: 499000, invoiceCount: 1 }],
     trialCohorts: [{ month: "2026-10", started: 3, converted: 1, inTrial: 1, conversionRate: 1 / 3, settledConversionRate: 0.5 }],
   };
   vi.spyOn(adminAnalyticsApi, "revenue")
@@ -30,15 +30,22 @@ it("dates MRR at the period end and shows trial conversion by start month (30.4)
   expect(screen.getByText("1/3 bắt đầu dùng thử trong kỳ · 1 còn đang dùng thử")).toBeTruthy();
   const cohorts = await screen.findByTestId("trial-cohorts");
   await waitFor(() => expect(cohorts.textContent).toContain("10/2026"));
-  expect(cohorts.textContent).toContain("33,3%");
+  // Bảng gọn: một cột tỷ lệ, tính trên nhóm đã hết dùng thử (1/2 = 50%).
   expect(cohorts.textContent).toContain("50%");
+  expect(cohorts.textContent).not.toContain("33,3%");
+  // Doanh thu theo gói: một bảng có cột tỷ trọng, không lặp thêm thanh.
+  const byPlan = screen.getByTestId("revenue-by-plan");
+  expect(byPlan.textContent).toContain("62,5%");
+  expect(byPlan.querySelector("[data-testid=share-bar]")).toBeNull();
+  // Gia hạn thủ công thành ghi chú của thẻ thực thu.
+  expect(screen.getByText("2 hoá đơn đã trả · không gồm 2 kỳ gia hạn thủ công")).toBeTruthy();
   // Thực thu so với kỳ trước: 798k vs 399k.
   await waitFor(() => expect(screen.getAllByTestId("stat-delta")[0].textContent).toContain("+100%"));
   const [current, before] = vi.mocked(adminAnalyticsApi.revenue).mock.calls.map((c) => c[0]);
   expect(before.groupBy).toBe(current.groupBy);
   expect(before.to! < current.from!).toBe(true);
-  // "Hết hạn" và "Tạm ngưng" là hai thẻ riêng.
-  expect(screen.getByText("Hết hạn")).toBeTruthy();
-  expect(screen.getByText("Tạm ngưng")).toBeTruthy();
-  expect(screen.queryByText("Hết hạn / tạm ngưng")).toBeNull();
+  // Chỉ còn 3 thẻ số theo kỳ; số "hiện tại" đã chuyển sang Tổng quan.
+  expect(screen.getAllByTestId("stat-delta").length).toBe(2);
+  for (const moved of ["Hết hạn", "Tạm ngưng", "Doanh nghiệp trả phí", "Hoá đơn chưa trả", "Cần đối chiếu", "Gia hạn thủ công"])
+    expect(screen.queryByText(moved)).toBeNull();
 });

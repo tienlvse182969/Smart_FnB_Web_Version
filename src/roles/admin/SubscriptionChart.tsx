@@ -1,14 +1,6 @@
+/** Điểm của biểu đồ thực thu (màn Doanh thu nền tảng, PA-06): lấp đủ các mốc trống theo giờ Việt Nam. */
 import dayjs from "dayjs"
-import { useCallback } from "react"
-import { Alert, Button, Card, Skeleton } from "antd"
-import ReportChart from "../../components/ReportChart"
-import { useReportSection } from "../../components/useReportSection"
-import { adminAnalyticsApi } from "../../api/adminAnalytics"
-import {
-  formatVnd,
-  formatVndCompact,
-  presetRange,
-} from "../../lib/reportFormat"
+import { formatVnd } from "../../lib/reportFormat"
 import type { PlatformRevenueReport } from "../../types"
 
 export function subscriptionPoints(data: PlatformRevenueReport) {
@@ -38,37 +30,4 @@ export function subscriptionPoints(data: PlatformRevenueReport) {
     })
   }
   return points
-}
-
-export default function SubscriptionTrend() {
-  const report = useReportSection(
-    useCallback(
-      () =>
-        adminAnalyticsApi.revenue({ ...presetRange("30d"), groupBy: "day" }),
-      [],
-    ),
-  )
-  return (
-    <Card
-      title="Tiền thuê bao thực thu · 30 ngày gần nhất"
-      style={{ marginTop: 16 }}
-    >
-      {report.error ? (
-        <Alert
-          type="error"
-          message={report.error}
-          action={<Button onClick={report.reload}>Thử lại</Button>}
-        />
-      ) : report.data ? (
-        <ReportChart
-          title="Tiền thuê bao thực thu"
-          mode="bar"
-          points={subscriptionPoints(report.data)}
-          format={formatVndCompact}
-        />
-      ) : (
-        <Skeleton active />
-      )}
-    </Card>
-  )
 }

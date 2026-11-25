@@ -253,6 +253,9 @@ export type AdminOverviewMetrics = {
   mrr: number;
   revenueThisMonth: number;
   invoicesNeedReview: number;
+  /** Hoá đơn thuê bao chưa trả (kỳ đầu + gia hạn) và tổng tiền còn phải thu. BE cũ không trả. */
+  unpaidInvoices?: number;
+  outstandingAmount?: number;
   generatedAt: string;
 };
 
