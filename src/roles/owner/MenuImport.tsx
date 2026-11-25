@@ -3,7 +3,6 @@ import {
   App,
   Button,
   Card,
-  Collapse,
   Empty,
   Image,
   Input,
@@ -17,7 +16,7 @@ import {
   Upload,
   type UploadFile,
 } from "antd"
-import { FileImage, ScanLine, Trash2, UploadCloud } from "lucide-react"
+import { Save, SavePen, ScanLine, Trash2, UploadCloud, X } from "lucide-react"
 import SparkleGlow from "../../components/SparkleGlow"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
@@ -318,60 +317,67 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
       {record?.status === "WAITING_REVIEW" && draft && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: excel ? "minmax(0, 1fr)" : "minmax(260px, 0.8fr) minmax(560px, 1.7fr)",
+            display: "flex",
+            flexDirection: "column",
             gap: 18,
-            alignItems: "start",
-            overflowX: "auto",
           }}
         >
-          {!excel && <div>
-            <Card size="small" title="Ảnh gốc" style={{ marginBottom: 14 }}>
-              <Image.PreviewGroup>
-                <div
+          {!excel && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(200px, 300px) minmax(0, 1fr)",
+                gap: 16,
+                alignItems: "stretch",
+              }}
+            >
+              <Card
+                size="small"
+                title="Ảnh gốc"
+                style={{ height: "100%" }}
+                styles={{ body: { height: 190, overflowY: "auto" } }}
+              >
+                <Image.PreviewGroup>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {record.imageUrls.map((url) => (
+                      <Image
+                        key={url}
+                        src={`${backendOrigin}${url}`}
+                        style={{
+                          width: "100%",
+                          aspectRatio: "3/4",
+                          objectFit: "cover",
+                        }}
+                        fallback="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                      />
+                    ))}
+                  </div>
+                </Image.PreviewGroup>
+              </Card>
+              <Card
+                size="small"
+                title="Văn bản OCR thô"
+                style={{ height: "100%" }}
+                styles={{ body: { height: 190, overflowY: "auto" } }}
+              >
+                <pre
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gap: 8,
+                    margin: 0,
+                    whiteSpace: "pre-wrap",
                   }}
                 >
-                  {record.imageUrls.map((url) => (
-                    <Image
-                      key={url}
-                      src={`${backendOrigin}${url}`}
-                      style={{
-                        width: "100%",
-                        aspectRatio: "3/4",
-                        objectFit: "cover",
-                      }}
-                      fallback="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
-                    />
-                  ))}
-                </div>
-              </Image.PreviewGroup>
-            </Card>
-            <Collapse
-              size="small"
-              items={[
-                {
-                  key: "ocr",
-                  label: "Văn bản OCR thô",
-                  children: (
-                    <pre
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        maxHeight: 300,
-                        overflow: "auto",
-                      }}
-                    >
-                      {record.ocrText?.join("\n\n--- Ảnh tiếp theo ---\n\n")}
-                    </pre>
-                  ),
-                },
-              ]}
-            />
-          </div>}
-          <div>
+                  {record.ocrText?.join("\n\n--- Ảnh tiếp theo ---\n\n")}
+                </pre>
+              </Card>
+            </div>
+          )}
+          <div style={{ minWidth: 0 }}>
             <Space
               style={{
                 display: "flex",
@@ -386,10 +392,30 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
                 </div>
               </div>
               <Space>
-                <Button loading={busy} onClick={() => void saveDraft()}>
+                <Button
+                  danger
+                  icon={<X size={15} />}
+                  onClick={async () => {
+                    if (!chainId) return
+                    await advancedMenuApi.cancelMenuImport(chainId, record.id)
+                    reset()
+                  }}
+                >
+                  Huỷ lượt nhập
+                </Button>
+                <Button
+                  icon={<SavePen size={15} />}
+                  loading={busy}
+                  onClick={() => void saveDraft()}
+                >
                   Lưu nháp
                 </Button>
-                <Button type="primary" loading={busy} onClick={commit}>
+                <Button
+                  type="primary"
+                  icon={<Save size={15} />}
+                  loading={busy}
+                  onClick={commit}
+                >
                   Nhập vào menu
                 </Button>
               </Space>
@@ -579,25 +605,6 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
           </div>
         </div>
       )}
-
-      {record &&
-        !["PROCESSING", "IMPORTED", "FAILED", "CANCELLED"].includes(
-          record.status,
-        ) && (
-          <div style={{ marginTop: 14 }}>
-            <Button
-              danger
-              icon={<FileImage size={15} />}
-              onClick={async () => {
-                if (!chainId) return
-                await advancedMenuApi.cancelMenuImport(chainId, record.id)
-                reset()
-              }}
-            >
-              Huỷ lượt nhập
-            </Button>
-          </div>
-        )}
 
       <Modal
         title={`Tuỳ chọn món và topping thêm${detailItem ? ` · ${detailItem.name}` : ""}`}
