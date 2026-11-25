@@ -21,8 +21,8 @@ const metrics: AdminOverviewMetrics = {
   generatedAt: "2026-11-26T03:00:00Z",
 };
 
-it("sidebar puts Doanh thu nền tảng right after Tổng quan", () => {
-  expect(adminRoutes.slice(0, 2).map((r) => r.path)).toEqual(["overview", "platform-revenue"]);
+it("sidebar: Tổng quan, then Doanh thu nền tảng, then Hoá đơn thuê bao", () => {
+  expect(adminRoutes.slice(0, 3).map((r) => r.path)).toEqual(["overview", "platform-revenue", "billing"]);
 });
 
 it("overview shows the current state and work to do, linking to the revenue and billing pages", async () => {

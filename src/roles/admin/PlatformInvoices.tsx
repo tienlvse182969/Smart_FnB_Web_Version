@@ -1,4 +1,4 @@
-import { App, Button, Card, Input, Modal, Select, Space, Table, Tag, Typography } from "antd";
+import { App, Button, Card, Input, Modal, Select, Space, Table, Tag, Tooltip, Typography } from "antd";
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { adminAnalyticsApi } from "../../api/adminAnalytics";
@@ -6,6 +6,7 @@ import { showApiError } from "../../api";
 import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import type { Paginated, PlatformInvoice, PlatformInvoiceStatus } from "../../types";
+import { reviewReasonText } from "./invoiceReview";
 
 const PAGE_SIZE = 12;
 const STATUS_OPTIONS = [
@@ -52,7 +53,7 @@ export default function PlatformInvoices() {
   return <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
     <SectionTitle
       title="Hoá đơn thuê bao"
-      sub="Theo dõi thanh toán kỳ đầu và gia hạn; xác nhận thủ công chỉ dành cho khoản PayOS cần đối chiếu"
+      sub="Theo dõi thanh toán kỳ đầu và gia hạn. Hoá đơn “Cần xem xét” là khoản khách đã trả nhưng hệ thống không tự kích hoạt được; rê chuột lên nhãn để xem lý do"
       extra={<Button icon={<RefreshCw size={15} />} onClick={() => void load()} loading={loading}>Làm mới</Button>}
     />
     <Space wrap style={{ marginBottom: 14 }}>
@@ -70,16 +71,27 @@ export default function PlatformInvoices() {
         { title: "Loại", render: (_, row) => row.source === "REGISTRATION" ? "Kỳ đầu" : "Gia hạn" },
         { title: "Gói", dataIndex: "planName" },
         { title: "Số tiền", dataIndex: "amount", align: "right", render: (value: number) => formatVnd(value) },
-        { title: "Trạng thái", dataIndex: "status", render: (value: PlatformInvoiceStatus) => <InvoiceStatus value={value} /> },
+        { title: "Trạng thái", dataIndex: "status", render: (value: PlatformInvoiceStatus, row) => <InvoiceStatus value={value} reason={row.reviewReason} /> },
         { title: "Tạo lúc", dataIndex: "createdAt", render: formatDateTime },
         { title: "Thanh toán lúc", dataIndex: "paidAt", render: formatDateTime },
-        { title: "Đối chiếu", render: (_, row) => row.status === "NEEDS_REVIEW" ? <Button size="small" type="primary" icon={<CheckCircle2 size={14} />} onClick={() => { setSelected(row); setNote(""); }}>Xác nhận</Button> : row.reviewReason ?? "—" },
+        // BR-71: chỉ hoá đơn đã trả nhưng lệch mới cần Admin xác nhận; các dòng khác không có thao tác.
+        {
+          key: "action",
+          width: 110,
+          align: "right",
+          render: (_, row) =>
+            row.status === "NEEDS_REVIEW" ? (
+              <Button size="small" type="primary" icon={<CheckCircle2 size={14} />} data-testid="confirm-invoice" onClick={() => { setSelected(row); setNote(""); }}>
+                Xác nhận
+              </Button>
+            ) : null,
+        },
       ]}
     />
     <Modal title="Xác nhận hoá đơn cần đối chiếu" open={!!selected} onCancel={() => setSelected(undefined)} onOk={() => void confirm()} okText="Xác nhận đã thu" confirmLoading={saving} okButtonProps={{ disabled: note.trim().length < 3 }}>
       {selected && <>
         <Typography.Paragraph>Doanh nghiệp <strong>{selected.businessName}</strong> · {selected.planName} · <strong>{formatVnd(selected.amount)}</strong></Typography.Paragraph>
-        <Typography.Paragraph type="secondary">Lý do hệ thống đưa vào kiểm tra: {selected.reviewReason ?? "Không xác định"}. Xác nhận sẽ kích hoạt hoặc gia hạn đúng một kỳ.</Typography.Paragraph>
+        <Typography.Paragraph type="secondary">Lý do hệ thống đưa vào kiểm tra: {reviewReasonText(selected.reviewReason)} Chỉ xác nhận sau khi đã đối chiếu khoản tiền với PayOS hoặc sao kê; xác nhận sẽ kích hoạt hoặc gia hạn đúng một kỳ.</Typography.Paragraph>
         <Typography.Text strong>Ghi chú đối chiếu bắt buộc</Typography.Text>
         <Input.TextArea aria-label="Ghi chú đối chiếu" rows={4} maxLength={1000} showCount value={note} onChange={(event) => setNote(event.target.value)} style={{ marginTop: 8 }} />
       </>}
@@ -87,12 +99,13 @@ export default function PlatformInvoices() {
   </Card>;
 }
 
-function InvoiceStatus({ value }: { value: PlatformInvoiceStatus }) {
+function InvoiceStatus({ value, reason }: { value: PlatformInvoiceStatus; reason?: string | null }) {
   const labels: Record<PlatformInvoiceStatus, [string, string]> = {
     PENDING: ["gold", "Chưa thanh toán"],
     PAID: ["green", "Đã thanh toán"],
     FAILED: ["default", "Đã huỷ / thất bại"],
     NEEDS_REVIEW: ["red", "Cần xem xét"],
   };
-  return <Tag color={labels[value][0]}>{labels[value][1]}</Tag>;
+  const tag = <Tag color={labels[value][0]} data-testid={`invoice-status-${value}`}>{labels[value][1]}</Tag>;
+  return value === "NEEDS_REVIEW" ? <Tooltip title={`Khách đã trả, cần xác nhận: ${reviewReasonText(reason)}`}>{tag}</Tooltip> : tag;
 }

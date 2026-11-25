@@ -8,6 +8,7 @@ import { formatDateTime, formatVnd } from "../../lib/reportFormat";
 import { Field, SubscriptionChip, dash, dateLabel } from "../admin/adminUi";
 import { SectionTitle } from "../../components/bits";
 import NextPeriodPanel, { supportAdapter } from "../owner/NextPeriodPanel";
+import { reviewReasonText } from "../admin/invoiceReview";
 
 export default function PlatformBusinesses() {
   const { message, modal } = App.useApp();
@@ -142,7 +143,7 @@ export default function PlatformBusinesses() {
         <Typography.Title level={5} style={{ marginTop: 24 }}>Lịch sử thanh toán nền tảng</Typography.Title>
         {billing?.checkouts.length ? billing.checkouts.map((checkout) => <div key={checkout.id} style={{ borderTop: `1px solid ${palette.line}`, padding: "12px 0", fontSize: 13 }}>
           {formatDateTime(checkout.createdAt)} · {formatVnd(Number(checkout.amount))} · <strong>{checkout.status}</strong>
-          {checkout.reviewReason && <div>{checkout.reviewReason}</div>}
+          {checkout.reviewReason && <div>{reviewReasonText(checkout.reviewReason)}</div>}
           <div style={{ marginTop: 6 }}><Button size="small" loading={busy} disabled={note.trim().length < 3 || !["PENDING", "NEEDS_REVIEW"].includes(checkout.status)} onClick={() => void support("recheck", checkout.id)}>Kiểm tra lại với PayOS</Button></div>
         </div>) : <Typography.Text type="secondary">Chưa có thanh toán nền tảng.</Typography.Text>}
       </>}

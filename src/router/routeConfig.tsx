@@ -107,6 +107,7 @@ export const NAV_GROUPS: Partial<Record<WebRole, Record<string, NavGroupDef>>> =
 export const adminRoutes: RouteDef[] = [
   { path: "overview", label: "Tổng quan", icon: <LayoutDashboard size={18} />, element: <AdminOverview /> },
   { path: "platform-revenue", label: "Doanh thu nền tảng", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
+  { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   { path: "tenants", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PA-05", element: <TenantsTable /> },
   {
     path: "signups",
@@ -116,7 +117,6 @@ export const adminRoutes: RouteDef[] = [
     element: <SignupRequests />,
   },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlansTable /> },
-  { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
   { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "PA-07", element: <PasswordResetRequests /> },
 ];
