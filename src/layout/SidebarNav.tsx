@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkle } from "lucide-react";
 
 /**
  * Mục thanh bên. `children` có giá trị = nhóm xổ ra (mục cha là nút, không điều hướng).
@@ -89,7 +89,12 @@ export default function SidebarNav({
         >
           {item.icon && <span className="sb-icon">{item.icon}</span>}
           <span className="sb-label">{item.label}</span>
-          {item.tag && <span className="sb-tag">{item.tag}</span>}
+          {item.tag && (
+            <span className="sb-tag">
+              {item.tag === "AI" && <Sparkle size={11} className="sb-tag-icon" aria-hidden />}
+              {item.tag}
+            </span>
+          )}
           {item.badge && item.badge > 0 ? <Badge n={item.badge} testId={`nav-badge-${item.key}`} /> : null}
         </button>
       </li>

@@ -12,13 +12,13 @@ import {
   Progress,
   Select,
   Space,
-  Spin,
   Table,
   Typography,
   Upload,
   type UploadFile,
 } from "antd"
 import { FileImage, ScanLine, Trash2, UploadCloud } from "lucide-react"
+import SparkleGlow from "../../components/SparkleGlow"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   extrasApi,
@@ -35,7 +35,7 @@ import MoneyInput from "../../components/MoneyInput"
 import { money } from "../../data"
 import { useAppStore } from "../../store"
 import { palette } from "../../theme"
-import { AccentBadge, PageHeader } from "../../components/bits"
+import { PageHeader } from "../../components/bits"
 
 const backendOrigin = API_BASE_URL.replace(/\/api(?:\/v\d+)?\/?$/, "")
 const importKey = (chainId: string, excel: boolean) => `smartfnb_menu_import_${chainId}${excel ? "_excel" : ""}`
@@ -225,7 +225,6 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
         </Typography.Text>
       </div> : (<PageHeader
         title="Nhập từ ảnh (AI)"
-        extra={<AccentBadge>AI</AccentBadge>}
         sub="OCR đọc chữ, AI tạo bản nháp; chỉ ghi menu sau khi Brand Manager kiểm tra và xác nhận."
       />)}
 
@@ -234,6 +233,8 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
           multiple={!excel}
           accept={excel ? ".xlsx" : "image/jpeg,image/png,image/webp"}
           fileList={files}
+          listType={excel ? "text" : "picture-card"}
+          showUploadList={excel ? true : { showPreviewIcon: false }}
           maxCount={excel ? 1 : 5}
           beforeUpload={() => false}
           onChange={({ fileList }) => setFiles(excel ? fileList.slice(-1) : fileList.slice(0, 5))}
@@ -244,7 +245,7 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
             return true
           }}
         >
-          <p>
+          <p style={{ display: "flex", justifyContent: "center", margin: "0 0 12px" }}>
             <UploadCloud size={42} />
           </p>
           <p>
@@ -271,7 +272,7 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
 
       {record?.status === "PROCESSING" && (
         <div style={{ textAlign: "center", padding: "46px 16px" }}>
-          <Spin size="large" />
+          <SparkleGlow />
           <Typography.Title level={5}>Đang nhận dạng menu</Typography.Title>
           <Typography.Paragraph type="secondary">
             OCR và AI có thể cần đến một phút cho mỗi ảnh. Bạn có thể rời trang
