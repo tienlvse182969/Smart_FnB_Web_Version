@@ -1,5 +1,5 @@
 import { App, Button, Card, Drawer, Input, Select, Table, Tag } from "antd";
-import { KeyRound, Lock, Pencil, Plus, Unlock } from "lucide-react";
+import { KeyRound, Lock, Pencil, Plus, Unlock, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STAFF_ROLE_LABEL, type AccountQuota, type AccountStatus, type StaffEmployee, type StaffInput, type StaffRole } from "../../types";
 import { accountApi, modeOf, showApiError } from "../../api";
@@ -8,6 +8,7 @@ import { formatDateTime } from "../../lib/reportFormat";
 import { SectionTitle } from "../../components/bits";
 import { useAppStore } from "../../store";
 import ActionButton from "../../plan/ActionButton";
+import RemoveAccountModal from "../../components/RemoveAccountModal";
 import { palette } from "../../theme";
 import StaffReasonModal from "./StaffReasonModal";
 
@@ -155,6 +156,9 @@ export default function StaffTable() {
     }
   };
 
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; label: string } | null>(null);
+  const removalPreview = useCallback((id: string) => accountApi.staffRemovalPreview(chainId!, branchId!, id), [chainId, branchId]);
+  const removeAccount = useCallback((id: string, reason: string) => accountApi.removeStaff(chainId!, branchId!, id, reason), [chainId, branchId]);
   const confirmLock = (s: StaffEmployee) => setReasonFor({ kind: s.status === "SUSPENDED" ? "unlock" : "lock", staff: s });
   const confirmReset = (s: StaffEmployee) => setReasonFor({ kind: "reset", staff: s });
 
@@ -286,10 +290,28 @@ export default function StaffTable() {
                     Khoá
                   </ActionButton>
                 )}
+                {(s.status === "SUSPENDED" || s.invitationStatus === "CANCELLED" || s.invitationStatus === "DEACTIVATED") && (
+                  <ActionButton size="small" danger icon={<Trash2 size={13} />} data-testid={`staff-remove-${s.id}`} onClick={() => setRemoveTarget({ id: s.id, label: `${staffName(s)} · ${s.email}` })}>
+                    Xoá
+                  </ActionButton>
+                )}
               </div>
             ),
           },
         ]}
+      />
+
+      <RemoveAccountModal
+        target={removeTarget}
+        loadPreview={removalPreview}
+        submit={removeAccount}
+        onClose={() => setRemoveTarget(null)}
+        onRemoved={async (mode) => {
+          setRemoveTarget(null);
+          message.success(((mode) => mode === "DELETE" ? "Đã xoá hẳn tài khoản; email có thể được mời lại" : "Đã ẩn danh tài khoản: lịch sử được giữ, email đã được giải phóng")(mode));
+          await load();
+          await useAppStore.getState().loadScope({ silent: true });
+        }}
       />
 
       <CreateDrawer

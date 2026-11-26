@@ -3,6 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 import { request } from "../../api/http/client";
 import { showApiError } from "../../api";
 import { formatDateTime } from "../../lib/reportFormat";
+import RemoveAccountModal from "../../components/RemoveAccountModal";
+import type { AccountRemovalMode, AccountRemovalPreview } from "../../types";
+
+const removalPreview = (id: string) => request<AccountRemovalPreview>(`/admin/platform-staff-accounts/${id}/removal`);
 
 type Staff = { id: string; email: string; status: "ACTIVE" | "INACTIVE" | "SUSPENDED"; staffInvitationState: string | null; emailVerifiedAt: string | null; emailSendStatus?: "PENDING" | "SENT" | "FAILED" | null; emailSentAt?: string | null; invitationExpiresAt: string | null; createdAt: string; lastLoginAt: string | null };
 type EmailResult = { emailStatus: "SENT" | "PENDING" | "FAILED" };
@@ -15,6 +19,11 @@ export default function PlatformStaffAccounts() {
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; label: string } | null>(null);
+  const removeAccount = useCallback(
+    (id: string, reason: string) => request<{ mode: AccountRemovalMode }>(`/admin/platform-staff-accounts/${id}/remove`, { method: "POST", body: { note: reason } }),
+    [],
+  );
   const load = useCallback(async () => {
     setLoading(true);
     try { setRows(await request<Staff[]>("/admin/platform-staff-accounts")); }
@@ -50,8 +59,19 @@ export default function PlatformStaffAccounts() {
       { title: "Trạng thái", render: (_, row) => <Tag color={row.status === "ACTIVE" ? "green" : row.status === "INACTIVE" ? "gold" : "red"}>{row.status === "ACTIVE" ? "Hoạt động" : row.status === "INACTIVE" ? "Chờ xác nhận" : "Đã khóa"}</Tag> },
       { title: "Xác nhận email", render: (_, row) => row.emailVerifiedAt ? `Đã xác nhận · ${formatDateTime(row.emailVerifiedAt)}` : `Chờ đặt mật khẩu · hạn ${row.invitationExpiresAt ? formatDateTime(row.invitationExpiresAt) : "—"}` },
       { title: "Đăng nhập gần nhất", render: (_, row) => row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "—" },
-      { title: "Thao tác", render: (_, row) => <Space><Button size="small" onClick={() => act(row, row.status === "SUSPENDED" ? "unlock" : "lock")}>{row.status === "SUSPENDED" ? "Mở khóa" : "Khóa"}</Button><Button size="small" disabled={row.status === "SUSPENDED"} onClick={() => act(row, "reset-password")}>{row.emailVerifiedAt ? "Đặt lại mật khẩu" : "Gửi lại link"}</Button></Space> },
+      { title: "Thao tác", render: (_, row) => <Space><Button size="small" onClick={() => act(row, row.status === "SUSPENDED" ? "unlock" : "lock")}>{row.status === "SUSPENDED" ? "Mở khóa" : "Khóa"}</Button><Button size="small" disabled={row.status === "SUSPENDED"} onClick={() => act(row, "reset-password")}>{row.emailVerifiedAt ? "Đặt lại mật khẩu" : "Gửi lại link"}</Button>{(row.status === "SUSPENDED" || row.staffInvitationState === "CANCELLED") && <Button size="small" danger data-testid={`remove-staff-${row.id}`} onClick={() => setRemoveTarget({ id: row.id, label: row.email })}>Xoá</Button>}</Space> },
     ]} />
+    <RemoveAccountModal
+      target={removeTarget}
+      loadPreview={removalPreview}
+      submit={removeAccount}
+      onClose={() => setRemoveTarget(null)}
+      onRemoved={async (mode) => {
+        setRemoveTarget(null);
+        message.success(mode === "DELETE" ? "Đã xoá hẳn tài khoản; email có thể được mời lại" : "Đã ẩn danh tài khoản: lịch sử được giữ, email đã được giải phóng");
+        await load();
+      }}
+    />
     <Modal title="Tạo Platform Staff" open={open} onCancel={() => setOpen(false)} onOk={() => void create()} confirmLoading={busy} okText="Tạo và gửi email">
       <Input placeholder="Email Staff" value={email} onChange={(e) => setEmail(e.target.value)} style={{ marginBottom: 12 }} />
       <Input.TextArea placeholder="Ghi chú tạo tài khoản" value={note} onChange={(e) => setNote(e.target.value)} />

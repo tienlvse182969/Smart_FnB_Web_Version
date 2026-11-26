@@ -1,10 +1,11 @@
 import { App, Card, Drawer, Input, Select, Table, Tabs, Tag } from "antd";
-import { KeyRound, Lock, Plus, Unlock, UserCog } from "lucide-react";
+import { KeyRound, Lock, Plus, Unlock, UserCog, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AccountStatus, StaffInvitationInput, ManagerAccount, ManagerPage, StaffAccount } from "../../types";
 import { formatDateTime } from "../../lib/reportFormat";
 import { accountApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
+import RemoveAccountModal from "../../components/RemoveAccountModal";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { AccentBadge, EmptyState, PageHeader } from "../../components/bits";
 import { useAppStore } from "../../store";
@@ -83,6 +84,9 @@ export default function ManagerAccounts() {
     }
   };
 
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; label: string } | null>(null);
+  const removalPreview = useCallback((id: string) => accountApi.managerRemovalPreview(id), []);
+  const removeAccount = useCallback((id: string, reason: string) => accountApi.removeManager(id, reason), []);
   const confirmLock = (m: ManagerAccount | StaffAccount) => setReasonFor({ kind: m.status === "ACTIVE" ? "lock" : "unlock", account: m });
   const confirmReset = (m: ManagerAccount | StaffAccount) => {
     if (!m.email.includes("@")) { setLegacyTarget({ id: m.id, name: m.name, login: m.email }); return; }
@@ -113,6 +117,12 @@ export default function ManagerAccounts() {
       <ActionButton size="small" icon={r.status === "SUSPENDED" ? <Unlock size={14} /> : <Lock size={14} />} disabled={r.invitationState === "CANCELLED" || r.invitationState === "PENDING" || r.status === "INACTIVE"} onClick={() => confirmLock(r)}>
         {r.status === "SUSPENDED" ? "Mở khoá" : "Khoá"}
       </ActionButton>
+      {/* Chỉ tài khoản đã khoá hoặc lời mời đã huỷ mới xoá được (BE kiểm tra lại). */}
+      {(r.status === "SUSPENDED" || r.invitationState === "CANCELLED") && (
+        <ActionButton size="small" danger icon={<Trash2 size={14} />} data-testid={`remove-manager-${r.id}`} onClick={() => setRemoveTarget({ id: r.id, label: `${r.name} · ${r.email}` })}>
+          Xoá
+        </ActionButton>
+      )}
     </div>
   );
 
@@ -294,6 +304,19 @@ export default function ManagerAccounts() {
             ),
           },
         ]}
+      />
+
+      <RemoveAccountModal
+        target={removeTarget}
+        loadPreview={removalPreview}
+        submit={removeAccount}
+        onClose={() => setRemoveTarget(null)}
+        onRemoved={async (mode) => {
+          setRemoveTarget(null);
+          message.success(((mode) => mode === "DELETE" ? "Đã xoá hẳn tài khoản; email có thể được mời lại" : "Đã ẩn danh tài khoản: lịch sử được giữ, email đã được giải phóng")(mode));
+          await Promise.all([loadManagers(), loadStaff()]);
+          await useAppStore.getState().loadScope({ silent: true });
+        }}
       />
 
       <AddAccountDrawer

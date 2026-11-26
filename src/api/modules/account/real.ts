@@ -119,6 +119,19 @@ export const accountReal: AccountApi = {
     await request(`/manager/staff/${staffId}/status`, { method: "PATCH", body: { status: active ? "ACTIVE" : LOCKED, reason: assertReason(reason) } });
   },
 
+  managerRemovalPreview(accountId) {
+    return request(`/employees/${encodeURIComponent(accountId)}/removal`);
+  },
+  removeManager(accountId, reason) {
+    return request(`/employees/${encodeURIComponent(accountId)}/remove`, { method: "POST", body: { reason: assertReason(reason) } });
+  },
+  staffRemovalPreview(_chainId, _branchId, staffId) {
+    return request(`/manager/staff/${encodeURIComponent(staffId)}/removal`);
+  },
+  removeStaff(_chainId, _branchId, staffId, reason) {
+    return request(`/manager/staff/${encodeURIComponent(staffId)}/remove`, { method: "POST", body: { reason: assertReason(reason) } });
+  },
+
   async cancelStaffInvitation(_chainId, _branchId, staffId, reason) {
     await request(`/manager/staff/${encodeURIComponent(staffId)}/invitation/cancel`, { method: "POST", body: { reason: assertReason(reason) } });
   },

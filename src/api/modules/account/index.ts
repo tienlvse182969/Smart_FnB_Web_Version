@@ -19,6 +19,8 @@ import type {
   StaffPatch,
   StaffQuery,
   StaffInvitationInput,
+  AccountRemovalMode,
+  AccountRemovalPreview,
 } from "../../../types";
 import { defineApi } from "../../define";
 import { accountMock } from "./mock";
@@ -68,6 +70,14 @@ export interface AccountApi {
    * `INACTIVE` còn lời mời; 409 nếu đã kích hoạt hoặc không có lời mời. Tài khoản chuyển "Đã ngừng" (DEACTIVATED); gửi lại email để mời lại.
    */
   cancelStaffInvitation(chainId: string, branchId: string, staffId: string, reason?: string): Promise<void>;
+  /** Xem trước khi xoá tài khoản Store Manager (Brand Manager, `GET /employees/:id/removal`). */
+  managerRemovalPreview(accountId: string): Promise<AccountRemovalPreview>;
+  /** Xoá Store Manager đã khoá hoặc lời mời đã huỷ (`POST /employees/:id/remove` `{reason}`): xoá hẳn hoặc ẩn danh. */
+  removeManager(accountId: string, reason: string): Promise<{ mode: AccountRemovalMode }>;
+  /** Xem trước khi xoá tài khoản thu ngân/pha chế (Store Manager, `GET /manager/staff/:id/removal`). */
+  staffRemovalPreview(chainId: string, branchId: string, staffId: string): Promise<AccountRemovalPreview>;
+  /** Xoá thu ngân/pha chế đã khoá hoặc lời mời đã huỷ (`POST /manager/staff/:id/remove` `{reason}`). */
+  removeStaff(chainId: string, branchId: string, staffId: string, reason: string): Promise<{ mode: AccountRemovalMode }>;
   /** Đã dùng / tối đa của hạn mức tài khoản (mock theo kịch bản gói). Đếm CẢ DOANH NGHIỆP (Owner, Manager, Cashier, Barista), trừ tài khoản khoá. */
   getAccountQuota(chainId: string): Promise<AccountQuota>;
   /** Số tài khoản đang hoạt động của doanh nghiệp (Owner + Manager + Cashier + Barista — mục 13.1). */

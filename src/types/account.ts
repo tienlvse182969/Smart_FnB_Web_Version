@@ -101,3 +101,16 @@ export type StaffPage = Paginated<StaffEmployee>;
 
 /** Số tài khoản đang tính vào hạn mức gói (đặc tả 13.1: mọi tài khoản đang hoạt động của doanh nghiệp, tài khoản khoá không tính). */
 export type AccountQuota = { used: number; limit: number | null };
+
+/**
+ * Xoá tài khoản không còn dùng (đã khoá hoặc lời mời đã huỷ). BE tự chọn cách làm:
+ * - DELETE: tài khoản chưa từng đặt mật khẩu và chưa thao tác gì → xoá hẳn, email dùng lại được.
+ * - ANONYMIZE: đã có dữ liệu (đơn, chấm công, audit…) → giữ dòng cho lịch sử, xoá thông tin cá nhân, giải phóng email.
+ */
+export type AccountRemovalMode = "DELETE" | "ANONYMIZE";
+export interface AccountRemovalPreview {
+  mode: AccountRemovalMode;
+  /** false khi tài khoản còn đang dùng: phải khoá hoặc huỷ lời mời trước. */
+  allowed: boolean;
+  blockedReason: string | null;
+}

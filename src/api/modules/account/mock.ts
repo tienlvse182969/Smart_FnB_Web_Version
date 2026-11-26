@@ -1,4 +1,4 @@
-import { PLAN_TIER_ORDER, type AccountStatus, type ApiPlan, type DemoAccount, type ManagerAccount, type PasswordSetupNotice, type StaffEmployee } from "../../../types";
+import { PLAN_TIER_ORDER, type AccountRemovalPreview, type AccountStatus, type ApiPlan, type DemoAccount, type ManagerAccount, type PasswordSetupNotice, type StaffEmployee } from "../../../types";
 import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { MOCK_PLAN_CATALOG } from "../../mock/data/plans";
@@ -87,6 +87,11 @@ function findAccount(accountId: string): DemoAccount {
 }
 
 /** Nhân viên (Cashier/Barista) của ĐÚNG chi nhánh — Manager không thấy/không đụng nhân viên chi nhánh khác (BR-02). */
+function mockRemovalPreview(acc: DemoAccount): AccountRemovalPreview {
+  const allowed = !acc.active;
+  return { mode: acc.lastLoginAt ? "ANONYMIZE" : "DELETE", allowed, blockedReason: allowed ? null : "Lock the account or cancel the invitation before removing it" };
+}
+
 function findStaffOfBranch(chainId: string, branchId: string, staffId: string): DemoAccount {
   const hit = getChainState(chainId).accounts.find((a) => a.id === staffId && a.branchId === branchId && (a.role === "cashier" || a.role === "barista"));
   if (!hit) throw new ApiError(404, "Employee not found in your branch");
@@ -326,6 +331,40 @@ export const accountMock: AccountApi = {
     assertMockWritable();
     findStaffOfBranch(track(chainId), branchId, staffId); // 404 nếu không thuộc chi nhánh; trạng thái không đổi (như BE)
     return { ...setupNotice(), emailStatus: "SENT" as const };
+  },
+
+  // Mock không lưu đơn/chấm công theo tài khoản: coi tài khoản từng đăng nhập là "đã có dữ liệu" (ẩn danh), còn lại xoá hẳn.
+  async managerRemovalPreview(accountId) {
+    await mockDelay();
+    return mockRemovalPreview(findAccount(accountId));
+  },
+  async removeManager(accountId) {
+    await mockDelay();
+    assertMockWritable();
+    const acc = findAccount(accountId);
+    const preview = mockRemovalPreview(acc);
+    if (!preview.allowed) throw new ApiError(409, "Lock the account or cancel the invitation before removing it");
+    for (const chainId of knownChains) {
+      const state = getChainState(chainId);
+      state.accounts = state.accounts.filter((a) => a.id !== accountId);
+      persist(state);
+    }
+    return { mode: preview.mode };
+  },
+  async staffRemovalPreview(chainId, branchId, staffId) {
+    await mockDelay();
+    return mockRemovalPreview(findStaffOfBranch(track(chainId), branchId, staffId));
+  },
+  async removeStaff(chainId, branchId, staffId) {
+    await mockDelay();
+    assertMockWritable();
+    const acc = findStaffOfBranch(track(chainId), branchId, staffId);
+    const preview = mockRemovalPreview(acc);
+    if (!preview.allowed) throw new ApiError(409, "Lock the account or cancel the invitation before removing it");
+    const state = getChainState(chainId);
+    state.accounts = state.accounts.filter((a) => a.id !== staffId);
+    persist(state);
+    return { mode: preview.mode };
   },
 
   async cancelStaffInvitation(chainId, branchId, staffId) {
