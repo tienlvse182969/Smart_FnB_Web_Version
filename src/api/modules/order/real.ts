@@ -36,6 +36,24 @@ export const orderReal: OrderApi = {
     await request<unknown>(`/payments/${encodeURIComponent(paymentId)}/confirm`, { method: "POST", body });
   },
 
+  async attentionRefund(_scope, orderId, input) {
+    const body: Record<string, unknown> = { reasonCode: input.reasonCode };
+    if (input.note?.trim()) body.note = input.note.trim();
+    if (input.orderItemIds?.length) body.orderItemIds = input.orderItemIds;
+    await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}/attention/refund`, { method: "POST", body });
+  },
+
+  async resumeOutOfStock(_scope, orderId, input) {
+    const body: Record<string, unknown> = {};
+    if (input.orderItemIds?.length) body.orderItemIds = input.orderItemIds;
+    if (input.note?.trim()) body.note = input.note.trim();
+    await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}/attention/resume-items`, { method: "POST", body });
+  },
+
+  async resolveAttention(_scope, orderId, note) {
+    await request<unknown>(`/manager/orders/${encodeURIComponent(orderId)}/attention/resolve`, { method: "POST", body: { note: note.trim() } });
+  },
+
   async getRefundDocument(_scope, orderId, refundId) {
     return mapRefundDocument(await request<unknown>(refundDocumentPath(orderId, refundId)), { orderId, refundId });
   },

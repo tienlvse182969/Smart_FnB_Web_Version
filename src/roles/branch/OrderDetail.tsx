@@ -7,6 +7,9 @@ import { ApiError, describeApiError, modeOf, orderApi, showApiError } from "../.
 import { confirmErrorInfo, confirmableTransfer } from "../../api/modules/order/manualConfirm";
 import { pendingRefundTotal } from "../../api/modules/order/paidCancel";
 import ConfirmTransferModal from "./ConfirmTransferModal";
+import AttentionActions from "./AttentionActions";
+import { isAttentionOrder } from "../../api/modules/order/attention";
+import { refundReasonText } from "../../api/modules/order/attentionActions";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
 import {
@@ -69,7 +72,7 @@ const lineColumns: ColumnsType<OrderDetailLine> = [
             </div>
           )}
           {line.note && <div style={{ color: palette.textMuted, fontSize: 13, marginTop: 2 }}>Ghi chú: {line.note}</div>}
-          {line.cancellationReason && <div style={{ color: palette.textMuted, fontSize: 13, marginTop: 2 }}>Lý do huỷ dòng: {line.cancellationReason}</div>}
+          {line.cancellationReason && <div style={{ color: palette.textMuted, fontSize: 13, marginTop: 2 }}>Lý do huỷ dòng: {refundReasonText(line.cancellationReason)}</div>}
         </div>
       );
     },
@@ -148,7 +151,7 @@ const actorLabel = (name: string | null | undefined, role: string | null) => (na
 
 type LoadError = { kind: "notfound" } | { kind: "other"; text: string };
 
-/** Giải thích theo lý do "Cần xử lý" (QĐ 123). Loại tiền về sau khi QR hết hạn chưa có đường xử lý ở BE (#75): không có nút, nói rõ. */
+/** Giải thích theo lý do "Cần xử lý" (QĐ 123); cách xử lý nằm ở khối "Xử lý đơn" ngay bên dưới (BM-05). */
 function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord | null, attentionAt: string | null): string {
   const since = attentionAt ? ` Ghi nhận lúc ${formatDateTime(attentionAt)}.` : "";
   switch (kind) {
@@ -157,15 +160,15 @@ function attentionText(kind: AttentionReasonKind, mismatch: OrderPaymentRecord |
         ? `Số tiền chuyển khoản nhận được (${formatVnd(mismatch.receivedAmount)}) khác tổng đơn (${formatVnd(mismatch.amount)}). Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.`
         : "Khoản chuyển khoản lệch số tiền so với tổng đơn. Chỉ xác nhận khi đã kiểm tra tiền đã vào tài khoản của quán.";
     case "RECEIVED_AFTER_EXPIRY":
-      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Store Manager kiểm tra và xác nhận thanh toán thủ công khi tiền đã vào tài khoản; trường hợp cần hoàn tiền, Thu ngân gửi yêu cầu hoàn.${since}`;
+      return `Tiền chuyển khoản về sau khi mã QR đã hết hạn; đơn chưa được đưa xuống pha chế. Khách còn chờ: xác nhận thanh toán thủ công. Khách đã về: huỷ đơn và hoàn tiền mặt.${since}`;
     case "ITEM_OUT_OF_STOCK":
-      return `Pha chế báo hết món trong đơn đã trả tiền. Xem các dòng "Hết món" bên dưới và hướng dẫn Thu ngân xử lý hoàn tiền.${since}`;
+      return `Pha chế báo hết món trong đơn đã trả tiền. Hỏi khách: hoàn tiền mặt các món hết (món khác vẫn làm), chờ có hàng rồi làm tiếp, hoặc huỷ cả đơn.${since}`;
     case "OPTION_OUT_OF_STOCK":
-      return `Một tuỳ chọn trong đơn đã trả tiền được báo hết. Xem các dòng "Hết món" bên dưới và hướng dẫn Thu ngân xử lý hoàn tiền.${since}`;
+      return `Một tuỳ chọn trong đơn đã trả tiền được báo hết. Hỏi khách: hoàn tiền mặt các món đó, chờ có hàng rồi làm tiếp, hoặc huỷ cả đơn.${since}`;
     case "RECEIVED_AFTER_CANCELLATION":
-      return `Tiền về sau khi đơn đã huỷ. Phối hợp với Thu ngân xử lý yêu cầu hoàn tiền.${since}`;
+      return `Khách đã chuyển khoản nhưng tiền về sau khi đơn đã huỷ (hoặc sau khi quán đã thu tiền mặt). Trả lại khách số tiền này bằng tiền mặt.${since}`;
     default:
-      return `Đơn đang ở trạng thái cần xử lý nhưng chưa rõ lý do.${since}`;
+      return `Đơn đang ở trạng thái cần xử lý nhưng chưa rõ lý do. Kiểm tra với Thu ngân rồi đánh dấu đã xử lý.${since}`;
   }
 }
 
@@ -359,7 +362,7 @@ export default function OrderDetail({ scope = "branch" }: { scope?: "branch" | "
         <div data-testid="order-refund-detail" style={{ fontSize: 13, lineHeight: 1.6 }}>
           <div>Nguồn: {refundSourceInfo(r.source).label}</div>
           <div>
-            Lý do: {r.reason} · <span data-testid="refund-requested-by">{actorLabel(r.requestedByName, r.requestedByRole)}</span>, {formatDateTime(r.requestedAt)}
+            Lý do: {refundReasonText(r.reason)} · <span data-testid="refund-requested-by">{actorLabel(r.requestedByName, r.requestedByRole)}</span>, {formatDateTime(r.requestedAt)}
           </div>
           {r.lines.length > 0 && (
             <div>
@@ -419,7 +422,7 @@ export default function OrderDetail({ scope = "branch" }: { scope?: "branch" | "
         </Descriptions>
       </Card>
 
-      {order.status === "REQUIRES_ATTENTION" && !cancelled && (
+      {isAttentionOrder(order) && (
         <Alert
           data-testid="order-detail-attention"
           type="error"
@@ -433,6 +436,8 @@ export default function OrderDetail({ scope = "branch" }: { scope?: "branch" | "
           }
         />
       )}
+
+      {!isChain && <AttentionActions order={order} hasConfirm={!!confirmable} onDone={() => load(true)} />}
 
       {cancelled && (
         <Alert
@@ -450,7 +455,7 @@ export default function OrderDetail({ scope = "branch" }: { scope?: "branch" | "
                 Thời điểm: <span data-testid="order-detail-cancel-at">{formatDateTime(order.cancelledAt)}</span>
               </div>
               <div>
-                Lý do: <span data-testid="order-detail-cancel-reason">{order.cancellationReason ?? "—"}</span>
+                Lý do: <span data-testid="order-detail-cancel-reason">{refundReasonText(order.cancellationReason) ?? "—"}</span>
               </div>
             </div>
           }

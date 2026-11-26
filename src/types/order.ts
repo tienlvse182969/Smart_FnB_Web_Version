@@ -199,6 +199,21 @@ export type OrderDetailLine = {
   status: string;
   note: string | null;
   cancellationReason: string | null;
+  /** Dòng con của combo (BE `parentId`): hoàn hoặc làm tiếp theo dòng gốc. */
+  parentId?: string | null;
+};
+
+/** Mã lý do hoàn (BE `refundReasonCodes`). */
+export type RefundReasonCode = "CHANGE_OF_MIND" | "WRONG_ITEM" | "OUT_OF_STOCK" | "LONG_WAIT" | "OTHER";
+
+/**
+ * Thân `POST /manager/orders/:id/attention/refund` (BE `ManagerAttentionRefundDto`): Store Manager đưa TIỀN MẶT cho khách với đơn cần xử lý.
+ * Không có `orderItemIds` = hoàn hết số đã nhận (và huỷ đơn nếu chưa huỷ); có = chỉ các dòng hết món. `note` bắt buộc ≥ 5 ký tự khi `OTHER`.
+ */
+export type AttentionRefundInput = {
+  reasonCode: RefundReasonCode;
+  note?: string;
+  orderItemIds?: string[];
 };
 
 export type OrderDetail = OrderSummary & {

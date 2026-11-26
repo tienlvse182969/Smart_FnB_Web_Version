@@ -135,7 +135,7 @@ export default function AttentionOrders() {
       width: 100,
       render: (_: unknown, r) => (
         <Button size="small" type="primary" data-testid="attention-open" onClick={() => navigate(`${managerBase}/orders/${r.id}`, { state: { from: "" } })}>
-          Xem
+          Xử lý
         </Button>
       ),
     },
@@ -147,7 +147,7 @@ export default function AttentionOrders() {
     <div data-testid="attention-page">
       <SectionTitle
         title="Đơn cần xử lý"
-        sub="Lệch số tiền (không tự xác nhận), hết món khi đơn đã trả, tiền về sau khi QR hết hạn. Cũ nhất ở trên."
+        sub="Lệch số tiền, hết món khi đơn đã trả, tiền về sau khi QR hết hạn hoặc sau khi đơn đã huỷ. Bấm Xử lý để xác nhận, hoàn tiền mặt hoặc làm tiếp món. Cũ nhất ở trên."
         extra={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
             {realtimeOn && <RealtimeBadge {...realtime} />}

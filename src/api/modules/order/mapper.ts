@@ -150,6 +150,7 @@ function mapLine(raw: Raw): OrderDetailLine {
     status: strOr(raw.status, "UNKNOWN"),
     note: str(raw.specialInstructions),
     cancellationReason: str(raw.cancellationReason),
+    parentId: str(raw.parentId),
   };
 }
 

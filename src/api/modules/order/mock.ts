@@ -534,6 +534,34 @@ export const orderMock: OrderApi = {
     confirmations.set(paymentId, { receivedAmount: input.receivedAmount, reason, transactionRef: input.transactionRef?.trim() || null, at: now, manual: true });
   },
 
+  async attentionRefund({ chainId, branchId }, orderId, input) {
+    await mockDelay();
+    assertMockWritable();
+    if (input.reasonCode === "OTHER" && (input.note?.trim().length ?? 0) < 5) throw new ApiError(400, "Valid refund reason required");
+    const order = allOrders(chainId, branchId).find((o) => o.id === orderId);
+    if (!order) throw new ApiError(404, "Counter order was not found in your branch");
+    const detail = toDetail(order, overlayOf(chainId), cancelsOf(chainId).get(orderId));
+    if (!isAttentionOrder(detail)) throw new ApiError(409, "Only orders that need attention can be refunded here");
+    const lineIds = input.orderItemIds ?? [];
+    const received = detail.payments.reduce((s, p) => s + (p.receivedAmount ?? p.amount), 0);
+    const amount = lineIds.length ? detail.lines.filter((l) => lineIds.includes(l.id)).reduce((s, l) => s + l.total, 0) : received;
+    const now = new Date().toISOString();
+    const reason = input.reasonCode + (input.note?.trim() ? `: ${input.note.trim()}` : "");
+    cancelsOf(chainId).set(orderId, { refundId: `mock-refund-${orderId}`, reason, method: "CASH", amount, status: "COMPLETED", at: now, completedAt: now, note: null, lineIds, full: lineIds.length === 0 });
+  },
+
+  // Làm tiếp món / đóng ca không rõ lý do: mock không mô phỏng trạng thái pha chế.
+  async resumeOutOfStock() {
+    await mockDelay();
+    assertMockWritable();
+    throw new ApiError(409, "Chế độ mẫu không mô phỏng việc làm tiếp món");
+  },
+  async resolveAttention() {
+    await mockDelay();
+    assertMockWritable();
+    throw new ApiError(409, "Chế độ mẫu không mô phỏng việc đóng ca cần xử lý");
+  },
+
   // PDF phiếu hoàn do BE sinh; mock KHÔNG dựng file giả.
   async getRefundDocument() {
     await mockDelay();

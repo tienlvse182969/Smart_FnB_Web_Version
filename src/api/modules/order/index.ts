@@ -4,7 +4,7 @@
  * `refundApprovals.ts`; route `manager/orders/:id/cancel-paid` đã bị BE gỡ nên không còn lời gọi nào.
  * Mock vẫn là nguồn đơn của trợ lý AI mock và báo cáo mock (qua `getBranchOrders`, không qua module này).
  */
-import type { ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery, RefundDocument } from "../../../types";
+import type { AttentionRefundInput, ConfirmPaymentInput, OrderDetail, OrderPage, OrderQuery, RefundDocument } from "../../../types";
 import { defineApi } from "../../define";
 import { orderMock } from "./mock";
 import { orderReal } from "./real";
@@ -35,6 +35,15 @@ export interface OrderApi {
    * 404, 409 `PAYMENT_ALREADY_SETTLED` / `PAYMENT_AMOUNT_INSUFFICIENT` / tiền mặt / đơn không còn chờ thanh toán.
    */
   confirmPayment(scope: OrderScope, paymentId: string, input: ConfirmPaymentInput): Promise<void>;
+  /**
+   * BM-05 "Đơn cần xử lý": Store Manager đưa tiền mặt cho khách (`POST /manager/orders/:id/attention/refund`), giống khoản hoàn của Thu ngân
+   * (chỉ tiền mặt, ghi sổ quỹ, phiếu hoàn). Chỉ với đơn cần xử lý; 409 nếu đơn không còn cần xử lý. Màn GET lại chi tiết đơn.
+   */
+  attentionRefund(scope: OrderScope, orderId: string, input: AttentionRefundInput): Promise<void>;
+  /** BM-05 hết món: đưa các dòng hết món trở lại hàng chờ pha khi món đã mở bán lại (`…/attention/resume-items`). 409 nếu món còn đang hết. */
+  resumeOutOfStock(scope: OrderScope, orderId: string, input: { orderItemIds?: string[]; note?: string }): Promise<void>;
+  /** BM-05: đóng ca cần xử lý không rõ lý do sau khi đã kiểm tra (`…/attention/resolve`, ghi chú ≥ 5 ký tự). 409 với ca có cách xử lý riêng. */
+  resolveAttention(scope: OrderScope, orderId: string, note: string): Promise<void>;
   /**
    * 28.6: trạng thái PDF phiếu hoàn của một khoản hoàn tiền mặt đã xác nhận (`GET cashier/orders/:o/refunds/:r/document`; Store Manager và
    * Brand Manager dùng chung route). Khoản hoàn cũ chưa có PDF thì BE sinh ở lần xem đầu. Lỗi: 403 ngoài phạm vi, 404 không có khoản hoàn.
