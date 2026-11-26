@@ -46,15 +46,26 @@ export interface AttentionRow {
  * Thứ tự do BE sắp (`sortBy=attentionAt&sortOrder=asc`, #66; đơn chưa có `attentionAt` xếp cuối) — web KHÔNG sắp lại.
  * Chỉ lấy đơn đang `REQUIRES_ATTENTION`.
  */
+/** Lý do "tiền về muộn": đơn vẫn Đã huỷ (hoặc đã thu tiền mặt), chỉ khoản QR là REQUIRES_ATTENTION, chờ hoàn. */
+export const LATE_PAYMENT_REASONS = ["PAYMENT_RECEIVED_AFTER_CANCELLATION", "PAYMENT_RECEIVED_AFTER_SWITCH_TO_CASH"];
+
+/** Đơn thuộc "Đơn cần xử lý" (cùng điều kiện với BE `needsAttention`): REQUIRES_ATTENTION, hoặc tiền về muộn chưa hoàn. */
+export function isAttentionOrder(o: Pick<OrderSummary, "status" | "attentionReason" | "payments" | "refunds">): boolean {
+  if (o.status === ATTENTION_STATUS) return true;
+  const late = o.payments.find((p) => p.status === ATTENTION_STATUS && LATE_PAYMENT_REASONS.includes(p.failureReason ?? o.attentionReason ?? ""));
+  return !!late && !(o.refunds ?? []).some((r) => r.paymentId === late.id || !r.paymentId);
+}
+
 export function toAttentionRows(items: OrderSummary[], now: number): AttentionRow[] {
   return items
-    .filter((o) => o.status === ATTENTION_STATUS)
+    .filter(isAttentionOrder)
     .map((o): AttentionRow => {
       const reason = attentionReasonInfo(o);
-      // Cột tiền chỉ cho loại lệch tiền (QĐ 123).
+      // Cột tiền: lệch tiền → đã nhận + chênh lệch; tiền về muộn → đã nhận (toàn bộ phải hoàn), không có chênh lệch.
       const mismatch = reason.kind === "AMOUNT_MISMATCH" ? (o.payments.find((p) => p.status === "AMOUNT_MISMATCH") ?? null) : null;
-      const received = mismatch?.receivedAmount ?? null;
-      const difference = received === null ? null : received - o.total;
+      const late = reason.kind === "RECEIVED_AFTER_CANCELLATION" ? (o.payments.find((p) => p.status === ATTENTION_STATUS) ?? null) : null;
+      const received = mismatch?.receivedAmount ?? late?.receivedAmount ?? null;
+      const difference = mismatch && received !== null ? received - o.total : null;
       const since = o.attentionAt ?? o.placedAt;
       const sinceMs = since ? new Date(since).getTime() : NaN;
       return {

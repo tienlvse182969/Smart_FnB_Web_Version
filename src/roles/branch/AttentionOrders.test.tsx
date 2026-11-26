@@ -94,7 +94,7 @@ describe("trang Đơn cần xử lý (QĐ 99)", () => {
 });
 
 describe("AttentionWatcher: số đếm menu và tải định kỳ (QĐ 100–101)", () => {
-  it("nạp số đếm bằng GET lọc REQUIRES_ATTENTION (limit 1, lấy total)", async () => {
+  it("nạp số đếm bằng GET needsAttention (gồm cả tiền về sau khi huỷ; limit 1, lấy total)", async () => {
     const spy = vi.spyOn(orderApi, "listOrders");
     render(
       <AntApp>
@@ -104,7 +104,8 @@ describe("AttentionWatcher: số đếm menu và tải định kỳ (QĐ 100–1
       </AntApp>,
     );
     await waitFor(() => expect(attentionStore.get()).toBeGreaterThanOrEqual(3));
-    expect(spy.mock.calls[0][1]).toMatchObject({ status: "REQUIRES_ATTENTION", page: 1, limit: 1 });
+    expect(spy.mock.calls[0][1]).toMatchObject({ needsAttention: true, page: 1, limit: 1 });
+    expect(spy.mock.calls[0][1]).not.toHaveProperty("status");
   });
 
   it("60 giây tải lại khi tab hiển thị; tab ẩn thì không; hiện lại thì tải ngay; rời màn thì dọn timer", async () => {

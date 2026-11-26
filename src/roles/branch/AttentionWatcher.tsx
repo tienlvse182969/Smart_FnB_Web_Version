@@ -32,7 +32,7 @@ export default function AttentionWatcher() {
   const load = useCallback(async () => {
     if (!chainId || !branchId) return;
     try {
-      const page = await orderApi.listOrders({ chainId, branchId }, { status: ATTENTION_STATUS, page: 1, limit: 1 });
+      const page = await orderApi.listOrders({ chainId, branchId }, { needsAttention: true, page: 1, limit: 1 });
       attentionStore.set(page.total);
     } catch {
       // giữ số cũ

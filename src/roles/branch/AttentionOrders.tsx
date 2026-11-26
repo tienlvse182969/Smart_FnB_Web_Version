@@ -48,7 +48,7 @@ export default function AttentionOrders() {
       }
       try {
         // #66 (BE `fb7cae9`): BE sắp cũ nhất trước theo `attentionAt` (đơn chưa có `attentionAt` xếp cuối, #77); web không sắp lại.
-        const page = await orderApi.listOrders({ chainId, branchId }, { status: ATTENTION_STATUS, sortBy: "attentionAt", sortOrder: "asc", page: 1, limit: 100 });
+        const page = await orderApi.listOrders({ chainId, branchId }, { needsAttention: true, sortBy: "attentionAt", sortOrder: "asc", page: 1, limit: 100 });
         if (mine !== seq.current) return;
         setRows(toAttentionRows(page.items, Date.now()));
         setTotal(page.total);

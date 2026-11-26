@@ -26,6 +26,7 @@ import { assertMockWritable } from "../../mock/guards";
 import { hashString } from "../../mock/prng";
 import { getBranchOrders, getChainState } from "../../mock/store";
 import type { OrderApi } from "./index";
+import { isAttentionOrder } from "./attention";
 
 const CASHIER = "Thu ngân mẫu";
 const MANAGER = "Quản lý mẫu";
@@ -457,6 +458,7 @@ function matches(order: Order, query: OrderQuery, confirmations: Map<string, Con
   const code = query.orderCode?.trim().toLowerCase();
   if (code && !s.orderCode.toLowerCase().includes(code)) return false;
   if (query.status && s.status !== query.status) return false;
+  if (query.needsAttention && !isAttentionOrder(s)) return false;
   if (query.paymentStatus && s.paymentStatus !== query.paymentStatus) return false;
   if (query.paymentMethod && !s.payments.some((p) => p.method === query.paymentMethod)) return false;
   return true;

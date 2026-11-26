@@ -225,6 +225,11 @@ export type OrderQuery = {
   paymentMethod?: string;
   /** Mã BE RefundStatus (PENDING = còn khoản chờ hoàn). */
   refundStatus?: string;
+  /**
+   * BM-05 "Đơn cần xử lý": đơn REQUIRES_ATTENTION + đơn có tiền về muộn (sau khi huỷ / sau khi đã thu tiền mặt) chưa hoàn.
+   * Tiền về muộn để đơn ở trạng thái Đã huỷ nên KHÔNG lọc được bằng `status`.
+   */
+  needsAttention?: boolean;
   /** Sắp xếp phía BE (`fb7cae9`, #66); mặc định `placedAt` giảm dần. */
   sortBy?: "placedAt" | "attentionAt" | "status" | "totalAmount";
   sortOrder?: "asc" | "desc";

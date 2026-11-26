@@ -125,6 +125,8 @@ const ATTENTION_REASON: Record<string, { kind: AttentionReasonKind; label: strin
   PAID_ITEM_OUT_OF_STOCK: { kind: "ITEM_OUT_OF_STOCK", label: "Hết món (đơn đã trả)" },
   PAID_OPTION_OUT_OF_STOCK: { kind: "OPTION_OUT_OF_STOCK", label: "Hết tuỳ chọn (đơn đã trả)" },
   PAYMENT_RECEIVED_AFTER_CANCELLATION: { kind: "RECEIVED_AFTER_CANCELLATION", label: "Tiền về sau khi đơn đã huỷ" },
+  // Khách quét QR rồi chuyển sang trả tiền mặt, tiền QR vẫn về sau đó: phải hoàn khoản QR (cùng cách xử lý như sau huỷ).
+  PAYMENT_RECEIVED_AFTER_SWITCH_TO_CASH: { kind: "RECEIVED_AFTER_CANCELLATION", label: "Tiền QR về sau khi đã thu tiền mặt" },
 };
 
 export function attentionReasonInfo(order: { attentionReason?: string | null; payments: { status: string }[] }): { code: string | null; kind: AttentionReasonKind; label: string; known: boolean } {
