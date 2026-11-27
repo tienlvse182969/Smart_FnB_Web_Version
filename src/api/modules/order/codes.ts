@@ -166,6 +166,33 @@ export function orderPaymentInfo(order: {
   }
 }
 
+/**
+ * MỘT nhãn trạng thái cho danh sách đơn (thay cho hai cột "Trạng thái đơn" + "Thanh toán"). Giữ được điều cột Thanh toán từng
+ * cho biết: đơn huỷ SAU khi đã trả tiền (có hoàn tiền) khác đơn huỷ khi chưa trả; đơn chờ thanh toán có QR đang chờ hay đã hết hạn.
+ */
+export function orderListStatusInfo(
+  order: {
+    status: string;
+    paymentStatus: string;
+    payments: { method: string; status: string; expiresAt?: string | null }[];
+    refunds?: { status: string }[];
+  },
+  now: number = Date.now(),
+): StatusInfo {
+  const refunds = order.refunds ?? [];
+  if (order.status === "CANCELLED") {
+    if (refunds.some((r) => r.status === "PENDING")) return known("Đã huỷ · chờ hoàn tiền", "warning");
+    if (refunds.length > 0) return known("Đã huỷ · đã hoàn tiền", "neutral");
+    if (order.paymentStatus === "PAID") return known("Đã huỷ sau khi thanh toán", "neutral");
+    return known("Đã huỷ", "neutral");
+  }
+  if (order.status === "CONFIRMED" && order.paymentStatus === "UNPAID") {
+    const pay = orderPaymentInfo(order, now);
+    return pay.label === "Khởi tạo" ? known("Chờ thanh toán", "warning") : known(`Chờ thanh toán · ${pay.label}`, pay.tone);
+  }
+  return orderStatusInfo(order.status);
+}
+
 export const REFUND_STATUS_CODES = ["PENDING", "COMPLETED"] as const;
 export const REFUND_METHOD_CODES = ["CASH", "BANK_TRANSFER"] as const;
 export const REFUND_SOURCE_CODES = ["MANAGER_CANCELLATION", "LATE_PAYMENT"] as const;

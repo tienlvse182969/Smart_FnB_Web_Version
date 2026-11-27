@@ -130,6 +130,8 @@ export function toOrderQuery(filters: OrderFilters): OrderQuery {
   if (filters.callNumber) query.callNumber = Number(filters.callNumber);
   if (filters.orderCode) query.orderCode = filters.orderCode;
   if (filters.status) query.status = filters.status;
+  // Mặc định không hiện đơn còn chờ thanh toán (đơn bỏ dở rất nhiều); chọn "Chờ thanh toán" ở bộ lọc để xem.
+  else query.hideAwaitingPayment = true;
   if (filters.payment) query.paymentStatus = filters.payment;
   if (filters.method) query.paymentMethod = filters.method;
   if (filters.refund) query.refundStatus = filters.refund;

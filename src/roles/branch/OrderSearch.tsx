@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { describeApiError, modeOf, orderApi } from "../../api";
 import { useOrderRealtime } from "../../api/realtime/useOrderRealtime";
 import RealtimeBadge from "../../components/RealtimeBadge";
-import { orderPaymentInfo, orderStatusInfo, paymentMethodInfo, ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER, REFUND_STATUS_FILTER } from "../../api/modules/order/codes";
+import { orderListStatusInfo, paymentMethodInfo, ORDER_PAYMENT_FILTER, ORDER_STATUS_FILTER, PAYMENT_METHOD_FILTER, REFUND_STATUS_FILTER } from "../../api/modules/order/codes";
 import { ORDER_PAGE_SIZES } from "../../api/modules/order/query";
 import { SectionTitle } from "../../components/bits";
 import { formatDateTime, formatVnd } from "../../lib/reportFormat";
@@ -49,21 +49,17 @@ const buildColumns = (search: string, withBranch: boolean): ColumnsType<OrderSum
   { title: "Thời gian đặt", dataIndex: "placedAt", width: 150, render: (v: string | null) => formatDateTime(v) },
   { title: "Tổng tiền", dataIndex: "total", align: "right", width: 120, render: (v: number) => formatVnd(v) },
   {
-    title: "Trạng thái đơn",
-    dataIndex: "status",
-    width: 150,
-    render: (v: string) => {
-      const info = orderStatusInfo(v);
-      return <Chip tone={info.tone}>{info.label}</Chip>;
-    },
-  },
-  {
-    title: "Thanh toán",
-    key: "payment",
-    width: 160,
+    // Một cột thay cho "Trạng thái đơn" + "Thanh toán" (trùng nhau); đơn huỷ sau khi trả tiền vẫn phân biệt được.
+    title: "Trạng thái",
+    key: "status",
+    width: 190,
     render: (_: unknown, o) => {
-      const info = orderPaymentInfo(o);
-      return <Chip tone={info.tone}>{info.label}</Chip>;
+      const info = orderListStatusInfo(o);
+      return (
+        <span data-testid="order-status-cell">
+          <Chip tone={info.tone}>{info.label}</Chip>
+        </span>
+      );
     },
   },
   { title: "Hình thức", key: "method", width: 160, render: (_: unknown, o) => methodsOf(o) },
@@ -268,8 +264,15 @@ export default function OrderSearch({ scope = "branch" }: { scope?: "branch" | "
         />
       ) : (
         <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 0 } }}>
-          <div data-testid="order-total" style={{ padding: "12px 16px", color: palette.textMuted, fontSize: 13 }}>
-            {data ? `${data.total.toLocaleString("vi-VN")} đơn` : "Đang tải…"}
+          <div style={{ padding: "12px 16px", fontSize: 13, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span data-testid="order-total" style={{ color: palette.textMuted }}>
+              {data ? `${data.total.toLocaleString("vi-VN")} đơn` : "Đang tải…"}
+            </span>
+            {!filters.status && (
+              <span data-testid="order-awaiting-hidden" style={{ color: palette.textSubtle }}>
+                · Không hiện đơn đang chờ thanh toán; chọn "Chờ thanh toán" ở Trạng thái đơn để xem.
+              </span>
+            )}
           </div>
           <Table<OrderSummary>
             data-testid="order-table"

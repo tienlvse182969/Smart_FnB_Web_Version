@@ -44,6 +44,7 @@ export function buildOrderQueryString(query: OrderQuery): string {
   if (query.paymentMethod) search.set("paymentMethod", query.paymentMethod);
   if (query.refundStatus) search.set("refundStatus", query.refundStatus);
   if (query.needsAttention) search.set("needsAttention", "true");
+  if (query.hideAwaitingPayment && !query.status) search.set("hideAwaitingPayment", "true");
   // #66 (BE `fb7cae9`): `sortBy` ∈ placedAt/attentionAt/status/totalAmount, `sortOrder` ∈ asc/desc; không gửi = placedAt giảm dần.
   if (query.sortBy && ORDER_SORT_FIELDS.includes(query.sortBy)) {
     search.set("sortBy", query.sortBy);

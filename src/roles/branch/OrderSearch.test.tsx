@@ -65,6 +65,26 @@ describe("màn Tra cứu đơn (BM-04)", () => {
     expect(text).not.toMatch(/CONFIRMED|SUBMITTED|DELIVERED|UNPAID/);
   });
 
+  it("một cột Trạng thái (bỏ cột Thanh toán); mặc định ẩn đơn chờ thanh toán, chọn trạng thái thì hiện lại", async () => {
+    mount();
+    await waitFor(() => expect(rows().length).toBe(20));
+    const headers = [...document.querySelectorAll(".ant-table-thead th")].map((th) => th.textContent);
+    expect(headers).toContain("Trạng thái");
+    expect(headers).not.toContain("Thanh toán");
+    expect(headers).not.toContain("Trạng thái đơn");
+    expect(screen.getByTestId("order-awaiting-hidden").textContent).toMatch(/chờ thanh toán/);
+    const cells = [...document.querySelectorAll("[data-testid='order-status-cell']")].map((c) => c.textContent ?? "");
+    expect(cells.some((c) => c.startsWith("Chờ thanh toán"))).toBe(false);
+  });
+
+  it("chọn 'Chờ thanh toán' thì xem được các đơn đó", async () => {
+    mount("/manager/orders?status=CONFIRMED");
+    await waitFor(() => expect(document.querySelectorAll("[data-testid='order-status-cell']").length).toBeGreaterThan(0));
+    const cells = [...document.querySelectorAll("[data-testid='order-status-cell']")].map((c) => c.textContent ?? "");
+    expect(cells.every((c) => c.startsWith("Chờ thanh toán"))).toBe(true);
+    expect(screen.queryByTestId("order-awaiting-hidden")).toBeNull();
+  });
+
   it("URL hỏng bị bỏ qua, màn không treo", async () => {
     mount("/manager/orders?from=abc&status=FOO&page=-2&limit=7&callNumber=xx");
     await waitFor(() => expect(rows().length).toBe(20));

@@ -245,6 +245,11 @@ export type OrderQuery = {
    * Tiền về muộn để đơn ở trạng thái Đã huỷ nên KHÔNG lọc được bằng `status`.
    */
   needsAttention?: boolean;
+  /**
+   * Danh sách mặc định: bỏ đơn còn chờ thanh toán (đơn nháp, "Chờ thanh toán" chưa trả). BE bỏ qua khi có `status`
+   * (chọn "Chờ thanh toán" ở bộ lọc vẫn xem được, vd. để xác nhận QR thủ công).
+   */
+  hideAwaitingPayment?: boolean;
   /** Sắp xếp phía BE (`fb7cae9`, #66); mặc định `placedAt` giảm dần. */
   sortBy?: "placedAt" | "attentionAt" | "status" | "totalAmount";
   sortOrder?: "asc" | "desc";

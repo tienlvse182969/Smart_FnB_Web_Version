@@ -459,6 +459,7 @@ function matches(order: Order, query: OrderQuery, confirmations: Map<string, Con
   if (code && !s.orderCode.toLowerCase().includes(code)) return false;
   if (query.status && s.status !== query.status) return false;
   if (query.needsAttention && !isAttentionOrder(s)) return false;
+  if (query.hideAwaitingPayment && !query.status && s.paymentStatus === "UNPAID" && (s.status === "PENDING" || s.status === "CONFIRMED")) return false;
   if (query.paymentStatus && s.paymentStatus !== query.paymentStatus) return false;
   if (query.paymentMethod && !s.payments.some((p) => p.method === query.paymentMethod)) return false;
   return true;
