@@ -12,7 +12,7 @@ import {
   CreditCard,
   Images,
   LayoutDashboard,
-  ListChecks,
+  KeyRound,
   Package,
   Palette,
   Printer,
@@ -25,6 +25,8 @@ import {
   CirclePlus,
   Store,
   Tags,
+  TriangleAlert,
+  Undo2,
   UserCog,
   UserPlus,
   UsersRound,
@@ -95,37 +97,51 @@ export interface NavGroupDef {
   icon: ReactNode;
 }
 
-/** Nhóm xổ ra trên sidebar, theo vai trò. Thứ tự nhóm = thứ tự mục đầu tiên của nhóm trong `roleRoutes`. */
+/**
+ * Nhóm xổ ra trên sidebar, theo vai trò. Thứ tự nhóm = thứ tự mục đầu tiên của nhóm trong `roleRoutes`.
+ * Mọi vai trò theo cùng một kiểu với Brand Manager: vài mục đứng riêng (Tổng quan, Gói dịch vụ…) và các nhóm xổ ra cho
+ * các màn cùng chủ đề; nhóm cùng chủ đề dùng cùng tên và icon ở mọi vai trò (Chi nhánh, Đơn hàng, Thực đơn, Nhân sự).
+ */
+const GROUP = {
+  branch: { label: "Chi nhánh", icon: <Store size={18} /> },
+  orders: { label: "Đơn hàng", icon: <ClipboardList size={18} /> },
+  menu: { label: "Thực đơn", icon: <UtensilsCrossed size={18} /> },
+  staff: { label: "Nhân sự", icon: <UsersRound size={18} /> },
+  brand: { label: "Thương hiệu", icon: <Palette size={18} /> },
+  revenue: { label: "Doanh thu", icon: <BarChart3 size={18} /> },
+  customers: { label: "Khách hàng", icon: <Building2 size={18} /> },
+} satisfies Record<string, NavGroupDef>;
+
 export const NAV_GROUPS: Partial<Record<WebRole, Record<string, NavGroupDef>>> = {
-  owner: {
-    menu: { label: "Thực đơn", icon: <UtensilsCrossed size={18} /> },
-    staff: { label: "Nhân sự", icon: <UsersRound size={18} /> },
-    brand: { label: "Thương hiệu", icon: <Palette size={18} /> },
-  },
+  admin: { revenue: GROUP.revenue, customers: GROUP.customers, staff: GROUP.staff },
+  "platform-staff": { customers: GROUP.customers },
+  owner: { menu: GROUP.menu, staff: GROUP.staff, brand: GROUP.brand },
+  manager: { branch: GROUP.branch, orders: GROUP.orders, menu: GROUP.menu },
 };
 
 export const adminRoutes: RouteDef[] = [
   { path: "overview", label: "Tổng quan", icon: <LayoutDashboard size={18} />, element: <AdminOverview /> },
-  { path: "platform-revenue", label: "Doanh thu nền tảng", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
-  { path: "billing", label: "Hoá đơn thuê bao", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
-  { path: "tenants", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PA-05", element: <TenantsTable /> },
+  { path: "platform-revenue", label: "Doanh thu nền tảng", group: "revenue", icon: <BarChart3 size={18} />, code: "PA-06", element: <PlatformRevenue /> },
+  { path: "billing", label: "Hoá đơn thuê bao", group: "revenue", icon: <ReceiptText size={18} />, code: "PA-05 · PA-06", element: <PlatformInvoices /> },
   {
     path: "signups",
     label: "Hồ sơ đăng ký",
+    group: "customers",
     icon: <UserPlus size={18} />,
     code: "PA-01 · PA-02 · PA-03",
     element: <SignupRequests />,
   },
+  { path: "tenants", label: "Doanh nghiệp", group: "customers", icon: <Building2 size={18} />, code: "PA-05", element: <TenantsTable /> },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlansTable /> },
-  { path: "staff", label: "Platform Staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
-  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "PA-07", element: <PasswordResetRequests /> },
+  { path: "staff", label: "Platform Staff", group: "staff", icon: <UsersRound size={18} />, code: "PA-07", element: <PlatformStaffAccounts /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", group: "staff", icon: <KeyRound size={18} />, code: "PA-07", element: <PasswordResetRequests /> },
 ];
 
 export const platformStaffRoutes: RouteDef[] = [
-  { path: "signups", label: "Hồ sơ đăng ký", icon: <UserPlus size={18} />, code: "PA-01 · PA-02 · PA-03 · PS-01", element: <SignupRequests /> },
-  { path: "businesses", label: "Doanh nghiệp", icon: <Building2 size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
+  { path: "signups", label: "Hồ sơ đăng ký", group: "customers", icon: <UserPlus size={18} />, code: "PA-01 · PA-02 · PA-03 · PS-01", element: <SignupRequests /> },
+  { path: "businesses", label: "Doanh nghiệp", group: "customers", icon: <Building2 size={18} />, code: "PS-01", element: <PlatformBusinesses /> },
   { path: "plans", label: "Gói dịch vụ", icon: <Package size={18} />, code: "PA-04", element: <PlatformStaffPlans /> },
-  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <UserCog size={18} />, code: "PS-01", element: <PasswordResetRequests /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", icon: <KeyRound size={18} />, code: "PS-01", element: <PasswordResetRequests /> },
 ];
 
 export const ownerRoutes: RouteDef[] = [
@@ -151,63 +167,27 @@ export const ownerRoutes: RouteDef[] = [
   { path: "menu/prices", label: "Giá theo chi nhánh", group: "menu", icon: <Tags size={18} />, code: "OW-16", element: <BranchPrices /> },
   { path: "menu/import", label: "Nhập từ ảnh", group: "menu", tag: "AI", icon: <ScanLine size={18} />, code: "OW-12", element: <MenuImport /> },
   { path: "accounts", label: "Tài khoản quản lý", group: "staff", icon: <UserCog size={18} />, code: "OW-05", element: <ManagerAccounts /> },
-  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", group: "staff", icon: <UserCog size={18} />, code: "OW-05", element: <PasswordResetRequests /> },
+  { path: "password-reset-requests", label: "Yêu cầu đặt lại mật khẩu", group: "staff", icon: <KeyRound size={18} />, code: "OW-05", element: <PasswordResetRequests /> },
   { path: "branding", label: "Nhận diện", group: "brand", icon: <Palette size={18} />, code: "OW-07", element: <Branding /> },
   { path: "posters", label: "Áp phích", group: "brand", icon: <Images size={18} />, code: "OW-11", element: <Posters /> },
   { path: "payos", label: "Liên kết PayOS", group: "brand", icon: <CreditCard size={18} />, code: "OW-06", element: <PayosLink /> },
   { path: "plan", label: "Gói dịch vụ", icon: <ScrollText size={18} />, code: "OW-10", element: <MyPlan /> },
 ];
 
+/** Cùng bố cục với Brand Manager: Tổng quan, Chi nhánh ▾, Đơn hàng ▾, Sổ giao dịch, Thực đơn ▾, Nhân viên. */
 export const managerRoutes: RouteDef[] = [
   { path: "dashboard", label: "Tổng quan", icon: <LayoutDashboard size={18} />, code: "BM-03", element: <ManagerDashboard /> },
   { path: "cash-ledger", label: "Sổ giao dịch", icon: <ScrollText size={18} />, nav: false, element: <Navigate to="/store-manager/ledger" replace /> },
-  { path: "branch-info", label: "Thông tin chi nhánh", icon: <Building2 size={18} />, element: <BranchInfo /> },
-  { path: "menu", label: "Món tại chi nhánh", icon: <UtensilsCrossed size={18} />, code: "BM-02", element: <BranchMenu /> },
-  { path: "prices", label: "Bảng giá chi nhánh", icon: <Tags size={18} />, code: "OW-16", element: <BranchPriceList /> },
+  { path: "branch-info", label: "Thông tin chi nhánh", group: "branch", icon: <Building2 size={18} />, element: <BranchInfo /> },
+  { path: "stations", label: "Quầy và máy in", group: "branch", icon: <Printer size={18} />, code: "BM-01", element: <Stations /> },
+  { path: "orders", label: "Tra cứu đơn", group: "orders", icon: <ClipboardList size={18} />, code: "BM-04", element: <OrderSearch /> },
+  { path: "orders/needs-attention", label: "Đơn cần xử lý", group: "orders", icon: <TriangleAlert size={18} />, code: "BM-05", element: <AttentionOrders /> },
+  { path: "refund-approvals", label: "Duyệt hoàn tiền", group: "orders", icon: <Undo2 size={18} />, code: "BM-06", element: <RefundApprovals /> },
+  { path: "orders/:orderId", label: "Chi tiết đơn", icon: <Receipt size={18} />, code: "BM-04 · BM-06", nav: false, element: <OrderDetail /> },
+  { path: "ledger", label: "Sổ giao dịch", icon: <ScrollText size={18} />, code: "BM-07", element: <TransactionLedger /> },
+  { path: "menu", label: "Món tại chi nhánh", group: "menu", icon: <UtensilsCrossed size={18} />, code: "BM-02", element: <BranchMenu /> },
+  { path: "prices", label: "Bảng giá chi nhánh", group: "menu", icon: <Tags size={18} />, code: "OW-16", element: <BranchPriceList /> },
   { path: "staff", label: "Nhân viên", icon: <UsersRound size={18} />, code: "BM-01", element: <StaffTable /> },
-  {
-    path: "stations",
-    label: "Quầy và máy in",
-    icon: <Printer size={18} />,
-    code: "BM-01",
-    element: <Stations />,
-  },
-  {
-    path: "orders",
-    label: "Tra cứu đơn",
-    icon: <ClipboardList size={18} />,
-    code: "BM-04",
-    element: <OrderSearch />,
-  },
-  {
-    path: "orders/needs-attention",
-    label: "Đơn cần xử lý",
-    icon: <ListChecks size={18} />,
-    code: "BM-05",
-    element: <AttentionOrders />,
-  },
-  {
-    path: "ledger",
-    label: "Sổ giao dịch",
-    icon: <ScrollText size={18} />,
-    code: "BM-07",
-    element: <TransactionLedger />,
-  },
-  {
-    path: "refund-approvals",
-    label: "Duyệt hoàn tiền",
-    icon: <ListChecks size={18} />,
-    code: "BM-06",
-    element: <RefundApprovals />,
-  },
-  {
-    path: "orders/:orderId",
-    label: "Chi tiết đơn",
-    icon: <Receipt size={18} />,
-    code: "BM-04 · BM-06",
-    nav: false,
-    element: <OrderDetail />,
-  },
 ];
 
 export const roleRoutes: Record<WebRole, RouteDef[]> = {
