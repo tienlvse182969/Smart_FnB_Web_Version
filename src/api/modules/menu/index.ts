@@ -40,11 +40,25 @@ export interface MenuApi {
   deleteItem(chainId: string, id: string): Promise<void>;
   /** Thay toàn bộ tập chi nhánh bán món; chi nhánh bỏ ra bị tắt. */
   setItemBranches(chainId: string, id: string, branchIds: string[]): Promise<MenuItemBranch[]>;
+  /**
+   * Bán toàn bộ món và combo của chuỗi ở một chi nhánh (thường là chi nhánh mới mở) trong một lần, thay vì gán từng món
+   * (`POST /restaurant-chains/:chainId/menu/branches/:branchId/assign-all`). Giữ giá riêng đã đặt; "còn bán" hôm nay do Store Manager.
+   */
+  assignWholeMenu(chainId: string, branchId: string): Promise<WholeMenuResult>;
 
   /** Món chi nhánh đang bán (Manager/Owner đọc). */
   listBranchMenu(branchId: string): Promise<BranchMenuItem[]>;
   /** Manager/Barista bật tắt "còn bán hôm nay". */
   setBranchItemAvailable(branchId: string, itemId: string, isAvailable: boolean): Promise<void>;
+}
+
+/** Kết quả gán toàn bộ menu: số món/combo chi nhánh đang bán, và số mới thêm trong lần này. */
+export interface WholeMenuResult {
+  branchId: string;
+  items: number;
+  combos: number;
+  addedItems: number;
+  addedCombos: number;
 }
 
 export const menuApi = defineApi<MenuApi>("menu", { real: menuReal, mock: menuMock });

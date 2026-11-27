@@ -8,6 +8,7 @@ import { EmptyState, PageHeader } from "../../components/bits";
 import { money } from "../../data";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
 import ActionButton, { ActionSwitch } from "../../plan/ActionButton";
+import BranchChecklist from "../../components/BranchChecklist";
 import { useAppStore } from "../../store";
 import { palette } from "../../theme";
 import ComboEditor from "./ComboEditor";
@@ -272,25 +273,21 @@ function BranchesDrawer({
       <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 14 }}>
         Chọn các chi nhánh bán combo này. Chi nhánh bỏ chọn ngừng bán; giá riêng đã đặt cho chi nhánh được giữ.
       </div>
-      <div style={{ display: "grid", gap: 12 }}>
-        {branches.map((b) => {
-          const checked = selected.includes(b.id);
-          const gaps = combo ? branchGapReasons(combo.components, items, b.id) : [];
-          return (
-            <div key={b.id}>
-              <Checkbox checked={checked} onChange={(e) => setSelected((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((id) => id !== b.id)))}>
-                {b.name}
-                <div style={{ fontSize: 12, color: palette.textSubtle }}>{b.address}</div>
-              </Checkbox>
-              {checked && gaps.length > 0 && (
-                <div data-testid={`combo-gap-${b.id}`} style={{ marginTop: 4, marginLeft: 24, fontSize: 12.5, color: palette.warning.text }}>
-                  Combo sẽ không hiện trên POS ở chi nhánh này: {gaps.join("; ")}. Gán món cho chi nhánh ở màn Menu toàn chuỗi.
-                </div>
-              )}
+      <BranchChecklist
+        branches={branches}
+        value={selected}
+        onChange={setSelected}
+        gap={12}
+        testId="combo-branch-list"
+        extra={(b, checked) => {
+          const gaps = checked && combo ? branchGapReasons(combo.components, items, b.id) : [];
+          return gaps.length > 0 ? (
+            <div data-testid={`combo-gap-${b.id}`} style={{ marginTop: 4, marginLeft: 24, fontSize: 12.5, color: palette.warning.text }}>
+              Combo sẽ không hiện trên POS ở chi nhánh này: {gaps.join("; ")}. Gán món cho chi nhánh ở màn Menu toàn chuỗi.
             </div>
-          );
-        })}
-      </div>
+          ) : null;
+        }}
+      />
       <ActionButton type="primary" block style={{ marginTop: 20 }} loading={saving} onClick={() => void save()} data-testid="combo-branches-save">
         Lưu chi nhánh bán combo
       </ActionButton>

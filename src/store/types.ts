@@ -24,6 +24,8 @@ export interface BranchFormData {
   phone: string;
   openTime?: string;
   closeTime?: string;
+  /** Chỉ khi tạo: bán ngay toàn bộ menu và combo của chuỗi ở chi nhánh mới. */
+  assignWholeMenu?: boolean;
 }
 
 export type AppState = AuthSlice &

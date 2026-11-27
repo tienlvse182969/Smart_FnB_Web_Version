@@ -9,7 +9,7 @@ import {
   type RawItem,
 } from "./mapper";
 import { assertPrepMinutes, assertSku, assertWholeVnd } from "./validate";
-import type { MenuApi } from "./index";
+import type { MenuApi, WholeMenuResult } from "./index";
 
 const base = (chainId: string) => `/restaurant-chains/${chainId}/menu`;
 
@@ -78,6 +78,10 @@ export const menuReal: MenuApi = {
       body: { branchIds },
     });
     return mapAssignedBranches(raw);
+  },
+
+  async assignWholeMenu(chainId, branchId) {
+    return request<WholeMenuResult>(`${base(chainId)}/branches/${branchId}/assign-all`, { method: "POST" });
   },
 
   async listBranchMenu(branchId) {

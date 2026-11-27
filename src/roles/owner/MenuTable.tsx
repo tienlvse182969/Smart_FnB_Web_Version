@@ -14,6 +14,7 @@ import BranchPriceNote from "./BranchPriceNote";
 import ItemExtrasEditor, { itemExtrasKey, itemExtrasProblem, type ItemExtrasValue } from "./ItemExtrasEditor";
 import OptionPreview from "./OptionPreview";
 import ActionButton from "../../plan/ActionButton";
+import BranchChecklist from "../../components/BranchChecklist";
 import { useWriteGuard } from "../../plan/useReadOnly";
 import { SectionTitle, ToolbarRow } from "../../components/bits";
 import { useAppStore } from "../../store";
@@ -290,18 +291,7 @@ function AssignDrawer({
       <div style={{ fontSize: 13, color: palette.textMuted, marginBottom: 14 }}>
         Chọn các chi nhánh bán món này. Chi nhánh bỏ chọn sẽ ngừng bán; chi nhánh mới chọn do Store Manager bật "còn bán" mỗi ngày.
       </div>
-      <div style={{ display: "grid", gap: 10 }}>
-        {branches.map((b) => (
-          <Checkbox
-            key={b.id}
-            checked={selected.includes(b.id)}
-            onChange={(e) => setSelected((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((id) => id !== b.id)))}
-          >
-            {b.name}
-            <div style={{ fontSize: 12, color: palette.textSubtle }}>{b.address}</div>
-          </Checkbox>
-        ))}
-      </div>
+      <BranchChecklist branches={branches} value={selected} onChange={setSelected} testId="item-branches" />
       <ActionButton type="primary" block style={{ marginTop: 20 }} loading={saving} onClick={save}>
         Lưu chi nhánh bán món
       </ActionButton>
@@ -581,17 +571,7 @@ function ItemDrawer({
       </Field>
       {isNew && (
         <Field label="Chi nhánh bán món">
-          <div style={{ display: "grid", gap: 8 }}>
-            {branches.map((b) => (
-              <Checkbox
-                key={b.id}
-                checked={branchIds.includes(b.id)}
-                onChange={(e) => setBranchIds((cur) => (e.target.checked ? [...cur, b.id] : cur.filter((id) => id !== b.id)))}
-              >
-                {b.name}
-              </Checkbox>
-            ))}
-          </div>
+          <BranchChecklist branches={branches.map(({ id, name }) => ({ id, name }))} value={branchIds} onChange={setBranchIds} gap={8} testId="new-item-branches" />
         </Field>
       )}
       <Field label="Tuỳ chọn món">

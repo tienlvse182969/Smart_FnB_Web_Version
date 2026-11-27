@@ -45,6 +45,7 @@ export const createBranchSlice: SliceCreator<BranchSlice> = (set, get) => ({
       phone: data.phone || undefined,
       openTime: data.openTime || undefined,
       closeTime: data.closeTime || undefined,
+      ...(data.assignWholeMenu ? { assignWholeMenu: true } : {}),
     });
 
     await get().loadScope();

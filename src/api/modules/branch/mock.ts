@@ -157,6 +157,11 @@ export const branchMock: BranchApi = {
     };
     const key = `${profile.id}:${chainId}`;
     created.set(key, [...(created.get(key) ?? []), branch]);
+    if (input.assignWholeMenu) {
+      // Import lúc gọi: menu/mock dùng branchApi, import tĩnh sẽ tạo vòng phụ thuộc lúc khởi tạo module.
+      const { assignWholeMenuMock } = await import("../menu/mock");
+      assignWholeMenuMock(chainId, branch.id);
+    }
     return branch;
   },
 

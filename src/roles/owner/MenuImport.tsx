@@ -545,6 +545,27 @@ export function MenuImportForm({ excel, onImported }: { excel: boolean; onImport
                               value: branch.id,
                               label: branch.name,
                             }))}
+                            popupRender={(menu) => (
+                              <>
+                                {branches.length > 1 && (
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    data-testid="import-branches-all"
+                                    onClick={() =>
+                                      setDraft(
+                                        updateItem(draft, categoryIndex, itemIndex, {
+                                          branchIds: branches.map((branch) => branch.id),
+                                        }),
+                                      )
+                                    }
+                                  >
+                                    Chọn tất cả chi nhánh
+                                  </Button>
+                                )}
+                                {menu}
+                              </>
+                            )}
                           />
                         ),
                       },

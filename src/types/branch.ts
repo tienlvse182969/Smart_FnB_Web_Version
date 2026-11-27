@@ -176,6 +176,8 @@ export interface CreateBranchInput {
   timezone?: string;
   openTime?: string;
   closeTime?: string;
+  /** Bán ngay toàn bộ món và combo của chuỗi ở chi nhánh mới (BE `assignWholeMenu`, chỉ lúc tạo). */
+  assignWholeMenu?: boolean;
 }
 
-export type UpdateBranchInput = Partial<Omit<CreateBranchInput, "openTime" | "closeTime">>;
+export type UpdateBranchInput = Partial<Omit<CreateBranchInput, "openTime" | "closeTime" | "assignWholeMenu">>;

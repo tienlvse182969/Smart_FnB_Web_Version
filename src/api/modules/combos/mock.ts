@@ -24,6 +24,18 @@ const listOf = (chainId: string): Combo[] => {
 
 const copy = (combo: Combo): Combo => structuredClone(combo);
 
+/** Gán mọi combo của chuỗi cho một chi nhánh (dùng bởi "Gán toàn bộ menu" của mock). Trả số combo và số mới thêm. */
+export function assignAllCombosMock(chainId: string, branchId: string): { combos: number; added: number } {
+  const list = listOf(chainId);
+  let added = 0;
+  for (const combo of list)
+    if (!combo.branchIds.includes(branchId)) {
+      combo.branchIds = [...combo.branchIds, branchId];
+      added++;
+    }
+  return { combos: list.length, added };
+}
+
 const fail = (problems: string[]): void => {
   if (problems.length) throw new ApiError(400, problems[0], problems);
 };

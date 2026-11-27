@@ -9,7 +9,8 @@ import { assertMockWritable } from "../../mock/guards";
 import { ensureBranchRows, getChainState, type ChainState, type StoredMenuItem } from "../../mock/store";
 import { genId } from "../../mock/util";
 import { branchApi } from "../branch";
-import type { MenuApi } from "./index";
+import type { MenuApi, WholeMenuResult } from "./index";
+import { assignAllCombosMock } from "../combos/mock";
 import { assertPrepMinutes, assertSku, assertWholeVnd } from "./validate";
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -42,6 +43,26 @@ async function chainBranchIds(chainId: string): Promise<string[]> {
   const branches = await branchApi.listBranches(chainId);
   for (const b of branches) ensureBranchRows(chainId, b.id);
   return branches.map((b) => b.id);
+}
+
+/** Như BE `assignWholeMenuToBranch`: bật mọi món (giữ hàng cũ) và mọi combo của chuỗi ở chi nhánh. */
+export function assignWholeMenuMock(chainId: string, branchId: string): WholeMenuResult {
+  const s = getChainState(chainId);
+  let addedItems = 0;
+  for (const item of s.menuItems) {
+    const rows = s.itemBranches.get(item.id) ?? new Map();
+    const row = rows.get(branchId);
+    if (!row) {
+      rows.set(branchId, { isEnabled: true, isAvailable: true });
+      addedItems++;
+    } else if (!row.isEnabled) {
+      row.isEnabled = true;
+      addedItems++;
+    }
+    s.itemBranches.set(item.id, rows);
+  }
+  const combos = assignAllCombosMock(chainId, branchId);
+  return { branchId, items: s.menuItems.length, combos: combos.combos, addedItems, addedCombos: combos.added };
 }
 
 export const menuMock: MenuApi = {
@@ -214,6 +235,14 @@ export const menuMock: MenuApi = {
     }
     s.itemBranches.set(id, rows);
     return [...rows.entries()].map(([branchId, r]) => ({ branchId, isEnabled: r.isEnabled, isAvailable: r.isAvailable }));
+  },
+
+  async assignWholeMenu(chainId, branchId) {
+    await mockDelay();
+    assertMockWritable();
+    const known = await chainBranchIds(chainId);
+    if (!known.includes(branchId)) throw new ApiError(400, `These branches do not belong to this chain: ${branchId}`);
+    return assignWholeMenuMock(chainId, branchId);
   },
 
   async listBranchMenu(branchId) {

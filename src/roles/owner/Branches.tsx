@@ -1,10 +1,10 @@
-import { Alert, App, Button, Card, Drawer, Input, Select, Spin } from "antd";
+import { Alert, App, Button, Card, Checkbox, Drawer, Input, Select, Spin } from "antd";
 import { Hash, MapPin, Plus, Store, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ApiBranch, Branch } from "../../types";
 import { useAppStore } from "../../store";
-import { showApiError } from "../../api";
+import { menuApi, showApiError } from "../../api";
 import ActionButton from "../../plan/ActionButton";
 import { usePlan } from "../../plan/usePlan";
 import { PROVINCE_OPTIONS, isKnownProvince } from "../../constants/provinces";
@@ -18,11 +18,13 @@ function BranchCard({
   code,
   onEdit,
   onManage,
+  onAssignMenu,
 }: {
   b: Branch;
   code: string;
   onEdit: () => void;
   onManage: () => void;
+  onAssignMenu: () => void;
 }) {
   return (
     <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 20 } }}>
@@ -67,6 +69,9 @@ function BranchCard({
         <ActionButton size="small" onClick={onManage}>
           Giờ &amp; khu vực
         </ActionButton>
+        <ActionButton size="small" onClick={onAssignMenu} data-testid={`branch-assign-menu-${b.id}`}>
+          Gán toàn bộ menu
+        </ActionButton>
       </div>
     </Card>
   );
@@ -74,7 +79,7 @@ function BranchCard({
 
 /** OW-01: CRUD chi nhánh. FE báo sớm khi hết hạn mức chi nhánh của gói; BE chặn thật (BR-08). */
 export default function Branches() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const branches = useAppStore((s) => s.branches);
   const apiBranches = useAppStore((s) => s.apiBranches);
   const { planName, limitOf } = usePlan();
@@ -94,6 +99,32 @@ export default function Branches() {
     setEditing("new");
     setParams({}, { replace: true });
   }, [wantsNew, scopeStatus, setParams]);
+
+  /** Bán mọi món và combo của chuỗi ở chi nhánh này trong một lần (thay vì gán từng món ở màn Menu/Combo). */
+  const assignWholeMenu = (b: Branch) => {
+    const chainId = useAppStore.getState().chainId;
+    if (!chainId) return;
+    modal.confirm({
+      title: `Gán toàn bộ menu cho ${b.name}?`,
+      content:
+        "Mọi món và combo của chuỗi sẽ được bán ở chi nhánh này. Món đã gán giữ nguyên giá riêng; Store Manager vẫn bật/tắt “còn bán” mỗi ngày. Muốn bỏ bớt món nào thì bỏ chọn ở màn Menu toàn chuỗi.",
+      okText: "Gán toàn bộ",
+      cancelText: "Huỷ",
+      onOk: async () => {
+        try {
+          const r = await menuApi.assignWholeMenu(chainId, b.id);
+          message.success(
+            r.addedItems + r.addedCombos === 0
+              ? `${b.name} đã bán đủ ${r.items} món và ${r.combos} combo của chuỗi.`
+              : `Đã gán thêm ${r.addedItems} món và ${r.addedCombos} combo cho ${b.name} (đang bán ${r.items} món, ${r.combos} combo).`,
+          );
+          await useAppStore.getState().loadMenu();
+        } catch (err) {
+          showApiError(message.error, err, "Không gán được menu cho chi nhánh");
+        }
+      },
+    });
+  };
 
   const codeById = Object.fromEntries(apiBranches.map((b) => [b.id, b.code]));
   const branchQuota = limitOf("branches");
@@ -138,6 +169,7 @@ export default function Branches() {
             code={codeById[b.id] ?? "—"}
             onEdit={() => setEditing(b)}
             onManage={() => setManaging(b.id)}
+            onAssignMenu={() => assignWholeMenu(b)}
           />
         ))}
       </div>
@@ -152,7 +184,7 @@ export default function Branches() {
           try {
             if (editing === "new") {
               await createBranch(data);
-              message.success("Đã tạo chi nhánh mới");
+              message.success(data.assignWholeMenu ? "Đã tạo chi nhánh mới và gán toàn bộ menu" : "Đã tạo chi nhánh mới");
             } else if (editing) {
               await updateBranch(editing.id, data);
               message.success("Đã cập nhật chi nhánh");
@@ -214,6 +246,8 @@ function BranchDrawer({
   const [openTime, setOpenTime] = useState("07:00");
   const [closeTime, setCloseTime] = useState("22:00");
   const [status, setStatus] = useState<"open" | "closed" | "suspended">("open");
+  // Chi nhánh mới chưa bán món nào; mặc định lấy luôn toàn bộ menu và combo của chuỗi.
+  const [assignWholeMenu, setAssignWholeMenu] = useState(true);
 
   useEffect(() => {
     setCode(apiBranch?.code ?? "");
@@ -227,6 +261,7 @@ function BranchDrawer({
     setOpenTime("07:00");
     setCloseTime("22:00");
     setStatus(existing?.status ?? "open");
+    setAssignWholeMenu(true);
   }, [branch, apiBranch]);
 
   const cityNeedsReview = !isNew && !!apiBranch && !isKnownProvince(apiBranch.city);
@@ -285,6 +320,14 @@ function BranchDrawer({
           <Field label="Giờ đóng cửa">
             <Input value={closeTime} onChange={(e) => setCloseTime(e.target.value)} placeholder="22:00" />
           </Field>
+          <Field label="Menu">
+            <Checkbox data-testid="branch-assign-whole-menu" checked={assignWholeMenu} onChange={(e) => setAssignWholeMenu(e.target.checked)}>
+              Bán toàn bộ món và combo hiện có của chuỗi
+            </Checkbox>
+            <div style={{ fontSize: 12, color: palette.textSubtle, marginTop: 4 }}>
+              Bỏ chọn nếu muốn tự chọn từng món ở màn Menu toàn chuỗi.
+            </div>
+          </Field>
         </>
       )}
       {!isNew && (
@@ -318,6 +361,7 @@ function BranchDrawer({
             openTime,
             closeTime,
             status: isNew ? undefined : status,
+            ...(isNew ? { assignWholeMenu } : {}),
           })
         }
       >
