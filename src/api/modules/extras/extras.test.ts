@@ -18,18 +18,16 @@ describe("quy tắc nhập topping (cùng ngưỡng BE)", () => {
     expect(validateExtra({ name: "A", price: 1500.5 })).toMatch(/số nguyên đồng/);
   });
 
-  it("món: số phần mỗi lần gắn 1–5, topping không trùng, tổng phần là số nguyên ≥ 1 (không trần)", () => {
-    const ok = { maxExtras: 5, extras: [{ extraId: "a", price: 5000, maxQuantity: 5 }] };
+  it("món: số phần mỗi lần gắn 1–5, topping không trùng; không còn giới hạn tổng số phần", () => {
+    const ok = { extras: [{ extraId: "a", price: 5000, maxQuantity: 5 }] };
     expect(validateItemExtras(ok)).toBeNull();
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: 5000, maxQuantity: 0 }] })).toMatch(/từ 1 đến 5/);
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: 5000, maxQuantity: 6 }] })).toMatch(/từ 1 đến 5/);
     expect(validateItemExtras({ ...ok, extras: [{ extraId: "a", price: -5, maxQuantity: 1 }] })).toMatch(/số nguyên đồng/);
     expect(validateItemExtras({ ...ok, extras: [ok.extras[0], ok.extras[0]] })).toMatch(/một lần/);
-    expect(validateItemExtras({ ...ok, maxExtras: 2.5 })).toMatch(/từ 1 trở lên/);
-    expect(validateItemExtras({ ...ok, maxExtras: 0 })).toMatch(/từ 1 trở lên/);
-    expect(validateItemExtras({ ...ok, maxExtras: -3 })).toMatch(/từ 1 trở lên/);
-    // Đặc tả 27.2 / BR-80 không đặt trần cho tổng số phần: 1, 100 và 500 đều hợp lệ ở web.
-    for (const total of [1, 5, 100, 101, 500]) expect(validateItemExtras({ ...ok, maxExtras: total }), String(total)).toBeNull();
+    // Nhiều topping, mỗi loại tối đa 5 phần: tổng vượt 5 vẫn hợp lệ.
+    const many = { extras: ["a", "b", "c"].map((extraId) => ({ extraId, price: 5000, maxQuantity: 5 })) };
+    expect(validateItemExtras(many)).toBeNull();
   });
 });
 
@@ -38,7 +36,6 @@ describe("ánh xạ", () => {
     expect(mapExtra({ id: "e1", name: "Trân châu", price: "5000.00", isActive: true })).toEqual({ id: "e1", name: "Trân châu", price: 5000, isActive: true, imageUrl: null });
     const out = mapItemExtras({
       id: "m1",
-      maxExtras: 5,
       extras: [
         { extraId: "b", price: "7000.00", maxQuantity: 2, displayOrder: 1, extra: { id: "b", name: "Pudding", price: "6000.00", isActive: false } },
         { extraId: "a", price: "5000.00", maxQuantity: 3, displayOrder: 0, extra: { id: "a", name: "Trân châu", price: "5000.00", isActive: true } },
@@ -96,7 +93,6 @@ describe("real — fetch giả, không gọi BE", () => {
   it("gắn vào món: PUT với displayOrder theo vị trí, price luôn gửi tường minh", async () => {
     const fn = stub(json([]));
     await extrasReal.setItemExtras("c1", "m1", {
-      maxExtras: 5,
       extras: [
         { extraId: "b", price: 7000, maxQuantity: 2 },
         { extraId: "a", price: 5000, maxQuantity: 3 },
@@ -106,7 +102,6 @@ describe("real — fetch giả, không gọi BE", () => {
       path: "/restaurant-chains/c1/menu/items/m1/extras",
       method: "PUT",
       body: {
-        maxExtras: 5,
         extras: [
           { extraId: "b", price: 7000, maxQuantity: 2, displayOrder: 0 },
           { extraId: "a", price: 5000, maxQuantity: 3, displayOrder: 1 },
@@ -118,7 +113,7 @@ describe("real — fetch giả, không gọi BE", () => {
   it("sai quy tắc: 400 và KHÔNG có request nào; lỗi 409 của BE được ném lại", async () => {
     const fn = stub(json({ statusCode: 409, message: "An extra with this name already exists" }, 409));
     await expect(extrasReal.createExtra("c1", { name: "", price: 1 })).rejects.toMatchObject({ status: 400 });
-    await expect(extrasReal.setItemExtras("c1", "m1", { maxExtras: 5, extras: [{ extraId: "a", price: 1, maxQuantity: 9 }] })).rejects.toMatchObject({ status: 400 });
+    await expect(extrasReal.setItemExtras("c1", "m1", { extras: [{ extraId: "a", price: 1, maxQuantity: 9 }] })).rejects.toMatchObject({ status: 400 });
     expect(fn).not.toHaveBeenCalled();
     await expect(extrasReal.createExtra("c1", { name: "Trùng", price: 1 })).rejects.toMatchObject({ status: 409 });
   });
@@ -130,7 +125,7 @@ describe("mock — cùng luật với BE", () => {
   it("tạo, trùng tên → 409, sửa, tắt giữ liên kết với món", async () => {
     const a = await extrasMock.createExtra("c1", { name: "Trân châu", price: 5000 });
     await expect(extrasMock.createExtra("c1", { name: " trân CHÂU ", price: 1 })).rejects.toMatchObject({ status: 409 });
-    await extrasMock.setItemExtras("c1", "m1", { maxExtras: 5, extras: [{ extraId: a.id, price: 7000, maxQuantity: 2 }] });
+    await extrasMock.setItemExtras("c1", "m1", { extras: [{ extraId: a.id, price: 7000, maxQuantity: 2 }] });
     await extrasMock.updateExtra("c1", a.id, { name: "Trân châu đen", price: 6000, isActive: true });
     expect((await extrasMock.getItemExtras("c1", "m1")).extras[0]).toMatchObject({ price: 7000, name: "Trân châu", libraryActive: true });
     await extrasMock.disableExtra("c1", a.id);
@@ -141,8 +136,8 @@ describe("mock — cùng luật với BE", () => {
   });
 
   it("món chưa gắn: mặc định tổng 5 phần; topping ngoài chuỗi → 400; chuỗi khác không lẫn", async () => {
-    expect(await extrasMock.getItemExtras("c1", "m9")).toEqual({ menuItemId: "m9", maxExtras: 5, extras: [] });
-    await expect(extrasMock.setItemExtras("c1", "m9", { maxExtras: 5, extras: [{ extraId: "x", price: 1, maxQuantity: 1 }] })).rejects.toMatchObject({ status: 400 });
+    expect(await extrasMock.getItemExtras("c1", "m9")).toEqual({ menuItemId: "m9", extras: [] });
+    await expect(extrasMock.setItemExtras("c1", "m9", { extras: [{ extraId: "x", price: 1, maxQuantity: 1 }] })).rejects.toMatchObject({ status: 400 });
     await extrasMock.createExtra("c1", { name: "A", price: 1 });
     expect(await extrasMock.listExtras("c2")).toEqual([]);
   });

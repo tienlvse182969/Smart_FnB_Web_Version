@@ -6,11 +6,9 @@ export const MAX_EXTRA_PRICE = 99_999_999_999;
 export const MIN_PORTIONS = 1;
 export const MAX_PORTIONS = 5;
 /**
- * Đặc tả 27.2, BR-80: tổng số phần topping tối đa của món, mặc định 5, KHÔNG có trần trong đặc tả — web chỉ kiểm số nguyên ≥ 1.
- * (Khác với số phần mỗi lần gắn topping vào món: 1–5, `MIN_PORTIONS`/`MAX_PORTIONS`.) BE hiện còn chặn tổng ở 0–100 (`menu-extras.dto.ts`): giá trị vượt sẽ nhận 400 từ BE.
+ * Không còn giới hạn TỔNG số phần topping của một món (Owner yêu cầu bỏ ô cài đặt này): mỗi topping chỉ bị giới hạn bởi số phần tối đa
+ * của chính nó, 1–5 (`MIN_PORTIONS`/`MAX_PORTIONS`).
  */
-export const DEFAULT_MAX_EXTRAS = 5;
-export const MIN_ITEM_EXTRAS_TOTAL = 1;
 export const MAX_EXTRAS_PER_ITEM = 100;
 
 const wholeVnd = (value: unknown): value is number =>
@@ -27,9 +25,6 @@ export function validateExtra(input: ExtraInput): string | null {
 
 /** Lỗi đầu tiên của cấu hình topping một món, hoặc null. */
 export function validateItemExtras(input: ItemExtrasInput): string | null {
-  if (!Number.isInteger(input.maxExtras) || input.maxExtras < MIN_ITEM_EXTRAS_TOTAL) {
-    return `Tổng số phần topping tối đa là số nguyên từ ${MIN_ITEM_EXTRAS_TOTAL} trở lên`;
-  }
   if (input.extras.length > MAX_EXTRAS_PER_ITEM) return `Một món gắn tối đa ${MAX_EXTRAS_PER_ITEM} topping`;
   if (new Set(input.extras.map((x) => x.extraId)).size !== input.extras.length) return "Mỗi topping chỉ gắn một lần cho một món";
   for (const link of input.extras) {

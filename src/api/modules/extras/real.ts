@@ -46,7 +46,6 @@ export const extrasReal: ExtrasApi = {
     assertValid(validateItemExtras(input));
     // `displayOrder` theo vị trí trong danh sách; `price` luôn gửi tường minh (không phụ thuộc giá thư viện lúc lưu).
     const body = {
-      maxExtras: input.maxExtras,
       extras: input.extras.map((x, index) => ({ extraId: x.extraId, price: x.price, maxQuantity: x.maxQuantity, displayOrder: index })),
     };
     await request<unknown>(`${base(chainId)}/items/${itemId}/extras`, { method: "PUT", body });

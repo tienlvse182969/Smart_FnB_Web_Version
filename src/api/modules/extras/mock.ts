@@ -4,7 +4,7 @@ import { ApiError } from "../../http/errors";
 import { mockDelay } from "../../mock/control";
 import { assertMockWritable } from "../../mock/guards";
 import { genId } from "../../mock/util";
-import { DEFAULT_MAX_EXTRAS, validateExtra, validateItemExtras } from "./rules";
+import { validateExtra, validateItemExtras } from "./rules";
 import type { ExtrasApi } from "./index";
 
 interface ChainExtras {
@@ -88,7 +88,7 @@ export const extrasMock: ExtrasApi = {
     await mockDelay();
     const state = stateOf(chainId);
     const saved = state.items.get(itemId);
-    if (!saved) return { menuItemId: itemId, maxExtras: DEFAULT_MAX_EXTRAS, extras: [] };
+    if (!saved) return { menuItemId: itemId, extras: [] };
     return {
       ...saved,
       extras: saved.extras.map((link) => ({ ...link, libraryActive: state.library.find((x) => x.id === link.extraId)?.isActive ?? false })),
@@ -105,6 +105,6 @@ export const extrasMock: ExtrasApi = {
       if (!extra) throw new ApiError(400, "Extras must be unique and in the same chain");
       return { extraId: x.extraId, name: extra.name, libraryActive: extra.isActive, price: x.price, maxQuantity: x.maxQuantity };
     });
-    state.items.set(itemId, { menuItemId: itemId, maxExtras: input.maxExtras, extras: links });
+    state.items.set(itemId, { menuItemId: itemId, extras: links });
   },
 };

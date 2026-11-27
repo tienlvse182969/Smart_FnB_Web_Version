@@ -35,13 +35,10 @@ export type ItemExtraLink = {
 /** Cấu hình topping của một món; thứ tự mảng = thứ tự hiển thị. */
 export type ItemExtras = {
   menuItemId: string;
-  /** Tổng số phần topping tối đa của món (mặc định 5). */
-  maxExtras: number;
   extras: ItemExtraLink[];
 };
 
 /** Thân `PUT items/:itemId/extras`. `displayOrder` do web đặt theo vị trí trong danh sách. */
 export type ItemExtrasInput = {
-  maxExtras: number;
   extras: { extraId: string; price: number; maxQuantity: number }[];
 };

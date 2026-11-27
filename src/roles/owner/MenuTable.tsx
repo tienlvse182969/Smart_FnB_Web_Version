@@ -5,7 +5,6 @@ import { money } from "../../data";
 import type { MenuCategory, MenuExtra, MenuItem, MenuItemInput, MenuItemPatch, OptionGroup } from "../../types";
 import { describeApiError, extrasApi, menuApi, optionsApi, showApiError, SKU_PATTERN, suggestSku } from "../../api";
 import { ApiError } from "../../api/http/errors";
-import { DEFAULT_MAX_EXTRAS } from "../../api/modules/extras/rules";
 import { MenuImportForm } from "./MenuImport";
 import MoneyInput from "../../components/MoneyInput";
 import { UNSAVED_PROMPT, useUnsavedGuard } from "../../lib/useUnsavedGuard";
@@ -339,9 +338,9 @@ function ItemDrawer({
   const [savedGroupIds, setSavedGroupIds] = useState<string[]>([]);
   // Topping thêm của món (OW-15): thư viện của chuỗi + cấu hình gắn vào món, chỉ gửi khi đổi.
   const [extraLibrary, setExtraLibrary] = useState<MenuExtra[]>([]);
-  const [extras, setExtras] = useState<ItemExtrasValue>({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] });
+  const [extras, setExtras] = useState<ItemExtrasValue>({ links: [] });
   const [extrasServerError, setExtrasServerError] = useState<string | null>(null);
-  const [savedExtrasKey, setSavedExtrasKey] = useState(itemExtrasKey({ maxExtras: DEFAULT_MAX_EXTRAS, links: [] }));
+  const [savedExtrasKey, setSavedExtrasKey] = useState(itemExtrasKey({ links: [] }));
 
   useEffect(() => {
     if (!item || !chainId) return;
@@ -363,7 +362,7 @@ function ItemDrawer({
     const id = item !== "new" ? item.id : null;
     Promise.all([extrasApi.listExtras(chainId), id ? extrasApi.getItemExtras(chainId, id) : null]).then(
       ([library, config]) => {
-        const value: ItemExtrasValue = config ? { maxExtras: config.maxExtras, links: config.extras } : { maxExtras: DEFAULT_MAX_EXTRAS, links: [] };
+        const value: ItemExtrasValue = { links: config?.extras ?? [] };
         setExtraLibrary(library);
         setExtras(value);
         setSavedExtrasKey(itemExtrasKey(value));
@@ -449,7 +448,6 @@ function ItemDrawer({
     if (!chainId || itemExtrasKey(extras) === savedExtrasKey) return;
     try {
       await extrasApi.setItemExtras(chainId, itemId, {
-        maxExtras: extras.maxExtras ?? DEFAULT_MAX_EXTRAS,
         extras: extras.links.map((l) => ({ extraId: l.extraId, price: l.price, maxQuantity: l.maxQuantity })),
       });
     } catch (err) {

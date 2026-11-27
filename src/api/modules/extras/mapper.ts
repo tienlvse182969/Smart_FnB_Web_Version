@@ -13,7 +13,8 @@ export interface RawExtra {
 
 export interface RawItemExtras {
   id: string;
-  maxExtras: number;
+  /** BE vẫn trả (cột cũ) nhưng không còn dùng: đã bỏ giới hạn tổng số phần topping của món. */
+  maxExtras?: number;
   extras: { extraId: string; price: string | number; maxQuantity: number; displayOrder: number; extra: RawExtra }[];
 }
 
@@ -22,7 +23,6 @@ export const mapExtra = (raw: RawExtra): MenuExtra => ({ id: raw.id, name: raw.n
 export function mapItemExtras(raw: RawItemExtras): ItemExtras {
   return {
     menuItemId: raw.id,
-    maxExtras: raw.maxExtras,
     // BE đã sắp theo displayOrder; sắp lại để chắc chắn.
     extras: [...raw.extras]
       .sort((a, b) => a.displayOrder - b.displayOrder)
